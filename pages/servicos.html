@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Contratos / Serviços</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.svc-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.svc-tab { background:#fff; color:var(--p); border:1.5px solid var(--line); border-radius:12px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+.svc-tab.active { background:var(--p); color:#fff; border-color:var(--p); }
+.svc-pane { display:none; }
+.svc-pane.active { display:block; }
+.status-flow { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.status-btn { padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; border:1.5px solid var(--line); background:#fff; color:var(--muted); }
+.status-btn.active { background:var(--p); color:#fff; border-color:var(--p); }
+.sla-ok  { background:#dcfce7; color:#166534; padding:3px 8px; border-radius:8px; font-size:11px; font-weight:700; }
+.sla-warn { background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:8px; font-size:11px; font-weight:700; }
+.sla-bad  { background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:8px; font-size:11px; font-weight:700; }
+.orc-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+.orc-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.orc-card-title { font-size:15px; font-weight:800; color:var(--txt); }
+.orc-card-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.orc-card-valor { font-size:20px; font-weight:950; color:var(--p); }
+.orc-card-actions { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+.btn-aprovar { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; border-radius:10px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+.btn-executar { background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; border-radius:10px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+.btn-finalizar { background:#f3e8ff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:10px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+.btn-cobrar { background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:10px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+.indicadores-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+@media(max-width:768px) {
+  .indicadores-grid { grid-template-columns:1fr 1fr; }
+  .orc-card-header { flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<script>
+// ══ UTILS + SUPABASE + AUTH ══
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.style.cssText='position:fixed;bottom:28px;right:28px;z-index:9999;padding:14px 22px;border-radius:16px;font-weight:700;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);transition:opacity .4s';t.style.background=type==='ok'?'#dcfce7':'#fee2e2';t.style.color=type==='ok'?'#166534':'#991b1b';t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const db={
+  get:async(t,q='')=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});if(!r.ok)throw new Error(await r.text());return r.json()},
+  post:async(t,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  patch:async(t,id,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  delete:async(t,id)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:_h});if(!r.ok)throw new Error(await r.text());return true},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return['comercial'].includes(area)||s.perfil?.toLowerCase()===area}
+</script>
+
+<!-- ── SIDEBAR + TOPBAR igual ao app.html ── -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="24" height="17" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white" fill-opacity="0.9"/></svg>
+      <span class="nx-wordmark">Nuvix</span>
+    </div>
+    <small class="sidebar-sub" id="sidebarSub"></small>
+    <div class="sidebar-group">PRINCIPAL</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Dashboard</button>
+    <button class="sidebar-btn" onclick="location.href='app.html#financeiro'">Financeiro</button>
+    <div class="sidebar-group">SERVIÇOS</div>
+    <button class="sidebar-btn active">Contratos / Serviços</button>
+    <div class="sidebar-group">CLIENTES & PESSOAS</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Clientes</button>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Colaboradores</button>
+    <div class="sidebar-group">GESTÃO</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Relatórios</button>
+    <div class="sidebar-group">COMERCIAL</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Comercial / CRM</button>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button style="background:transparent;border:none;font-size:22px;cursor:pointer;display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <div>
+          <div style="font-size:16px;font-weight:800" id="topbarTitle">Contratos / Serviços</div>
+          <div style="font-size:11px;color:var(--muted)" id="topbarSub"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:700" id="userName"></span>
+        <button class="btn2" onclick="logout()" style="padding:7px 14px;font-size:13px">Sair</button>
+      </div>
+    </div>
+
+    <div style="padding:24px">
+
+      <!-- Indicadores -->
+      <div class="indicadores-grid" id="svcIndicadores"></div>
+
+      <!-- Abas -->
+      <div class="svc-tabs">
+        <button class="svc-tab active" onclick="svcTab('catalogo',this)">📋 Catálogo</button>
+        <button class="svc-tab" onclick="svcTab('orcamentos',this)">📝 Orçamentos</button>
+        <button class="svc-tab" onclick="svcTab('execucao',this)">⚙️ Em execução</button>
+        <button class="svc-tab" onclick="svcTab('historico',this)">✅ Histórico</button>
+      </div>
+
+      <!-- ══ ABA CATÁLOGO ══ -->
+      <div id="pane-catalogo" class="svc-pane active">
+        <div class="grid-2" style="display:grid;gap:16px">
+          <div class="card">
+            <h2 id="catTitulo">Novo serviço</h2>
+            <input type="hidden" id="catId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field" style="grid-column:1/-1"><label>Nome do serviço</label><input id="catNome" placeholder="Ex: Manutenção preventiva"></div>
+              <div class="field"><label>Categoria</label><input id="catCategoria" placeholder="Ex: Técnica, Consultoria..."></div>
+              <div class="field"><label>Valor base</label><input id="catValor" type="number" step="0.01" placeholder="0,00"></div>
+              <div class="field"><label>Custo estimado</label><input id="catCusto" type="number" step="0.01" placeholder="0,00"></div>
+              <div class="field"><label>Tempo estimado</label><input id="catTempo" placeholder="Ex: 2h, 1 dia, 1 semana"></div>
+              <div class="field"><label>Recorrente?</label><select id="catRecorrente"><option value="false">Não</option><option value="true">Sim</option></select></div>
+              <div class="field"><label>Status</label><select id="catAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+            </div>
+            <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="catDesc" rows="3" style="resize:vertical" placeholder="Descreva o serviço..."></textarea></div>
+            <div class="actions">
+              <button class="btn" onclick="salvarCatalogo()">Salvar serviço</button>
+              <button class="btn2" onclick="limparCatalogo()">Limpar</button>
+            </div>
+            <div id="catMsg" class="msg"></div>
+          </div>
+          <div class="card">
+            <h2>Como usar</h2>
+            <p class="muted" style="line-height:1.7">
+              <b>1.</b> Cadastre aqui os serviços que sua empresa oferece.<br><br>
+              <b>2.</b> Na aba <b>Orçamentos</b>, selecione um cliente e um serviço do catálogo para criar uma proposta.<br><br>
+              <b>3.</b> Quando o cliente aprovar, mude o status para <b>Aprovado</b> — a receita vai automaticamente para o Financeiro.<br><br>
+              <b>4.</b> Acompanhe a execução na aba <b>Em execução</b> com o SLA em tempo real.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Serviços cadastrados</h2>
+            <input type="text" id="catBusca" placeholder="Buscar serviço..." oninput="renderCatalogo()" style="max-width:260px">
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Serviço</th><th>Categoria</th><th>Valor base</th><th>Custo</th><th>Tempo</th><th>Recorrente</th><th>Status</th><th>Ação</th></tr></thead>
+              <tbody id="catTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ABA ORÇAMENTOS ══ -->
+      <div id="pane-orcamentos" class="svc-pane">
+        <div class="card">
+          <h2 id="orcTitulo">Novo orçamento</h2>
+          <input type="hidden" id="orcId">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div class="field"><label>Cliente</label><select id="orcCliente"></select></div>
+            <div class="field"><label>Serviço do catálogo</label><select id="orcServico" onchange="aplicarServico()"></select></div>
+            <div class="field"><label>Quantidade</label><input id="orcQtd" type="number" value="1" min="1" oninput="calcularOrc()"></div>
+            <div class="field"><label>Valor unitário</label><input id="orcValor" type="number" step="0.01" placeholder="0,00" oninput="calcularOrc()"></div>
+            <div class="field"><label>Desconto (R$)</label><input id="orcDesconto" type="number" step="0.01" value="0" oninput="calcularOrc()"></div>
+            <div class="field"><label>Validade</label><input id="orcValidade" type="date"></div>
+            <div class="field"><label>Data execução prevista</label><input id="orcExecucao" type="date"></div>
+            <div class="field"><label>Status</label>
+              <select id="orcStatus">
+                <option>Rascunho</option>
+                <option>Enviado</option>
+                <option>Aprovado</option>
+                <option>Em execução</option>
+                <option>Finalizado</option>
+                <option>Recusado</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-top:12px"><label>Observações</label><textarea id="orcObs" rows="2" style="resize:vertical" placeholder="Condições, prazo, detalhes..."></textarea></div>
+
+          <!-- Total calculado -->
+          <div id="orcTotal" style="background:#f7f0ff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px;display:none">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px">
+              <span>Subtotal</span><span id="orcSubtotal">R$ 0,00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px">
+              <span>Desconto</span><span id="orcDescontoVal" style="color:#b91c1c">- R$ 0,00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:950;color:var(--p)">
+              <span>Total</span><span id="orcTotalVal">R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:14px">
+            <button class="btn" onclick="salvarOrcamento()">Salvar orçamento</button>
+            <button class="btn2" onclick="limparOrcamento()">Limpar</button>
+          </div>
+          <div id="orcMsg" class="msg"></div>
+        </div>
+
+        <!-- Filtros de status -->
+        <div class="status-flow">
+          <button class="status-btn active" onclick="filtrarOrc('',this)">Todos</button>
+          <button class="status-btn" onclick="filtrarOrc('Rascunho',this)">Rascunho</button>
+          <button class="status-btn" onclick="filtrarOrc('Enviado',this)">Enviado</button>
+          <button class="status-btn" onclick="filtrarOrc('Aprovado',this)">Aprovado</button>
+          <button class="status-btn" onclick="filtrarOrc('Em execução',this)">Em execução</button>
+          <button class="status-btn" onclick="filtrarOrc('Finalizado',this)">Finalizado</button>
+          <button class="status-btn" onclick="filtrarOrc('Recusado',this)">Recusado</button>
+        </div>
+
+        <div id="orcLista"></div>
+      </div>
+
+      <!-- ══ ABA EM EXECUÇÃO ══ -->
+      <div id="pane-execucao" class="svc-pane">
+        <div class="notice">⚙️ Serviços aprovados e em execução — acompanhe o SLA em tempo real.</div>
+        <div id="execLista"></div>
+      </div>
+
+      <!-- ══ ABA HISTÓRICO ══ -->
+      <div id="pane-historico" class="svc-pane">
+        <div class="card">
+          <h2>Histórico de serviços</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Validade</th><th>Ação</th></tr></thead>
+              <tbody id="histTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /padding -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<style>
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  #hambBtn{display:flex!important}
+  .sidebar{transform:translateX(-100%);z-index:100}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0!important}
+  .indicadores-grid{grid-template-columns:1fr 1fr}
+  #pane-orcamentos .card > div[style*="grid-template-columns"]{grid-template-columns:1fr!important}
+  #pane-catalogo .grid-2{grid-template-columns:1fr!important}
+}
+</style>
+
+<script>
+const session = requireAuth();
+let dados = { catalogo:[], orcamentos:[], clientes:[] };
+let orcFiltro = '';
+
+async function init() {
+  if (!session) return;
+  $('userName').textContent = session.nome || '';
+  const emp = session.empresa;
+  if (emp) {
+    $('sidebarSub').textContent = (emp.fantasia||emp.razao||'') + ' · ' + (emp.segmento||emp.tipo||'');
+    $('topbarSub').textContent  = (emp.fantasia||emp.razao||'') + ' · ' + (emp.plano||'');
+  }
+  await loadData();
+}
+
+async function loadData() {
+  if (!session?.empresa_id) return;
+  const q = `?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
+  try {
+    const [cat, orc, cli] = await Promise.all([
+      db.get('servicos_catalogo', q),
+      db.get('servicos_orcamentos', q),
+      db.get('clientes', q),
+    ]);
+    dados = { catalogo:cat, orcamentos:orc, clientes:cli };
+    renderTudo();
+  } catch(e) { toast('Erro ao carregar: '+e.message,'err'); }
+}
+
+function renderTudo() {
+  renderIndicadores();
+  renderCatalogo();
+  renderOrcamentos();
+  renderExecucao();
+  renderHistorico();
+  popularSelects();
+}
+
+// ── Indicadores ───────────────────────────────────────
+function renderIndicadores() {
+  const orc = dados.orcamentos || [];
+  const abertos   = orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length;
+  const aprovados = orc.filter(o=>o.status==='Aprovado').length;
+  const emExec    = orc.filter(o=>o.status==='Em execução').length;
+  const total     = orc.length;
+  const txConv    = total>0 ? Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100) : 0;
+  const hj = hoje();
+  const vencidos  = orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;
+  const recMes    = orc.filter(o=>o.status==='Finalizado'&&String(o.created_at||'').slice(0,7)===hj.slice(0,7)).reduce((a,o)=>a+Number(o.valor_total||0),0);
+
+  setHTML('svcIndicadores', [
+    {lbl:'Orçamentos abertos', val:abertos,       cor:'var(--p)',  sub:'rascunho + enviado'},
+    {lbl:'Em execução',        val:emExec,         cor:'#1e40af',  sub:'serviços em andamento'},
+    {lbl:'SLA vencido',        val:vencidos,       cor:vencidos>0?'#b91c1c':'#15803d', sub:'fora do prazo'},
+    {lbl:'Taxa de conversão',  val:txConv+'%',     cor:'#15803d',  sub:'orçamentos aprovados'},
+  ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));
+}
+
+// ── Catálogo ──────────────────────────────────────────
+async function salvarCatalogo() {
+  if (!can('comercial')) { toast('Sem permissão.','err'); return; }
+  const nome = val('catNome').trim();
+  if (!nome) { msg('catMsg','Informe o nome do serviço.','err'); return; }
+  const id = val('catId');
+  const payload = withEmpresa({
+    nome, categoria:val('catCategoria').trim(), descricao:val('catDesc').trim(),
+    valor_base:num('catValor'), custo_estimado:num('catCusto'),
+    tempo_estimado:val('catTempo').trim(),
+    recorrente:val('catRecorrente')==='true', ativo:val('catAtivo')!=='false'
+  });
+  try {
+    if (id) await db.patch('servicos_catalogo',id,payload);
+    else    await db.post('servicos_catalogo',payload);
+    msg('catMsg', id?'Serviço atualizado!':'Serviço cadastrado!','ok');
+    limparCatalogo();
+    await loadData();
+  } catch(e) { msg('catMsg','Erro: '+e.message,'err'); }
+}
+
+function editarCatalogo(id) {
+  const s = dados.catalogo.find(x=>x.id===id);
+  if (!s) return;
+  $('catId').value = s.id;
+  $('catNome').value = s.nome||'';
+  $('catCategoria').value = s.categoria||'';
+  $('catDesc').value = s.descricao||'';
+  $('catValor').value = s.valor_base||'';
+  $('catCusto').value = s.custo_estimado||'';
+  $('catTempo').value = s.tempo_estimado||'';
+  $('catRecorrente').value = s.recorrente?'true':'false';
+  $('catAtivo').value = s.ativo===false?'false':'true';
+  $('catTitulo').textContent = 'Editar serviço';
+  svcTab('catalogo'); // vai para a aba
+  $('catNome').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function excluirCatalogo(id) {
+  if (!confirm('Excluir este serviço do catálogo?')) return;
+  try { await db.delete('servicos_catalogo',id); toast('Excluído.','ok'); await loadData(); }
+  catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+function limparCatalogo() {
+  ['catId','catNome','catCategoria','catDesc','catValor','catCusto','catTempo'].forEach(id=>{if($(id))$(id).value='';});
+  $('catRecorrente').value='false';
+  $('catAtivo').value='true';
+  $('catTitulo').textContent='Novo serviço';
+}
+
+function renderCatalogo() {
+  const q = val('catBusca').toLowerCase();
+  const lista = (dados.catalogo||[]).filter(s=>(s.nome||'').toLowerCase().includes(q)||(s.categoria||'').toLowerCase().includes(q));
+  setHTML('catTable', lista.map(s=>`<tr>
+    <td><b>${esc(s.nome||'')}</b>${s.descricao?`<div class="muted" style="font-size:11px">${esc(s.descricao.slice(0,60))}${s.descricao.length>60?'...':''}</div>`:''}</td>
+    <td>${esc(s.categoria||'—')}</td>
+    <td style="font-weight:700;color:var(--p)">${money(s.valor_base)}</td>
+    <td>${money(s.custo_estimado)}</td>
+    <td>${esc(s.tempo_estimado||'—')}</td>
+    <td>${s.recorrente?'<span class="badge ok">Sim</span>':'Não'}</td>
+    <td><span class="badge ${s.ativo===false?'bad':'ok'}">${s.ativo===false?'Inativo':'Ativo'}</span></td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="btn2" onclick="editarCatalogo('${s.id}')" style="font-size:11px;padding:5px 8px">Editar</button>
+        <button class="danger" onclick="excluirCatalogo('${s.id}')" style="font-size:11px;padding:5px 8px">Excluir</button>
+      </div>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum serviço cadastrado. Adicione no formulário acima!</td></tr>');
+}
+
+// ── Selects ───────────────────────────────────────────
+function popularSelects() {
+  const selCli = $('orcCliente');
+  if (selCli) selCli.innerHTML = '<option value="">Selecione o cliente...</option>' +
+    (dados.clientes||[]).map(c=>`<option value="${c.id}">${esc(c.nome||c.razao||'')}</option>`).join('');
+
+  const selSvc = $('orcServico');
+  if (selSvc) selSvc.innerHTML = '<option value="">Selecione o serviço...</option>' +
+    (dados.catalogo||[]).filter(s=>s.ativo!==false).map(s=>`<option value="${s.id}" data-valor="${s.valor_base||0}">${esc(s.nome)} — ${money(s.valor_base)}</option>`).join('');
+}
+
+function aplicarServico() {
+  const sel = $('orcServico');
+  if (!sel?.value) return;
+  const opt = sel.options[sel.selectedIndex];
+  const valor = opt.dataset.valor || 0;
+  $('orcValor').value = valor;
+  calcularOrc();
+}
+
+function calcularOrc() {
+  const qtd    = num('orcQtd') || 1;
+  const valor  = num('orcValor');
+  const desc   = num('orcDesconto');
+  const sub    = qtd * valor;
+  const total  = Math.max(0, sub - desc);
+  if ($('orcTotal')) $('orcTotal').style.display = valor > 0 ? 'block' : 'none';
+  if ($('orcSubtotal'))    $('orcSubtotal').textContent   = money(sub);
+  if ($('orcDescontoVal')) $('orcDescontoVal').textContent = '- ' + money(desc);
+  if ($('orcTotalVal'))    $('orcTotalVal').textContent    = money(total);
+}
+
+// ── Orçamentos ────────────────────────────────────────
+async function salvarOrcamento() {
+  if (!can('comercial')) { toast('Sem permissão.','err'); return; }
+  const cliId = val('orcCliente');
+  if (!cliId) { msg('orcMsg','Selecione um cliente.','err'); return; }
+  const cli = dados.clientes.find(x=>x.id===cliId);
+  const svcId = val('orcServico');
+  const svc = dados.catalogo.find(x=>x.id===svcId);
+  const qtd   = num('orcQtd')||1;
+  const valor = num('orcValor');
+  const desc  = num('orcDesconto');
+  const total = Math.max(0, qtd*valor - desc);
+  const status = val('orcStatus');
+  const id = val('orcId');
+
+  const payload = withEmpresa({
+    cliente_id:cliId, cliente_nome:cli?.nome||'',
+    servico_id:svcId||null, servico_nome:svc?.nome||val('orcServico')||'',
+    quantidade:qtd, valor_unitario:valor, desconto:desc, valor_total:total,
+    validade:val('orcValidade')||null, data_execucao:val('orcExecucao')||null,
+    status, observacao:val('orcObs').trim()
+  });
+
+  try {
+    if (id) {
+      await db.patch('servicos_orcamentos',id,payload);
+    } else {
+      await db.post('servicos_orcamentos',payload);
+      // Se aprovado, gera receita no financeiro
+      if (status==='Aprovado'||status==='Em execução') {
+        await gerarReceitaFinanceiro(cli?.nome||'', svc?.nome||'', total);
+      }
+    }
+    msg('orcMsg', id?'Orçamento atualizado!':'Orçamento salvo!','ok');
+    limparOrcamento();
+    await loadData();
+  } catch(e) { msg('orcMsg','Erro: '+e.message,'err'); }
+}
+
+async function gerarReceitaFinanceiro(clienteNome, servicoNome, valor) {
+  try {
+    await db.post('financeiro', withEmpresa({
+      tipo:'Receita', categoria:'Serviços',
+      descricao:`${servicoNome} — ${clienteNome}`,
+      valor, data_lancamento:hoje(), status:'Pendente'
+    }));
+  } catch(e) { console.warn('Financeiro não atualizado:', e.message); }
+}
+
+async function mudarStatus(id, novoStatus) {
+  try {
+    const orc = dados.orcamentos.find(x=>x.id===id);
+    await db.patch('servicos_orcamentos',id,{status:novoStatus});
+    // Gera receita se for a primeira aprovação
+    if ((novoStatus==='Aprovado'||novoStatus==='Em execução') && orc && !['Aprovado','Em execução','Finalizado'].includes(orc.status||'')) {
+      await gerarReceitaFinanceiro(orc.cliente_nome||'', orc.servico_nome||'', Number(orc.valor_total||0));
+      toast('Status atualizado e receita gerada no Financeiro!','ok');
+    } else {
+      toast('Status atualizado!','ok');
+    }
+    await loadData();
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+function editarOrcamento(id) {
+  const o = dados.orcamentos.find(x=>x.id===id);
+  if (!o) return;
+  $('orcId').value      = o.id;
+  $('orcCliente').value = o.cliente_id||'';
+  $('orcServico').value = o.servico_id||'';
+  $('orcQtd').value     = o.quantidade||1;
+  $('orcValor').value   = o.valor_unitario||'';
+  $('orcDesconto').value= o.desconto||0;
+  $('orcValidade').value= o.validade?String(o.validade).slice(0,10):'';
+  $('orcExecucao').value= o.data_execucao?String(o.data_execucao).slice(0,10):'';
+  $('orcStatus').value  = o.status||'Rascunho';
+  $('orcObs').value     = o.observacao||'';
+  $('orcTitulo').textContent = 'Editar orçamento';
+  calcularOrc();
+  svcTab('orcamentos');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function excluirOrcamento(id) {
+  if (!confirm('Excluir este orçamento?')) return;
+  try { await db.delete('servicos_orcamentos',id); toast('Excluído.','ok'); await loadData(); }
+  catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+function limparOrcamento() {
+  ['orcId','orcObs','orcValidade','orcExecucao'].forEach(id=>{if($(id))$(id).value='';});
+  if($('orcCliente'))$('orcCliente').value='';
+  if($('orcServico'))$('orcServico').value='';
+  if($('orcQtd'))$('orcQtd').value=1;
+  if($('orcValor'))$('orcValor').value='';
+  if($('orcDesconto'))$('orcDesconto').value=0;
+  if($('orcStatus'))$('orcStatus').value='Rascunho';
+  if($('orcTotal'))$('orcTotal').style.display='none';
+  $('orcTitulo').textContent='Novo orçamento';
+}
+
+function filtrarOrc(status, btn) {
+  orcFiltro = status;
+  document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderOrcamentos();
+}
+
+function renderOrcamentos() {
+  const lista = (dados.orcamentos||[]).filter(o=>!orcFiltro||o.status===orcFiltro);
+  const hj = hoje();
+  setHTML('orcLista', lista.map(o=>{
+    const val = String(o.validade||'').slice(0,10);
+    const diff = val ? Math.ceil((new Date(val)-new Date(hj))/864e5) : null;
+    let slaBadge = '';
+    if (val && !['Finalizado','Recusado'].includes(o.status||'')) {
+      if (diff < 0)      slaBadge = `<span class="sla-bad">${Math.abs(diff)}d atrasado</span>`;
+      else if(diff===0)  slaBadge = `<span class="sla-warn">Vence hoje</span>`;
+      else if(diff<=3)   slaBadge = `<span class="sla-warn">${diff}d restantes</span>`;
+      else               slaBadge = `<span class="sla-ok">${diff}d restantes</span>`;
+    }
+    const statusCor = {
+      'Rascunho':'badge','Enviado':'badge','Aprovado':'badge ok',
+      'Em execução':'badge','Finalizado':'badge ok','Recusado':'badge bad'
+    }[o.status||'']||'badge';
+    return `<div class="orc-card">
+      <div class="orc-card-header">
+        <div>
+          <div class="orc-card-title">${esc(o.servico_nome||'Serviço')} — ${esc(o.cliente_nome||'')}</div>
+          <div class="orc-card-sub">
+            <span class="${statusCor}">${o.status||''}</span>
+            ${slaBadge ? ' &nbsp;'+slaBadge : ''}
+            ${val ? ` &nbsp;· Validade: ${fmtData(val)}` : ''}
+            ${o.data_execucao ? ` &nbsp;· Execução: ${fmtData(o.data_execucao)}` : ''}
+          </div>
+          ${o.observacao ? `<div class="muted" style="margin-top:6px;font-size:12px">${esc(o.observacao)}</div>` : ''}
+        </div>
+        <div class="orc-card-valor">${money(o.valor_total)}</div>
+      </div>
+      <div class="orc-card-actions">
+        ${o.status==='Rascunho'||o.status==='Enviado' ? `<button class="btn-aprovar" onclick="mudarStatus('${o.id}','Aprovado')">✓ Aprovar</button>` : ''}
+        ${o.status==='Aprovado' ? `<button class="btn-executar" onclick="mudarStatus('${o.id}','Em execução')">▶ Iniciar execução</button>` : ''}
+        ${o.status==='Em execução' ? `<button class="btn-finalizar" onclick="mudarStatus('${o.id}','Finalizado')">✓ Finalizar</button>` : ''}
+        ${o.status==='Rascunho'||o.status==='Enviado' ? `<button class="btn-cobrar" onclick="mudarStatus('${o.id}','Recusado')">✗ Recusado</button>` : ''}
+        <button class="btn2" onclick="editarOrcamento('${o.id}')" style="font-size:12px;padding:7px 12px">Editar</button>
+        <button class="danger" onclick="excluirOrcamento('${o.id}')" style="font-size:12px;padding:7px 12px">Excluir</button>
+      </div>
+    </div>`;
+  }).join('') || `<div class="card" style="text-align:center;padding:32px"><div style="font-size:36px;margin-bottom:12px">📝</div><p class="muted">Nenhum orçamento${orcFiltro?' com status "'+orcFiltro+'"':''}. Crie um acima!</p></div>`);
+}
+
+// ── Em execução ───────────────────────────────────────
+function renderExecucao() {
+  const hj = hoje();
+  const lista = (dados.orcamentos||[]).filter(o=>['Aprovado','Em execução'].includes(o.status||''));
+  setHTML('execLista', lista.map(o=>{
+    const val = String(o.validade||'').slice(0,10);
+    const exec = String(o.data_execucao||'').slice(0,10);
+    const diff = val ? Math.ceil((new Date(val)-new Date(hj))/864e5) : null;
+    let sla = '<span class="sla-ok">Sem prazo definido</span>';
+    if(diff!==null){
+      if(diff<0)      sla=`<span class="sla-bad">⚠️ ${Math.abs(diff)}d atrasado</span>`;
+      else if(diff===0) sla='<span class="sla-warn">⏰ Vence hoje!</span>';
+      else if(diff<=3)  sla=`<span class="sla-warn">⏳ ${diff}d restantes</span>`;
+      else              sla=`<span class="sla-ok">✓ ${diff}d restantes</span>`;
+    }
+    return`<div class="orc-card" style="border-left:4px solid ${diff!==null&&diff<0?'#b91c1c':diff===0||diff<=3?'#d97706':'#15803d'}">
+      <div class="orc-card-header">
+        <div>
+          <div class="orc-card-title">${esc(o.servico_nome||'Serviço')}</div>
+          <div class="orc-card-sub">Cliente: <b>${esc(o.cliente_nome||'')}</b> &nbsp;·&nbsp; <span class="badge">${o.status}</span></div>
+          <div style="margin-top:8px">${sla}</div>
+          ${exec?`<div class="muted" style="margin-top:4px;font-size:12px">Data execução: ${fmtData(exec)}</div>`:''}
+        </div>
+        <div class="orc-card-valor">${money(o.valor_total)}</div>
+      </div>
+      <div class="orc-card-actions">
+        ${o.status==='Aprovado'?`<button class="btn-executar" onclick="mudarStatus('${o.id}','Em execução')">▶ Iniciar</button>`:''}
+        <button class="btn-finalizar" onclick="mudarStatus('${o.id}','Finalizado')">✓ Finalizar</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="card" style="text-align:center;padding:32px"><div style="font-size:36px;margin-bottom:12px">✅</div><p class="muted">Nenhum serviço em execução no momento.</p></div>');
+}
+
+// ── Histórico ─────────────────────────────────────────
+function renderHistorico() {
+  const lista = (dados.orcamentos||[]);
+  setHTML('histTable', lista.map(o=>`<tr>
+    <td>${fmtData(o.created_at)}</td>
+    <td>${esc(o.cliente_nome||'')}</td>
+    <td>${esc(o.servico_nome||'')}</td>
+    <td style="font-weight:700">${money(o.valor_total)}</td>
+    <td><span class="badge ${o.status==='Finalizado'?'ok':o.status==='Recusado'?'bad':''}">${o.status||''}</span></td>
+    <td>${fmtData(o.validade)}</td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="btn2" onclick="editarOrcamento('${o.id}')" style="font-size:11px;padding:5px 8px">Editar</button>
+        <button class="danger" onclick="excluirOrcamento('${o.id}')" style="font-size:11px;padding:5px 8px">Excluir</button>
+      </div>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhum registro.</td></tr>');
+}
+
+// ── Abas ──────────────────────────────────────────────
+function svcTab(id, btn) {
+  document.querySelectorAll('.svc-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.svc-tab').forEach(b=>b.classList.remove('active'));
+  const pane=$('pane-'+id); if(pane) pane.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+// ── Sidebar mobile ────────────────────────────────────
+function abrirSidebar(){$('sidebar').classList.add('open');$('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+// ── Iniciar ───────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
