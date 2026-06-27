@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Parâmetros</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.par-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;overflow-x:auto;padding-bottom:4px}
+.par-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:12px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.par-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.par-pane{display:none}
+.par-pane.active{display:block}
+.param-section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.param-section h3{font-size:15px;font-weight:800;margin-bottom:16px;color:var(--txt);display:flex;align-items:center;gap:8px}
+.param-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.param-table{width:100%;border-collapse:collapse;font-size:13px}
+.param-table th{padding:10px;background:#f7f0ff;color:var(--p);font-size:11px;text-transform:uppercase;font-weight:800;text-align:left}
+.param-table td{padding:10px;border-bottom:1px solid var(--line)}
+.param-table input{border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;width:100%;max-width:120px}
+.param-table input:focus{outline:none;border-color:var(--p)}
+.vigencia-badge{background:#dcfce7;color:#166534;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700}
+@media(max-width:768px){
+  #hambBtn{display:flex!important}
+  .sidebar{transform:translateX(-100%);z-index:100}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0!important}
+  .param-grid{grid-template-columns:1fr!important}
+}
+</style>
+</head>
+<body>
+
+<script>
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.style.cssText='position:fixed;bottom:28px;right:28px;z-index:9999;padding:14px 22px;border-radius:16px;font-weight:700;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);transition:opacity .4s';t.style.background=type==='ok'?'#dcfce7':'#fee2e2';t.style.color=type==='ok'?'#166534':'#991b1b';t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const db={
+  get:async(t,q='')=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});if(!r.ok)throw new Error(await r.text());return r.json()},
+  post:async(t,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  patch:async(t,id,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  delete:async(t,id)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:_h});if(!r.ok)throw new Error(await r.text());return true},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+
+// Valores padrão 2025 (usados se não houver configuração no banco)
+const DEFAULTS = {
+  salario_minimo: 1518.00,
+  teto_inss: 7786.02,
+  fgts: 8.0,
+  fap: 1.0,
+  rat: 2.0,
+  patronal_inss: 20.0,
+  patronal_senai: 1.0,
+  patronal_sesi: 1.5,
+  patronal_sebrae: 0.6,
+  patronal_incra: 0.2,
+  vt_desconto: 6.0,
+  vr_valor: 25.00,
+  va_valor: 0.00,
+  horas_mes: 220,
+  dias_ferias: 30,
+  aviso_previo_base: 30,
+  multa_fgts_demissao: 40.0,
+  vigencia: hoje(),
+};
+
+// Tabela INSS 2025
+const TABELA_INSS_DEFAULT = [
+  { faixa: 'Até R$ 1.518,00',       de: 0,       ate: 1518.00,  aliquota: 7.5  },
+  { faixa: 'De R$ 1.518,01 até R$ 2.793,88', de: 1518.01, ate: 2793.88, aliquota: 9.0  },
+  { faixa: 'De R$ 2.793,89 até R$ 4.190,83', de: 2793.89, ate: 4190.83, aliquota: 12.0 },
+  { faixa: 'De R$ 4.190,84 até R$ 7.786,02', de: 4190.84, ate: 7786.02, aliquota: 14.0 },
+];
+
+// Tabela IRRF 2025
+const TABELA_IRRF_DEFAULT = [
+  { faixa: 'Até R$ 2.259,20',        de: 0,       ate: 2259.20,  aliquota: 0,    deducao: 0       },
+  { faixa: 'De R$ 2.259,21 até R$ 2.826,65', de: 2259.21, ate: 2826.65, aliquota: 7.5,  deducao: 169.44  },
+  { faixa: 'De R$ 2.826,66 até R$ 3.751,05', de: 2826.66, ate: 3751.05, aliquota: 15.0, deducao: 381.44  },
+  { faixa: 'De R$ 3.751,06 até R$ 4.664,68', de: 3751.06, ate: 4664.68, aliquota: 22.5, deducao: 662.77  },
+  { faixa: 'Acima de R$ 4.664,68',   de: 4664.69, ate: 999999,  aliquota: 27.5, deducao: 896.00  },
+];
+</script>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="24" height="17" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white" fill-opacity="0.9"/></svg>
+      <span class="nx-wordmark">Nuvix</span>
+    </div>
+    <small class="sidebar-sub" id="sidebarSub"></small>
+    <div class="sidebar-group">PRINCIPAL</div>
+    <button class="sidebar-btn" onclick="location.href='dashboard.html'">Dashboard</button>
+    <button class="sidebar-btn" onclick="location.href='financeiro.html'">Financeiro</button>
+    <div class="sidebar-group nx-menu-servico" style="display:none">SERVIÇOS</div>
+    <button class="sidebar-btn nx-menu-servico" style="display:none" onclick="location.href='servicos.html'">Contratos / Serviços</button>
+    <div class="sidebar-group nx-menu-transporte" style="display:none">TRANSPORTE</div>
+    <button class="sidebar-btn nx-menu-transporte" style="display:none" onclick="location.href='transporte.html'">Operações</button>
+    <div class="sidebar-group">CLIENTES & PESSOAS</div>
+    <button class="sidebar-btn" onclick="location.href='rh.html'">People / RH</button>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Clientes</button>
+    <div class="sidebar-group">GESTÃO</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Relatórios</button>
+    <div class="sidebar-group">COMERCIAL</div>
+    <button class="sidebar-btn" onclick="location.href='crm.html'">Comercial / CRM</button>
+    <div class="sidebar-group">SETUP</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Minha Empresa</button>
+    <button class="sidebar-btn active">Parâmetros</button>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Usuários</button>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button style="background:transparent;border:none;font-size:22px;cursor:pointer;display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <div>
+          <div style="font-size:16px;font-weight:800">Parâmetros Legais e Fiscais</div>
+          <div style="font-size:11px;color:var(--muted)" id="topbarSub"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:700" id="userName"></span>
+        <button class="btn2" onclick="logout()" style="padding:7px 14px;font-size:13px">Sair</button>
+      </div>
+    </div>
+
+    <div style="padding:24px">
+
+      <div class="notice" style="margin-bottom:20px">
+        ⚙️ <b>Parâmetros centralizados</b> — todos os cálculos de folha, INSS, IRRF e FGTS usam estes valores. Quando o governo atualizar as tabelas, basta alterar aqui e tudo passa a usar os novos valores automaticamente.
+        <br><span style="font-size:12px;color:var(--muted)">Valores padrão: tabelas vigentes em 2025. Vigência atual: <b id="vigenciaAtual">—</b></span>
+      </div>
+
+      <!-- Abas -->
+      <div class="par-tabs">
+        <button class="par-tab active" onclick="parTab('trabalhista',this)">👷 Trabalhista</button>
+        <button class="par-tab" onclick="parTab('inss',this)">📊 Tabela INSS</button>
+        <button class="par-tab" onclick="parTab('irrf',this)">📊 Tabela IRRF</button>
+        <button class="par-tab" onclick="parTab('beneficios',this)">🎁 Benefícios</button>
+        <button class="par-tab" onclick="parTab('simulador',this)">🧮 Simulador</button>
+      </div>
+
+      <!-- ══ ABA TRABALHISTA ══ -->
+      <div id="pane-trabalhista" class="par-pane active">
+        <div class="param-section">
+          <h3>📅 Vigência</h3>
+          <div class="param-grid">
+            <div class="field">
+              <label>Data de vigência dos parâmetros</label>
+              <input type="date" id="parVigencia">
+              <div class="muted" style="font-size:11px;margin-top:4px">Data a partir da qual estes valores são válidos</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>💰 Salário e Teto</h3>
+          <div class="param-grid">
+            <div class="field"><label>Salário mínimo (R$)</label><input type="number" id="parSalMin" step="0.01" placeholder="1518.00"></div>
+            <div class="field"><label>Teto do INSS (R$)</label><input type="number" id="parTetoINSS" step="0.01" placeholder="7786.02"></div>
+            <div class="field"><label>Horas mensais (h)</label><input type="number" id="parHorasMes" placeholder="220"></div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>🏦 FGTS e Encargos</h3>
+          <div class="param-grid">
+            <div class="field"><label>FGTS (%)</label><input type="number" id="parFGTS" step="0.01" placeholder="8.0"></div>
+            <div class="field"><label>Multa FGTS demissão sem justa causa (%)</label><input type="number" id="parMultaFGTS" step="0.01" placeholder="40.0"></div>
+            <div class="field"><label>FAP (Fator Acidentário)</label><input type="number" id="parFAP" step="0.01" placeholder="1.0"></div>
+            <div class="field"><label>RAT (%)</label><input type="number" id="parRAT" step="0.01" placeholder="2.0"></div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>🏢 Encargos Patronais</h3>
+          <div class="param-grid">
+            <div class="field"><label>INSS Patronal (%)</label><input type="number" id="parPatrINSS" step="0.01" placeholder="20.0"></div>
+            <div class="field"><label>SENAI/SENAC (%)</label><input type="number" id="parSENAI" step="0.01" placeholder="1.0"></div>
+            <div class="field"><label>SESI/SESC (%)</label><input type="number" id="parSESI" step="0.01" placeholder="1.5"></div>
+            <div class="field"><label>SEBRAE (%)</label><input type="number" id="parSEBRAE" step="0.01" placeholder="0.6"></div>
+            <div class="field"><label>INCRA (%)</label><input type="number" id="parINCRA" step="0.01" placeholder="0.2"></div>
+          </div>
+          <div class="muted" style="margin-top:12px;font-size:12px">
+            💡 Total de encargos patronais estimado: <b id="totalEncargos">—</b>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>🏖️ Férias e Rescisão</h3>
+          <div class="param-grid">
+            <div class="field"><label>Dias de férias por ano</label><input type="number" id="parFerias" placeholder="30"></div>
+            <div class="field"><label>Aviso prévio base (dias)</label><input type="number" id="parAvisoPrevio" placeholder="30"></div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" onclick="salvarParametros()">Salvar parâmetros</button>
+          <button class="btn2" onclick="restaurarPadroes()">Restaurar padrões 2025</button>
+        </div>
+        <div id="parMsg" class="msg"></div>
+      </div>
+
+      <!-- ══ ABA INSS ══ -->
+      <div id="pane-inss" class="par-pane">
+        <div class="param-section">
+          <h3>📊 Tabela INSS — Progressiva <span class="vigencia-badge" id="inssVigencia">2025</span></h3>
+          <p class="muted" style="margin-bottom:16px;font-size:13px">O INSS é calculado de forma progressiva — cada faixa tem sua própria alíquota. O desconto é a soma de cada faixa aplicada ao salário.</p>
+          <table class="param-table">
+            <thead><tr><th>Faixa salarial</th><th>Alíquota (%)</th><th>De (R$)</th><th>Até (R$)</th></tr></thead>
+            <tbody id="inssTable"></tbody>
+          </table>
+          <div class="actions" style="margin-top:16px">
+            <button class="btn" onclick="salvarINSS()">Salvar tabela INSS</button>
+            <button class="btn2" onclick="restaurarINSS()">Restaurar padrão 2025</button>
+          </div>
+          <div id="inssMsg" class="msg"></div>
+        </div>
+      </div>
+
+      <!-- ══ ABA IRRF ══ -->
+      <div id="pane-irrf" class="par-pane">
+        <div class="param-section">
+          <h3>📊 Tabela IRRF <span class="vigencia-badge" id="irrfVigencia">2025</span></h3>
+          <p class="muted" style="margin-bottom:16px;font-size:13px">O IRRF incide sobre o salário bruto menos o desconto do INSS e dedução por dependente (R$ 189,59 por dependente em 2025).</p>
+          <table class="param-table">
+            <thead><tr><th>Faixa salarial</th><th>Alíquota (%)</th><th>De (R$)</th><th>Até (R$)</th><th>Dedução (R$)</th></tr></thead>
+            <tbody id="irrfTable"></tbody>
+          </table>
+          <div class="actions" style="margin-top:16px">
+            <button class="btn" onclick="salvarIRRF()">Salvar tabela IRRF</button>
+            <button class="btn2" onclick="restaurarIRRF()">Restaurar padrão 2025</button>
+          </div>
+          <div id="irrfMsg" class="msg"></div>
+        </div>
+      </div>
+
+      <!-- ══ ABA BENEFÍCIOS ══ -->
+      <div id="pane-beneficios" class="par-pane">
+        <div class="param-section">
+          <h3>🚌 Vale-Transporte</h3>
+          <div class="param-grid">
+            <div class="field">
+              <label>Desconto máximo do empregado (%)</label>
+              <input type="number" id="parVTDesc" step="0.01" placeholder="6.0">
+              <div class="muted" style="font-size:11px;margin-top:4px">Limite legal: 6% do salário bruto</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>🍽️ Vale-Refeição / Alimentação</h3>
+          <div class="param-grid">
+            <div class="field"><label>Valor diário VR (R$)</label><input type="number" id="parVRValor" step="0.01" placeholder="25.00"></div>
+            <div class="field"><label>Valor mensal VA (R$)</label><input type="number" id="parVAValor" step="0.01" placeholder="0.00"></div>
+            <div class="field"><label>Desconto empregado VR (%)</label><input type="number" id="parVRDesc" step="0.01" placeholder="0.0"><div class="muted" style="font-size:11px;margin-top:4px">0% = empresa paga tudo</div></div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>💊 Planos</h3>
+          <div class="param-grid">
+            <div class="field"><label>Plano de saúde — desconto empregado (%)</label><input type="number" id="parSaudeDesc" step="0.01" placeholder="0.0"></div>
+            <div class="field"><label>Plano odonto — desconto empregado (%)</label><input type="number" id="parOdontoDesc" step="0.01" placeholder="0.0"></div>
+          </div>
+        </div>
+
+        <div class="param-section">
+          <h3>🎄 Feriados Nacionais 2025</h3>
+          <p class="muted" style="font-size:13px;margin-bottom:12px">Feriados usados no cálculo de horas trabalhadas e faltas.</p>
+          <div id="feriadosList" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <input type="date" id="novoFeriado" style="max-width:160px">
+            <input type="text" id="novoFeriadoNome" placeholder="Nome do feriado" style="max-width:240px">
+            <button class="btn2" onclick="adicionarFeriado()">+ Adicionar</button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" onclick="salvarBeneficios()">Salvar benefícios</button>
+        </div>
+        <div id="benMsg" class="msg"></div>
+      </div>
+
+      <!-- ══ ABA SIMULADOR ══ -->
+      <div id="pane-simulador" class="par-pane">
+        <div class="param-section">
+          <h3>🧮 Simulador de Folha</h3>
+          <p class="muted" style="margin-bottom:16px;font-size:13px">Simule o cálculo de um colaborador usando os parâmetros configurados acima.</p>
+          <div class="param-grid">
+            <div class="field"><label>Salário bruto (R$)</label><input type="number" id="simSalario" step="0.01" placeholder="3000.00" oninput="simularFolha()"></div>
+            <div class="field"><label>Nº de dependentes</label><input type="number" id="simDependentes" value="0" min="0" oninput="simularFolha()"></div>
+            <div class="field"><label>Vale-transporte mensal (R$)</label><input type="number" id="simVT" step="0.01" placeholder="0.00" oninput="simularFolha()"></div>
+          </div>
+          <div id="simResultado" style="margin-top:20px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-overlay.open{display:block}
+</style>
+
+<script>
+const session = requireAuth();
+let params = {...DEFAULTS};
+let tabelaINSS = [...TABELA_INSS_DEFAULT];
+let tabelaIRRF = [...TABELA_IRRF_DEFAULT];
+let feriados = [
+  {data:'2025-01-01',nome:'Confraternização Universal'},
+  {data:'2025-03-04',nome:'Carnaval'},
+  {data:'2025-03-05',nome:'Carnaval'},
+  {data:'2025-04-18',nome:'Sexta-feira Santa'},
+  {data:'2025-04-20',nome:'Páscoa'},
+  {data:'2025-04-21',nome:'Tiradentes'},
+  {data:'2025-05-01',nome:'Dia do Trabalho'},
+  {data:'2025-06-19',nome:'Corpus Christi'},
+  {data:'2025-09-07',nome:'Independência do Brasil'},
+  {data:'2025-10-12',nome:'Nossa Senhora Aparecida'},
+  {data:'2025-11-02',nome:'Finados'},
+  {data:'2025-11-15',nome:'Proclamação da República'},
+  {data:'2025-11-20',nome:'Consciência Negra'},
+  {data:'2025-12-25',nome:'Natal'},
+];
+
+async function init() {
+  if (!session) return;
+  $('userName').textContent = session.nome||'';
+  const emp = session.empresa;
+  if (emp) {
+    $('sidebarSub').textContent = (emp.fantasia||emp.razao||'')+' · '+(emp.segmento||emp.tipo||'');
+    $('topbarSub').textContent  = (emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    const seg = emp.segmento||emp.tipo||'';
+    if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='');
+    if(seg==='Transporte'||seg==='Mista')           document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='');
+  }
+  await loadParams();
+  preencherFormulario();
+  renderINSS();
+  renderIRRF();
+  renderFeriados();
+}
+
+// ── Carregar parâmetros do banco ──────────────────────
+async function loadParams() {
+  if (!session?.empresa_id) return;
+  try {
+    const lista = await db.get('parametros_empresa', `?select=*&empresa_id=eq.${session.empresa_id}&limit=1`);
+    if (lista.length) {
+      const p = lista[0];
+      params = { ...DEFAULTS, ...p };
+      if (p.tabela_inss) tabelaINSS = JSON.parse(p.tabela_inss);
+      if (p.tabela_irrf) tabelaIRRF = JSON.parse(p.tabela_irrf);
+      if (p.feriados)    feriados    = JSON.parse(p.feriados);
+    }
+  } catch(e) {
+    // Tabela ainda não existe — usa defaults
+    console.log('Usando parâmetros padrão 2025');
+  }
+}
+
+// ── Preencher formulário ──────────────────────────────
+function preencherFormulario() {
+  const p = params;
+  $('parVigencia').value   = p.vigencia||hoje();
+  $('parSalMin').value     = p.salario_minimo||DEFAULTS.salario_minimo;
+  $('parTetoINSS').value   = p.teto_inss||DEFAULTS.teto_inss;
+  $('parHorasMes').value   = p.horas_mes||DEFAULTS.horas_mes;
+  $('parFGTS').value       = p.fgts||DEFAULTS.fgts;
+  $('parMultaFGTS').value  = p.multa_fgts_demissao||DEFAULTS.multa_fgts_demissao;
+  $('parFAP').value        = p.fap||DEFAULTS.fap;
+  $('parRAT').value        = p.rat||DEFAULTS.rat;
+  $('parPatrINSS').value   = p.patronal_inss||DEFAULTS.patronal_inss;
+  $('parSENAI').value      = p.patronal_senai||DEFAULTS.patronal_senai;
+  $('parSESI').value       = p.patronal_sesi||DEFAULTS.patronal_sesi;
+  $('parSEBRAE').value     = p.patronal_sebrae||DEFAULTS.patronal_sebrae;
+  $('parINCRA').value      = p.patronal_incra||DEFAULTS.patronal_incra;
+  $('parFerias').value     = p.dias_ferias||DEFAULTS.dias_ferias;
+  $('parAvisoPrevio').value= p.aviso_previo_base||DEFAULTS.aviso_previo_base;
+  $('parVTDesc').value     = p.vt_desconto||DEFAULTS.vt_desconto;
+  $('parVRValor').value    = p.vr_valor||DEFAULTS.vr_valor;
+  $('parVAValor').value    = p.va_valor||DEFAULTS.va_valor;
+  if($('vigenciaAtual')) $('vigenciaAtual').textContent = p.vigencia ? new Date(p.vigencia).toLocaleDateString('pt-BR') : 'Padrão 2025';
+  calcularTotalEncargos();
+}
+
+function calcularTotalEncargos() {
+  const total = num('parPatrINSS') + num('parSENAI') + num('parSESI') + num('parSEBRAE') + num('parINCRA') + num('parFGTS') + (num('parFAP') * num('parRAT'));
+  if($('totalEncargos')) $('totalEncargos').textContent = total.toFixed(2) + '% sobre o salário bruto';
+}
+
+// ── Salvar parâmetros ─────────────────────────────────
+async function salvarParametros() {
+  if (!session?.empresa_id) { toast('Sem empresa configurada.','err'); return; }
+  const payload = withEmpresa({
+    vigencia:        val('parVigencia')||hoje(),
+    salario_minimo:  num('parSalMin'),
+    teto_inss:       num('parTetoINSS'),
+    horas_mes:       num('parHorasMes'),
+    fgts:            num('parFGTS'),
+    multa_fgts_demissao: num('parMultaFGTS'),
+    fap:             num('parFAP'),
+    rat:             num('parRAT'),
+    patronal_inss:   num('parPatrINSS'),
+    patronal_senai:  num('parSENAI'),
+    patronal_sesi:   num('parSESI'),
+    patronal_sebrae: num('parSEBRAE'),
+    patronal_incra:  num('parINCRA'),
+    dias_ferias:     num('parFerias'),
+    aviso_previo_base: num('parAvisoPrevio'),
+    vt_desconto:     num('parVTDesc'),
+    vr_valor:        num('parVRValor'),
+    va_valor:        num('parVAValor'),
+    tabela_inss:     JSON.stringify(tabelaINSS),
+    tabela_irrf:     JSON.stringify(tabelaIRRF),
+    feriados:        JSON.stringify(feriados),
+    atualizado_em:   new Date().toISOString(),
+    atualizado_por:  session.nome||session.email,
+  });
+  try {
+    const lista = await db.get('parametros_empresa', `?select=id&empresa_id=eq.${session.empresa_id}&limit=1`);
+    if (lista.length) await db.patch('parametros_empresa', lista[0].id, payload);
+    else              await db.post('parametros_empresa', payload);
+    msg('parMsg','Parâmetros salvos com sucesso!','ok');
+    calcularTotalEncargos();
+    if($('vigenciaAtual')) $('vigenciaAtual').textContent = new Date(payload.vigencia).toLocaleDateString('pt-BR');
+  } catch(e) {
+    // Se a tabela não existir ainda, mostra orientação
+    if (e.message.includes('does not exist') || e.message.includes('42P01')) {
+      msg('parMsg','⚠️ Execute o SQL de criação da tabela parametros_empresa no Supabase primeiro.','err');
+    } else {
+      msg('parMsg','Erro: '+e.message,'err');
+    }
+  }
+}
+
+function restaurarPadroes() {
+  if (!confirm('Restaurar todos os parâmetros para os valores padrão de 2025?')) return;
+  params = {...DEFAULTS};
+  preencherFormulario();
+  toast('Parâmetros restaurados para 2025.','ok');
+}
+
+// ── Tabela INSS ───────────────────────────────────────
+function renderINSS() {
+  setHTML('inssTable', tabelaINSS.map((f,i)=>`<tr>
+    <td>${esc(f.faixa)}</td>
+    <td><input type="number" value="${f.aliquota}" step="0.01" onchange="tabelaINSS[${i}].aliquota=Number(this.value)"></td>
+    <td><input type="number" value="${f.de}" step="0.01" onchange="tabelaINSS[${i}].de=Number(this.value)"></td>
+    <td><input type="number" value="${f.ate}" step="0.01" onchange="tabelaINSS[${i}].ate=Number(this.value)"></td>
+  </tr>`).join(''));
+  if($('inssVigencia')) $('inssVigencia').textContent = params.vigencia ? new Date(params.vigencia).getFullYear() : '2025';
+}
+
+async function salvarINSS() {
+  params.tabela_inss = JSON.stringify(tabelaINSS);
+  await salvarParametros();
+  msg('inssMsg','Tabela INSS salva!','ok');
+}
+
+function restaurarINSS() {
+  if (!confirm('Restaurar tabela INSS para valores padrão de 2025?')) return;
+  tabelaINSS = [...TABELA_INSS_DEFAULT];
+  renderINSS();
+  toast('Tabela INSS restaurada.','ok');
+}
+
+// ── Tabela IRRF ───────────────────────────────────────
+function renderIRRF() {
+  setHTML('irrfTable', tabelaIRRF.map((f,i)=>`<tr>
+    <td>${esc(f.faixa)}</td>
+    <td><input type="number" value="${f.aliquota}" step="0.01" onchange="tabelaIRRF[${i}].aliquota=Number(this.value)"></td>
+    <td><input type="number" value="${f.de}" step="0.01" onchange="tabelaIRRF[${i}].de=Number(this.value)"></td>
+    <td><input type="number" value="${f.ate}" step="0.01" onchange="tabelaIRRF[${i}].ate=Number(this.value)"></td>
+    <td><input type="number" value="${f.deducao}" step="0.01" onchange="tabelaIRRF[${i}].deducao=Number(this.value)"></td>
+  </tr>`).join(''));
+  if($('irrfVigencia')) $('irrfVigencia').textContent = params.vigencia ? new Date(params.vigencia).getFullYear() : '2025';
+}
+
+async function salvarIRRF() {
+  params.tabela_irrf = JSON.stringify(tabelaIRRF);
+  await salvarParametros();
+  msg('irrfMsg','Tabela IRRF salva!','ok');
+}
+
+function restaurarIRRF() {
+  if (!confirm('Restaurar tabela IRRF para valores padrão de 2025?')) return;
+  tabelaIRRF = [...TABELA_IRRF_DEFAULT];
+  renderIRRF();
+  toast('Tabela IRRF restaurada.','ok');
+}
+
+// ── Benefícios ────────────────────────────────────────
+async function salvarBeneficios() {
+  await salvarParametros();
+  msg('benMsg','Benefícios salvos!','ok');
+}
+
+// ── Feriados ──────────────────────────────────────────
+function renderFeriados() {
+  setHTML('feriadosList', feriados.map((f,i)=>`
+    <div style="background:#f7f0ff;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:700">${esc(f.nome)}</div>
+        <div style="font-size:11px;color:var(--muted)">${new Date(f.data+'T12:00:00').toLocaleDateString('pt-BR')}</div>
+      </div>
+      <button onclick="removerFeriado(${i})" style="background:transparent;border:none;color:#b91c1c;cursor:pointer;font-size:16px;padding:4px">×</button>
+    </div>`).join(''));
+}
+
+function adicionarFeriado() {
+  const data = val('novoFeriado');
+  const nome = val('novoFeriadoNome').trim();
+  if (!data||!nome) { toast('Informe a data e o nome do feriado.','err'); return; }
+  feriados.push({data, nome});
+  feriados.sort((a,b)=>a.data.localeCompare(b.data));
+  renderFeriados();
+  $('novoFeriado').value='';
+  $('novoFeriadoNome').value='';
+}
+
+function removerFeriado(i) {
+  feriados.splice(i,1);
+  renderFeriados();
+}
+
+// ── Simulador de Folha ────────────────────────────────
+function calcularINSS(salario) {
+  let desconto = 0;
+  for (const f of tabelaINSS) {
+    if (salario > f.de) {
+      const base = Math.min(salario, f.ate) - f.de;
+      desconto += base * (f.aliquota / 100);
+    }
+  }
+  return Math.min(desconto, (params.teto_inss||DEFAULTS.teto_inss) * 0.14);
+}
+
+function calcularIRRF(baseCalculo, dependentes) {
+  const deducaoDep = 189.59 * dependentes;
+  const base = baseCalculo - deducaoDep;
+  if (base <= 0) return 0;
+  for (const f of [...tabelaIRRF].reverse()) {
+    if (base > f.de) {
+      return Math.max(0, base * (f.aliquota/100) - f.deducao);
+    }
+  }
+  return 0;
+}
+
+function simularFolha() {
+  const salario    = num('simSalario');
+  const dependentes= num('simDependentes');
+  const vtMensal   = num('simVT');
+  if (!salario) { setHTML('simResultado',''); return; }
+
+  const inss       = calcularINSS(salario);
+  const baseIRRF   = salario - inss;
+  const irrf       = calcularIRRF(baseIRRF, dependentes);
+  const vtDesc     = Math.min(vtMensal, salario * ((params.vt_desconto||6)/100));
+  const liquido    = salario - inss - irrf - vtDesc;
+
+  // Encargos patronais
+  const fgts       = salario * ((params.fgts||8)/100);
+  const patronal   = salario * ((params.patronal_inss||20)/100);
+  const senai      = salario * ((params.patronal_senai||1)/100);
+  const sesi       = salario * ((params.patronal_sesi||1.5)/100);
+  const sebrae     = salario * ((params.patronal_sebrae||0.6)/100);
+  const incra      = salario * ((params.patronal_incra||0.2)/100);
+  const ratFap     = salario * ((params.rat||2) * (params.fap||1) / 100);
+  const totalPatronal = patronal + senai + sesi + sebrae + incra + ratFap;
+  const custoTotal = salario + fgts + totalPatronal;
+
+  setHTML('simResultado',`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:#f7f0ff;border:1px solid var(--line);border-radius:16px;padding:20px">
+        <div style="font-size:13px;font-weight:800;color:var(--p);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">📋 Holerite do colaborador</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px"><span>Salário bruto</span><b style="color:#15803d">${money(salario)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px"><span>INSS (progressivo)</span><b style="color:#b91c1c">- ${money(inss)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px"><span>IRRF ${dependentes>0?'('+dependentes+' dep.)':''}</span><b style="color:#b91c1c">- ${money(irrf)}</b></div>
+        ${vtDesc>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px"><span>Vale-transporte (desc.)</span><b style="color:#b91c1c">- ${money(vtDesc)}</b></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:900"><span>Salário líquido</span><b style="color:var(--p)">${money(liquido)}</b></div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px">
+        <div style="font-size:13px;font-weight:800;color:#15803d;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">🏢 Custo para a empresa</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #bbf7d0;font-size:13px"><span>Salário bruto</span><b>${money(salario)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #bbf7d0;font-size:13px"><span>FGTS (${params.fgts||8}%)</span><b>${money(fgts)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #bbf7d0;font-size:13px"><span>INSS Patronal (${params.patronal_inss||20}%)</span><b>${money(patronal)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #bbf7d0;font-size:13px"><span>Terceiros (SENAI/SESI/etc)</span><b>${money(senai+sesi+sebrae+incra)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #bbf7d0;font-size:13px"><span>RAT/FAP</span><b>${money(ratFap)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:900"><span>Custo total mensal</span><b style="color:#15803d">${money(custoTotal)}</b></div>
+        <div style="font-size:11px;color:#15803d;margin-top:4px">≈ ${((custoTotal/salario-1)*100).toFixed(1)}% acima do salário bruto</div>
+      </div>
+    </div>`);
+}
+
+// ── Abas ──────────────────────────────────────────────
+function parTab(id, btn) {
+  document.querySelectorAll('.par-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.par-tab').forEach(b=>b.classList.remove('active'));
+  const pane=$('pane-'+id); if(pane) pane.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+
+// ── Sidebar mobile ────────────────────────────────────
+function abrirSidebar(){$('sidebar').classList.add('open');$('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+init();
+</script>
+</body>
+</html>
