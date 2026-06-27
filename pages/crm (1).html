@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — CRM / Comercial</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.crm-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;overflow-x:auto;padding-bottom:4px}
+.crm-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:12px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.crm-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.crm-pane{display:none}
+.crm-pane.active{display:block}
+.pipeline-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;border-left:4px solid var(--p)}
+.pipeline-card.novo{border-left-color:#820AD1}
+.pipeline-card.contato{border-left-color:#2e86c1}
+.pipeline-card.proposta{border-left-color:#d97706}
+.pipeline-card.negociando{border-left-color:#f59e0b}
+.pipeline-card.fechado{border-left-color:#15803d}
+.pipeline-card.perdido{border-left-color:#b91c1c}
+.pipeline-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.pipeline-card-title{font-size:15px;font-weight:800;color:var(--txt)}
+.pipeline-card-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.6}
+.pipeline-card-valor{font-size:18px;font-weight:950;color:var(--p);white-space:nowrap}
+.pipeline-card-actions{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.status-flow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.status-btn{padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--muted)}
+.status-btn.active{background:var(--p);color:#fff;border-color:var(--p)}
+.alerta-card{background:#fee2e2;border:1px solid #fecaca;border-radius:14px;padding:14px;margin-bottom:10px}
+.alerta-card-title{font-size:13px;font-weight:800;color:#991b1b}
+.alerta-card-sub{font-size:12px;color:#b91c1c;margin-top:3px}
+@media(max-width:768px){
+  #hambBtn{display:flex!important}
+  .sidebar{transform:translateX(-100%);z-index:100}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0!important}
+  .form-row{grid-template-columns:1fr!important}
+  .grid-2{grid-template-columns:1fr!important}
+}
+</style>
+</head>
+<body>
+
+<script>
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.style.cssText='position:fixed;bottom:28px;right:28px;z-index:9999;padding:14px 22px;border-radius:16px;font-weight:700;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);transition:opacity .4s';t.style.background=type==='ok'?'#dcfce7':'#fee2e2';t.style.color=type==='ok'?'#166534':'#991b1b';t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const db={
+  get:async(t,q='')=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});if(!r.ok)throw new Error(await r.text());return r.json()},
+  post:async(t,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  patch:async(t,id,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  delete:async(t,id)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:_h});if(!r.ok)throw new Error(await r.text());return true},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+</script>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="24" height="17" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white" fill-opacity="0.9"/></svg>
+      <span class="nx-wordmark">Nuvix</span>
+    </div>
+    <small class="sidebar-sub" id="sidebarSub"></small>
+    <div class="sidebar-group">PRINCIPAL</div>
+    <button class="sidebar-btn" onclick="location.href='dashboard.html'">Dashboard</button>
+    <button class="sidebar-btn" onclick="location.href='financeiro.html'">Financeiro</button>
+    <div class="sidebar-group nx-menu-servico" style="display:none">SERVIÇOS</div>
+    <button class="sidebar-btn nx-menu-servico" style="display:none" onclick="location.href='servicos.html'">Contratos / Serviços</button>
+    <div class="sidebar-group nx-menu-transporte" style="display:none">TRANSPORTE</div>
+    <button class="sidebar-btn nx-menu-transporte" style="display:none" onclick="location.href='transporte.html'">Operações</button>
+    <div class="sidebar-group">CLIENTES & PESSOAS</div>
+    <button class="sidebar-btn" onclick="location.href='rh.html'">People / RH</button>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Clientes</button>
+    <div class="sidebar-group">GESTÃO</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Relatórios</button>
+    <div class="sidebar-group">COMERCIAL</div>
+    <button class="sidebar-btn active">Comercial / CRM</button>
+    <div class="sidebar-group">SETUP</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Minha Empresa</button>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Usuários</button>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button style="background:transparent;border:none;font-size:22px;cursor:pointer;display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <div>
+          <div style="font-size:16px;font-weight:800">Comercial / CRM</div>
+          <div style="font-size:11px;color:var(--muted)" id="topbarSub"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:700" id="userName"></span>
+        <button class="btn2" onclick="logout()" style="padding:7px 14px;font-size:13px">Sair</button>
+      </div>
+    </div>
+
+    <div style="padding:24px">
+
+      <!-- Indicadores -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px" id="crmKpis"></div>
+
+      <!-- Abas -->
+      <div class="crm-tabs">
+        <button class="crm-tab active" onclick="crmTab('pipeline',this)">🎯 Pipeline</button>
+        <button class="crm-tab" onclick="crmTab('novo',this)">➕ Nova oportunidade</button>
+        <button class="crm-tab" onclick="crmTab('alertas',this)">⚠️ Alertas</button>
+        <button class="crm-tab" onclick="crmTab('historico',this)">📋 Histórico</button>
+      </div>
+
+      <!-- ══ ABA PIPELINE ══ -->
+      <div id="pane-pipeline" class="crm-pane active">
+        <div class="status-flow">
+          <button class="status-btn active" onclick="filtrarPipeline('',this)">Todos</button>
+          <button class="status-btn" onclick="filtrarPipeline('Novo',this)">🆕 Novo</button>
+          <button class="status-btn" onclick="filtrarPipeline('Contato feito',this)">📞 Contato feito</button>
+          <button class="status-btn" onclick="filtrarPipeline('Proposta enviada',this)">📄 Proposta</button>
+          <button class="status-btn" onclick="filtrarPipeline('Negociando',this)">🤝 Negociando</button>
+          <button class="status-btn" onclick="filtrarPipeline('Fechado',this)">✅ Fechado</button>
+          <button class="status-btn" onclick="filtrarPipeline('Perdido',this)">❌ Perdido</button>
+        </div>
+        <div id="pipelineLista"></div>
+      </div>
+
+      <!-- ══ ABA NOVA OPORTUNIDADE ══ -->
+      <div id="pane-novo" class="crm-pane">
+        <div class="grid-2" style="display:grid;gap:16px">
+          <div class="card">
+            <h2 id="crmTitulo">Nova oportunidade</h2>
+            <input type="hidden" id="crmId">
+            <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field"><label>Nome do lead</label><input id="crmNome" placeholder="Nome do contato"></div>
+              <div class="field"><label>Empresa</label><input id="crmEmpresa" placeholder="Nome da empresa"></div>
+              <div class="field"><label>Telefone / WhatsApp</label><input id="crmTel" placeholder="(11) 99999-9999"></div>
+              <div class="field"><label>E-mail</label><input id="crmEmail" type="email" placeholder="contato@empresa.com"></div>
+              <div class="field"><label>Valor previsto (R$)</label><input id="crmValor" type="number" step="0.01" placeholder="0,00"></div>
+              <div class="field"><label>Status</label>
+                <select id="crmStatus">
+                  <option>Novo</option>
+                  <option>Contato feito</option>
+                  <option>Proposta enviada</option>
+                  <option>Negociando</option>
+                  <option>Fechado</option>
+                  <option>Perdido</option>
+                </select>
+              </div>
+              <div class="field"><label>Próximo contato</label><input id="crmProximo" type="date"></div>
+              <div class="field"><label>Responsável</label><input id="crmResp" placeholder="Seu nome"></div>
+              <div class="field"><label>Origem do lead</label>
+                <select id="crmOrigem">
+                  <option>Indicação</option>
+                  <option>Site</option>
+                  <option>Instagram</option>
+                  <option>WhatsApp</option>
+                  <option>LinkedIn</option>
+                  <option>Google</option>
+                  <option>Evento</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+              <div class="field"><label>Segmento do cliente</label><input id="crmSegmento" placeholder="Ex: Varejo, Logística..."></div>
+            </div>
+            <div class="field" style="margin-top:12px"><label>Observações</label><textarea id="crmObs" rows="3" style="resize:vertical" placeholder="Detalhes da conversa, necessidades do cliente..."></textarea></div>
+            <div class="actions">
+              <button class="btn" onclick="salvarOportunidade()">Salvar oportunidade</button>
+              <button class="btn2" onclick="limparCrm()">Limpar</button>
+            </div>
+            <div id="crmMsg" class="msg"></div>
+          </div>
+          <div class="card">
+            <h2>Como usar o CRM</h2>
+            <p class="muted" style="line-height:1.8;font-size:13px">
+              <b>1. Cadastre o lead</b> — qualquer pessoa interessada nos seus serviços.<br><br>
+              <b>2. Atualize o status</b> conforme o funil avança:<br>
+              🆕 Novo → 📞 Contato feito → 📄 Proposta → 🤝 Negociando → ✅ Fechado<br><br>
+              <b>3. Defina o próximo contato</b> — o sistema vai alertar quando você precisar ligar.<br><br>
+              <b>4. Quando fechar</b>, converta o lead em cliente com 1 clique — sem redigitar nada.<br><br>
+              <b>5. Se perder</b>, marque como Perdido e registre o motivo nas observações.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ABA ALERTAS ══ -->
+      <div id="pane-alertas" class="crm-pane">
+        <div class="notice">⚠️ Leads que precisam de atenção — próximo contato vencido ou atrasado.</div>
+        <div id="alertasLista"></div>
+      </div>
+
+      <!-- ══ ABA HISTÓRICO ══ -->
+      <div id="pane-historico" class="crm-pane">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Todas as oportunidades</h2>
+            <input type="text" id="histBusca" placeholder="Buscar..." oninput="renderHistorico()" style="max-width:260px">
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Lead</th><th>Empresa</th><th>Valor</th><th>Status</th><th>Próx. contato</th><th>Responsável</th><th>Origem</th><th>Ação</th></tr></thead>
+              <tbody id="histTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  #crmKpis{grid-template-columns:1fr 1fr!important}
+}
+</style>
+
+<script>
+const session = requireAuth();
+let oportunidades = [];
+let clientes = [];
+let pipelineFiltro = '';
+
+async function init() {
+  if (!session) return;
+  $('userName').textContent = session.nome||'';
+  const emp = session.empresa;
+  if (emp) {
+    $('sidebarSub').textContent = (emp.fantasia||emp.razao||'')+' · '+(emp.segmento||emp.tipo||'');
+    $('topbarSub').textContent  = (emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    const seg = emp.segmento||emp.tipo||'';
+    if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='');
+    if(seg==='Transporte'||seg==='Mista')           document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='');
+  }
+  // preenche responsável com nome do usuário logado
+  if($('crmResp')) $('crmResp').value = session.nome||'';
+  await loadData();
+}
+
+async function loadData() {
+  if (!session?.empresa_id) return;
+  const q = `?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
+  try {
+    [oportunidades, clientes] = await Promise.all([
+      db.get('crm_oportunidades', q),
+      db.get('clientes', q),
+    ]);
+    renderTudo();
+  } catch(e) { toast('Erro ao carregar: '+e.message,'err'); }
+}
+
+function renderTudo() {
+  renderKpis();
+  renderPipeline();
+  renderAlertas();
+  renderHistorico();
+}
+
+// ── KPIs ─────────────────────────────────────────────
+function renderKpis() {
+  const hj   = hoje();
+  const total = oportunidades.length;
+  const fechados = oportunidades.filter(o=>o.status==='Fechado').length;
+  const ativos   = oportunidades.filter(o=>!['Fechado','Perdido'].includes(o.status||'')).length;
+  const valorPrev= oportunidades.filter(o=>!['Perdido'].includes(o.status||'')).reduce((a,o)=>a+Number(o.valor_previsto||0),0);
+  const valorFech= oportunidades.filter(o=>o.status==='Fechado').reduce((a,o)=>a+Number(o.valor_previsto||0),0);
+  const txConv   = total>0?Math.round(fechados/total*100):0;
+
+  setHTML('crmKpis',[
+    {lbl:'Total leads',      val:total,          cor:'var(--p)',  sub:'cadastrados'},
+    {lbl:'Ativos no funil',  val:ativos,          cor:'#2e86c1',  sub:'em andamento'},
+    {lbl:'Fechados',         val:fechados,        cor:'#15803d',  sub:'convertidos'},
+    {lbl:'Valor previsto',   val:money(valorPrev),cor:'var(--p)',  sub:'pipeline total'},
+    {lbl:'Valor fechado',    val:money(valorFech),cor:'#15803d',  sub:'receita gerada'},
+  ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:18px">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));
+}
+
+// ── Pipeline ──────────────────────────────────────────
+function filtrarPipeline(status, btn) {
+  pipelineFiltro = status;
+  document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderPipeline();
+}
+
+function statusCor(status) {
+  const map = {'Novo':'novo','Contato feito':'contato','Proposta enviada':'proposta','Negociando':'negociando','Fechado':'fechado','Perdido':'perdido'};
+  return map[status]||'';
+}
+
+function statusBadge(status) {
+  const cor = {'Novo':'background:#ede9fe;color:#5b21b6','Contato feito':'background:#dbeafe;color:#1e40af','Proposta enviada':'background:#fef3c7;color:#92400e','Negociando':'background:#fed7aa;color:#9a3412','Fechado':'background:#dcfce7;color:#166534','Perdido':'background:#fee2e2;color:#991b1b'}[status]||'background:#f3f4f6;color:#374151';
+  return `<span style="${cor};padding:3px 10px;border-radius:99px;font-size:11px;font-weight:800">${status||''}</span>`;
+}
+
+function renderPipeline() {
+  const hj   = hoje();
+  let lista  = oportunidades;
+  if(pipelineFiltro) lista = lista.filter(o=>o.status===pipelineFiltro);
+
+  setHTML('pipelineLista', lista.map(o=>{
+    const prox  = String(o.proximo_contato||'').slice(0,10);
+    const atrasado = prox && prox < hj;
+    const hoje_c   = prox === hj;
+    let proximoBadge = '';
+    if(prox) {
+      if(atrasado)   proximoBadge = `<span style="background:#fee2e2;color:#991b1b;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700">⚠️ Contato atrasado — ${fmtData(prox)}</span>`;
+      else if(hoje_c) proximoBadge = `<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700">📞 Contatar hoje</span>`;
+      else            proximoBadge = `<span style="background:#ede9fe;color:#5b21b6;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700">📅 ${fmtData(prox)}</span>`;
+    }
+    return`<div class="pipeline-card ${statusCor(o.status||'')}">
+      <div class="pipeline-card-header">
+        <div>
+          <div class="pipeline-card-title">${esc(o.nome||'')} ${o.empresa_nome?'— '+esc(o.empresa_nome):''}</div>
+          <div class="pipeline-card-sub">
+            ${statusBadge(o.status||'')}
+            ${o.responsavel?` &nbsp;· Resp: <b>${esc(o.responsavel)}</b>`:''}
+            ${o.origem?` &nbsp;· Origem: ${esc(o.origem)}`:''}
+            ${proximoBadge?' &nbsp;'+proximoBadge:''}
+          </div>
+          ${o.observacao?`<div class="muted" style="margin-top:6px;font-size:12px">${esc(o.observacao.slice(0,120))}${o.observacao.length>120?'...':''}</div>`:''}
+        </div>
+        <div class="pipeline-card-valor">${o.valor_previsto?money(o.valor_previsto):'—'}</div>
+      </div>
+      <div class="pipeline-card-actions">
+        ${o.status!=='Contato feito'&&o.status!=='Proposta enviada'&&o.status!=='Negociando'&&o.status!=='Fechado'&&o.status!=='Perdido'?`<button style="background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="avancarStatus('${o.id}','Contato feito')">📞 Contato feito</button>`:''}
+        ${o.status==='Contato feito'?`<button style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="avancarStatus('${o.id}','Proposta enviada')">📄 Proposta enviada</button>`:''}
+        ${o.status==='Proposta enviada'?`<button style="background:#fed7aa;color:#9a3412;border:1px solid #fdba74;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="avancarStatus('${o.id}','Negociando')">🤝 Negociando</button>`:''}
+        ${o.status==='Negociando'||o.status==='Proposta enviada'?`<button style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="fecharOportunidade('${o.id}')">✅ Fechar</button>`:''}
+        ${!['Fechado','Perdido'].includes(o.status||'')?`<button style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="avancarStatus('${o.id}','Perdido')">❌ Perdido</button>`:''}
+        ${o.status==='Fechado'?`<button style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="converterCliente('${o.id}')">👤 Converter em cliente</button>`:''}
+        <button class="btn2" onclick="editarOportunidade('${o.id}')" style="font-size:12px;padding:7px 12px">Editar</button>
+        <button class="danger" onclick="excluirOportunidade('${o.id}')" style="font-size:12px;padding:7px 12px">Excluir</button>
+      </div>
+    </div>`;
+  }).join('')||`<div class="card" style="text-align:center;padding:32px"><div style="font-size:36px;margin-bottom:12px">🎯</div><p class="muted">Nenhuma oportunidade${pipelineFiltro?' com este status':''}. Cadastre na aba "Nova oportunidade"!</p></div>`);
+}
+
+// ── Salvar oportunidade ───────────────────────────────
+async function salvarOportunidade() {
+  const nome = val('crmNome').trim();
+  if (!nome) { msg('crmMsg','Informe o nome do lead.','err'); return; }
+  const id = val('crmId');
+  const payload = withEmpresa({
+    nome, empresa_nome:val('crmEmpresa').trim(),
+    telefone:val('crmTel').trim(), email:val('crmEmail').trim(),
+    valor_previsto:num('crmValor')||null,
+    status:val('crmStatus'),
+    proximo_contato:val('crmProximo')||null,
+    responsavel:val('crmResp').trim(),
+    origem:val('crmOrigem'),
+    segmento:val('crmSegmento').trim(),
+    observacao:val('crmObs').trim()||null,
+  });
+  try {
+    if(id) await db.patch('crm_oportunidades',id,payload);
+    else   await db.post('crm_oportunidades',payload);
+    msg('crmMsg', id?'Oportunidade atualizada!':'Lead cadastrado!','ok');
+    limparCrm();
+    crmTab('pipeline');
+    await loadData();
+  } catch(e) { msg('crmMsg','Erro: '+e.message,'err'); }
+}
+
+function editarOportunidade(id) {
+  const o = oportunidades.find(x=>x.id===id);
+  if(!o) return;
+  $('crmId').value       = o.id;
+  $('crmNome').value     = o.nome||'';
+  $('crmEmpresa').value  = o.empresa_nome||'';
+  $('crmTel').value      = o.telefone||'';
+  $('crmEmail').value    = o.email||'';
+  $('crmValor').value    = o.valor_previsto||'';
+  $('crmStatus').value   = o.status||'Novo';
+  $('crmProximo').value  = o.proximo_contato?String(o.proximo_contato).slice(0,10):'';
+  $('crmResp').value     = o.responsavel||'';
+  $('crmOrigem').value   = o.origem||'Indicação';
+  $('crmSegmento').value = o.segmento||'';
+  $('crmObs').value      = o.observacao||'';
+  $('crmTitulo').textContent = 'Editar oportunidade';
+  crmTab('novo');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function excluirOportunidade(id) {
+  if(!confirm('Excluir esta oportunidade?')) return;
+  try { await db.delete('crm_oportunidades',id); toast('Excluído.','ok'); await loadData(); }
+  catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+async function avancarStatus(id, novoStatus) {
+  try {
+    await db.patch('crm_oportunidades',id,{status:novoStatus});
+    toast(`Status atualizado para "${novoStatus}"!`,'ok');
+    await loadData();
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+async function fecharOportunidade(id) {
+  try {
+    await db.patch('crm_oportunidades',id,{status:'Fechado'});
+    toast('🎉 Negócio fechado! Agora converta em cliente se quiser.','ok');
+    await loadData();
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+// ── Converter em cliente ──────────────────────────────
+async function converterCliente(id) {
+  const o = oportunidades.find(x=>x.id===id);
+  if (!o) return;
+  // verificar se já existe
+  const jaExiste = clientes.some(c=>(c.nome||'').toLowerCase()===(o.empresa_nome||o.nome||'').toLowerCase());
+  if(jaExiste) { toast('Este cliente já existe na base de clientes!','err'); return; }
+  if(!confirm(`Converter "${o.empresa_nome||o.nome}" em cliente?\n\nO lead continuará no CRM mas o cliente será criado automaticamente.`)) return;
+  try {
+    await db.post('clientes', withEmpresa({
+      nome: o.empresa_nome||o.nome,
+      email: o.email||null,
+      telefone: o.telefone||null,
+      segmento: o.segmento||null,
+      observacao: `Convertido do CRM — Contato: ${o.nome}`,
+    }));
+    toast('✅ Cliente criado com sucesso na base de clientes!','ok');
+    await loadData();
+  } catch(e) { toast('Erro ao converter: '+e.message,'err'); }
+}
+
+function limparCrm() {
+  ['crmId','crmNome','crmEmpresa','crmTel','crmEmail','crmValor','crmProximo','crmSegmento','crmObs'].forEach(id=>{if($(id))$(id).value=''});
+  if($('crmStatus'))$('crmStatus').value='Novo';
+  if($('crmOrigem'))$('crmOrigem').value='Indicação';
+  if($('crmResp'))$('crmResp').value=session?.nome||'';
+  $('crmTitulo').textContent='Nova oportunidade';
+}
+
+// ── Alertas ───────────────────────────────────────────
+function renderAlertas() {
+  const hj = hoje();
+  const atrasados = oportunidades.filter(o=>{
+    const p = String(o.proximo_contato||'').slice(0,10);
+    return p && p <= hj && !['Fechado','Perdido'].includes(o.status||'');
+  }).sort((a,b)=>String(a.proximo_contato||'').localeCompare(String(b.proximo_contato||'')));
+
+  const semContato = oportunidades.filter(o=>{
+    return !o.proximo_contato && !['Fechado','Perdido'].includes(o.status||'');
+  });
+
+  let html = '';
+
+  if(atrasados.length) {
+    html += `<div style="font-size:12px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">⚠️ ${atrasados.length} lead(s) com contato atrasado</div>`;
+    html += atrasados.map(o=>`
+      <div class="alerta-card">
+        <div class="alerta-card-title">${esc(o.nome||'')} ${o.empresa_nome?'— '+esc(o.empresa_nome):''}</div>
+        <div class="alerta-card-sub">
+          Deveria ter sido contatado em ${fmtData(o.proximo_contato)} &nbsp;·&nbsp; ${statusBadge(o.status||'')}
+          ${o.responsavel?` &nbsp;·&nbsp; Resp: <b>${esc(o.responsavel)}</b>`:''}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button style="background:#fff;color:#991b1b;border:1px solid #fecaca;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="editarOportunidade('${o.id}')">📅 Reagendar contato</button>
+          <button style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="avancarStatus('${o.id}','Contato feito')">✓ Contato feito</button>
+        </div>
+      </div>`).join('');
+  }
+
+  if(semContato.length) {
+    html += `<div style="font-size:12px;font-weight:800;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 10px">📅 ${semContato.length} lead(s) sem próximo contato agendado</div>`;
+    html += semContato.map(o=>`
+      <div style="background:#fff;border:1px solid #fde68a;border-radius:14px;padding:14px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:800;color:#92400e">${esc(o.nome||'')} ${o.empresa_nome?'— '+esc(o.empresa_nome):''}</div>
+        <div style="font-size:12px;color:#d97706;margin-top:3px">${statusBadge(o.status||'')} &nbsp;·&nbsp; Sem data de próximo contato</div>
+        <button style="margin-top:10px;background:#fff;color:#d97706;border:1px solid #fde68a;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="editarOportunidade('${o.id}')">📅 Agendar contato</button>
+      </div>`).join('');
+  }
+
+  if(!html) html = `<div class="card" style="text-align:center;padding:32px"><div style="font-size:36px;margin-bottom:12px">✅</div><p class="muted">Nenhum alerta! Todos os leads estão em dia.</p></div>`;
+
+  setHTML('alertasLista', html);
+
+  // Atualiza a aba com badge
+  const totalAlertas = atrasados.length + semContato.length;
+  const tabAlertas = document.querySelector('.crm-tab:nth-child(3)');
+  if(tabAlertas) tabAlertas.textContent = totalAlertas > 0 ? `⚠️ Alertas (${totalAlertas})` : '⚠️ Alertas';
+}
+
+// ── Histórico ─────────────────────────────────────────
+function renderHistorico() {
+  const busca = val('histBusca').toLowerCase();
+  let lista = oportunidades;
+  if(busca) lista = lista.filter(o=>(o.nome||'').toLowerCase().includes(busca)||(o.empresa_nome||'').toLowerCase().includes(busca)||(o.responsavel||'').toLowerCase().includes(busca));
+  setHTML('histTable', lista.map(o=>`<tr>
+    <td><b>${esc(o.nome||'')}</b>${o.telefone?`<div class="muted" style="font-size:11px">${esc(o.telefone)}</div>`:''}</td>
+    <td>${esc(o.empresa_nome||'—')}</td>
+    <td style="font-weight:700">${o.valor_previsto?money(o.valor_previsto):'—'}</td>
+    <td>${statusBadge(o.status||'')}</td>
+    <td style="font-size:12px">${fmtData(o.proximo_contato)}</td>
+    <td style="font-size:12px">${esc(o.responsavel||'—')}</td>
+    <td style="font-size:11px">${esc(o.origem||'—')}</td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="btn2" onclick="editarOportunidade('${o.id}')" style="font-size:11px;padding:5px 8px">Editar</button>
+        <button class="danger" onclick="excluirOportunidade('${o.id}')" style="font-size:11px;padding:5px 8px">Excluir</button>
+      </div>
+    </td>
+  </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum registro.</td></tr>');
+}
+
+// ── Abas ──────────────────────────────────────────────
+function crmTab(id, btn) {
+  document.querySelectorAll('.crm-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.crm-tab').forEach(b=>b.classList.remove('active'));
+  const pane=$('pane-'+id); if(pane) pane.classList.add('active');
+  if(btn) btn.classList.add('active');
+  else {
+    const tabs={'pipeline':0,'novo':1,'alertas':2,'historico':3};
+    const tabEls=document.querySelectorAll('.crm-tab');
+    if(tabEls[tabs[id]]) tabEls[tabs[id]].classList.add('active');
+  }
+}
+
+// ── Sidebar mobile ────────────────────────────────────
+function abrirSidebar(){$('sidebar').classList.add('open');$('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+init();
+</script>
+</body>
+</html>
