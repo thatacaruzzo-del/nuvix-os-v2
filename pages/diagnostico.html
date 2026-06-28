@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Diagnóstico Nuvix</title>
+<style>
+body{font-family:monospace;padding:20px;background:#1a1a1a;color:#0f0}
+h2{color:#fff}
+.ok{color:#0f0}
+.err{color:#f44}
+.warn{color:#fa0}
+pre{background:#000;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px}
+button{background:#820AD1;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;margin:4px}
+</style>
+</head>
+<body>
+<h2>🔍 Diagnóstico Nuvix 2.0</h2>
+<div id="log"></div>
+<br>
+<button onclick="testarTudo()">▶ Rodar diagnóstico</button>
+<button onclick="limparSessao()">🗑 Limpar sessão</button>
+<button onclick="location.href='../index.html'">🔐 Ir para login</button>
+
+<script>
+const SUPABASE_URL = 'https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const SESSION_KEY  = 'nuvix_v2_session';
+
+function log(msg, tipo='ok') {
+  const div = document.createElement('div');
+  div.className = tipo;
+  div.innerHTML = msg;
+  $('log').appendChild(div);
+}
+
+function $$(id){ return document.getElementById(id); }
+function $(...a){ return a.length===1 ? document.getElementById(a[0]) : document.querySelectorAll(a[0]); }
+
+async function testarTudo() {
+  $$('log').innerHTML = '';
+  log('<br><b>=== TESTE 1: Sessão no browser ===</b>', 'warn');
+  
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (!raw) {
+    log('❌ Nenhuma sessão encontrada no sessionStorage', 'err');
+    log('→ Faça login primeiro em: <a href="../index.html" style="color:#0af">index.html</a>', 'warn');
+  } else {
+    try {
+      const data = JSON.parse(raw);
+      log('✅ Sessão encontrada!', 'ok');
+      log(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'ok');
+      log(`Perfil: <b>${data.user?.perfil}</b>`, data.user?.perfil==='SuperAdmin'?'ok':'warn');
+      const idade = Math.round((Date.now() - data.loginAt) / 60000);
+      log(`Idade da sessão: ${idade} minutos`, 'ok');
+    } catch(e) {
+      log('❌ Sessão corrompida: ' + e.message, 'err');
+    }
+  }
+
+  log('<br><b>=== TESTE 2: Conexão Supabase ===</b>', 'warn');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/empresas?select=id,fantasia&limit=3`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+      }
+    });
+    const text = await r.text();
+    if (r.ok) {
+      const data = JSON.parse(text);
+      log(`✅ Conexão OK! ${data.length} empresa(s) retornada(s)`, 'ok');
+      log(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'ok');
+    } else {
+      log('❌ Erro na conexão: ' + text, 'err');
+    }
+  } catch(e) {
+    log('❌ Erro de rede: ' + e.message, 'err');
+  }
+
+  log('<br><b>=== TESTE 3: Tabela usuarios ===</b>', 'warn');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=id,nome,email,perfil&limit=5`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    const text = await r.text();
+    if (r.ok) {
+      const data = JSON.parse(text);
+      log(`✅ ${data.length} usuário(s) encontrado(s)`, 'ok');
+      log(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'ok');
+    } else {
+      log('❌ Erro: ' + text, 'err');
+    }
+  } catch(e) {
+    log('❌ ' + e.message, 'err');
+  }
+
+  log('<br><b>=== FIM DO DIAGNÓSTICO ===</b>', 'warn');
+}
+
+function limparSessao() {
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.clear();
+  log('🗑 Sessão limpa! Faça login novamente.', 'warn');
+}
+
+// Roda automaticamente
+testarTudo();
+</script>
+</body>
+</html>
