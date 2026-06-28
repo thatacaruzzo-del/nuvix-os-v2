@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Entrar</title>
+<link rel="stylesheet" href="css/nuvix.css">
+</head>
+<body>
+
+<div class="login-shell">
+  <div class="login-card">
+
+    <!-- Lado esquerdo — identidade visual -->
+    <div class="login-left">
+      <div>
+        <div class="login-logo">
+          <!-- Nuvem SVG em 3 camadas -->
+          <svg width="52" height="36" viewBox="0 0 52 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M42 14.5C41.2 10.6 37.9 7.5 34 7.5C32.1 7.5 30.4 8.2 29.1 9.3C27.6 6.1 24.3 4 20.5 4C15.3 4 11 8.3 11 13.5C11 13.7 11 13.9 11 14.1C8.2 15 6 17.5 6 20.5C6 24.1 8.9 27 12.5 27H42C45.3 27 48 24.3 48 21C48 17.8 45.4 15.1 42 14.5Z" fill="white" fill-opacity="0.2"/>
+            <path d="M38 18.5C37.4 15.7 35.1 13.5 32.3 13.5C30.9 13.5 29.65 14.05 28.7 14.95C27.55 12.55 25.1 11 22.3 11C18.3 11 15 14.2 15 18.3C15.02 18.75 15.02 18.75 15.02 18.75C12.9 19.4 11.3 21.4 11.3 23.8C11.3 26.7 13.6 29 16.5 29H38C40.8 29 43 26.8 43 24C43 21.3 40.8 18.8 38 18.5Z" fill="white" fill-opacity="0.5"/>
+            <path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white" fill-opacity="0.95"/>
+          </svg>
+          <span class="login-wordmark">Nuvix</span>
+        </div>
+
+        <p class="login-tagline">Gestão inteligente para empresas que pensam grande</p>
+
+        <div class="login-features">
+          <div class="login-feature">
+            <span class="login-feature-dot"></span>
+            ERP completo para Serviços e Transporte
+          </div>
+          <div class="login-feature">
+            <span class="login-feature-dot"></span>
+            Dashboard em tempo real por segmento
+          </div>
+          <div class="login-feature">
+            <span class="login-feature-dot"></span>
+            CRM, financeiro e equipe em um só lugar
+          </div>
+          <div class="login-feature">
+            <span class="login-feature-dot"></span>
+            Controle total com permissões por perfil
+          </div>
+        </div>
+      </div>
+
+      <div class="login-footer">
+        <div class="login-footer-trust">Tecnologia que impulsiona conexões</div>
+        <div class="login-footer-version">Nuvix OS v2.0</div>
+      </div>
+    </div>
+
+    <!-- Lado direito — formulário -->
+    <div class="login-right">
+      <div class="login-right-logo">
+        <svg width="28" height="20" viewBox="0 0 52 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="#820AD1"/>
+        </svg>
+        <span class="login-right-wordmark">Nuvix</span>
+      </div>
+
+      <div class="login-form">
+        <h2>Entrar</h2>
+
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+
+        <div class="field">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button class="btn login-submit" onclick="fazerLogin()">Entrar</button>
+
+        <div class="login-error" id="loginErro"></div>
+
+        <p class="muted" style="text-align:center;margin-top:20px;font-size:12px">
+          Acesso somente para clientes cadastrados pela equipe Nuvix.<br>
+          Problemas com acesso? Entre em contato com o suporte.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Scripts (ordem importa) -->
+<script>
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>t.classList.add('hide'),3000);setTimeout(()=>t.remove(),3400)}
+
+// ══════════════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const db={
+  get:async(t,q='')=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});if(!r.ok)throw new Error(await r.text());return r.json()},
+  post:async(t,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  patch:async(t,id,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+};
+
+// ══════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════
+const SESSION_KEY='nuvix_v2_session';
+function saveSession(user,empresa){sessionStorage.setItem(SESSION_KEY,JSON.stringify({user,empresa,loginAt:Date.now()}))}
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+
+// ── Se já tem sessão ativa, redireciona direto ────────
+// Só redireciona se realmente tem sessão válida no sessionStorage
+(function checkExistingSession() {
+  const session = getSession();
+  if (session) {
+    // Tem sessão — redirecionar para o app
+    if (session.perfil === 'SuperAdmin') {
+      window.location.href = 'pages/admin.html';
+    } else {
+      window.location.href = 'pages/dashboard.html';
+    }
+  }
+  // Se não tem sessão, fica na tela de login normalmente
+})();
+
+// ── Enter no campo de senha faz login ─────────────────
+document.getElementById('senha').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') fazerLogin();
+});
+document.getElementById('email').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('senha').focus();
+});
+
+// ── Função de login ───────────────────────────────────
+async function fazerLogin() {
+  const email = val('email').trim().toLowerCase();
+  const senha = val('senha').trim();
+  const erroEl = $('loginErro');
+
+  // Limpar erro anterior
+  erroEl.className = 'login-error';
+  erroEl.textContent = '';
+
+  // Validação básica
+  if (!email || !senha) {
+    erroEl.textContent = 'Preencha e-mail e senha.';
+    erroEl.className = 'login-error show';
+    return;
+  }
+
+  // Feedback visual — botão carregando
+  const btn = document.querySelector('.login-submit');
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Entrando...';
+  btn.disabled = true;
+
+  try {
+    // Buscar usuário
+    const usuarios = await db.get('usuarios',
+      `?select=*&email=eq.${encodeURIComponent(email)}&senha=eq.${encodeURIComponent(senha)}&ativo=eq.true&limit=1`
+    );
+
+    if (!usuarios.length) {
+      throw new Error('E-mail ou senha incorretos.');
+    }
+
+    const user = usuarios[0];
+
+    // Buscar empresa do usuário (se não for SuperAdmin)
+    let empresa = null;
+    if (user.perfil !== 'SuperAdmin' && user.empresa_id) {
+      const empresas = await db.get('empresas', `?select=*&id=eq.${user.empresa_id}&limit=1`);
+      empresa = empresas[0] || null;
+
+      // Verificar se empresa está ativa
+      if (empresa && (empresa.ativo === false || empresa.status_assinatura === 'suspenso')) {
+        throw new Error('Sua assinatura está suspensa. Entre em contato com a equipe Nuvix.');
+      }
+    }
+
+    // Salvar sessão de forma segura
+    saveSession(user, empresa);
+
+    // Registrar acesso (sem bloquear o login se falhar)
+    try {
+      await db.patch('usuarios', user.id, { ultimo_acesso: new Date().toISOString() });
+      await db.post('access_logs', {
+        empresa_id: user.empresa_id || null,
+        usuario_id: user.id,
+        nome_usuario: user.nome,
+        email: user.email,
+        perfil: user.perfil,
+        evento: 'login'
+      });
+    } catch(e) { /* não bloqueia o login */ }
+
+    // Redirecionar conforme perfil
+    if (user.perfil === 'SuperAdmin') {
+      window.location.href = 'pages/admin.html';
+    } else {
+      window.location.href = 'pages/dashboard.html';
+    }
+
+  } catch(e) {
+    erroEl.textContent = e.message;
+    erroEl.className = 'login-error show';
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+    // Limpa a senha por segurança
+    document.getElementById('senha').value = '';
+    document.getElementById('senha').focus();
+  }
+}
+</script>
+</body>
+</html>
