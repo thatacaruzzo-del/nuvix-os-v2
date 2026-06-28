@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Cotação de Frete</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.resultado-card{background:linear-gradient(135deg,#3b0f8a,#820AD1);color:#fff;border-radius:20px;padding:28px;margin-bottom:16px}
+.resultado-valor{font-size:42px;font-weight:950;margin:8px 0}
+.resultado-sub{opacity:.8;font-size:13px}
+.linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.total-linha{display:flex;justify-content:space-between;padding:12px 0;font-size:17px;font-weight:900;color:var(--p)}
+</style>
+</head>
+<body>
+<script>
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const r=sessionStorage.getItem(SESSION_KEY);if(!r)return null;return JSON.parse(r)}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const H={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+const session = getSession();
+</script>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="24" height="17" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5C17.77 21.8 17.77 21.8 17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white" fill-opacity="0.9"/></svg>
+      <span class="nx-wordmark">Nuvix</span>
+    </div>
+    <div class="sidebar-group">PRINCIPAL</div>
+    <button class="sidebar-btn" onclick="location.href='dashboard.html'">Dashboard</button>
+    <button class="sidebar-btn" onclick="location.href='financeiro.html'">Financeiro</button>
+    <div class="sidebar-group">TRANSPORTE</div>
+    <button class="sidebar-btn" onclick="location.href='transporte.html'">Operações</button>
+    <button class="sidebar-btn active">Cotação de Frete</button>
+    <div class="sidebar-group">CLIENTES & PESSOAS</div>
+    <button class="sidebar-btn" onclick="location.href='app.html'">Clientes</button>
+    <button class="sidebar-btn" onclick="location.href='rh.html'">People / RH</button>
+    <div class="sidebar-group">COMERCIAL</div>
+    <button class="sidebar-btn" onclick="location.href='crm.html'">Comercial / CRM</button>
+    <div class="sidebar-group">SETUP</div>
+    <button class="sidebar-btn" onclick="location.href='parametros.html'">Parâmetros</button>
+  </nav>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button style="background:transparent;border:none;font-size:22px;cursor:pointer" onclick="abrirSidebar()">☰</button>
+        <div style="font-size:16px;font-weight:800">Cotação de Frete</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:700" id="userName"></span>
+        <button class="btn2" onclick="logout()" style="padding:7px 14px;font-size:13px">Sair</button>
+      </div>
+    </div>
+
+    <div style="padding:24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+        <!-- FORMULÁRIO -->
+        <div class="card">
+          <h2>Dados da carga</h2>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div class="field"><label>Origem</label><input id="f_origem" placeholder="Ex: São Paulo / SP"></div>
+            <div class="field"><label>Destino</label><input id="f_destino" placeholder="Ex: Belo Horizonte / MG"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div class="field">
+              <label>Rota cadastrada <span id="rotasStatus" style="font-size:10px;color:var(--muted)"></span></label>
+              <select id="f_rota" onchange="aplicarRota()">
+                <option value="">Carregando rotas...</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tipo de veículo</label>
+              <select id="f_veiculo">
+                <option>Van</option>
+                <option>Caminhão leve</option>
+                <option selected>Caminhão pesado</option>
+                <option>Carreta</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div class="field"><label>Distância (km)</label><input id="f_km" type="number" placeholder="586"></div>
+            <div class="field"><label>Valor por km (R$)</label><input id="f_vkm" type="number" step="0.01" placeholder="4.50" value="4.50"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div class="field"><label>Pedágio (R$)</label><input id="f_pedagio" type="number" step="0.01" value="0"></div>
+            <div class="field"><label>Peso (kg)</label><input id="f_peso" type="number" placeholder="8500"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div class="field">
+              <label>Tipo de carga</label>
+              <select id="f_tipo">
+                <option>Carga geral</option>
+                <option>Frigorificada (+20%)</option>
+                <option>Perigosa (+25%)</option>
+                <option>Granel</option>
+                <option>Mudança (+5%)</option>
+              </select>
+            </div>
+            <div class="field"><label>Margem de lucro (%)</label><input id="f_margem" type="number" value="30"></div>
+          </div>
+
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+            <div style="font-size:12px;font-weight:800;color:var(--p);margin-bottom:12px;text-transform:uppercase">Dados do solicitante</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field"><label>Nome / Empresa</label><input id="f_nome" placeholder="Empresa Ltda"></div>
+              <div class="field"><label>Telefone</label><input id="f_tel" placeholder="(11) 99999-9999"></div>
+              <div class="field"><label>E-mail</label><input id="f_email" type="email" placeholder="email@empresa.com"></div>
+              <div class="field"><label>Validade</label><input id="f_validade" type="date"></div>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:20px">
+            <button class="btn" style="background:#15803d;border-color:#15803d" onclick="calcular()">🧮 Calcular</button>
+            <button class="btn" onclick="salvar()">💾 Salvar</button>
+            <button class="btn2" onclick="imprimir()">🖨️ Imprimir</button>
+          </div>
+          <div id="msg" class="msg"></div>
+        </div>
+
+        <!-- RESULTADO -->
+        <div id="resultado">
+          <div class="card" style="text-align:center;padding:48px">
+            <div style="font-size:48px;margin-bottom:12px">🚚</div>
+            <p class="muted">Preencha os dados e clique em <b>Calcular</b></p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);z-index:100}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0!important}
+  .app-shell > .main-content > div:last-child > div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+}
+</style>
+
+<script>
+// ── Init ─────────────────────────────────────────────
+if(session?.nome) document.getElementById('userName').textContent = session.nome;
+
+// Validade padrão = 7 dias
+const v7 = new Date(); v7.setDate(v7.getDate()+7);
+document.getElementById('f_validade').value = v7.toISOString().slice(0,10);
+
+let cotAtual = null;
+let rotas = [];
+
+// ── Carregar rotas ────────────────────────────────────
+async function carregarRotas() {
+  const sel = document.getElementById('f_rota');
+  const status = document.getElementById('rotasStatus');
+  try {
+    // Buscar rotas sem filtro de empresa
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rotas?select=*&order=apelido', {headers:H});
+    if (!r.ok) throw new Error('Erro '+r.status);
+    rotas = await r.json();
+    sel.innerHTML = '<option value="">Selecione uma rota (opcional)</option>' +
+      rotas.map(r=>`<option value="${r.id}" data-km="${r.distancia_km||0}" data-vkm="${r.valor_km||0}" data-pedagio="${r.pedagio||0}" data-origem="${esc(r.origem||'')}" data-destino="${esc(r.destino||'')}" data-fixo="${r.preco_fixo||0}">${esc(r.apelido||r.origem+'→'+r.destino)} (${r.distancia_km||0}km)</option>`).join('');
+    status.textContent = rotas.length + ' rotas';
+  } catch(e) {
+    sel.innerHTML = '<option value="">Sem rotas — preencha manualmente</option>';
+    status.textContent = 'erro ao carregar';
+  }
+}
+
+function aplicarRota() {
+  const sel = document.getElementById('f_rota');
+  if (!sel.value) return;
+  const opt = sel.options[sel.selectedIndex];
+  if(opt.dataset.origem) document.getElementById('f_origem').value = opt.dataset.origem;
+  if(opt.dataset.destino) document.getElementById('f_destino').value = opt.dataset.destino;
+  if(opt.dataset.km && Number(opt.dataset.km)>0) document.getElementById('f_km').value = opt.dataset.km;
+  if(opt.dataset.vkm && Number(opt.dataset.vkm)>0) document.getElementById('f_vkm').value = opt.dataset.vkm;
+  if(opt.dataset.pedagio) document.getElementById('f_pedagio').value = opt.dataset.pedagio;
+}
+
+// ── Calcular ──────────────────────────────────────────
+function calcular() {
+  const km      = Number(document.getElementById('f_km').value)||0;
+  const vkm     = Number(document.getElementById('f_vkm').value)||3.5;
+  const pedagio = Number(document.getElementById('f_pedagio').value)||0;
+  const margem  = Number(document.getElementById('f_margem').value)||30;
+  const tipo    = document.getElementById('f_tipo').value;
+  const origem  = document.getElementById('f_origem').value;
+  const destino = document.getElementById('f_destino').value;
+  const peso    = Number(document.getElementById('f_peso').value)||0;
+
+  // Verificar rota com preço fixo
+  const sel = document.getElementById('f_rota');
+  const opt = sel?.value ? sel.options[sel.selectedIndex] : null;
+  const precoFixo = opt ? Number(opt.dataset.fixo||0) : 0;
+
+  if (!km && !precoFixo) {
+    alert('Informe a distância em km ou selecione uma rota!');
+    return;
+  }
+
+  const custoBase  = precoFixo > 0 ? precoFixo : km * vkm;
+  const custoTotal = custoBase + pedagio;
+  const valorBruto = custoTotal * (1 + margem/100);
+
+  // Adicional por tipo
+  const adicionais = {'Frigorificada (+20%)':0.20,'Perigosa (+25%)':0.25,'Mudança (+5%)':0.05};
+  const adicPct    = adicionais[tipo]||0;
+  const valorFinal = valorBruto * (1 + adicPct);
+  const lucro      = valorFinal - custoTotal;
+
+  cotAtual = {
+    origem, destino, km, vkm, pedagio, peso, tipo, margem,
+    custo_total:custoTotal, valor_frete:valorFinal, lucro,
+    solicitante: document.getElementById('f_nome').value,
+    telefone: document.getElementById('f_tel').value,
+    email: document.getElementById('f_email').value,
+    validade: document.getElementById('f_validade').value,
+    veiculo: document.getElementById('f_veiculo').value,
+  };
+
+  document.getElementById('resultado').innerHTML = `
+    <div class="resultado-card">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;opacity:.8">💰 Valor do frete</div>
+      <div class="resultado-valor">${money(valorFinal)}</div>
+      <div class="resultado-sub">${esc(origem)||'Origem'} → ${esc(destino)||'Destino'} · ${km} km</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px;font-weight:800;margin-bottom:14px">Composição</h3>
+      <div class="linha"><span>${precoFixo>0?'Preço fixo da rota':`Frete (${km}km × R$${vkm.toFixed(2)}/km)`}</span><b>${money(custoBase)}</b></div>
+      ${pedagio>0?`<div class="linha"><span>Pedágio</span><b>${money(pedagio)}</b></div>`:''}
+      ${adicPct>0?`<div class="linha"><span>Adicional ${tipo}</span><b>+${(adicPct*100).toFixed(0)}%</b></div>`:''}
+      <div class="linha"><span>Margem (${margem}%)</span><b>${money(lucro)}</b></div>
+      <div class="total-linha"><span>Total</span><b>${money(valorFinal)}</b></div>
+      <div style="font-size:12px;color:#15803d;font-weight:700;margin-top:4px">
+        Lucro estimado: ${money(lucro)} · Custo: ${money(custoTotal)}
+      </div>
+    </div>`;
+}
+
+// ── Salvar ────────────────────────────────────────────
+async function salvar() {
+  if (!cotAtual) { calcular(); if (!cotAtual) return; }
+  const msg = document.getElementById('msg');
+  try {
+    const payload = {
+      ...cotAtual,
+      empresa_id: session?.empresa_id||null,
+      status:'Pendente',
+      data_cotacao: new Date().toISOString().slice(0,10),
+    };
+    const r = await fetch(SUPABASE_URL+'/rest/v1/cotacoes_frete', {
+      method:'POST', headers:H, body:JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    msg.textContent='✅ Cotação salva!'; msg.className='msg show ok';
+    setTimeout(()=>msg.classList.remove('show'),4000);
+  } catch(e) {
+    msg.textContent='Erro: '+e.message; msg.className='msg show err';
+  }
+}
+
+// ── Imprimir ──────────────────────────────────────────
+function imprimir() {
+  if (!cotAtual) { calcular(); if (!cotAtual) return; }
+  const emp = session?.empresa;
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotação</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;max-width:680px;margin:0 auto;color:#333}
+  .header{display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #820AD1;margin-bottom:24px}
+  .empresa{font-size:22px;font-weight:900;color:#820AD1}
+  .valor-box{background:linear-gradient(135deg,#3b0f8a,#820AD1);color:#fff;border-radius:16px;padding:24px;text-align:center;margin:20px 0}
+  .valor-box .v{font-size:36px;font-weight:900}
+  .linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee;font-size:14px}
+  .total{display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:900;color:#820AD1;border-top:2px solid #820AD1}
+  .info{background:#f9f7ff;border-radius:12px;padding:16px;margin-bottom:16px}
+  @media print{button{display:none}}</style></head><body>
+  <div class="header">
+    <div><div class="empresa">${esc(emp?.fantasia||emp?.razao||'Nuvix')}</div><div style="color:#666;font-size:13px">${esc(emp?.cidade||'')}</div></div>
+    <div style="text-align:right;font-size:12px;color:#888">Data: ${new Date().toLocaleDateString('pt-BR')}<br>Válida até: ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+  </div>
+  <h2 style="margin-bottom:4px">Cotação de Frete</h2>
+  <p style="color:#666;margin-top:0">${esc(cotAtual.origem)} → ${esc(cotAtual.destino)} · ${cotAtual.km} km</p>
+  <div class="valor-box"><div style="font-size:12px;opacity:.8;text-transform:uppercase;margin-bottom:8px">Valor total do frete</div><div class="v">${money(cotAtual.valor_frete)}</div></div>
+  <div class="info"><b>Dados da carga</b><br>Tipo: ${esc(cotAtual.tipo)} · Veículo: ${esc(cotAtual.veiculo)} · Peso: ${cotAtual.peso||'—'} kg</div>
+  ${cotAtual.solicitante?`<div class="info"><b>Solicitante</b><br>${esc(cotAtual.solicitante)} ${cotAtual.telefone?' · '+esc(cotAtual.telefone):''} ${cotAtual.email?' · '+esc(cotAtual.email):''}</div>`:''}
+  <div class="linha"><span>Frete base (${cotAtual.km}km)</span><b>${money(cotAtual.custo_total-cotAtual.pedagio)}</b></div>
+  ${cotAtual.pedagio>0?`<div class="linha"><span>Pedágio</span><b>${money(cotAtual.pedagio)}</b></div>`:''}
+  <div class="total"><span>Total</span><b>${money(cotAtual.valor_frete)}</b></div>
+  <p style="color:#888;font-size:12px;margin-top:16px">⏰ Cotação válida até ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</p>
+  <br><button onclick="window.print()" style="background:#820AD1;color:#fff;border:none;padding:12px 24px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir</button>
+  </body></html>`);
+  win.document.close();
+}
+
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open')}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open')}
+
+carregarRotas();
+</script>
+</body>
+</html>
