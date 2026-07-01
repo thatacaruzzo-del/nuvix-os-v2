@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix Hub — Política de Privacidade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#7C3AED;--p2:#5B21B6;--p3:#A78BFA;--p-light:#EDE9FE;
+  --bg:#F8F8FC;--surface:#fff;--line:#EBEBF0;
+  --txt:#111827;--muted:#6B7280;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.7}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#180033,#2B0A59,#5B21B6);color:#fff;padding:0}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid rgba(255,255,255,.1)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}
+.brand-logo{width:42px;height:42px;background:linear-gradient(135deg,var(--p),var(--p3));border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(124,58,237,.5)}
+.brand-logo svg{width:24px;height:18px}
+.brand-name{font-size:22px;font-weight:900;letter-spacing:-.04em}
+.brand-tag{font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--p3);text-transform:uppercase}
+.back-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+.back-btn:hover{background:rgba(255,255,255,.2)}
+.header-hero{padding:48px 40px 56px;text-align:center}
+.header-hero h1{font-size:36px;font-weight:900;letter-spacing:-.03em;margin-bottom:10px}
+.header-hero p{font-size:15px;color:rgba(255,255,255,.7);max-width:500px;margin:0 auto}
+.header-meta{display:flex;gap:20px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.meta-item{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:600;color:rgba(255,255,255,.8)}
+
+/* CONTENT */
+.container{max-width:860px;margin:0 auto;padding:48px 24px}
+.toc{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:36px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.toc h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--p);margin-bottom:14px}
+.toc ol{padding-left:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.toc li a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500;transition:color .15s}
+.toc li a:hover{color:var(--p)}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 32px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.section h2{font-size:18px;font-weight:800;color:var(--p);margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--p-light);display:flex;align-items:center;gap:10px}
+.section h3{font-size:15px;font-weight:700;margin:16px 0 8px;color:var(--txt)}
+.section p{font-size:14px;color:var(--muted);margin-bottom:12px;line-height:1.8}
+.section ul,.section ol{padding-left:20px;margin-bottom:12px}
+.section li{font-size:14px;color:var(--muted);margin-bottom:6px;line-height:1.7}
+.section li b{color:var(--txt)}
+.highlight{background:var(--p-light);border-left:4px solid var(--p);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--p2);font-weight:500}
+.contact-card{background:linear-gradient(135deg,var(--p),var(--p3));color:#fff;border-radius:16px;padding:28px 32px;margin-top:32px;text-align:center}
+.contact-card h3{font-size:20px;font-weight:800;margin-bottom:8px}
+.contact-card p{font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px}
+.contact-card a{background:#fff;color:var(--p);padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;display:inline-block;transition:all .2s}
+.contact-card a:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+
+/* FOOTER */
+.footer{background:var(--txt);color:rgba(255,255,255,.6);text-align:center;padding:28px;font-size:13px;margin-top:48px}
+.footer a{color:var(--p3);text-decoration:none}
+
+@media(max-width:768px){
+  .header-top{padding:16px 20px}
+  .header-hero{padding:32px 20px 40px}
+  .header-hero h1{font-size:26px}
+  .container{padding:24px 16px}
+  .toc ol{grid-template-columns:1fr}
+  .section{padding:20px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <a class="brand" href="index.html">
+      <div class="brand-logo">
+        <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Nuvix</div>
+        <div class="brand-tag">Hub</div>
+      </div>
+    </a>
+    <a href="index.html" class="back-btn">← Voltar ao sistema</a>
+  </div>
+  <div class="header-hero">
+    <h1>🔐 Política de Privacidade</h1>
+    <p>Saiba como coletamos, usamos e protegemos seus dados pessoais</p>
+    <div class="header-meta">
+      <span class="meta-item">📅 Última atualização: 01/07/2026</span>
+      <span class="meta-item">📋 Versão 1.0</span>
+      <span class="meta-item">🇧🇷 Em conformidade com a LGPD</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ÍNDICE -->
+  <div class="toc">
+    <h3>📋 Índice</h3>
+    <ol>
+      <li><a href="#s1">Quem somos</a></li>
+      <li><a href="#s2">Dados que coletamos</a></li>
+      <li><a href="#s3">Como usamos os dados</a></li>
+      <li><a href="#s4">Base legal</a></li>
+      <li><a href="#s5">Compartilhamento</a></li>
+      <li><a href="#s6">Armazenamento e segurança</a></li>
+      <li><a href="#s7">Seus direitos (LGPD)</a></li>
+      <li><a href="#s8">Cookies</a></li>
+      <li><a href="#s9">Menores de idade</a></li>
+      <li><a href="#s10">Alterações desta política</a></li>
+      <li><a href="#s11">Contato</a></li>
+    </ol>
+  </div>
+
+  <div class="highlight">
+    Sua privacidade é nossa prioridade. Esta política explica de forma clara e transparente como tratamos seus dados no Nuvix Hub, em conformidade com a <b>Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</b>.
+  </div>
+
+  <!-- S1 -->
+  <div class="section" id="s1">
+    <h2>🏢 1. Quem somos</h2>
+    <p>O <b>Nuvix Hub</b> é uma plataforma SaaS (Software como Serviço) de gestão empresarial desenvolvida para empresas de serviços, transporte e comércio.</p>
+    <p>Somos responsáveis pelo tratamento dos dados pessoais coletados através de nossa plataforma e nos comprometemos com a transparência e segurança das informações.</p>
+    <ul>
+      <li><b>Produto:</b> Nuvix Hub — Sistema Operacional Empresarial</li>
+      <li><b>Contato:</b> contato@nuvixhub.com.br</li>
+      <li><b>Encarregado de dados (DPO):</b> contato@nuvixhub.com.br</li>
+    </ul>
+  </div>
+
+  <!-- S2 -->
+  <div class="section" id="s2">
+    <h2>📊 2. Dados que coletamos</h2>
+    <h3>2.1 Dados da empresa cliente</h3>
+    <ul>
+      <li><b>Identificação:</b> Razão social, nome fantasia, CNPJ</li>
+      <li><b>Contato:</b> E-mail, telefone, endereço</li>
+      <li><b>Plano e pagamento:</b> Plano contratado, data de vencimento</li>
+    </ul>
+    <h3>2.2 Dados dos usuários</h3>
+    <ul>
+      <li><b>Identificação:</b> Nome completo, e-mail, cargo</li>
+      <li><b>Acesso:</b> Último acesso, IP de acesso, navegador utilizado</li>
+      <li><b>Credenciais:</b> Senha (armazenada de forma segura)</li>
+    </ul>
+    <h3>2.3 Dados operacionais</h3>
+    <ul>
+      <li>Dados financeiros lançados pelo cliente (receitas, despesas)</li>
+      <li>Dados de clientes cadastrados pelo usuário</li>
+      <li>Dados de colaboradores (RH, folha de pagamento)</li>
+      <li>Dados de transporte e logística</li>
+      <li>Dados de materiais e estoque</li>
+    </ul>
+    <div class="highlight">
+      ⚠️ Os dados operacionais pertencem ao cliente. O Nuvix Hub atua como <b>operador</b> desses dados, seguindo as instruções do controlador (a empresa cliente).
+    </div>
+  </div>
+
+  <!-- S3 -->
+  <div class="section" id="s3">
+    <h2>🎯 3. Como usamos os dados</h2>
+    <ul>
+      <li><b>Prestação do serviço:</b> Operar e manter a plataforma funcionando</li>
+      <li><b>Autenticação:</b> Identificar e autenticar usuários no sistema</li>
+      <li><b>Suporte:</b> Responder dúvidas e resolver problemas técnicos</li>
+      <li><b>Segurança:</b> Detectar e prevenir acessos não autorizados</li>
+      <li><b>Melhorias:</b> Aprimorar funcionalidades da plataforma</li>
+      <li><b>Comunicação:</b> Enviar avisos sobre o serviço, atualizações e vencimentos</li>
+      <li><b>Cobrança:</b> Gerenciar assinaturas e pagamentos</li>
+    </ul>
+    <p><b>Não utilizamos</b> seus dados para venda a terceiros, publicidade de outros serviços ou qualquer finalidade não descrita nesta política.</p>
+  </div>
+
+  <!-- S4 -->
+  <div class="section" id="s4">
+    <h2>⚖️ 4. Base legal para tratamento</h2>
+    <p>Tratamos seus dados com base nas seguintes hipóteses legais previstas na LGPD:</p>
+    <ul>
+      <li><b>Execução de contrato</b> — para prestar o serviço contratado</li>
+      <li><b>Legítimo interesse</b> — para segurança e melhoria do sistema</li>
+      <li><b>Cumprimento de obrigação legal</b> — quando exigido por lei</li>
+      <li><b>Consentimento</b> — para comunicações de marketing (quando aplicável)</li>
+    </ul>
+  </div>
+
+  <!-- S5 -->
+  <div class="section" id="s5">
+    <h2>🤝 5. Compartilhamento de dados</h2>
+    <p>Seus dados <b>não são vendidos</b> a terceiros. Podemos compartilhar informações apenas com:</p>
+    <ul>
+      <li><b>Supabase (banco de dados):</b> Infraestrutura de armazenamento — <a href="https://supabase.com/privacy" target="_blank" style="color:var(--p)">Política de privacidade</a></li>
+      <li><b>Vercel (hospedagem):</b> Servidor da aplicação — <a href="https://vercel.com/legal/privacy-policy" target="_blank" style="color:var(--p)">Política de privacidade</a></li>
+      <li><b>Autoridades:</b> Quando exigido por lei ou ordem judicial</li>
+    </ul>
+    <div class="highlight">
+      Todos os nossos fornecedores são contratados com cláusulas de proteção de dados e operam em conformidade com as legislações aplicáveis.
+    </div>
+  </div>
+
+  <!-- S6 -->
+  <div class="section" id="s6">
+    <h2>🔒 6. Armazenamento e segurança</h2>
+    <ul>
+      <li><b>Armazenamento:</b> Dados armazenados em servidores seguros com criptografia</li>
+      <li><b>Controle de acesso:</b> Cada empresa acessa apenas seus próprios dados (isolamento por company_id)</li>
+      <li><b>RLS:</b> Row Level Security ativado em todas as tabelas do banco de dados</li>
+      <li><b>Senhas:</b> Armazenadas com proteção adequada</li>
+      <li><b>HTTPS:</b> Toda comunicação é criptografada via SSL/TLS</li>
+      <li><b>Retenção:</b> Dados mantidos enquanto o contrato estiver ativo + 5 anos após encerramento</li>
+    </ul>
+    <p>Em caso de incidente de segurança que possa afetar seus dados, notificaremos você e a ANPD dentro dos prazos legais.</p>
+  </div>
+
+  <!-- S7 -->
+  <div class="section" id="s7">
+    <h2>✅ 7. Seus direitos (LGPD)</h2>
+    <p>Como titular dos dados, você tem os seguintes direitos garantidos pela LGPD:</p>
+    <ul>
+      <li><b>Acesso:</b> Saber quais dados temos sobre você</li>
+      <li><b>Correção:</b> Corrigir dados incompletos ou desatualizados</li>
+      <li><b>Exclusão:</b> Solicitar a exclusão dos seus dados</li>
+      <li><b>Portabilidade:</b> Receber seus dados em formato estruturado</li>
+      <li><b>Revogação:</b> Revogar consentimento a qualquer momento</li>
+      <li><b>Oposição:</b> Opor-se ao tratamento em determinadas situações</li>
+      <li><b>Informação:</b> Ser informado sobre com quem compartilhamos seus dados</li>
+    </ul>
+    <p>Para exercer qualquer um desses direitos, entre em contato pelo e-mail: <b>privacidade@nuvixhub.com.br</b></p>
+    <p>Responderemos em até <b>15 dias úteis</b>.</p>
+  </div>
+
+  <!-- S8 -->
+  <div class="section" id="s8">
+    <h2>🍪 8. Cookies</h2>
+    <p>O Nuvix Hub utiliza <b>session storage</b> (armazenamento de sessão) para manter você autenticado durante o uso. Esse dado é eliminado automaticamente ao fechar o navegador.</p>
+    <p>Não utilizamos cookies de rastreamento, publicidade ou analytics de terceiros.</p>
+  </div>
+
+  <!-- S9 -->
+  <div class="section" id="s9">
+    <h2>👶 9. Menores de idade</h2>
+    <p>O Nuvix Hub é uma plataforma voltada exclusivamente para uso empresarial. <b>Não coletamos intencionalmente dados de menores de 18 anos.</b></p>
+    <p>Se identificarmos que dados de menores foram coletados sem consentimento adequado, procederemos com a exclusão imediata.</p>
+  </div>
+
+  <!-- S10 -->
+  <div class="section" id="s10">
+    <h2>🔄 10. Alterações desta política</h2>
+    <p>Esta política pode ser atualizada periodicamente. Em caso de alterações significativas, notificaremos os usuários por e-mail e/ou aviso na plataforma com <b>30 dias de antecedência</b>.</p>
+    <p>A continuidade do uso após as alterações implica na aceitação da nova política.</p>
+    <p><b>Última atualização:</b> 01 de julho de 2026</p>
+  </div>
+
+  <!-- S11 -->
+  <div class="section" id="s11">
+    <h2>📬 11. Contato e DPO</h2>
+    <p>Para questões relacionadas à privacidade e proteção de dados:</p>
+    <ul>
+      <li><b>E-mail geral:</b> contato@nuvixhub.com.br</li>
+      <li><b>E-mail privacidade:</b> privacidade@nuvixhub.com.br</li>
+      <li><b>Encarregado (DPO):</b> privacidade@nuvixhub.com.br</li>
+    </ul>
+  </div>
+
+  <!-- CONTATO -->
+  <div class="contact-card">
+    <h3>Tem alguma dúvida?</h3>
+    <p>Nossa equipe está pronta para esclarecer qualquer questão sobre privacidade e proteção de dados.</p>
+    <a href="mailto:privacidade@nuvixhub.com.br">📧 Falar com o DPO</a>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>© 2026 Nuvix Hub · Todos os direitos reservados · 
+    <a href="termos.html">Termos de Uso</a> · 
+    <a href="privacidade.html">Política de Privacidade</a>
+  </p>
+  <p style="margin-top:8px;font-size:11px">Em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</p>
+</div>
+
+</body>
+</html>
