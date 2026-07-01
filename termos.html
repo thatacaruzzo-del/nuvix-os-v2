@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix Hub — Termos de Uso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--p:#7C3AED;--p2:#5B21B6;--p3:#A78BFA;--p-light:#EDE9FE;--bg:#F8F8FC;--surface:#fff;--line:#EBEBF0;--txt:#111827;--muted:#6B7280;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.7}
+.header{background:linear-gradient(135deg,#180033,#2B0A59,#5B21B6);color:#fff}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid rgba(255,255,255,.1)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}
+.brand-logo{width:42px;height:42px;background:linear-gradient(135deg,var(--p),var(--p3));border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(124,58,237,.5)}
+.brand-logo svg{width:24px;height:18px}
+.brand-name{font-size:22px;font-weight:900;letter-spacing:-.04em}
+.brand-tag{font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--p3);text-transform:uppercase}
+.back-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+.back-btn:hover{background:rgba(255,255,255,.2)}
+.header-hero{padding:48px 40px 56px;text-align:center}
+.header-hero h1{font-size:36px;font-weight:900;letter-spacing:-.03em;margin-bottom:10px}
+.header-hero p{font-size:15px;color:rgba(255,255,255,.7);max-width:500px;margin:0 auto}
+.header-meta{display:flex;gap:20px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.meta-item{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:600;color:rgba(255,255,255,.8)}
+.container{max-width:860px;margin:0 auto;padding:48px 24px}
+.toc{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:36px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.toc h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--p);margin-bottom:14px}
+.toc ol{padding-left:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.toc li a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500;transition:color .15s}
+.toc li a:hover{color:var(--p)}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 32px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.section h2{font-size:18px;font-weight:800;color:var(--p);margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--p-light);display:flex;align-items:center;gap:10px}
+.section h3{font-size:15px;font-weight:700;margin:16px 0 8px;color:var(--txt)}
+.section p{font-size:14px;color:var(--muted);margin-bottom:12px;line-height:1.8}
+.section ul,.section ol{padding-left:20px;margin-bottom:12px}
+.section li{font-size:14px;color:var(--muted);margin-bottom:6px;line-height:1.7}
+.section li b{color:var(--txt)}
+.highlight{background:var(--p-light);border-left:4px solid var(--p);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--p2);font-weight:500}
+.warn{background:#FEF3C7;border-left:4px solid #D97706;border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:#78350F;font-weight:500}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.plan-card{border:1.5px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+.plan-card.featured{border-color:var(--p);background:var(--p-light)}
+.plan-card h4{font-size:14px;font-weight:800;margin-bottom:6px;color:var(--txt)}
+.plan-card p{font-size:12px;color:var(--muted);margin:0}
+.contact-card{background:linear-gradient(135deg,var(--p),var(--p3));color:#fff;border-radius:16px;padding:28px 32px;margin-top:32px;text-align:center}
+.contact-card h3{font-size:20px;font-weight:800;margin-bottom:8px}
+.contact-card p{font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px}
+.contact-card a{background:#fff;color:var(--p);padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;display:inline-block;transition:all .2s}
+.footer{background:var(--txt);color:rgba(255,255,255,.6);text-align:center;padding:28px;font-size:13px;margin-top:48px}
+.footer a{color:var(--p3);text-decoration:none}
+@media(max-width:768px){.header-top{padding:16px 20px}.header-hero{padding:32px 20px 40px}.header-hero h1{font-size:26px}.container{padding:24px 16px}.toc ol{grid-template-columns:1fr}.section{padding:20px}.plan-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <a class="brand" href="index.html">
+      <div class="brand-logo">
+        <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Nuvix</div>
+        <div class="brand-tag">Hub</div>
+      </div>
+    </a>
+    <a href="index.html" class="back-btn">← Voltar ao sistema</a>
+  </div>
+  <div class="header-hero">
+    <h1>📋 Termos de Uso</h1>
+    <p>Condições gerais para uso da plataforma Nuvix Hub</p>
+    <div class="header-meta">
+      <span class="meta-item">📅 Última atualização: 01/07/2026</span>
+      <span class="meta-item">📋 Versão 1.0</span>
+      <span class="meta-item">🇧🇷 Legislação brasileira</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="toc">
+    <h3>📋 Índice</h3>
+    <ol>
+      <li><a href="#t1">Aceitação dos termos</a></li>
+      <li><a href="#t2">O que é o Nuvix Hub</a></li>
+      <li><a href="#t3">Cadastro e conta</a></li>
+      <li><a href="#t4">Planos e pagamentos</a></li>
+      <li><a href="#t5">Uso permitido</a></li>
+      <li><a href="#t6">Uso proibido</a></li>
+      <li><a href="#t7">Seus dados</a></li>
+      <li><a href="#t8">Disponibilidade</a></li>
+      <li><a href="#t9">Cancelamento</a></li>
+      <li><a href="#t10">Limitação de responsabilidade</a></li>
+      <li><a href="#t11">Alterações</a></li>
+      <li><a href="#t12">Contato</a></li>
+    </ol>
+  </div>
+
+  <div class="highlight">
+    Ao acessar ou usar o Nuvix Hub, você concorda com estes Termos de Uso. Leia atentamente antes de prosseguir. Se não concordar com algum item, não utilize a plataforma.
+  </div>
+
+  <!-- T1 -->
+  <div class="section" id="t1">
+    <h2>✅ 1. Aceitação dos termos</h2>
+    <p>Estes Termos de Uso constituem um contrato legal entre você (pessoa física ou jurídica) e o <b>Nuvix Hub</b>. Ao criar uma conta, acessar ou usar a plataforma, você declara ter lido, compreendido e aceito estes termos integralmente.</p>
+    <p>Caso esteja usando em nome de uma empresa, você declara ter autoridade para vincular a empresa a estes termos.</p>
+  </div>
+
+  <!-- T2 -->
+  <div class="section" id="t2">
+    <h2>🖥️ 2. O que é o Nuvix Hub</h2>
+    <p>O <b>Nuvix Hub</b> é uma plataforma de gestão empresarial (ERP) na nuvem, desenvolvida para empresas de serviços, transporte e comércio, oferecendo os módulos:</p>
+    <ul>
+      <li>Dashboard executivo</li>
+      <li>Financeiro (lançamentos, fluxo de caixa, contas a pagar e receber)</li>
+      <li>CRM / Comercial (pipeline de vendas)</li>
+      <li>Serviços e Orçamentos</li>
+      <li>Materiais e Estoque</li>
+      <li>Transporte e Logística</li>
+      <li>RH (colaboradores, ponto, folha de pagamento)</li>
+      <li>Relatórios</li>
+    </ul>
+    <p>Os módulos disponíveis variam conforme o plano contratado.</p>
+  </div>
+
+  <!-- T3 -->
+  <div class="section" id="t3">
+    <h2>👤 3. Cadastro e conta</h2>
+    <ul>
+      <li>Para usar o Nuvix Hub, é necessário criar uma conta com dados verdadeiros e atualizados</li>
+      <li>Você é responsável pela confidencialidade de sua senha</li>
+      <li>Cada empresa possui uma conta isolada — os dados de uma empresa nunca são visíveis para outra</li>
+      <li>O administrador da empresa é responsável pelo acesso dos usuários da sua equipe</li>
+      <li>Em caso de suspeita de acesso não autorizado, notifique-nos imediatamente</li>
+    </ul>
+    <div class="warn">⚠️ Não compartilhe suas credenciais de acesso. Você é responsável por todas as ações realizadas em sua conta.</div>
+  </div>
+
+  <!-- T4 -->
+  <div class="section" id="t4">
+    <h2>💳 4. Planos e pagamentos</h2>
+    <p>O Nuvix Hub oferece os seguintes planos:</p>
+    <div class="plan-grid">
+      <div class="plan-card">
+        <h4>🚀 Start</h4>
+        <p>Módulos essenciais para começar a gestão da empresa</p>
+      </div>
+      <div class="plan-card featured">
+        <h4>⭐ Pro</h4>
+        <p>Módulos avançados incluindo Transporte e CRM</p>
+      </div>
+      <div class="plan-card">
+        <h4>💎 Plus</h4>
+        <p>Acesso completo a todos os módulos da plataforma</p>
+      </div>
+    </div>
+    <ul>
+      <li><b>Período de teste (Trial):</b> Novas contas têm acesso gratuito por período determinado</li>
+      <li><b>Cobrança:</b> Mensal, no início de cada período</li>
+      <li><b>Inadimplência:</b> O acesso pode ser suspenso após 5 dias de atraso</li>
+      <li><b>Reajuste:</b> Os valores podem ser reajustados com aviso prévio de 30 dias</li>
+    </ul>
+  </div>
+
+  <!-- T5 -->
+  <div class="section" id="t5">
+    <h2>✅ 5. Uso permitido</h2>
+    <p>Você pode usar o Nuvix Hub para:</p>
+    <ul>
+      <li>Gerenciar as operações da sua empresa</li>
+      <li>Cadastrar clientes, colaboradores, produtos e serviços</li>
+      <li>Controlar financeiro, estoque, transporte e RH</li>
+      <li>Gerar relatórios e análises do seu negócio</li>
+      <li>Cadastrar e gerenciar usuários da sua equipe</li>
+    </ul>
+  </div>
+
+  <!-- T6 -->
+  <div class="section" id="t6">
+    <h2>🚫 6. Uso proibido</h2>
+    <p>É expressamente proibido:</p>
+    <ul>
+      <li>Usar a plataforma para atividades ilegais ou fraudulentas</li>
+      <li>Tentar acessar dados de outras empresas</li>
+      <li>Realizar engenharia reversa ou copiar o código da plataforma</li>
+      <li>Compartilhar acesso com pessoas não autorizadas</li>
+      <li>Usar robôs ou automações sem autorização prévia</li>
+      <li>Sobrecarregar intencionalmente os servidores</li>
+      <li>Inserir dados falsos com intenção de prejudicar terceiros</li>
+    </ul>
+    <div class="warn">⚠️ O descumprimento dessas regras pode resultar no cancelamento imediato da conta sem reembolso.</div>
+  </div>
+
+  <!-- T7 -->
+  <div class="section" id="t7">
+    <h2>🔐 7. Seus dados</h2>
+    <ul>
+      <li><b>Propriedade:</b> Os dados inseridos por você na plataforma são de sua propriedade</li>
+      <li><b>Exportação:</b> Você pode exportar seus dados a qualquer momento via CSV</li>
+      <li><b>Exclusão:</b> Ao cancelar a conta, seus dados ficam disponíveis por 30 dias para exportação, após o que são excluídos permanentemente</li>
+      <li><b>Backup:</b> Realizamos backups regulares, mas recomendamos exportações periódicas</li>
+    </ul>
+    <p>Para mais detalhes, consulte nossa <a href="privacidade.html" style="color:var(--p);font-weight:600">Política de Privacidade</a>.</p>
+  </div>
+
+  <!-- T8 -->
+  <div class="section" id="t8">
+    <h2>⚡ 8. Disponibilidade do serviço</h2>
+    <ul>
+      <li>Nos esforçamos para manter a plataforma disponível <b>24 horas por dia, 7 dias por semana</b></li>
+      <li>Manutenções programadas serão avisadas com antecedência mínima de 24 horas</li>
+      <li>Não garantimos disponibilidade de 100% — podem ocorrer interrupções por manutenção ou problemas técnicos</li>
+      <li>Interrupções causadas por terceiros (como Supabase ou Vercel) estão fora do nosso controle</li>
+    </ul>
+  </div>
+
+  <!-- T9 -->
+  <div class="section" id="t9">
+    <h2>❌ 9. Cancelamento</h2>
+    <h3>Cancelamento pelo cliente</h3>
+    <ul>
+      <li>Você pode cancelar a qualquer momento pelo painel ou via e-mail</li>
+      <li>O acesso continua até o fim do período pago</li>
+      <li>Não há reembolso proporcional de períodos já pagos</li>
+      <li>Exporte seus dados antes do cancelamento</li>
+    </ul>
+    <h3>Cancelamento pelo Nuvix Hub</h3>
+    <ul>
+      <li>Podemos cancelar contas por violação destes termos</li>
+      <li>Em caso de inadimplência superior a 30 dias</li>
+      <li>Por inatividade superior a 12 meses</li>
+    </ul>
+  </div>
+
+  <!-- T10 -->
+  <div class="section" id="t10">
+    <h2>⚖️ 10. Limitação de responsabilidade</h2>
+    <p>O Nuvix Hub não se responsabiliza por:</p>
+    <ul>
+      <li>Perdas financeiras decorrentes de erros nos dados inseridos pelo usuário</li>
+      <li>Decisões empresariais tomadas com base nas informações da plataforma</li>
+      <li>Indisponibilidade causada por problemas de internet do usuário</li>
+      <li>Ações de terceiros mal-intencionados que não decorram de falha nossa</li>
+    </ul>
+    <div class="highlight">
+      💡 O Nuvix Hub é uma ferramenta de gestão. As decisões e responsabilidades pelo negócio são sempre do cliente.
+    </div>
+  </div>
+
+  <!-- T11 -->
+  <div class="section" id="t11">
+    <h2>🔄 11. Alterações nos termos</h2>
+    <p>Podemos atualizar estes termos periodicamente. Em caso de alterações significativas:</p>
+    <ul>
+      <li>Notificaremos por e-mail com <b>30 dias de antecedência</b></li>
+      <li>Exibiremos aviso na plataforma</li>
+      <li>A continuidade do uso implica na aceitação dos novos termos</li>
+    </ul>
+    <p><b>Última atualização:</b> 01 de julho de 2026</p>
+  </div>
+
+  <!-- T12 -->
+  <div class="section" id="t12">
+    <h2>📬 12. Contato e foro</h2>
+    <ul>
+      <li><b>E-mail:</b> contato@nuvixhub.com.br</li>
+      <li><b>Foro:</b> Fica eleito o foro da comarca de São Paulo/SP para dirimir quaisquer controvérsias</li>
+      <li><b>Legislação:</b> Estes termos são regidos pelas leis brasileiras</li>
+    </ul>
+  </div>
+
+  <div class="contact-card">
+    <h3>Alguma dúvida sobre os termos?</h3>
+    <p>Entre em contato com nossa equipe. Estamos aqui para ajudar!</p>
+    <a href="mailto:contato@nuvixhub.com.br">📧 Falar com o suporte</a>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>© 2026 Nuvix Hub · Todos os direitos reservados · 
+    <a href="termos.html">Termos de Uso</a> · 
+    <a href="privacidade.html">Política de Privacidade</a>
+  </p>
+  <p style="margin-top:8px;font-size:11px">Regido pela legislação brasileira · Foro: São Paulo/SP</p>
+</div>
+
+</body>
+</html>
