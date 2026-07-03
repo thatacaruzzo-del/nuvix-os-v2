@@ -154,7 +154,7 @@ tr:hover td { background: #FAFAFF; }
 .app-shell { display: flex; height: 100vh; overflow: hidden; }
 
 /* ── Sidebar Premium ── */
-:root { --sidebar-w: 72px; }
+:root { --sidebar-w: 64px; }
 
 .sidebar {
   position: fixed; inset: 0 auto 0 0;
@@ -167,14 +167,14 @@ tr:hover td { background: #FAFAFF; }
   padding: 0 0 24px;
   z-index: 100;
   overflow-x: hidden;
-  overflow-y: overlay;
+  overflow-y: auto;
   scrollbar-width: none;
   transition: width .25s cubic-bezier(.4,0,.2,1);
   height: 100vh;
+  box-shadow: 2px 0 20px rgba(0,0,0,.3);
 }
 .sidebar:hover {
-  width: 200px;
-  overflow-y: auto;
+  width: 220px;
 }
 .sidebar::-webkit-scrollbar { display: none; }
 
@@ -183,9 +183,10 @@ tr:hover td { background: #FAFAFF; }
   background: linear-gradient(135deg, #7C3AED, #A78BFA);
   border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
-  margin: 16px auto 8px;
+  margin: 16px auto 12px;
   cursor: pointer;
   flex-shrink: 0;
+  align-self: center;
   box-shadow: 0 0 20px rgba(124,58,237,.4);
   transition: all .2s;
 }
@@ -206,17 +207,17 @@ tr:hover td { background: #FAFAFF; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: rgba(167,139,250,.35);
-  padding: 4px 14px 2px;
+  color: rgba(167,139,250,.4);
+  padding: 6px 20px 3px;
   white-space: nowrap;
   overflow: hidden;
   opacity: 0;
   max-height: 0;
-  transition: opacity .2s, max-height .2s;
+  transition: opacity .15s, max-height .15s;
 }
 .sidebar:hover .sb-group-label {
   opacity: 1;
-  max-height: 20px;
+  max-height: 24px;
 }
 
 /* Buttons */
@@ -225,8 +226,8 @@ tr:hover td { background: #FAFAFF; }
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 14px;
-  color: rgba(167,139,250,.55);
+  padding: 10px 20px;
+  color: rgba(167,139,250,.6);
   text-decoration: none;
   border-radius: 0;
   transition: all .15s;
@@ -236,6 +237,7 @@ tr:hover td { background: #FAFAFF; }
   position: relative;
   overflow: hidden;
   white-space: nowrap;
+  min-height: 42px;
 }
 .sb-btn svg {
   width: 18px; height: 18px;
@@ -246,13 +248,16 @@ tr:hover td { background: #FAFAFF; }
   font-size: 13px;
   font-weight: 600;
   opacity: 0;
-  transform: translateX(-6px);
-  transition: opacity .2s, transform .2s;
+  transform: translateX(-4px);
+  transition: opacity .2s .05s, transform .2s .05s;
   pointer-events: none;
+  overflow: hidden;
+  max-width: 0;
 }
 .sidebar:hover .sb-btn span {
   opacity: 1;
   transform: translateX(0);
+  max-width: 160px;
 }
 .sb-btn:hover {
   color: #fff;
