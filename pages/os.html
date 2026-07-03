@@ -153,12 +153,12 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     </div>
     <div class="sb-group">
       <div class="sb-group-label">Pessoas</div>
-      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" href="app.html#clientes" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
       <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
     </div>
     <div class="sb-group">
       <div class="sb-group-label">Análise</div>
-      <a class="sb-btn" href="app.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
     </div>
     <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
       <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
@@ -431,7 +431,7 @@ async function loadData(){
   try{
     const [os,cli,mats,cols] = await Promise.all([
       db.get('ordens_servico',q+'&order=created_at.desc&select=*'),
-      db.get('clientes',q+'&order=nome.asc&select=id,nome,telefone,email,cidade,endereco,cpf_cnpj').catch(()=>[]),
+      db.get('clientes',q+'&order=nome.asc&select=*').catch(()=>[]),
       db.get('materiais',q+'&status=eq.Ativo&order=nome.asc&select=id,nome,unidade,custo_compra').catch(()=>[]),
       db.get('colaboradores',q+'&ativo=eq.true&order=nome.asc&select=id,nome,cargo').catch(()=>[]),
     ]);
@@ -449,8 +449,9 @@ async function loadData(){
 // ── SELECTS ──
 function popularSelects(){
   // Clientes
-  const cliOpts='<option value="">Selecionar cliente...</option>'+dados.clientes.map(c=>`<option value="${c.id}" data-nome="${esc(c.nome)}" data-tel="${esc(c.telefone||'')}" data-email="${esc(c.email||'')}" data-cidade="${esc(c.cidade||'')}" data-end="${esc(c.endereco||'')}" data-cpf="${esc(c.cpf_cnpj||'')}">${esc(c.nome)}</option>`).join('');
+  const cliOpts='<option value="">Selecionar cliente...</option>'+(dados.clientes||[]).filter(c=>c.nome).map(c=>`<option value="${c.id}" data-nome="${esc(c.nome||'')}" data-tel="${esc(c.telefone||c.whatsapp||'')}" data-email="${esc(c.email||'')}" data-cidade="${esc(c.cidade||c.cidade_uf||'')}" data-end="${esc(c.endereco||c.endereco_completo||'')}" data-cpf="${esc(c.cpf_cnpj||c.cnpj||c.cpf||'')}">${esc(c.nome)}</option>`).join('');
   if($('osCliente'))$('osCliente').innerHTML=cliOpts;
+  console.log('Clientes carregados:', dados.clientes?.length);
   // Técnicos
   const tecOpts='<option value="">Selecionar...</option>'+dados.colaboradores.map(c=>`<option value="${c.id}">${esc(c.nome)} ${c.cargo?'('+esc(c.cargo)+')':''}</option>`).join('');
   if($('osTecnico'))$('osTecnico').innerHTML=tecOpts;
