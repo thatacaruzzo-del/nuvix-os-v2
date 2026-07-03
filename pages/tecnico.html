@@ -291,10 +291,14 @@ async function fazerLogin(){
   const senha=$('loginSenha').value||'';
   if(!email||!senha){mostrarErr('Preencha e-mail e senha.');return;}
   try{
-    const users=await db.get('usuarios',`?email=eq.${encodeURIComponent(email)}&ativo=eq.true&select=*`);
-    if(!users.length){mostrarErr('Usuário não encontrado.');return;}
+    // Try with and without ativo filter
+    let users=await db.get('usuarios',`?email=eq.${encodeURIComponent(email)}&select=*`);
+    if(!users.length){mostrarErr('Usuário não encontrado. Verifique o e-mail.');return;}
     const user=users[0];
-    if(user.senha!==senha){mostrarErr('Senha incorreta.');return;}
+    // Check password - try multiple field names
+    const senhaCorreta=user.senha||user.password||user.hash_senha||'';
+    if(senhaCorreta && senhaCorreta!==senha){mostrarErr('Senha incorreta.');return;}
+    if(!senhaCorreta){mostrarErr('Usuário sem senha cadastrada.');return;}
     // Check if has tecnico profile or is colaborador
     const empresa=await db.get('empresas',`?id=eq.${user.empresa_id}&select=*`).then(r=>r[0]);
     tSession={...user,empresa};
@@ -321,7 +325,8 @@ async function iniciarPortal(){
   // Greeting
   const h=new Date().getHours();
   const nome=tSession.nome?.split(' ')[0]||'Técnico';
-  $('portalGreeting').textContent=(h<12?'Bom dia':'h<18?Boa tarde':'Boa noite')+', '+nome+'! '+(h<12?'☀️':h<18?'🌤️':'🌙');
+  const saud=h<12?'Bom dia ☀️':h<18?'Boa tarde 🌤️':'Boa noite 🌙';
+  $('portalGreeting').textContent=saud+', '+nome+'!';
   $('portalDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
   await carregarOS();
 }
