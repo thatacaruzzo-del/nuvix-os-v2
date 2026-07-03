@@ -176,7 +176,10 @@ tr:hover td { background: #FAFAFF; }
 .sidebar:hover {
   width: 220px;
 }
-.sidebar::-webkit-scrollbar { display: none; }
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(124,58,237,.4); border-radius: 99px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,.7); }
 
 .sidebar-logo {
   width: 44px; height: 44px;
