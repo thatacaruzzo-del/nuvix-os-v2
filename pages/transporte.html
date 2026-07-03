@@ -57,7 +57,7 @@ function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
-function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+function can(area){const s=getSession();if(!s)return false;return true;}
 </script>
 
 <!-- ══ SIDEBAR NOVA ══ -->
@@ -86,12 +86,12 @@ function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Admini
     </div>
     <div class="sb-group">
       <div class="sb-group-label">Pessoas</div>
-      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" href="app.html#clientes" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
       <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
     </div>
     <div class="sb-group">
       <div class="sb-group-label">Análise</div>
-      <a class="sb-btn" href="app.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
     </div>
     <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
       <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
@@ -355,8 +355,19 @@ async function loadData() {
   try {
     const [op,rot,mot,cli,pag] = await Promise.all([db.get('transporte',q),db.get('rotas',q),db.get('motoristas',q),db.get('clientes',q),db.get('pagamentos_motorista',q)]);
     dados={operacoes:op,rotas:rot,motoristas:mot,clientes:cli,pagamentos:pag};
-    renderTudo();
+    renderTudo(); updateDashboardTransporte();
   } catch(e) { toast('Erro ao carregar: '+e.message,'err'); }
+}
+
+// ── Recalcula tudo após qualquer operação ──
+function updateDashboardTransporte(){
+  try{
+    const op=dados.operacoes||[];
+    const mes=hoje().slice(0,7);
+    const recMes=op.filter(o=>String(o.data_lancamento||'').slice(0,7)===mes).reduce((a,o)=>a+Number(o.receita||0),0);
+    const custMes=op.filter(o=>String(o.data_lancamento||'').slice(0,7)===mes).reduce((a,o)=>a+Number(o.custo||0),0);
+    sessionStorage.setItem('nuvix_transporte_mes',JSON.stringify({receita:recMes,custo:custMes,mes}));
+  }catch(e){}
 }
 
 function renderTudo(){renderKpis();renderOperacoes();renderPPE();renderRotas();renderMotoristas();renderPagamentos();renderPerformance();popularSelects();}
@@ -414,7 +425,20 @@ async function salvarOperacao(){
   }catch(e){msg('opMsg','Erro: '+e.message,'err');}
 }
 function editarOperacao(id){const o=dados.operacoes.find(x=>x.id===id);if(!o)return;$('opId').value=o.id;$('opData').value=o.data_lancamento?String(o.data_lancamento).slice(0,10):'';$('opPPE').value=o.ppe?String(o.ppe).slice(0,10):'';$('opCliente').value=o.cliente_id||'';$('opMotorista').value=o.motorista_id||'';$('opRota').value=o.rota_id||'';$('opOrigem').value=o.origem||'';$('opDestino').value=o.destino||'';$('opReceita').value=o.receita||'';$('opCusto').value=o.custo||'';$('opPeso').value=o.peso||'';$('opNF').value=o.numero_nf||'';$('opStatus').value=o.status||'No prazo';$('opObs').value=o.observacao||'';$('opTitulo').textContent='Editar operação';trTab('operacoes');window.scrollTo({top:0,behavior:'smooth'});}
-async function excluirOperacao(id){if(!confirm('Excluir?'))return;try{await db.delete('transporte',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
+async function excluirOperacao(id){
+  if(!confirm('Excluir esta operação?\n\nOs valores de custo, receita e lucro serão recalculados automaticamente.'))return;
+  try{
+    // Get operation data before deleting (for financeiro cleanup)
+    const op=dados.operacoes.find(x=>x.id===id);
+    await db.delete('transporte',id);
+    // Also remove from financeiro if it was launched there
+    if(op?.financeiro_id){
+      try{await db.delete('financeiro',op.financeiro_id);}catch(e){}
+    }
+    toast('✅ Excluído! Indicadores recalculados.');
+    await loadData(); // Reloads all data and re-renders all KPIs/charts
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
 async function marcarEntregue(id){
   try{
     const op=dados.operacoes.find(x=>x.id===id);
