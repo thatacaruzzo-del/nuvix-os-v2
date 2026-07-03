@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Ordens de Serviço</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+/* ── OS Tabs ── */
+.os-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.os-tabs::-webkit-scrollbar{display:none}
+.os-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.os-tab:hover{color:var(--p)}
+.os-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.os-pane{display:none}.os-pane.active{display:block}
+
+/* ── Status badges ── */
+.st-aberta{background:#EFF6FF;color:#1D4ED8}
+.st-agendada{background:#F5F3FF;color:#6D28D9}
+.st-deslocamento{background:#FEF3C7;color:#92400E}
+.st-atendimento{background:#DCFCE7;color:#166534}
+.st-material{background:#FEE2E2;color:#991B1B}
+.st-pausada{background:#F3F4F6;color:#374151}
+.st-concluida{background:#DCFCE7;color:#166534}
+.st-cancelada{background:#FEE2E2;color:#991B1B}
+
+/* ── OS Card ── */
+.os-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .2s;cursor:pointer}
+.os-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-1px)}
+.os-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.os-numero{font-size:13px;font-weight:800;color:var(--p);letter-spacing:.04em}
+.os-cliente{font-size:15px;font-weight:800;color:var(--txt);margin-top:2px}
+.os-servico{font-size:12px;color:var(--muted);margin-top:2px}
+.os-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.os-meta-item{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.os-meta-item b{color:var(--txt)}
+.prioridade-alta{color:var(--red);font-weight:700}
+.prioridade-urgente{color:#DC2626;font-weight:800;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── Modal OS ── */
+.os-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;overflow-y:auto;padding:20px}
+.os-modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
+.os-modal{background:#fff;border-radius:20px;width:100%;max-width:900px;margin:auto;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.3)}
+.os-modal-header{background:linear-gradient(135deg,#1E0A3C,#7C3AED);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
+.os-modal-title{font-size:18px;font-weight:900}
+.os-modal-body{padding:24px 28px;max-height:80vh;overflow-y:auto}
+.os-modal-footer{padding:16px 28px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.os-section{margin-bottom:20px}
+.os-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--p);margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--p-light);display:flex;align-items:center;gap:8px}
+
+/* ── Timeline ── */
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--line)}
+.timeline-item{position:relative;margin-bottom:16px}
+.timeline-item::before{content:'';position:absolute;left:-20px;top:4px;width:10px;height:10px;background:var(--p);border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px var(--p)}
+.timeline-time{font-size:10px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.timeline-event{font-size:13px;color:var(--txt);font-weight:600}
+.timeline-user{font-size:11px;color:var(--muted)}
+
+/* ── Checklist ── */
+.check-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.check-item:last-child{border-bottom:none}
+.check-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--p);cursor:pointer}
+.check-item label{font-size:13px;font-weight:600;cursor:pointer;flex:1}
+.check-item.done label{text-decoration:line-through;color:var(--muted)}
+
+/* ── Materiais tabela ── */
+.mat-row{display:grid;grid-template-columns:2fr 80px 90px 90px 100px 36px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.mat-row input,.mat-row select{padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;width:100%}
+.mat-row-header{display:grid;grid-template-columns:2fr 80px 90px 90px 100px 36px;gap:8px;padding:6px 0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--line)}
+
+/* ── KPI strip ── */
+.os-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.os-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.os-kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.os-kpi-val{font-size:20px;font-weight:800;color:var(--txt)}
+.os-kpi-sub{font-size:11px;color:var(--muted2);margin-top:2px}
+
+/* ── Assinatura ── */
+#sigCanvas{border:2px dashed var(--line);border-radius:12px;cursor:crosshair;width:100%;touch-action:none}
+
+/* ── Filtros ── */
+.os-filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.os-filtros select,.os-filtros input{padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;max-width:180px}
+
+@media(max-width:900px){
+  .os-kpis{grid-template-columns:repeat(3,1fr)}
+  .mat-row,.mat-row-header{grid-template-columns:1fr 60px 80px 80px 80px 30px}
+  #hambBtn{display:block!important}
+}
+@media(max-width:600px){
+  .os-kpis{grid-template-columns:1fr 1fr}
+  .os-modal-body{padding:16px}
+}
+</style>
+</head>
+<body>
+<script>
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function fmtHora(h){return h?String(h).slice(0,5):'—'}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+function toast(t,type){document.querySelector('.nx-toast')?.remove();const el=document.createElement('div');el.className='nx-toast '+(type||'ok');el.textContent=t;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0'},3000);setTimeout(()=>el.remove(),3400)}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function money2(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+
+const SB='https://quullcxptbiqycyakzlc.supabase.co';
+const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const db={
+  get:async(t,q)=>{const r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()},
+  post:async(t,d)=>{const r=await fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  patch:async(t,id,d)=>{const r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  delete:async(t,id)=>{const r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});if(!r.ok)throw new Error(await r.text());return true},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+</script>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix">
+      <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+    </div>
+    <button class="sidebar-icon-btn" data-tip="Dashboard" onclick="location.href='dashboard.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+    <button class="sidebar-icon-btn" data-tip="Financeiro" onclick="location.href='financeiro.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>
+    <button class="sidebar-icon-btn" data-tip="Materiais" onclick="location.href='materiais.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-icon-btn active" data-tip="Ordens de Serviço" onclick="location.href='os.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button>
+    <button class="sidebar-icon-btn" data-tip="Serviços / Orçamentos" onclick="location.href='servicos.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
+    <button class="sidebar-icon-btn nx-menu-transporte" data-tip="Transporte" style="display:none" onclick="location.href='transporte.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-icon-btn" data-tip="Clientes" onclick="location.href='app.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+    <button class="sidebar-icon-btn" data-tip="RH" onclick="location.href='rh.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></button>
+    <button class="sidebar-icon-btn" data-tip="CRM" onclick="location.href='crm.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-icon-btn" data-tip="Configurações" onclick="location.href='parametros.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <div>
+          <div class="topbar-title">Ordens de Serviço</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+
+      <!-- KPIs -->
+      <div class="os-kpis" id="osKpis"></div>
+
+      <!-- TABS -->
+      <div class="os-tabs">
+        <button class="os-tab active" onclick="osTab('lista',this)">📋 Todas as OS</button>
+        <button class="os-tab" onclick="osTab('hoje',this)">📅 Hoje</button>
+        <button class="os-tab" onclick="osTab('abertas',this)">🔵 Abertas</button>
+        <button class="os-tab" onclick="osTab('andamento',this)">⚡ Em andamento</button>
+        <button class="os-tab" onclick="osTab('concluidas',this)">✅ Concluídas</button>
+        <button class="os-tab" onclick="osTab('nova',this)">➕ Nova OS</button>
+      </div>
+
+      <!-- LISTA -->
+      <div id="pane-lista" class="os-pane active">
+        <div class="os-filtros">
+          <input type="text" id="filtBusca" placeholder="🔍 Buscar OS, cliente..." oninput="renderLista()" style="max-width:240px">
+          <select id="filtStatus" onchange="renderLista()">
+            <option value="">Todos os status</option>
+            <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
+            <option>Em atendimento</option><option>Aguardando material</option>
+            <option>Pausada</option><option>Concluída</option><option>Cancelada</option>
+          </select>
+          <select id="filtPrioridade" onchange="renderLista()">
+            <option value="">Todas prioridades</option>
+            <option>Baixa</option><option>Normal</option><option>Alta</option><option>Urgente</option>
+          </select>
+          <input type="month" id="filtMes" onchange="renderLista()">
+          <button class="btn" onclick="osTab('nova',document.querySelector('.os-tab:last-child'))" style="padding:8px 16px;font-size:13px">+ Nova OS</button>
+        </div>
+        <div id="osLista"></div>
+      </div>
+
+      <!-- HOJE -->
+      <div id="pane-hoje" class="os-pane">
+        <div style="margin-bottom:12px;font-size:13px;color:var(--muted);font-weight:600">📅 OS agendadas para hoje — <b id="dataHoje"></b></div>
+        <div id="osHoje"></div>
+      </div>
+
+      <!-- ABERTAS -->
+      <div id="pane-abertas" class="os-pane">
+        <div id="osAbertas"></div>
+      </div>
+
+      <!-- ANDAMENTO -->
+      <div id="pane-andamento" class="os-pane">
+        <div id="osAndamento"></div>
+      </div>
+
+      <!-- CONCLUIDAS -->
+      <div id="pane-concluidas" class="os-pane">
+        <div id="osConcluidas"></div>
+      </div>
+
+      <!-- NOVA OS -->
+      <div id="pane-nova" class="os-pane">
+        <div class="card">
+          <h2 id="osTitulo">➕ Nova Ordem de Serviço</h2>
+          <input type="hidden" id="osId">
+          <input type="hidden" id="osNumero">
+
+          <!-- DADOS GERAIS -->
+          <div class="os-section">
+            <div class="os-section-title">👤 Cliente</div>
+            <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+              <div class="field"><label>Cliente *</label>
+                <select id="osCliente" onchange="preencherCliente(this)">
+                  <option value="">Selecionar cliente...</option>
+                </select>
+              </div>
+              <div class="field"><label>Nome / Contato</label><input id="osContato" placeholder="Nome do contato"></div>
+              <div class="field"><label>CPF / CNPJ</label><input id="osCpfCnpj" placeholder="000.000.000-00"></div>
+              <div class="field"><label>Telefone</label><input id="osTelefone" placeholder="(11) 99999-9999"></div>
+              <div class="field"><label>E-mail</label><input id="osEmail" type="email" placeholder="email@empresa.com"></div>
+              <div class="field"><label>Cidade</label><input id="osCidade" placeholder="Cidade"></div>
+              <div class="field" style="grid-column:1/-1"><label>Endereço</label><input id="osEndereco" placeholder="Rua, número, bairro..."></div>
+            </div>
+          </div>
+
+          <!-- SERVIÇO -->
+          <div class="os-section">
+            <div class="os-section-title">🔧 Serviço</div>
+            <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+              <div class="field"><label>Serviço *</label><input id="osServico" placeholder="Tipo de serviço"></div>
+              <div class="field"><label>Equipamento</label><input id="osEquipamento" placeholder="Ex: Notebook Dell, Ar-condicionado..."></div>
+              <div class="field"><label>Categoria</label>
+                <select id="osCategoria">
+                  <option>Manutenção</option><option>Instalação</option><option>Reparo</option>
+                  <option>Vistoria</option><option>Consultoria</option><option>Limpeza</option><option>Outros</option>
+                </select>
+              </div>
+              <div class="field"><label>Prioridade</label>
+                <select id="osPrioridade">
+                  <option>Normal</option><option>Baixa</option><option>Alta</option><option>Urgente</option>
+                </select>
+              </div>
+              <div class="field"><label>Status</label>
+                <select id="osStatus">
+                  <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
+                  <option>Em atendimento</option><option>Aguardando material</option>
+                  <option>Pausada</option><option>Concluída</option><option>Cancelada</option>
+                </select>
+              </div>
+              <div class="field"><label>Técnico responsável</label>
+                <select id="osTecnico">
+                  <option value="">Selecionar...</option>
+                </select>
+              </div>
+              <div class="field"><label>Equipe</label><input id="osEquipe" placeholder="Nome da equipe"></div>
+              <div class="field"><label>Data de abertura</label><input id="osDataAbertura" type="date"></div>
+              <div class="field"><label>Data agendada</label><input id="osDataAgendada" type="date"></div>
+              <div class="field"><label>Hora início</label><input id="osHoraInicio" type="time"></div>
+              <div class="field"><label>Hora fim</label><input id="osHoraFim" type="time"></div>
+              <div class="field"><label>Garantia</label><input id="osGarantia" placeholder="Ex: 90 dias, 6 meses..."></div>
+              <div class="field"><label>Valor do serviço (R$)</label><input id="osValorServico" type="number" step="0.01" placeholder="0,00" oninput="calcularTotalOS()"></div>
+            </div>
+          </div>
+
+          <!-- DESCRIÇÃO -->
+          <div class="os-section">
+            <div class="os-section-title">📝 Descrição técnica</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field"><label>Problema informado pelo cliente</label><textarea id="osProblema" rows="3" style="resize:vertical;width:100%" placeholder="Descreva o problema relatado..."></textarea></div>
+              <div class="field"><label>Diagnóstico</label><textarea id="osDiagnostico" rows="3" style="resize:vertical;width:100%" placeholder="Diagnóstico técnico..."></textarea></div>
+              <div class="field"><label>Solução executada</label><textarea id="osSolucao" rows="3" style="resize:vertical;width:100%" placeholder="Solução aplicada..."></textarea></div>
+              <div class="field"><label>Observações técnicas</label><textarea id="osObsTecnica" rows="3" style="resize:vertical;width:100%" placeholder="Observações adicionais..."></textarea></div>
+            </div>
+            <div class="field" style="margin-top:12px"><label>Observações gerais</label><textarea id="osObs" rows="2" style="resize:vertical;width:100%" placeholder="Observações para o cliente..."></textarea></div>
+          </div>
+
+          <!-- MATERIAIS -->
+          <div class="os-section">
+            <div class="os-section-title" style="justify-content:space-between">
+              <span>📦 Materiais utilizados</span>
+              <button class="btn2" onclick="addMatOS()" style="font-size:12px;padding:6px 12px">+ Material</button>
+            </div>
+            <div class="mat-row-header"><span>Material</span><span>Qtd</span><span>Unid.</span><span>Custo unit.</span><span>Total</span><span></span></div>
+            <div id="osMatLista"></div>
+            <div id="osMatTotais" style="display:none;background:var(--p-light);border-radius:10px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;font-weight:700;color:var(--muted)">Total materiais:</span>
+              <span style="font-size:18px;font-weight:800;color:var(--p)" id="osMatTotal">R$ 0,00</span>
+            </div>
+          </div>
+
+          <!-- MÃO DE OBRA -->
+          <div class="os-section">
+            <div class="os-section-title" style="justify-content:space-between">
+              <span>👷 Mão de obra</span>
+              <button class="btn2" onclick="addMaoObraOS()" style="font-size:12px;padding:6px 12px">+ Técnico</button>
+            </div>
+            <div id="osMaoObraLista"></div>
+            <div id="osMaoObraTotais" style="background:var(--p-light);border-radius:10px;padding:12px 16px;margin-top:10px;display:none;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;font-weight:700;color:var(--muted)">Total mão de obra:</span>
+              <span style="font-size:18px;font-weight:800;color:var(--p)" id="osMaoObraTotal">R$ 0,00</span>
+            </div>
+          </div>
+
+          <!-- CHECKLIST -->
+          <div class="os-section">
+            <div class="os-section-title" style="justify-content:space-between">
+              <span>✅ Checklist</span>
+              <button class="btn2" onclick="addCheckOS()" style="font-size:12px;padding:6px 12px">+ Item</button>
+            </div>
+            <div id="osCheckLista"></div>
+          </div>
+
+          <!-- TOTAL GERAL -->
+          <div style="background:linear-gradient(135deg,#1E0A3C,#7C3AED);border-radius:16px;padding:20px 24px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:700">VALOR TOTAL DA OS</div>
+            <div style="font-size:32px;font-weight:900;color:#fff" id="osTotalGeral">R$ 0,00</div>
+          </div>
+
+          <div class="actions" style="margin-top:16px">
+            <button class="btn" onclick="salvarOS()">💾 Salvar OS</button>
+            <button class="btn2" onclick="limparOS()">Limpar</button>
+          </div>
+          <div id="osMsg" class="msg"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHES OS -->
+<div class="os-modal-overlay" id="modalOS">
+  <div class="os-modal">
+    <div class="os-modal-header">
+      <div>
+        <div style="font-size:12px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.08em" id="modalOsNumero">OS-000000</div>
+        <div class="os-modal-title" id="modalOsCliente">—</div>
+        <div style="font-size:13px;opacity:.7;margin-top:2px" id="modalOsServico">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="modalOsStatus" class="badge" style="font-size:13px;padding:6px 14px"></span>
+        <button onclick="fecharModalOS()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px">×</button>
+      </div>
+    </div>
+    <div class="os-modal-body" id="osModalBody"></div>
+    <div class="os-modal-footer">
+      <button class="btn2" onclick="fecharModalOS()">Fechar</button>
+      <button class="btn2" id="modalBtnEditar">✏️ Editar</button>
+      <select id="modalMudarStatus" onchange="mudarStatusOS()" style="padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-weight:700">
+        <option value="">Mudar status...</option>
+        <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
+        <option>Em atendimento</option><option>Aguardando material</option>
+        <option>Pausada</option><option>Concluída</option><option>Cancelada</option>
+      </select>
+      <button class="btn" id="modalBtnConcluir" style="background:var(--green)" onclick="concluirOS()">✅ Concluir OS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){try{const raw=sessionStorage.getItem('nuvix_v2_session');if(raw){const d=JSON.parse(raw);const seg=d.empresa?.segmento||d.empresa?.tipo||'';if(seg==='Transporte'||seg==='Mista')document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');}}catch(e){}})();
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+const session = requireAuth();
+let dados = {os:[],clientes:[],materiais:[],colaboradores:[]};
+let osMatItens = [];
+let osMaoObraItens = [];
+let osCheckItens = [];
+let osAtualId = null;
+
+// ── INIT ──
+async function init(){
+  if(!session)return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · Ordens de Serviço';
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+  }
+  if($('osDataAbertura'))$('osDataAbertura').value=hoje();
+  if($('dataHoje'))$('dataHoje').textContent=fmtData(hoje());
+  await loadData();
+}
+
+// ── LOAD ──
+async function loadData(){
+  if(!session?.empresa_id)return;
+  const q=`?empresa_id=eq.${session.empresa_id}`;
+  try{
+    const [os,cli,mats,cols] = await Promise.all([
+      db.get('ordens_servico',q+'&order=created_at.desc&select=*'),
+      db.get('clientes',q+'&order=nome.asc&select=id,nome,telefone,email,cidade,endereco,cpf_cnpj').catch(()=>[]),
+      db.get('materiais',q+'&status=eq.Ativo&order=nome.asc&select=id,nome,unidade,custo_compra').catch(()=>[]),
+      db.get('colaboradores',q+'&ativo=eq.true&order=nome.asc&select=id,nome,cargo').catch(()=>[]),
+    ]);
+    dados={os,clientes:cli,materiais:mats,colaboradores:cols};
+    popularSelects();
+    renderKpis();
+    renderLista();
+    renderHoje();
+    renderAbertas();
+    renderAndamento();
+    renderConcluidas();
+  }catch(e){toast('Erro ao carregar: '+e.message,'err');}
+}
+
+// ── SELECTS ──
+function popularSelects(){
+  // Clientes
+  const cliOpts='<option value="">Selecionar cliente...</option>'+dados.clientes.map(c=>`<option value="${c.id}" data-nome="${esc(c.nome)}" data-tel="${esc(c.telefone||'')}" data-email="${esc(c.email||'')}" data-cidade="${esc(c.cidade||'')}" data-end="${esc(c.endereco||'')}" data-cpf="${esc(c.cpf_cnpj||'')}">${esc(c.nome)}</option>`).join('');
+  if($('osCliente'))$('osCliente').innerHTML=cliOpts;
+  // Técnicos
+  const tecOpts='<option value="">Selecionar...</option>'+dados.colaboradores.map(c=>`<option value="${c.id}">${esc(c.nome)} ${c.cargo?'('+esc(c.cargo)+')':''}</option>`).join('');
+  if($('osTecnico'))$('osTecnico').innerHTML=tecOpts;
+  // Materiais nos itens
+  renderMatItens();
+}
+
+function preencherCliente(sel){
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt.value)return;
+  if($('osContato'))$('osContato').value=opt.dataset.nome||'';
+  if($('osTelefone'))$('osTelefone').value=opt.dataset.tel||'';
+  if($('osEmail'))$('osEmail').value=opt.dataset.email||'';
+  if($('osCidade'))$('osCidade').value=opt.dataset.cidade||'';
+  if($('osEndereco'))$('osEndereco').value=opt.dataset.end||'';
+  if($('osCpfCnpj'))$('osCpfCnpj').value=opt.dataset.cpf||'';
+}
+
+// ── KPIs ──
+function renderKpis(){
+  const os=dados.os, hj=hoje();
+  const abertas=os.filter(o=>o.status==='Aberta').length;
+  const andamento=os.filter(o=>['Em atendimento','Em deslocamento','Agendada'].includes(o.status||'')).length;
+  const concluidas=os.filter(o=>o.status==='Concluída').length;
+  const canceladas=os.filter(o=>o.status==='Cancelada').length;
+  const fatMes=os.filter(o=>o.status==='Concluída'&&String(o.data_conclusao||o.created_at||'').slice(0,7)===hj.slice(0,7)).reduce((a,o)=>a+Number(o.valor_total||0),0);
+  const ticket=concluidas>0?os.filter(o=>o.status==='Concluída').reduce((a,o)=>a+Number(o.valor_total||0),0)/concluidas:0;
+  const hoje_os=os.filter(o=>String(o.data_agendada||'').slice(0,10)===hj).length;
+  const vencidas=os.filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)<hj&&String(o.data_agendada||'').slice(0,10)).length;
+
+  setHTML('osKpis',[
+    {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'#2563EB'},
+    {lbl:'Em andamento',val:andamento,sub:'em execução',cor:'var(--p)'},
+    {lbl:'Concluídas',val:concluidas,sub:'este mês',cor:'var(--green)'},
+    {lbl:'Faturamento',val:money(fatMes),sub:'mês atual',cor:'var(--p)'},
+    {lbl:'Ticket médio',val:money(ticket),sub:'por OS',cor:'var(--amber)'},
+    {lbl:'Para hoje',val:hoje_os+(vencidas>0?` <span style="color:var(--red);font-size:12px">(${vencidas} venc.)</span>`:''),sub:'agendadas',cor:hoje_os>0?'var(--p)':'var(--muted)'},
+  ].map(k=>`<div class="os-kpi"><div class="os-kpi-lbl">${k.lbl}</div><div class="os-kpi-val" style="color:${k.cor}">${k.val}</div><div class="os-kpi-sub">${k.sub}</div></div>`).join(''));
+}
+
+// ── STATUS BADGE ──
+function statusBadge(status){
+  const map={'Aberta':'st-aberta','Agendada':'st-agendada','Em deslocamento':'st-deslocamento','Em atendimento':'st-atendimento','Aguardando material':'st-material','Pausada':'st-pausada','Concluída':'st-concluida','Cancelada':'st-cancelada'};
+  return`<span class="badge ${map[status]||''}" style="font-size:11px">${status||'—'}</span>`;
+}
+
+function prioridadeBadge(p){
+  if(p==='Urgente')return`<span class="prioridade-urgente">🔴 Urgente</span>`;
+  if(p==='Alta')return`<span class="prioridade-alta">🟠 Alta</span>`;
+  if(p==='Baixa')return`<span style="color:var(--muted);font-size:12px">⚪ Baixa</span>`;
+  return`<span style="color:var(--muted);font-size:12px">🟡 Normal</span>`;
+}
+
+// ── RENDER OS CARD ──
+function renderOsCard(o){
+  const atrasada=!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)<hoje()&&String(o.data_agendada||'').slice(0,10);
+  return`<div class="os-card${atrasada?' '+('border-left:4px solid var(--red)'):''}' onclick="verOS('${o.id}')">
+    <div class="os-card-header">
+      <div>
+        <div class="os-numero">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red);font-size:11px">⚠️ Atrasada</span>':''}</div>
+        <div class="os-cliente">${esc(o.cliente_nome||'—')}</div>
+        <div class="os-servico">${esc(o.servico||'—')} ${o.equipamento?'· '+esc(o.equipamento):''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        ${statusBadge(o.status)}
+        ${prioridadeBadge(o.prioridade)}
+      </div>
+    </div>
+    <div class="os-meta">
+      ${o.tecnico_nome?`<div class="os-meta-item">👷 <b>${esc(o.tecnico_nome)}</b></div>`:''}
+      ${o.data_agendada?`<div class="os-meta-item">📅 <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
+      ${o.valor_total?`<div class="os-meta-item">💰 <b style="color:var(--p)">${money(o.valor_total)}</b></div>`:''}
+      <div class="os-meta-item">🕒 <b>${new Date(o.created_at).toLocaleDateString('pt-BR')}</b></div>
+    </div>
+  </div>`;
+}
+
+// ── RENDER LISTAS ──
+function renderLista(){
+  const busca=val('filtBusca').toLowerCase(), status=val('filtStatus'), prio=val('filtPrioridade'), mes=val('filtMes');
+  let lista=dados.os;
+  if(busca)lista=lista.filter(o=>(o.numero||'').toLowerCase().includes(busca)||(o.cliente_nome||'').toLowerCase().includes(busca)||(o.servico||'').toLowerCase().includes(busca)||(o.cpf_cnpj||'').includes(busca)||(o.telefone||'').includes(busca));
+  if(status)lista=lista.filter(o=>o.status===status);
+  if(prio)lista=lista.filter(o=>o.prioridade===prio);
+  if(mes)lista=lista.filter(o=>String(o.created_at||'').slice(0,7)===mes);
+  setHTML('osLista',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS encontrada.</div>');
+}
+function renderHoje(){const hj=hoje();const lista=dados.os.filter(o=>String(o.data_agendada||'').slice(0,10)===hj);setHTML('osHoje',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS agendada para hoje.</div>');}
+function renderAbertas(){const lista=dados.os.filter(o=>o.status==='Aberta');setHTML('osAbertas',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS aberta.</div>');}
+function renderAndamento(){const lista=dados.os.filter(o=>['Em atendimento','Em deslocamento','Agendada','Aguardando material','Pausada'].includes(o.status||''));setHTML('osAndamento',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS em andamento.</div>');}
+function renderConcluidas(){const lista=dados.os.filter(o=>o.status==='Concluída');setHTML('osConcluidas',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS concluída.</div>');}
+
+// ── VER OS (MODAL) ──
+async function verOS(id){
+  osAtualId=id;
+  const o=dados.os.find(x=>x.id===id);if(!o)return;
+  $('modalOsNumero').textContent=o.numero||'—';
+  $('modalOsCliente').textContent=o.cliente_nome||'—';
+  $('modalOsServico').textContent=(o.servico||'')+(o.equipamento?' · '+o.equipamento:'');
+  $('modalOsStatus').textContent=o.status||'—';
+  $('modalOsStatus').className='badge '+(({'Aberta':'ok','Concluída':'ok','Cancelada':'bad','Em atendimento':'ok'})[o.status]||'');
+  $('modalBtnEditar').onclick=()=>editarOS(id);
+  $('modalBtnConcluir').style.display=o.status==='Concluída'?'none':'block';
+
+  // Load related data
+  const [mats, mo, check, timeline] = await Promise.all([
+    db.get('os_materiais',`?os_id=eq.${id}&order=created_at.asc`).catch(()=>[]),
+    db.get('os_mao_obra',`?os_id=eq.${id}&order=created_at.asc`).catch(()=>[]),
+    db.get('os_checklist',`?os_id=eq.${id}&order=ordem.asc`).catch(()=>[]),
+    db.get('os_timeline',`?os_id=eq.${id}&order=created_at.asc`).catch(()=>[]),
+  ]);
+
+  const totalMat=mats.reduce((a,m)=>a+Number(m.valor_total||0),0);
+  const totalMO=mo.reduce((a,m)=>a+Number(m.total||0),0);
+  const checkDone=check.filter(c=>c.concluido).length;
+
+  setHTML('osModalBody',`
+    <!-- INFO GERAL -->
+    <div class="os-section">
+      <div class="os-section-title">📋 Informações gerais</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Cliente:</span> <b>${esc(o.cliente_nome||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Telefone:</span> <b>${esc(o.telefone||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Serviço:</span> <b>${esc(o.servico||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Equipamento:</span> <b>${esc(o.equipamento||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Técnico:</span> <b>${esc(o.tecnico_nome||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Prioridade:</span> ${prioridadeBadge(o.prioridade)}</div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Agendado:</span> <b>${fmtData(o.data_agendada)} ${o.hora_inicio?'às '+fmtHora(o.hora_inicio):''}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Garantia:</span> <b>${esc(o.garantia||'—')}</b></div>
+        <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line);grid-column:1/-1"><span style="color:var(--muted)">Endereço:</span> <b>${esc(o.endereco||'—')} ${o.cidade?'— '+esc(o.cidade):''}</b></div>
+      </div>
+    </div>
+
+    <!-- DESCRIÇÃO -->
+    ${o.problema_cliente||o.diagnostico||o.solucao?`
+    <div class="os-section">
+      <div class="os-section-title">📝 Descrição técnica</div>
+      ${o.problema_cliente?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Problema do cliente</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.problema_cliente)}</div></div>`:''}
+      ${o.diagnostico?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Diagnóstico</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.diagnostico)}</div></div>`:''}
+      ${o.solucao?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Solução executada</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.solucao)}</div></div>`:''}
+    </div>`:''}
+
+    <!-- MATERIAIS -->
+    ${mats.length?`
+    <div class="os-section">
+      <div class="os-section-title">📦 Materiais (${mats.length} itens)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--p-light)"><th style="padding:8px;text-align:left">Material</th><th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:right">Custo unit.</th><th style="padding:8px;text-align:right">Total</th></tr></thead>
+        <tbody>${mats.map(m=>`<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px">${esc(m.material_nome)}</td><td style="padding:8px;text-align:center">${m.quantidade} ${m.unidade||'UN'}</td><td style="padding:8px;text-align:right">${money(m.custo_unitario)}</td><td style="padding:8px;text-align:right;font-weight:700">${money(m.valor_total)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr style="background:var(--p-light)"><td colspan="3" style="padding:8px;font-weight:700">Total materiais</td><td style="padding:8px;text-align:right;font-weight:800;color:var(--p)">${money(totalMat)}</td></tr></tfoot>
+      </table>
+    </div>`:''}
+
+    <!-- MÃO DE OBRA -->
+    ${mo.length?`
+    <div class="os-section">
+      <div class="os-section-title">👷 Mão de obra</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--p-light)"><th style="padding:8px;text-align:left">Técnico</th><th style="padding:8px;text-align:center">Horas</th><th style="padding:8px;text-align:right">Valor/hora</th><th style="padding:8px;text-align:right">Total</th></tr></thead>
+        <tbody>${mo.map(m=>`<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px">${esc(m.tecnico||'—')}</td><td style="padding:8px;text-align:center">${m.horas}h</td><td style="padding:8px;text-align:right">${money(m.valor_hora)}</td><td style="padding:8px;text-align:right;font-weight:700">${money(m.total)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr style="background:var(--p-light)"><td colspan="3" style="padding:8px;font-weight:700">Total mão de obra</td><td style="padding:8px;text-align:right;font-weight:800;color:var(--p)">${money(totalMO)}</td></tr></tfoot>
+      </table>
+    </div>`:''}
+
+    <!-- CHECKLIST -->
+    ${check.length?`
+    <div class="os-section">
+      <div class="os-section-title">✅ Checklist (${checkDone}/${check.length})</div>
+      <div style="background:var(--bg);border-radius:12px;padding:12px">
+        <div style="height:6px;background:var(--line);border-radius:99px;margin-bottom:12px;overflow:hidden">
+          <div style="height:6px;background:var(--green);border-radius:99px;width:${check.length?Math.round(checkDone/check.length*100):0}%"></div>
+        </div>
+        ${check.map(c=>`<div class="check-item ${c.concluido?'done':''}">
+          <input type="checkbox" ${c.concluido?'checked':''} onchange="toggleCheck('${c.id}',this.checked)">
+          <label>${esc(c.item)}</label>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- TOTAIS -->
+    <div style="background:linear-gradient(135deg,#1E0A3C,#7C3AED);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Serviço</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_servico)}</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_materiais||totalMat)}</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Mão de obra</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_mao_obra||totalMO)}</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Total</div><div style="font-size:24px;font-weight:900;color:#fff">${money(o.valor_total)}</div></div>
+    </div>
+
+    <!-- TIMELINE -->
+    ${timeline.length?`
+    <div class="os-section">
+      <div class="os-section-title">📅 Timeline</div>
+      <div class="timeline">
+        ${timeline.map(t=>`<div class="timeline-item">
+          <div class="timeline-time">${new Date(t.created_at).toLocaleString('pt-BR')}</div>
+          <div class="timeline-event">${esc(t.evento)}</div>
+          ${t.usuario_nome?`<div class="timeline-user">por ${esc(t.usuario_nome)}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+  `);
+
+  $('modalOS').classList.add('open');
+}
+
+function fecharModalOS(){$('modalOS').classList.remove('open');osAtualId=null;}
+$('modalOS').addEventListener('click',function(e){if(e.target===this)fecharModalOS();});
+
+// ── TOGGLE CHECKLIST ──
+async function toggleCheck(id,val){
+  try{
+    await db.patch('os_checklist',id,{concluido:val});
+    if(osAtualId)await verOS(osAtualId);
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── MUDAR STATUS ──
+async function mudarStatusOS(){
+  const novoStatus=val('modalMudarStatus');
+  if(!novoStatus||!osAtualId)return;
+  try{
+    await db.patch('ordens_servico',osAtualId,{status:novoStatus,updated_at:new Date().toISOString()});
+    await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:`Status alterado para: ${novoStatus}`,usuario_nome:session?.nome||''}));
+    toast('Status atualizado!');
+    $('modalMudarStatus').value='';
+    fecharModalOS();
+    await loadData();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── CONCLUIR OS (com integração) ──
+async function concluirOS(){
+  if(!osAtualId)return;
+  const o=dados.os.find(x=>x.id===osAtualId);
+  if(!confirm(`Concluir a OS ${o?.numero}?\n\nIsso irá:\n• Baixar materiais do estoque\n• Lançar receita no financeiro\n• Registrar na timeline`))return;
+  try{
+    // 1. Atualizar status
+    await db.patch('ordens_servico',osAtualId,{status:'Concluída',data_conclusao:hoje(),updated_at:new Date().toISOString()});
+
+    // 2. Baixar materiais do estoque
+    const mats=await db.get('os_materiais',`?os_id=eq.${osAtualId}`).catch(()=>[]);
+    for(const m of mats){
+      if(!m.material_id)continue;
+      try{
+        const matAtual=await db.get('materiais',`?id=eq.${m.material_id}&select=estoque_atual`);
+        if(matAtual.length){
+          const novoEstoque=Math.max(0,Number(matAtual[0].estoque_atual||0)-Number(m.quantidade||0));
+          await db.patch('materiais',m.material_id,{estoque_atual:novoEstoque,updated_at:new Date().toISOString()});
+          await db.post('material_movimentacoes',withEmpresa({
+            material_id:m.material_id,material_nome:m.material_nome,
+            tipo:'saida',quantidade:m.quantidade,
+            estoque_anterior:Number(matAtual[0].estoque_atual||0),
+            estoque_posterior:novoEstoque,
+            custo_unitario:m.custo_unitario,
+            valor_total:m.valor_total,
+            motivo:'Ordem de Serviço concluída',
+            os_numero:o?.numero||osAtualId.slice(0,8),
+            usuario_nome:session?.nome||null
+          }));
+        }
+      }catch(e){console.warn('Erro ao baixar material:',e.message);}
+    }
+
+    // 3. Lançar receita no financeiro
+    await db.post('financeiro',withEmpresa({
+      tipo:'Receita',
+      categoria:'Serviços',
+      descricao:`OS ${o?.numero||''} — ${o?.cliente_nome||''} — ${o?.servico||''}`,
+      valor:Number(o?.valor_total||0),
+      data_lancamento:hoje(),
+      vencimento:hoje(),
+      status:'Pendente',
+      forma_pagamento:'A combinar',
+      centro_custo:'Serviços',
+      favorecido:o?.cliente_nome||null,
+      observacao:`Ordem de Serviço ${o?.numero} concluída`,
+    }));
+
+    // 4. Registrar na timeline
+    await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:'✅ OS Concluída — Estoque atualizado e receita lançada no financeiro',usuario_nome:session?.nome||''}));
+
+    toast('✅ OS concluída! Estoque baixado e receita lançada no financeiro.');
+    fecharModalOS();
+    await loadData();
+  }catch(e){toast('Erro ao concluir: '+e.message,'err');}
+}
+
+// ── MATERIAIS DA OS (formulário) ──
+function addMatOS(){
+  osMatItens.push({material_id:'',material_nome:'',quantidade:1,unidade:'UN',custo_unitario:0,valor_total:0});
+  renderMatItens();
+}
+function remMatOS(i){osMatItens.splice(i,1);renderMatItens();}
+function renderMatItens(){
+  const el=$('osMatLista');if(!el)return;
+  if(!osMatItens.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nenhum material. Clique em "+ Material"</div>';if($('osMatTotais'))$('osMatTotais').style.display='none';return;}
+  el.innerHTML=osMatItens.map((m,i)=>`
+    <div class="mat-row">
+      <select onchange="selMatOS(${i},this)" style="font-size:12px">
+        <option value="">Selecionar...</option>
+        ${dados.materiais.map(mat=>`<option value="${mat.id}" data-custo="${mat.custo_compra||0}" data-un="${mat.unidade||'UN'}" ${m.material_id===mat.id?'selected':''}>${esc(mat.nome)}</option>`).join('')}
+      </select>
+      <input type="number" value="${m.quantidade}" min="0.001" step="0.001" onchange="updMatOS(${i},'quantidade',this.value)" style="text-align:center">
+      <input type="text" value="${m.unidade}" onchange="updMatOS(${i},'unidade',this.value)">
+      <input type="number" value="${m.custo_unitario}" step="0.01" onchange="updMatOS(${i},'custo_unitario',this.value)">
+      <div style="font-size:13px;font-weight:700;color:var(--p);padding:6px">${money(m.valor_total)}</div>
+      <button onclick="remMatOS(${i})" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button>
+    </div>`).join('');
+  calcularTotalOS();
+  if($('osMatTotais'))$('osMatTotais').style.display='flex';
+}
+function selMatOS(i,sel){
+  if(!sel.value)return;
+  const opt=sel.options[sel.selectedIndex];
+  osMatItens[i]={...osMatItens[i],material_id:sel.value,material_nome:opt.text,unidade:opt.dataset.un||'UN',custo_unitario:Number(opt.dataset.custo||0)};
+  osMatItens[i].valor_total=osMatItens[i].quantidade*osMatItens[i].custo_unitario;
+  renderMatItens();
+}
+function updMatOS(i,campo,v){
+  osMatItens[i][campo]=campo==='unidade'?v:Number(v)||0;
+  osMatItens[i].valor_total=osMatItens[i].quantidade*osMatItens[i].custo_unitario;
+  calcularTotalOS();
+}
+
+// ── MÃO DE OBRA (formulário) ──
+function addMaoObraOS(){
+  osMaoObraItens.push({tecnico:'',horas:0,valor_hora:0,total:0});
+  renderMaoObraItens();
+}
+function remMaoObraOS(i){osMaoObraItens.splice(i,1);renderMaoObraItens();}
+function renderMaoObraItens(){
+  const el=$('osMaoObraLista');if(!el)return;
+  if(!osMaoObraItens.length){el.innerHTML='<div style="text-align:center;padding:12px;color:var(--muted);font-size:13px">Nenhum técnico. Clique em "+ Técnico"</div>';if($('osMaoObraTotais'))$('osMaoObraTotais').style.display='none';return;}
+  el.innerHTML=osMaoObraItens.map((m,i)=>`
+    <div style="display:grid;grid-template-columns:2fr 80px 100px 100px 36px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+      <input type="text" value="${esc(m.tecnico)}" placeholder="Nome do técnico" onchange="updMOOS(${i},'tecnico',this.value)" style="padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px">
+      <input type="number" value="${m.horas}" step="0.5" placeholder="Horas" onchange="updMOOS(${i},'horas',this.value)" style="padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;text-align:center">
+      <input type="number" value="${m.valor_hora}" step="0.01" placeholder="R$/hora" onchange="updMOOS(${i},'valor_hora',this.value)" style="padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--p);padding:6px">${money(m.total)}</div>
+      <button onclick="remMaoObraOS(${i})" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button>
+    </div>`).join('');
+  calcularTotalOS();
+  if($('osMaoObraTotais'))$('osMaoObraTotais').style.display='flex';
+}
+function updMOOS(i,campo,v){
+  osMaoObraItens[i][campo]=campo==='tecnico'?v:Number(v)||0;
+  osMaoObraItens[i].total=osMaoObraItens[i].horas*osMaoObraItens[i].valor_hora;
+  calcularTotalOS();
+}
+
+// ── CHECKLIST (formulário) ──
+function addCheckOS(){
+  const item=prompt('Item do checklist:');
+  if(!item)return;
+  osCheckItens.push({item,concluido:false,ordem:osCheckItens.length});
+  renderCheckItens();
+}
+function renderCheckItens(){
+  const el=$('osCheckLista');if(!el)return;
+  if(!osCheckItens.length){el.innerHTML='<div style="text-align:center;padding:12px;color:var(--muted);font-size:13px">Nenhum item. Clique em "+ Item"</div>';return;}
+  el.innerHTML=osCheckItens.map((c,i)=>`
+    <div class="check-item ${c.concluido?'done':''}">
+      <input type="checkbox" ${c.concluido?'checked':''} onchange="osCheckItens[${i}].concluido=this.checked">
+      <label>${esc(c.item)}</label>
+      <button onclick="osCheckItens.splice(${i},1);renderCheckItens()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">×</button>
+    </div>`).join('');
+}
+
+// ── CALCULAR TOTAL ──
+function calcularTotalOS(){
+  const totalMat=osMatItens.reduce((a,m)=>a+Number(m.valor_total||0),0);
+  const totalMO=osMaoObraItens.reduce((a,m)=>a+Number(m.total||0),0);
+  const valorServico=num('osValorServico');
+  const total=valorServico+totalMat+totalMO;
+  if($('osMatTotal'))$('osMatTotal').textContent=money(totalMat);
+  if($('osMaoObraTotal'))$('osMaoObraTotal').textContent=money(totalMO);
+  if($('osTotalGeral'))$('osTotalGeral').textContent=money(total);
+}
+
+// ── SALVAR OS ──
+async function salvarOS(){
+  const cliente=val('osCliente'), servico=val('osServico').trim();
+  if(!cliente&&!val('osContato').trim()){toast('Informe o cliente.','err');return;}
+  if(!servico){toast('Informe o serviço.','err');return;}
+  const id=val('osId');
+  const totalMat=osMatItens.reduce((a,m)=>a+Number(m.valor_total||0),0);
+  const totalMO=osMaoObraItens.reduce((a,m)=>a+Number(m.total||0),0);
+  const valorServico=num('osValorServico');
+  const total=valorServico+totalMat+totalMO;
+  const tecOpt=$('osTecnico').options[$('osTecnico').selectedIndex];
+  const cliOpt=$('osCliente').options[$('osCliente').selectedIndex];
+
+  const payload=withEmpresa({
+    cliente_id:cliente||null,
+    cliente_nome:cliOpt?.value?cliOpt.text:val('osContato').trim(),
+    contato:val('osContato').trim(),
+    cpf_cnpj:val('osCpfCnpj').trim()||null,
+    telefone:val('osTelefone').trim()||null,
+    email:val('osEmail').trim()||null,
+    endereco:val('osEndereco').trim()||null,
+    cidade:val('osCidade').trim()||null,
+    servico,
+    equipamento:val('osEquipamento').trim()||null,
+    categoria:val('osCategoria'),
+    prioridade:val('osPrioridade'),
+    status:val('osStatus'),
+    tecnico_id:$('osTecnico').value||null,
+    tecnico_nome:$('osTecnico').value?tecOpt?.text?.split('(')[0].trim():null,
+    equipe:val('osEquipe').trim()||null,
+    data_abertura:val('osDataAbertura')||hoje(),
+    data_agendada:val('osDataAgendada')||null,
+    hora_inicio:val('osHoraInicio')||null,
+    hora_fim:val('osHoraFim')||null,
+    garantia:val('osGarantia').trim()||null,
+    problema_cliente:val('osProblema').trim()||null,
+    diagnostico:val('osDiagnostico').trim()||null,
+    solucao:val('osSolucao').trim()||null,
+    obs_tecnica:val('osObsTecnica').trim()||null,
+    observacoes:val('osObs').trim()||null,
+    valor_servico:valorServico,
+    valor_materiais:totalMat,
+    valor_mao_obra:totalMO,
+    valor_total:total,
+    numero:id?val('osNumero'):null,
+    updated_at:new Date().toISOString(),
+  });
+
+  try{
+    let osId=id;
+    if(id){
+      await db.patch('ordens_servico',id,payload);
+    } else {
+      const res=await db.post('ordens_servico',payload);
+      osId=Array.isArray(res)?res[0]?.id:res?.id;
+    }
+
+    // Salvar materiais
+    if(osId&&osMatItens.length){
+      const existing=await db.get('os_materiais',`?os_id=eq.${osId}`).catch(()=>[]);
+      for(const e of existing)await db.delete('os_materiais',e.id).catch(()=>{});
+      for(const m of osMatItens){
+        if(!m.material_nome)continue;
+        await db.post('os_materiais',withEmpresa({os_id:osId,material_id:m.material_id||null,material_nome:m.material_nome,quantidade:m.quantidade,unidade:m.unidade,custo_unitario:m.custo_unitario,valor_total:m.valor_total}));
+      }
+    }
+
+    // Salvar mão de obra
+    if(osId&&osMaoObraItens.length){
+      const existing=await db.get('os_mao_obra',`?os_id=eq.${osId}`).catch(()=>[]);
+      for(const e of existing)await db.delete('os_mao_obra',e.id).catch(()=>{});
+      for(const m of osMaoObraItens){
+        if(!m.tecnico)continue;
+        await db.post('os_mao_obra',withEmpresa({os_id:osId,tecnico:m.tecnico,horas:m.horas,valor_hora:m.valor_hora,total:m.total}));
+      }
+    }
+
+    // Salvar checklist
+    if(osId&&osCheckItens.length){
+      const existing=await db.get('os_checklist',`?os_id=eq.${osId}`).catch(()=>[]);
+      for(const e of existing)await db.delete('os_checklist',e.id).catch(()=>{});
+      for(const c of osCheckItens){
+        await db.post('os_checklist',withEmpresa({os_id:osId,item:c.item,concluido:c.concluido,ordem:c.ordem}));
+      }
+    }
+
+    // Timeline
+    if(osId){
+      await db.post('os_timeline',withEmpresa({os_id:osId,evento:id?'OS editada':'OS criada',usuario_nome:session?.nome||''}));
+    }
+
+    toast(id?'✅ OS atualizada!':'✅ OS criada com sucesso!');
+    limparOS();
+    await loadData();
+    osTab('lista',document.querySelector('.os-tab'));
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── EDITAR OS ──
+function editarOS(id){
+  const o=dados.os.find(x=>x.id===id);if(!o)return;
+  fecharModalOS();
+  $('osId').value=o.id;
+  $('osNumero').value=o.numero||'';
+  if($('osCliente'))$('osCliente').value=o.cliente_id||'';
+  ['osContato','osTelefone','osEmail','osCidade','osEndereco','osCpfCnpj',
+   'osServico','osEquipamento','osEquipe','osGarantia','osProblema',
+   'osDiagnostico','osSolucao','osObsTecnica','osObs'].forEach(fid=>{
+    const campo=fid.replace('os','').replace(/^./,c=>c.toLowerCase());
+    const fieldMap={osContato:'contato',osTelefone:'telefone',osEmail:'email',osCidade:'cidade',osEndereco:'endereco',osCpfCnpj:'cpf_cnpj',osServico:'servico',osEquipamento:'equipamento',osEquipe:'equipe',osGarantia:'garantia',osProblema:'problema_cliente',osDiagnostico:'diagnostico',osSolucao:'solucao',osObsTecnica:'obs_tecnica',osObs:'observacoes'};
+    if($(fid))$(fid).value=o[fieldMap[fid]]||'';
+  });
+  if($('osCategoria'))$('osCategoria').value=o.categoria||'Manutenção';
+  if($('osPrioridade'))$('osPrioridade').value=o.prioridade||'Normal';
+  if($('osStatus'))$('osStatus').value=o.status||'Aberta';
+  if($('osTecnico'))$('osTecnico').value=o.tecnico_id||'';
+  if($('osDataAbertura'))$('osDataAbertura').value=o.data_abertura?String(o.data_abertura).slice(0,10):'';
+  if($('osDataAgendada'))$('osDataAgendada').value=o.data_agendada?String(o.data_agendada).slice(0,10):'';
+  if($('osHoraInicio'))$('osHoraInicio').value=fmtHora(o.hora_inicio);
+  if($('osHoraFim'))$('osHoraFim').value=fmtHora(o.hora_fim);
+  if($('osValorServico'))$('osValorServico').value=o.valor_servico||0;
+  $('osTitulo').textContent='✏️ Editar OS — '+(o.numero||'');
+  osMatItens=[];osMaoObraItens=[];osCheckItens=[];
+  // Load items async
+  Promise.all([
+    db.get('os_materiais',`?os_id=eq.${id}&order=created_at.asc`).then(mats=>{osMatItens=mats.map(m=>({...m}));renderMatItens();}),
+    db.get('os_mao_obra',`?os_id=eq.${id}&order=created_at.asc`).then(mo=>{osMaoObraItens=mo.map(m=>({...m}));renderMaoObraItens();}),
+    db.get('os_checklist',`?os_id=eq.${id}&order=ordem.asc`).then(ch=>{osCheckItens=ch.map(c=>({...c}));renderCheckItens();}),
+  ]).catch(e=>console.warn(e));
+  osTab('nova',document.querySelector('.os-tab:last-child'));
+  document.querySelector('.main-scroll').scrollTop=0;
+}
+
+// ── LIMPAR OS ──
+function limparOS(){
+  ['osId','osNumero','osContato','osTelefone','osEmail','osCidade','osEndereco','osCpfCnpj',
+   'osServico','osEquipamento','osEquipe','osGarantia','osProblema','osDiagnostico',
+   'osSolucao','osObsTecnica','osObs','osValorServico'].forEach(id=>{if($(id))$(id).value='';});
+  if($('osCliente'))$('osCliente').value='';
+  if($('osCategoria'))$('osCategoria').value='Manutenção';
+  if($('osPrioridade'))$('osPrioridade').value='Normal';
+  if($('osStatus'))$('osStatus').value='Aberta';
+  if($('osTecnico'))$('osTecnico').value='';
+  if($('osDataAbertura'))$('osDataAbertura').value=hoje();
+  if($('osDataAgendada'))$('osDataAgendada').value='';
+  if($('osHoraInicio'))$('osHoraInicio').value='';
+  if($('osHoraFim'))$('osHoraFim').value='';
+  osMatItens=[];osMaoObraItens=[];osCheckItens=[];
+  renderMatItens();renderMaoObraItens();renderCheckItens();
+  if($('osTitulo'))$('osTitulo').textContent='➕ Nova Ordem de Serviço';
+  if($('osTotalGeral'))$('osTotalGeral').textContent='R$ 0,00';
+}
+
+// ── TABS ──
+function osTab(id,btn){
+  document.querySelectorAll('.os-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.os-tab').forEach(b=>b.classList.remove('active'));
+  const pane=$('pane-'+id);if(pane)pane.classList.add('active');
+  if(btn)btn.classList.add('active');
+  document.querySelector('.main-scroll').scrollTop=0;
+}
+
+init();
+</script>
+</body>
+</html>
