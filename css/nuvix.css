@@ -163,16 +163,18 @@ tr:hover td { background: #FAFAFF; }
   border-right: 1px solid rgba(124,58,237,.2);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0 0 12px;
+  align-items: stretch;
+  padding: 0 0 24px;
   z-index: 100;
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: overlay;
   scrollbar-width: none;
   transition: width .25s cubic-bezier(.4,0,.2,1);
+  height: 100vh;
 }
 .sidebar:hover {
   width: 200px;
+  overflow-y: auto;
 }
 .sidebar::-webkit-scrollbar { display: none; }
 
