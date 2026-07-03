@@ -203,6 +203,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <button class="portal-tab active" onclick="portalTab('hoje',this)">📅 Hoje</button>
     <button class="portal-tab" onclick="portalTab('minhas',this)">📋 Minhas OS</button>
     <button class="portal-tab" onclick="portalTab('concluidas',this)">✅ Concluídas</button>
+    <button class="portal-tab" onclick="portalTab('relatorio',this)">📊 Meu Relatório</button>
   </div>
 
   <div id="pane-hoje" class="portal-pane active">
@@ -213,6 +214,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
   <div id="pane-concluidas" class="portal-pane">
     <div id="listaConcluidas"></div>
+  </div>
+  <div id="pane-relatorio" class="portal-pane">
+    <div id="listaRelatorio"></div>
   </div>
 </div>
 
@@ -338,20 +342,23 @@ async function carregarOS(){
     // Load OS assigned to this technician
     const q=`?empresa_id=eq.${tSession.empresa_id}&order=data_agendada.asc,created_at.desc`;
     let os=await db.get('ordens_servico',q);
-    // Filter by tecnico_nome or tecnico_id matching current user
+    // Filter by tecnico_id or tecnico_nome
+    const nomePartes=(tSession.nome||'').toLowerCase().split(' ');
     minhasOS=os.filter(o=>{
       if(o.tecnico_id===tSession.id)return true;
-      if((o.tecnico_nome||'').toLowerCase().includes((tSession.nome||'').toLowerCase().split(' ')[0]))return true;
+      const nTec=(o.tecnico_nome||'').toLowerCase();
+      if(nomePartes.some(p=>p.length>2&&nTec.includes(p)))return true;
       return false;
     });
-    // If no OS assigned to tech, show all non-concluded (admin view fallback)
-    if(!minhasOS.length&&(tSession.perfil==='Administrador'||tSession.perfil==='SuperAdmin')){
-      minhasOS=os.filter(o=>!['Concluída','Cancelada'].includes(o.status||''));
+    // Fallback: admin ou sem OS atribuída → mostra todas
+    if(!minhasOS.length){
+      minhasOS=os; // mostra todas para teste/admin
     }
     renderStats();
     renderHoje();
     renderMinhas();
     renderConcluidas();
+    renderRelatorio();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
 
@@ -398,6 +405,54 @@ function renderMinhas(){
 function renderConcluidas(){
   const lista=minhasOS.filter(o=>o.status==='Concluída').slice(0,20);
   $('listaConcluidas').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma OS concluída</div><div class="empty-sub">As concluídas aparecerão aqui</div></div>`;
+}
+
+function renderRelatorio(){
+  const total=minhasOS.length;
+  const concluidas=minhasOS.filter(o=>o.status==='Concluída');
+  const abertas=minhasOS.filter(o=>!['Concluída','Cancelada'].includes(o.status||''));
+  const faturamento=concluidas.reduce((a,o)=>a+Number(o.valor_total||0),0);
+  const mes=new Date().toISOString().slice(0,7);
+  const doMes=concluidas.filter(o=>String(o.data_conclusao||o.created_at||'').slice(0,7)===mes);
+  const fatMes=doMes.reduce((a,o)=>a+Number(o.valor_total||0),0);
+  const ticket=concluidas.length?faturamento/concluidas.length:0;
+
+  $('listaRelatorio').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div class="stat-card" style="text-align:left;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Total de OS</div>
+        <div style="font-size:28px;font-weight:900;color:var(--p)">${total}</div>
+        <div style="font-size:12px;color:var(--muted)">${abertas.length} em aberto</div>
+      </div>
+      <div class="stat-card" style="text-align:left;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Concluídas</div>
+        <div style="font-size:28px;font-weight:900;color:var(--green)">${concluidas.length}</div>
+        <div style="font-size:12px;color:var(--muted)">${doMes.length} este mês</div>
+      </div>
+      <div class="stat-card" style="text-align:left;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Faturamento mês</div>
+        <div style="font-size:22px;font-weight:900;color:var(--p)">${faturamento.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+        <div style="font-size:12px;color:var(--muted)">mês atual: ${fatMes.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+      </div>
+      <div class="stat-card" style="text-align:left;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Ticket médio</div>
+        <div style="font-size:22px;font-weight:900;color:var(--amber)">${ticket.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+        <div style="font-size:12px;color:var(--muted)">por OS concluída</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--p);margin-bottom:12px;letter-spacing:.06em">Últimas OS concluídas</div>
+      ${concluidas.slice(0,10).map(o=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+          <div>
+            <div style="font-size:13px;font-weight:700">${esc(o.numero||'—')} — ${esc(o.cliente_nome||'—')}</div>
+            <div style="font-size:12px;color:var(--muted)">${esc(o.servico||'—')} · ${o.data_conclusao?new Date(o.data_conclusao+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+          </div>
+          <div style="font-size:14px;font-weight:800;color:var(--green)">${Number(o.valor_total||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+        </div>`).join('')}
+      ${!concluidas.length?'<div style="text-align:center;padding:20px;color:var(--muted)">Nenhuma OS concluída ainda</div>':''}
+    </div>`;
 }
 
 // ── ABRIR OS ──
