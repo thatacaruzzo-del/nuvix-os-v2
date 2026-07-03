@@ -228,9 +228,11 @@ init();
     const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
     const isMista = seg.includes('mista') || (!isTransporte && !isServico);
 
-    // Hide all dynamic groups (keep logo and config)
+    // Remove all dynamic groups (keep logo and config which has margin-top:auto)
     nav.querySelectorAll('.sb-group').forEach(g => {
-      if(!g.style.marginTop) g.style.display = 'none';
+      if(!g.getAttribute('style') || !g.getAttribute('style').includes('margin-top:auto')) {
+        g.remove();
+      }
     });
 
     // Build groups based on segment
