@@ -554,7 +554,13 @@ async function verOS(id){
   $('modalOsStatus').textContent=o.status||'—';
   $('modalOsStatus').className='badge '+(({'Aberta':'ok','Concluída':'ok','Cancelada':'bad','Em atendimento':'ok'})[o.status]||'');
   $('modalBtnEditar').onclick=()=>editarOS(id);
-  $('modalBtnConcluir').style.display=o.status==='Concluída'?'none':'block';
+  // Concluir — só aparece se não estiver concluída/cancelada
+  const jaFinalizada=['Concluída','Cancelada'].includes(o.status||'');
+  $('modalBtnConcluir').style.display=jaFinalizada?'none':'block';
+  // Reabrir — só aparece se estiver concluída ou cancelada
+  if($('modalBtnReabrir'))$('modalBtnReabrir').style.display=jaFinalizada?'block':'none';
+  // Excluir — sempre visível
+  if($('modalBtnExcluir'))$('modalBtnExcluir').style.display='block';
 
   // Load related data
   const [mats, mo, check, timeline] = await Promise.all([
@@ -657,6 +663,47 @@ async function verOS(id){
 }
 
 function fecharModalOS(){$('modalOS').classList.remove('open');osAtualId=null;}
+
+// ── REABRIR OS ──
+async function reabrirOS(){
+  if(!osAtualId)return;
+  const o=dados.os.find(x=>x.id===osAtualId);
+  if(!confirm(`Reabrir a ${o?.numero}?\n\nO status voltará para "Aberta".\nObs: o estoque NÃO será revertido automaticamente.`))return;
+  try{
+    await db.patch('ordens_servico',osAtualId,{
+      status:'Aberta',
+      data_conclusao:null,
+      updated_at:new Date().toISOString()
+    });
+    await db.post('os_timeline',withEmpresa({
+      os_id:osAtualId,
+      evento:`↩️ OS reaberta pelo administrador (estava: ${o?.status})`,
+      usuario_nome:session?.nome||''
+    }));
+    toast('↩️ OS reaberta com sucesso!');
+    fecharModalOS();
+    await loadData();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── EXCLUIR OS (do modal) ──
+async function excluirOSModal(){
+  if(!osAtualId)return;
+  const o=dados.os.find(x=>x.id===osAtualId);
+  if(!confirm(`⚠️ ATENÇÃO!\n\nExcluir permanentemente a ${o?.numero}?\n\nIsso NÃO pode ser desfeito.\nTodos os dados desta OS serão perdidos.`))return;
+  if(!confirm(`Confirmar exclusão de ${o?.numero} — ${o?.cliente_nome}?`))return;
+  try{
+    // Delete related records first
+    await db.get('os_materiais',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_materiais',i.id).catch(()=>{});}).catch(()=>{});
+    await db.get('os_mao_obra',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_mao_obra',i.id).catch(()=>{});}).catch(()=>{});
+    await db.get('os_checklist',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_checklist',i.id).catch(()=>{});}).catch(()=>{});
+    await db.get('os_timeline',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_timeline',i.id).catch(()=>{});}).catch(()=>{});
+    await db.delete('ordens_servico',osAtualId);
+    toast('🗑️ OS excluída permanentemente.');
+    fecharModalOS();
+    await loadData();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
+}
 $('modalOS').addEventListener('click',function(e){if(e.target===this)fecharModalOS();});
 
 // ── TOGGLE CHECKLIST ──
