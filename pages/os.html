@@ -508,7 +508,7 @@ function prioridadeBadge(p){
 // ── RENDER OS CARD ──
 function renderOsCard(o){
   const atrasada=!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)<hoje()&&String(o.data_agendada||'').slice(0,10);
-  return`<div class="os-card${atrasada?' '+('border-left:4px solid var(--red)'):''}' onclick="verOS('${o.id}')">
+  return`<div class="os-card" style="${atrasada?'border-left:4px solid var(--red);':''}" onclick="verOS('${o.id}')">
     <div class="os-card-header">
       <div>
         <div class="os-numero">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red);font-size:11px">⚠️ Atrasada</span>':''}</div>
