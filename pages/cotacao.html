@@ -196,7 +196,7 @@ function imprimir(){
   if(!cotAtual){calcular();if(!cotAtual)return;}
   const emp=session?.empresa;
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotação</title><style>body{font-family:Arial,sans-serif;padding:40px;max-width:680px;margin:0 auto}.empresa{font-size:22px;font-weight:900;color:#7C3AED}.valor-box{background:linear-gradient(135deg,#3b0f8a,#7C3AED);color:#fff;border-radius:16px;padding:24px;text-align:center;margin:20px 0}.valor-box .v{font-size:36px;font-weight:900}.linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee;font-size:14px}.total{display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:900;color:#7C3AED}@media print{button{display:none}}</style><script src="../js/nuvix-logs.js"></script>
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotação</title><style>body{font-family:Arial,sans-serif;padding:40px;max-width:680px;margin:0 auto}.empresa{font-size:22px;font-weight:900;color:#7C3AED}.valor-box{background:linear-gradient(135deg,#3b0f8a,#7C3AED);color:#fff;border-radius:16px;padding:24px;text-align:center;margin:20px 0}.valor-box .v{font-size:36px;font-weight:900}.linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee;font-size:14px}.total{display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:900;color:#7C3AED}@media print{button{display:none}}</style><script src="../js/nuvix-logs.js"><\/script>
 </head><body><div style="display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #7C3AED;margin-bottom:24px"><div><div class="empresa">${esc(emp?.fantasia||emp?.razao||'Nuvix')}</div><div style="color:#666;font-size:13px">${esc(emp?.cidade||'')}</div></div><div style="text-align:right;font-size:12px;color:#888">Data: ${new Date().toLocaleDateString('pt-BR')}<br>Válida até: ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div></div><h2>Cotação de Frete</h2><p style="color:#666">${esc(cotAtual.origem)} → ${esc(cotAtual.destino)} · ${cotAtual.km} km</p><div class="valor-box"><div style="font-size:12px;opacity:.8;text-transform:uppercase;margin-bottom:8px">Valor total do frete</div><div class="v">${money(cotAtual.valor_frete)}</div></div>${cotAtual.solicitante?`<div style="background:#f9f7ff;border-radius:12px;padding:16px;margin-bottom:16px"><b>Solicitante:</b> ${esc(cotAtual.solicitante)}${cotAtual.telefone?' · '+esc(cotAtual.telefone):''}${cotAtual.email?' · '+esc(cotAtual.email):''}</div>`:''}<div class="linha"><span>Frete base</span><b>${money(cotAtual.custo_total-cotAtual.pedagio)}</b></div>${cotAtual.pedagio>0?`<div class="linha"><span>Pedágio</span><b>${money(cotAtual.pedagio)}</b></div>`:''}<div class="total"><span>Total</span><b>${money(cotAtual.valor_frete)}</b></div><p style="color:#888;font-size:12px;margin-top:16px">⏰ Válida até ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</p><br><button onclick="window.print()" style="background:#7C3AED;color:#fff;border:none;padding:12px 24px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir</button><script>
 // ── Sidebar dinâmica por segmento ──
 (function(){
@@ -216,9 +216,11 @@ function imprimir(){
     const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
     const isMista = seg.includes('mista') || (!isTransporte && !isServico);
 
-    // Hide all dynamic groups (keep logo and config)
+    // Remove all dynamic groups (keep logo and config which has margin-top:auto)
     nav.querySelectorAll('.sb-group').forEach(g => {
-      if(!g.style.marginTop) g.style.display = 'none';
+      if(!g.getAttribute('style') || !g.getAttribute('style').includes('margin-top:auto')) {
+        g.remove();
+      }
     });
 
     // Build groups based on segment
@@ -277,7 +279,7 @@ function imprimir(){
 
   }catch(e){ console.warn('Sidebar error:', e); }
 })();
-</script>
+<\/script>
 </body></html>`);win.document.close();
 }
 carregarRotas();
@@ -366,9 +368,11 @@ carregarMateriaisCot();
     const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
     const isMista = seg.includes('mista') || (!isTransporte && !isServico);
 
-    // Hide all dynamic groups (keep logo and config)
+    // Remove all dynamic groups (keep logo and config which has margin-top:auto)
     nav.querySelectorAll('.sb-group').forEach(g => {
-      if(!g.style.marginTop) g.style.display = 'none';
+      if(!g.getAttribute('style') || !g.getAttribute('style').includes('margin-top:auto')) {
+        g.remove();
+      }
     });
 
     // Build groups based on segment
