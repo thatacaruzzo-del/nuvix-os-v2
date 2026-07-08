@@ -89,7 +89,7 @@ async function deleteRow(table,id,area){if(!can(area)){toast('Sem permissão.','
   <div class="main-content" id="mainContent">
     <div class="topbar">
       <div class="topbar-left">
-        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
           <div class="topbar-title"><span id="topbarTitle">Nuvix</span></div>
           <div class="topbar-breadcrumb" id="topbarSub"></div>
@@ -323,7 +323,7 @@ async function salvarEmpresa(){
   if(!can('admin')){toast('Sem permissão.','err');return;}
   if(!session?.empresa_id){msg('empMsg','Empresa não encontrada.','err');return;}
   const seg=val('empSegmento');
-  try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','✅ Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
+  try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
 }
 
 async function salvarUsuario(){
@@ -335,7 +335,7 @@ async function salvarUsuario(){
 }
 async function resetSenhaUsuario(id,nome){const nova=prompt(`Nova senha para ${nome}:`);if(!nova||nova.length<4){toast('Senha muito curta.','err');return;}try{await db.patch('usuarios',id,{senha:nova});toast('Senha redefinida!','ok');}catch(e){toast('Erro: '+e.message,'err');}}
 async function toggleUsuario(id,ativar){try{await db.patch('usuarios',id,{ativo:ativar});toast(ativar?'Ativado.':'Inativado.','ok');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
-function renderUsuarios(){setHTML('usrTable',(dados.usuarios||[]).map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px">🔑 Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
+function renderUsuarios(){setHTML('usrTable',(dados.usuarios||[]).map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
 
 init();
 </script>

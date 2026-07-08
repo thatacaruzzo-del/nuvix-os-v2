@@ -9,37 +9,37 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --p:#7C3AED;--p2:#5B21B6;--p3:#A78BFA;--p-light:#EDE9FE;
-  --bg:#F8F8FC;--surface:#fff;--line:#EBEBF0;
-  --txt:#111827;--muted:#6B7280;--muted2:#9CA3AF;
-  --green:#059669;--green-bg:#D1FAE5;
-  --red:#DC2626;--red-bg:#FEE2E2;
+  --p:#6D28D9;--p2:#4C1D95;--p3:#A78BFA;--p-light:#EDE9FE;
+  --bg:#F8F8FC;--surface:#fff;--line:#E8E8F1;
+  --txt:#1F2937;--muted:#6B7280;--muted2:#9CA3AF;
+  --green:#059669;--green-bg:#ECFDF5;
+  --red:#DC2626;--red-bg:#FEF2F2;
   --amber:#D97706;--amber-bg:#FEF3C7;
   --blue:#2563EB;--blue-bg:#DBEAFE;
-  --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
-  --shadow-md:0 4px 24px rgba(0,0,0,.08);
+  --shadow:0 1px 2px rgba(31,41,55,.04),0 3px 12px rgba(31,41,55,.05);
+  --shadow-md:0 8px 28px rgba(31,41,55,.09);
   --radius:14px;
 }
 html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.5}
 button,input,select,textarea{font-family:inherit}
 input,select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--txt);font-size:14px;transition:border-color .2s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px rgba(124,58,237,.1)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px rgba(109,40,217,.1)}
 label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:6px}
 .btn{background:var(--p);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s}
 .btn:hover{background:var(--p2)}
 .btn2{background:var(--p-light);color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s}
 .btn2:hover{background:#DDD6FE}
-.danger{background:var(--red-bg);color:#991b1b;border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px}
+.danger{background:#FEF2F2;color:#991b1b;border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px}
 .danger:hover{background:#FECACA}
 .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.badge-ativo{background:var(--green-bg);color:#065F46}
-.badge-trial{background:var(--amber-bg);color:#78350F}
-.badge-inadimplente{background:#FEE2E2;color:#991B1B}
-.badge-bloqueado{background:#F3F4F6;color:#374151}
-.badge-cancelado{background:#F3F4F6;color:#6B7280}
+.badge-ativo{background:#ECFDF5;color:#059669}
+.badge-trial{background:#FEF3C7;color:#92400E}
+.badge-inadimplente{background:#FEF2F2;color:#DC2626}
+.badge-bloqueado{background:#F1EFF7;color:var(--muted)}
+.badge-cancelado{background:#F1EFF7;color:var(--muted)}
 .badge-start{background:#DBEAFE;color:#1E40AF}
 .badge-pro{background:var(--p-light);color:var(--p2)}
-.badge-plus{background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff}
+.badge-plus{background:linear-gradient(135deg,#6D28D9,#A855F7);color:#fff}
 .msg{display:none;padding:11px 14px;border-radius:10px;margin-top:10px;font-size:13px;font-weight:600}
 .msg.show{display:block}
 .msg.ok{background:var(--green-bg);color:#065F46}
@@ -50,27 +50,27 @@ label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:
 .topnav{
   position:sticky;top:0;z-index:100;
   background:linear-gradient(135deg,#0D0730,#180033);
-  border-bottom:1px solid rgba(124,58,237,.2);
+  border-bottom:1px solid rgba(109,40,217,.2);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 28px;height:64px;
   box-shadow:0 4px 24px rgba(0,0,0,.3);
 }
 .topnav-brand{display:flex;align-items:center;gap:12px}
-.topnav-logo{width:40px;height:40px;background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(124,58,237,.5)}
+.topnav-logo{width:40px;height:40px;background:linear-gradient(135deg,#6D28D9,#A78BFA);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(109,40,217,.5)}
 .topnav-logo svg{width:22px;height:16px}
 .topnav-name{font-size:20px;font-weight:900;letter-spacing:-.04em;color:#fff}
 .topnav-tag{font-size:10px;font-weight:700;letter-spacing:.15em;color:#A78BFA;text-transform:uppercase;margin-left:4px;background:rgba(167,139,250,.15);padding:3px 8px;border-radius:20px;border:1px solid rgba(167,139,250,.3)}
 .topnav-right{display:flex;align-items:center;gap:12px}
-.topnav-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(124,58,237,.4);border:2px solid rgba(167,139,250,.3)}
+.topnav-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6D28D9,#A855F7);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(109,40,217,.4);border:2px solid rgba(167,139,250,.3)}
 .topnav-user{font-size:13px;font-weight:600;color:rgba(255,255,255,.85)}
 .topnav-logout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:12px;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer;transition:all .15s}
 .topnav-logout:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff}
 
 /* ── TABS ── */
-.admin-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);padding:0 28px;background:#fff;overflow-x:auto}
-.admin-tab{padding:14px 20px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px}
-.admin-tab:hover{color:var(--p)}
-.admin-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.admin-tabs{display:flex;gap:2px;padding:20px 28px 0;background:#fff;overflow-x:auto}
+.admin-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px}
+.admin-tab:hover{color:var(--p);background:var(--p-light)}
+.admin-tab.active{color:#fff;background:var(--p)}
 .admin-pane{display:none}
 .admin-pane.active{display:block}
 
@@ -200,20 +200,20 @@ function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='.
 
 // MÓDULOS por plano
 const MODULOS_TODOS=[
-  {id:'dashboard',nome:'Dashboard',icone:'📊'},
-  {id:'financeiro',nome:'Financeiro',icone:'💰'},
-  {id:'contas_pagar',nome:'Contas a Pagar',icone:'📤'},
-  {id:'contas_receber',nome:'Contas a Receber',icone:'📥'},
-  {id:'transporte',nome:'Transporte',icone:'🚚'},
-  {id:'crm',nome:'CRM / Pipeline',icone:'🎯'},
-  {id:'rh',nome:'RH / People',icone:'👥'},
-  {id:'folha_ponto',nome:'Folha de Ponto',icone:'⏰'},
-  {id:'folha_pagamento',nome:'Folha de Pagamento',icone:'💸'},
-  {id:'usuarios',nome:'Usuários',icone:'👤'},
-  {id:'relatorios',nome:'Relatórios',icone:'📋'},
-  {id:'configuracoes',nome:'Configurações',icone:'⚙️'},
-  {id:'integracoes',nome:'Integrações',icone:'🔗'},
-  {id:'ia',nome:'IA (futuro)',icone:'🤖'},
+  {id:'dashboard',nome:'Dashboard',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>'},
+  {id:'financeiro',nome:'Financeiro',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>'},
+  {id:'contas_pagar',nome:'Contas a Pagar',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>'},
+  {id:'contas_receber',nome:'Contas a Receber',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>'},
+  {id:'transporte',nome:'Transporte',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>'},
+  {id:'crm',nome:'CRM / Pipeline',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'},
+  {id:'rh',nome:'RH / People',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'},
+  {id:'folha_ponto',nome:'Folha de Ponto',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="M22 6l-3-3"/></svg>'},
+  {id:'folha_pagamento',nome:'Folha de Pagamento',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>'},
+  {id:'usuarios',nome:'Usuários',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'},
+  {id:'relatorios',nome:'Relatórios',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>'},
+  {id:'configuracoes',nome:'Configurações',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'},
+  {id:'integracoes',nome:'Integrações',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'},
+  {id:'ia',nome:'IA (futuro)',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>'},
 ];
 const MODULOS_PLANO={
   'Start':['dashboard','financeiro','contas_pagar','contas_receber','usuarios','relatorios','configuracoes'],
@@ -245,7 +245,7 @@ const MODULOS_PLANO={
     <div style="display:flex;flex-direction:column;justify-content:center;padding:60px">
       <!-- Brand -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:60px">
-        <div style="width:48px;height:48px;background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(124,58,237,.6)">
+        <div style="width:48px;height:48px;background:linear-gradient(135deg,#6D28D9,#A78BFA);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,40,217,.6)">
           <svg width="26" height="20" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
         </div>
         <div>
@@ -255,12 +255,12 @@ const MODULOS_PLANO={
       </div>
 
       <!-- Hero -->
-      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(109,40,217,.12);border:1px solid rgba(109,40,217,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
         <span style="width:6px;height:6px;background:#A855F7;border-radius:50%;display:inline-block"></span>
         Painel Administrativo
       </div>
       <h1 style="font-size:52px;font-weight:900;line-height:1.06;letter-spacing:-.03em;color:#fff;margin-bottom:20px">
-        Controle total<br>da <span style="background:linear-gradient(135deg,#A78BFA,#7C3AED);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
+        Controle total<br>da <span style="background:linear-gradient(135deg,#A78BFA,#6D28D9);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
       </h1>
       <p style="font-size:16px;color:rgba(200,185,255,.6);line-height:1.7;max-width:440px;margin-bottom:40px">
         Gerencie empresas, usuários, módulos, assinaturas e monitore todos os acessos da plataforma Nuvix Hub.
@@ -268,16 +268,16 @@ const MODULOS_PLANO={
       <!-- Feature pills -->
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B21B6,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:14px">🏢</span>Gestão de Clientes
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Gestão de Clientes
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B21B6,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:14px">🧩</span>Controle de Módulos
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Controle de Módulos
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B21B6,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:14px">📋</span>Logs de Acesso
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></span>Logs de Acesso
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B21B6,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:14px">💳</span>Assinaturas
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Assinaturas
         </div>
       </div>
     </div>
@@ -288,7 +288,7 @@ const MODULOS_PLANO={
 
         <!-- Card logo -->
         <div style="text-align:center;margin-bottom:32px">
-          <div style="width:60px;height:60px;background:linear-gradient(135deg,#5B21B6,#8B5CF6);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 0 36px rgba(124,58,237,.6),0 0 72px rgba(124,58,237,.2)">
+          <div style="width:60px;height:60px;background:linear-gradient(135deg,#4C1D95,#8B5CF6);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 0 36px rgba(109,40,217,.6),0 0 72px rgba(109,40,217,.2)">
             <svg width="32" height="24" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
           </div>
           <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.04em">Nuvix Hub</div>
@@ -303,7 +303,7 @@ const MODULOS_PLANO={
           <label style="display:block;font-size:11px;font-weight:700;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">E-mail</label>
           <input type="email" id="adminEmail" placeholder="seu@nuvixhub.com.br"
             onkeydown="if(event.key==='Enter')document.getElementById('adminSenha').focus()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(124,58,237,.15)'"
+            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.15)'"
             onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
             style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
         </div>
@@ -313,19 +313,19 @@ const MODULOS_PLANO={
           <label style="display:block;font-size:11px;font-weight:700;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Senha</label>
           <input type="password" id="adminSenha" placeholder="••••••••••••"
             onkeydown="if(event.key==='Enter')fazerLoginAdmin()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(124,58,237,.15)'"
+            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.15)'"
             onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
             style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
         </div>
 
         <!-- Error -->
-        <div id="adminLoginErr" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:#FCA5A5;text-align:center;margin-bottom:14px"></div>
+        <div id="adminLoginErr" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:#fff;text-align:center;margin-bottom:14px"></div>
 
         <!-- Button -->
         <button id="adminLoginBtn" onclick="fazerLoginAdmin()"
-          style="width:100%;padding:14px;background:linear-gradient(135deg,#5B21B6,#8B5CF6);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 28px rgba(91,33,182,.45);transition:all .25s;position:relative;overflow:hidden"
-          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 14px 40px rgba(91,33,182,.6)'"
-          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 28px rgba(91,33,182,.45)'">
+          style="width:100%;padding:14px;background:linear-gradient(135deg,#4C1D95,#8B5CF6);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 28px rgba(76,29,149,.45);transition:all .25s;position:relative;overflow:hidden"
+          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 14px 40px rgba(76,29,149,.6)'"
+          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 28px rgba(76,29,149,.45)'">
           Entrar no painel
         </button>
 
@@ -364,7 +364,7 @@ const MODULOS_PLANO={
     m.position.set(x,y,z);return m;
   }
   const cloud=new THREE.Group();
-  [[2.0,0,0,0,0xF5F3FF],[1.8,-2,-.1,0,0xEDE9FE],[1.8,2,-.1,0,0xEDE9FE],[1.5,-3.6,-.4,0,0xDDD6FE],[1.5,3.6,-.4,0,0xDDD6FE],[1.6,-1,1.2,.4,0xF5F3FF],[1.7,.8,1.3,.4,0xFAF5FF],[1.4,2.6,.9,.3,0xEDE9FE],[1.3,-2.6,.8,.3,0xEDE9FE],[1.3,0,2.3,.3,0xFAF5FF],[1.8,.5,.6,-1.5,0x8B5CF6],[1.5,-1.5,.5,-1.4,0x7C3AED]].forEach(([r,x,y,z,c])=>{cloud.add(puff(r,x,y,z,c));});
+  [[2.0,0,0,0,0xF5F3FF],[1.8,-2,-.1,0,0xEDE9FE],[1.8,2,-.1,0,0xEDE9FE],[1.5,-3.6,-.4,0,0xDDD6FE],[1.5,3.6,-.4,0,0xDDD6FE],[1.6,-1,1.2,.4,0xF5F3FF],[1.7,.8,1.3,.4,0xFAF5FF],[1.4,2.6,.9,.3,0xEDE9FE],[1.3,-2.6,.8,.3,0xEDE9FE],[1.3,0,2.3,.3,0xFAF5FF],[1.8,.5,.6,-1.5,0x8B5CF6],[1.5,-1.5,.5,-1.4,0x6D28D9]].forEach(([r,x,y,z,c])=>{cloud.add(puff(r,x,y,z,c));});
   cloud.position.set(-3,-0.5,0);
   scene.add(cloud);
   // Stars
@@ -408,11 +408,11 @@ const MODULOS_PLANO={
 
 <!-- ═══ TABS ═══ -->
 <div class="admin-tabs">
-  <button class="admin-tab active" onclick="showTab('clientes',this)">🏢 Clientes</button>
-  <button class="admin-tab" onclick="showTab('usuarios',this)">👥 Usuários</button>
-  <button class="admin-tab" onclick="showTab('modulos',this)">🧩 Módulos</button>
-  <button class="admin-tab" onclick="showTab('assinaturas',this)">💳 Assinaturas</button>
-  <button class="admin-tab" onclick="showTab('logs',this)">📋 Logs de Acesso</button>
+  <button class="admin-tab active" onclick="showTab('clientes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg> Clientes</button>
+  <button class="admin-tab" onclick="showTab('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Usuários</button>
+  <button class="admin-tab" onclick="showTab('modulos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
+  <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Assinaturas</button>
+  <button class="admin-tab" onclick="showTab('logs',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Logs de Acesso</button>
 </div>
 
 <!-- ═══ PANE: CLIENTES ═══ -->
@@ -571,7 +571,7 @@ const MODULOS_PLANO={
           <option value="">Todas as empresas</option>
         </select>
         <input type="date" id="filtroDataLog" onchange="carregarLogs()" style="max-width:160px">
-        <button class="btn2" onclick="carregarLogs()">🔄 Atualizar</button>
+        <button class="btn2" onclick="carregarLogs()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar</button>
       </div>
     </div>
     <div class="tablewrap">
@@ -914,10 +914,10 @@ function renderEmpresas(){
       <td style="font-size:11px;color:var(--muted)">${ult?fmtData(ult):'—'}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn2" onclick="editarEmpresa('${e.id}')" style="font-size:11px;padding:5px 9px">✏️ Editar</button>
-          <button class="btn2" onclick="gerenciarModulos('${e.id}')" style="font-size:11px;padding:5px 9px">🧩 Módulos</button>
-          ${e.ativo!==false?`<button class="danger" onclick="toggleEmpresa('${e.id}',false)" style="font-size:11px;padding:5px 9px">🔒 Bloquear</button>`:`<button class="btn2" onclick="toggleEmpresa('${e.id}',true)" style="font-size:11px;padding:5px 9px">🔓 Reativar</button>`}
-          <button class="danger" onclick="excluirEmpresa('${e.id}','${esc(e.fantasia||e.razao||'')}')" style="font-size:11px;padding:5px 9px">🗑️</button>
+          <button class="btn2" onclick="editarEmpresa('${e.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+          <button class="btn2" onclick="gerenciarModulos('${e.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
+          ${e.ativo!==false?`<button class="danger" onclick="toggleEmpresa('${e.id}',false)" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Bloquear</button>`:`<button class="btn2" onclick="toggleEmpresa('${e.id}',true)" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> Reativar</button>`}
+          <button class="danger" onclick="excluirEmpresa('${e.id}','${esc(e.fantasia||e.razao||'')}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </td>
     </tr>`;
@@ -1007,7 +1007,7 @@ async function salvarEdicaoEmpresa(){
       vencimento:val('editEmpVenc')||null, vencimento_mensalidade:val('editEmpVenc')||null,
       observacao_interna:val('editEmpObs').trim(),
     });
-    msgEl('editEmpMsg','✅ Salvo! O cliente precisa fazer logout e login novamente.','ok');
+    msgEl('editEmpMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvo! O cliente precisa fazer logout e login novamente.','ok');
     setTimeout(()=>fecharModal('modalEditEmp'),1800);
     await carregarTudo();
   }catch(e){msgEl('editEmpMsg','Erro: '+e.message,'err');}
@@ -1070,7 +1070,7 @@ async function excluirEmpresa(id,nome){
       }catch(e){ console.warn(`Skip ${tabela}:`,e.message); }
     }
     await dbDelete('empresas',id);
-    toast('✅ Empresa e todos os dados excluídos!');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa e todos os dados excluídos!');
     await carregarTudo();
   }catch(e){ toast('Erro ao excluir: '+e.message,'err'); }
 }
@@ -1100,11 +1100,11 @@ function renderUsuarios(){
       <td style="font-size:11px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'Nunca'}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn2" onclick="editarUsuario('${u.id}')" style="font-size:11px;padding:5px 9px">✏️ Editar</button>
-          <button class="btn2" onclick="abrirPermissoes('${u.id}')" style="font-size:11px;padding:5px 9px">🔑 Permissões</button>
-          <button class="btn2" onclick="abrirSenha('${u.id}','${esc(u.nome||u.email)}')" style="font-size:11px;padding:5px 9px">🔒 Senha</button>
+          <button class="btn2" onclick="editarUsuario('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+          <button class="btn2" onclick="abrirPermissoes('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Permissões</button>
+          <button class="btn2" onclick="abrirSenha('${u.id}','${esc(u.nome||u.email)}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Senha</button>
           ${ativo?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 9px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 9px">Ativar</button>`}
-          <button class="danger" onclick="excluirUsuario('${u.id}','${esc(u.nome||u.email)}')" style="font-size:11px;padding:5px 9px">🗑️</button>
+          <button class="danger" onclick="excluirUsuario('${u.id}','${esc(u.nome||u.email)}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </td>
     </tr>`;

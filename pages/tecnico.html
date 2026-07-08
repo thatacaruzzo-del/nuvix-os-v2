@@ -9,20 +9,20 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --p:#7C3AED;--p2:#5B21B6;--p3:#A78BFA;--p-light:#EDE9FE;
+  --p:#6D28D9;--p2:#4C1D95;--p3:#A78BFA;--p-light:#EDE9FE;
   --green:#059669;--green-bg:#ECFDF5;
   --red:#DC2626;--red-bg:#FEF2F2;
   --amber:#D97706;--amber-bg:#FFFBEB;
   --blue:#2563EB;--blue-bg:#EFF6FF;
-  --bg:#F5F3FF;--surface:#fff;--line:#E5E7EB;
-  --txt:#111827;--muted:#6B7280;
+  --bg:#F8F8FC;--surface:#fff;--line:#E8E8F1;
+  --txt:#1F2937;--muted:#6B7280;
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
 
 /* ── LOGIN ── */
-.login-screen{min-height:100vh;background:linear-gradient(135deg,#0D0730,#1E0A3C,#5B21B6);display:flex;align-items:center;justify-content:center;padding:20px}
+.login-screen{min-height:100vh;background:linear-gradient(135deg,#0D0730,#1E0A3C,#4C1D95);display:flex;align-items:center;justify-content:center;padding:20px}
 .login-card{background:#fff;border-radius:24px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 40px 80px rgba(0,0,0,.3)}
-.login-logo{width:56px;height:56px;background:linear-gradient(135deg,#5B21B6,#A78BFA);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 28px rgba(124,58,237,.4)}
+.login-logo{width:56px;height:56px;background:linear-gradient(135deg,#4C1D95,#A78BFA);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 28px rgba(109,40,217,.4)}
 .login-logo svg{width:30px;height:22px}
 .login-title{text-align:center;font-size:22px;font-weight:900;color:var(--txt);margin-bottom:4px}
 .login-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px}
@@ -30,13 +30,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .login-field label{display:block;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .login-field input{width:100%;padding:13px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
 .login-field input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-light)}
-.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#5B21B6,#7C3AED);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
-.login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(91,33,182,.4)}
-.login-err{background:var(--red-bg);border:1px solid #FECACA;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);font-weight:600;margin-top:12px;display:none;text-align:center}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#4C1D95,#6D28D9);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(76,29,149,.4)}
+.login-err{background:var(--red-bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);font-weight:600;margin-top:12px;display:none;text-align:center}
 
 /* ── PORTAL ── */
 .portal{display:none;min-height:100vh;background:var(--bg)}
-.portal-header{background:linear-gradient(135deg,#1E0A3C,#7C3AED);padding:20px 20px 60px;position:relative}
+.portal-header{background:linear-gradient(135deg,#1E0A3C,#6D28D9);padding:20px 20px 60px;position:relative}
 .portal-header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .portal-logo{display:flex;align-items:center;gap:10px}
 .portal-logo-ico{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center}
@@ -54,10 +54,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
 
 /* ── TABS ── */
-.portal-tabs{display:flex;gap:0;background:#fff;border-bottom:2px solid var(--line);padding:0 16px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:10}
+.portal-tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:8px 16px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:10}
 .portal-tabs::-webkit-scrollbar{display:none}
-.portal-tab{padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;flex-shrink:0;transition:all .15s}
-.portal-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.portal-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.portal-tab:hover{color:var(--p);background:var(--p-light)}
+.portal-tab.active{color:#fff;background:var(--p)}
 .portal-pane{display:none;padding:16px}.portal-pane.active{display:block}
 
 /* ── OS CARD ── */
@@ -79,7 +80,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 /* ── STATUS BADGE ── */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-aberta{background:#EFF6FF;color:#1D4ED8}
+.badge-aberta{background:#DBEAFE;color:#1D4ED8}
 .badge-agendada{background:var(--p-light);color:var(--p2)}
 .badge-deslocamento{background:var(--amber-bg);color:var(--amber)}
 .badge-atendimento{background:var(--green-bg);color:var(--green)}
@@ -90,7 +91,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;overflow-y:auto;padding:16px}
 .modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .modal{background:#fff;border-radius:20px;width:100%;max-width:560px;margin:auto;overflow:hidden}
-.modal-hdr{background:linear-gradient(135deg,#1E0A3C,#7C3AED);color:#fff;padding:20px}
+.modal-hdr{background:linear-gradient(135deg,#1E0A3C,#6D28D9);color:#fff;padding:20px}
 .modal-hdr-num{font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.08em}
 .modal-hdr-cli{font-size:18px;font-weight:900;margin-top:2px}
 .modal-hdr-svc{font-size:13px;opacity:.7;margin-top:2px}
@@ -177,7 +178,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <button class="portal-logout" onclick="fazerLogout()">Sair</button>
     </div>
     <div style="margin-top:16px">
-      <div class="portal-greeting" id="portalGreeting">Bom dia! 👋</div>
+      <div class="portal-greeting" id="portalGreeting">Bom dia! </div>
       <div class="portal-date" id="portalDate"></div>
     </div>
   </div>
@@ -200,10 +201,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- TABS -->
   <div class="portal-tabs">
-    <button class="portal-tab active" onclick="portalTab('hoje',this)">📅 Hoje</button>
-    <button class="portal-tab" onclick="portalTab('minhas',this)">📋 Minhas OS</button>
-    <button class="portal-tab" onclick="portalTab('concluidas',this)">✅ Concluídas</button>
-    <button class="portal-tab" onclick="portalTab('relatorio',this)">📊 Meu Relatório</button>
+    <button class="portal-tab active" onclick="portalTab('hoje',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Hoje</button>
+    <button class="portal-tab" onclick="portalTab('minhas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Minhas OS</button>
+    <button class="portal-tab" onclick="portalTab('concluidas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluídas</button>
+    <button class="portal-tab" onclick="portalTab('relatorio',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Meu Relatório</button>
   </div>
 
   <div id="pane-hoje" class="portal-pane active">
@@ -230,9 +231,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     </div>
     <div class="modal-body" id="mOsBody"></div>
     <div class="modal-footer">
-      <button class="btn-sec" style="flex:0 0 auto;padding:10px 14px" onclick="fecharModal()">✕ Fechar</button>
-      <button class="btn-prim" onclick="abrirAtualizarStatus()">🔄 Atualizar status</button>
-      <button class="btn-green" onclick="concluirOSTecnico()">✅ Concluir</button>
+      <button class="btn-sec" style="flex:0 0 auto;padding:10px 14px" onclick="fecharModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fechar</button>
+      <button class="btn-prim" onclick="abrirAtualizarStatus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar status</button>
+      <button class="btn-green" onclick="concluirOSTecnico()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluir</button>
     </div>
   </div>
 </div>
@@ -247,12 +248,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="modal-body">
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px;font-weight:600">Selecione o novo status:</div>
       <div class="status-grid">
-        <button class="status-btn" onclick="selecionarStatus('Agendada',this)">📅 Agendada</button>
-        <button class="status-btn" onclick="selecionarStatus('Em deslocamento',this)">🚗 Em deslocamento</button>
-        <button class="status-btn" onclick="selecionarStatus('Em atendimento',this)">🔧 Em atendimento</button>
-        <button class="status-btn" onclick="selecionarStatus('Aguardando material',this)">📦 Aguard. material</button>
-        <button class="status-btn" onclick="selecionarStatus('Pausada',this)">⏸️ Pausada</button>
-        <button class="status-btn" onclick="selecionarStatus('Concluída',this)" style="grid-column:1/-1;background:var(--green-bg);border-color:var(--green);color:var(--green)">✅ Concluída</button>
+        <button class="status-btn" onclick="selecionarStatus('Agendada',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Agendada</button>
+        <button class="status-btn" onclick="selecionarStatus('Em deslocamento',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Em deslocamento</button>
+        <button class="status-btn" onclick="selecionarStatus('Em atendimento',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Em atendimento</button>
+        <button class="status-btn" onclick="selecionarStatus('Aguardando material',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Aguard. material</button>
+        <button class="status-btn" onclick="selecionarStatus('Pausada',this)">⏸ Pausada</button>
+        <button class="status-btn" onclick="selecionarStatus('Concluída',this)" style="grid-column:1/-1;background:var(--green-bg);border-color:var(--green);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluída</button>
       </div>
       <div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Observação (opcional)</div>
@@ -329,7 +330,7 @@ async function iniciarPortal(){
   // Greeting
   const h=new Date().getHours();
   const nome=tSession.nome?.split(' ')[0]||'Técnico';
-  const saud=h<12?'Bom dia ☀️':h<18?'Boa tarde 🌤️':'Boa noite 🌙';
+  const saud=h<12?'Bom dia ':h<18?'Boa tarde ':'Boa noite ';
   $('portalGreeting').textContent=saud+', '+nome+'!';
   $('portalDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
   await carregarOS();
@@ -376,19 +377,19 @@ function osCard(o){
   const badgeClass={'Aberta':'badge-aberta','Agendada':'badge-agendada','Em deslocamento':'badge-deslocamento','Em atendimento':'badge-atendimento','Concluída':'badge-concluida','Pausada':'badge-pausada'}[o.status]||'';
   return`<div class="os-item ${prio}" onclick="abrirOS('${o.id}')">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-      <div class="os-num">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red)">⚠️ Atrasada</span>':''}</div>
+      <div class="os-num">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasada</span>':''}</div>
       <span class="badge ${badgeClass}">${o.status||'—'}</span>
     </div>
     <div class="os-cli">${esc(o.cliente_nome||'—')}</div>
     <div class="os-svc">${esc(o.servico||'—')}${o.equipamento?' · '+esc(o.equipamento):''}</div>
     <div class="os-meta">
-      ${o.data_agendada?`<div class="os-meta-item">📅 <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
-      ${o.cidade?`<div class="os-meta-item">📍 <b>${esc(o.cidade)}</b></div>`:''}
-      ${o.garantia?`<div class="os-meta-item">🛡️ <b>${esc(o.garantia)}</b></div>`:''}
+      ${o.data_agendada?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
+      ${o.cidade?`<div class="os-meta-item"><b>${esc(o.cidade)}</b></div>`:''}
+      ${o.garantia?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg> <b>${esc(o.garantia)}</b></div>`:''}
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn-prim" onclick="event.stopPropagation();abrirOS('${o.id}')">Ver detalhes</button>
-      ${!['Concluída','Cancelada'].includes(o.status||'')?`<button class="btn-sec" onclick="event.stopPropagation();abrirAtualizarStatusDireto('${o.id}')">🔄 Status</button>`:''}
+      ${!['Concluída','Cancelada'].includes(o.status||'')?`<button class="btn-sec" onclick="event.stopPropagation();abrirAtualizarStatusDireto('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Status</button>`:''}
     </div>
   </div>`;
 }
@@ -396,15 +397,15 @@ function osCard(o){
 function renderHoje(){
   const hj=hoje();
   const lista=minhasOS.filter(o=>String(o.data_agendada||'').slice(0,10)===hj&&o.status!=='Concluída');
-  $('listaHoje').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico">📅</div><div class="empty-txt">Nenhuma OS hoje</div><div class="empty-sub">Aproveite o dia! 😊</div></div>`;
+  $('listaHoje').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="empty-txt">Nenhuma OS hoje</div><div class="empty-sub">Aproveite o dia! </div></div>`;
 }
 function renderMinhas(){
   const lista=minhasOS.filter(o=>!['Concluída','Cancelada'].includes(o.status||''));
-  $('listaMinhas').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Nenhuma OS pendente</div><div class="empty-sub">Tudo em dia!</div></div>`;
+  $('listaMinhas').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></div><div class="empty-txt">Nenhuma OS pendente</div><div class="empty-sub">Tudo em dia!</div></div>`;
 }
 function renderConcluidas(){
   const lista=minhasOS.filter(o=>o.status==='Concluída').slice(0,20);
-  $('listaConcluidas').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma OS concluída</div><div class="empty-sub">As concluídas aparecerão aqui</div></div>`;
+  $('listaConcluidas').innerHTML=lista.length?lista.map(osCard).join(''):`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></div><div class="empty-txt">Nenhuma OS concluída</div><div class="empty-sub">As concluídas aparecerão aqui</div></div>`;
 }
 
 function renderRelatorio(){
@@ -468,7 +469,7 @@ async function abrirOS(id){
 
   $('mOsBody').innerHTML=`
     <div class="modal-section">
-      <div class="modal-section-title">📋 Informações</div>
+      <div class="modal-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Informações</div>
       <div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${esc(osAtual.cliente_nome||'—')}</span></div>
       <div class="info-row"><span class="info-lbl">Telefone</span><span class="info-val"><a href="tel:${esc(osAtual.telefone||'')}" style="color:var(--p)">${esc(osAtual.telefone||'—')}</a></span></div>
       <div class="info-row"><span class="info-lbl">Endereço</span><span class="info-val" style="max-width:200px;text-align:right">${esc(osAtual.endereco||'—')}</span></div>
@@ -482,13 +483,13 @@ async function abrirOS(id){
 
     ${osAtual.problema_cliente?`
     <div class="modal-section">
-      <div class="modal-section-title">🔍 Problema do cliente</div>
+      <div class="modal-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Problema do cliente</div>
       <div style="font-size:13px;background:var(--bg);border-radius:10px;padding:12px;line-height:1.6">${esc(osAtual.problema_cliente)}</div>
     </div>`:''}
 
     ${check.length?`
     <div class="modal-section">
-      <div class="modal-section-title">✅ Checklist (${done}/${check.length})</div>
+      <div class="modal-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Checklist (${done}/${check.length})</div>
       <div style="height:6px;background:var(--line);border-radius:99px;margin-bottom:12px;overflow:hidden">
         <div style="height:6px;background:var(--green);border-radius:99px;width:${check.length?Math.round(done/check.length*100):0}%;transition:width .3s"></div>
       </div>
@@ -501,14 +502,14 @@ async function abrirOS(id){
 
     ${osAtual.observacoes?`
     <div class="modal-section">
-      <div class="modal-section-title">📝 Observações</div>
+      <div class="modal-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Observações</div>
       <div style="font-size:13px;background:var(--bg);border-radius:10px;padding:12px;line-height:1.6">${esc(osAtual.observacoes)}</div>
     </div>`:''}
 
     <div class="modal-section">
       <div class="modal-section-title">💬 Adicionar observação técnica</div>
       <textarea class="obs-field" id="obsTecnicaField" placeholder="Descreva o que foi feito, materiais usados, etc...">${osAtual.obs_tecnica||''}</textarea>
-      <button class="btn-prim" onclick="salvarObsTecnica('${id}')" style="width:100%;margin-top:8px">💾 Salvar observação</button>
+      <button class="btn-prim" onclick="salvarObsTecnica('${id}')" style="width:100%;margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvar observação</button>
     </div>
   `;
 
@@ -532,7 +533,7 @@ async function salvarObsTecnica(osId){
     await db.patch('ordens_servico',osId,{obs_tecnica:obs,updated_at:new Date().toISOString()});
     // Update local data
     const o=minhasOS.find(x=>x.id===osId);if(o)o.obs_tecnica=obs;
-    toast('✅ Observação salva!');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Observação salva!');
   }catch(e){toast('Erro ao salvar','err');}
 }
 
@@ -576,7 +577,7 @@ async function salvarStatus(){
       created_at:new Date().toISOString()
     });
     osAtual.status=statusSelecionado;
-    toast('✅ Status atualizado!');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Status atualizado!');
     fecharModalStatus();
     await carregarOS();
     if(statusSelecionado==='Concluída') await concluirOSTecnico();
@@ -605,8 +606,8 @@ async function concluirOSTecnico(){
     // 3. Lançar financeiro
     await db.post('financeiro',{empresa_id:osAtual.empresa_id,tipo:'Receita',categoria:'Serviços',descricao:`OS ${osAtual.numero} — ${osAtual.cliente_nome} — ${osAtual.servico}`,valor:Number(osAtual.valor_total||0),data_lancamento:hoje(),vencimento:hoje(),status:'Pendente',forma_pagamento:'A combinar',favorecido:osAtual.cliente_nome||null});
     // 4. Timeline
-    await db.post('os_timeline',{empresa_id:osAtual.empresa_id,os_id:osAtual.id,evento:'✅ OS concluída pelo técnico — Estoque e financeiro atualizados',usuario_nome:tSession?.nome||'Técnico',created_at:new Date().toISOString()});
-    toast('🎉 OS concluída com sucesso!');
+    await db.post('os_timeline',{empresa_id:osAtual.empresa_id,os_id:osAtual.id,evento:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS concluída pelo técnico — Estoque e financeiro atualizados',usuario_nome:tSession?.nome||'Técnico',created_at:new Date().toISOString()});
+    toast('OS concluída com sucesso!');
     fecharModal();
     await carregarOS();
   }catch(e){toast('Erro ao concluir: '+e.message,'err');}

@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 /* ── Hero ── */
-.fin-hero{position:relative;background:linear-gradient(135deg,#1E0A3C 0%,#3B0F8A 50%,#7C3AED 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 20px 60px rgba(90,24,154,.35);min-height:130px}
+.fin-hero{position:relative;background:linear-gradient(135deg,#1E0A3C 0%,#3B0F8A 50%,#6D28D9 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 20px 60px rgba(76,29,149,.3);min-height:130px}
 #finCloud{position:absolute;right:-10px;top:-10px;width:300px;height:150px;pointer-events:none;opacity:.9}
 .fin-hero-left{position:relative;z-index:2;flex:1}
 .fin-hero-title{font-size:24px;font-weight:900;color:#fff;letter-spacing:-.03em;margin-bottom:2px}
@@ -20,18 +20,24 @@
 .fhs-div{width:1px;background:rgba(255,255,255,.2);align-self:stretch}
 
 /* ── Strip cards ── */
-.fin-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
-.fin-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.fin-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+.fin-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
+.fin-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px)}
 .fin-card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
 .fin-card .val{font-size:19px;font-weight:800;line-height:1;margin-bottom:2px}
 .fin-card .sub{font-size:11px;color:var(--muted2)}
+.fin-strip .fin-card:first-child{background:linear-gradient(150deg,#9B8CF0 0%,#8171E8 100%);border:none;color:#fff;box-shadow:0 10px 26px rgba(129,113,232,.3)}
+.fin-strip .fin-card:nth-child(2){background:linear-gradient(150deg,var(--p) 0%,var(--p2) 100%);border:none;color:#fff;box-shadow:0 10px 26px rgba(76,29,149,.32)}
+.fin-strip .fin-card:first-child .lbl,.fin-strip .fin-card:first-child .sub,
+.fin-strip .fin-card:nth-child(2) .lbl,.fin-strip .fin-card:nth-child(2) .sub{color:rgba(255,255,255,.72)}
+.fin-strip .fin-card:first-child .val,.fin-strip .fin-card:nth-child(2) .val{color:#fff}
 
 /* ── Tabs ── */
-.fin-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.fin-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
 .fin-tabs::-webkit-scrollbar{display:none}
-.fin-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fin-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .fin-tab:hover{color:var(--p)}
-.fin-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.fin-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
 .fin-pane{display:none}.fin-pane.active{display:block}
 
 /* ── Modal ── */
@@ -109,7 +115,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
   <div class="main-content" id="mainContent">
     <div class="topbar">
       <div class="topbar-left">
-        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
           <div class="topbar-title">Financeiro</div>
           <div class="topbar-breadcrumb" id="topbarSub"></div>
@@ -129,7 +135,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
       <div class="fin-hero">
         <canvas id="finCloud"></canvas>
         <div class="fin-hero-left">
-          <div class="fin-hero-title">💰 Financeiro</div>
+          <div class="fin-hero-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Financeiro</div>
           <div class="fin-hero-sub" id="finHeroSub">Controle financeiro completo</div>
           <div class="fin-hero-stats" id="finHeroStats"></div>
         </div>
@@ -140,10 +146,10 @@ function can(area){const s=getSession();if(!s)return false;return true;}
 
       <!-- TABS -->
       <div class="fin-tabs">
-        <button class="fin-tab active" onclick="finTab('lancamentos',this)">💰 Lançamentos</button>
-        <button class="fin-tab" onclick="finTab('fluxo',this)">📊 Fluxo de Caixa</button>
-        <button class="fin-tab" onclick="finTab('receber',this)">📥 A Receber</button>
-        <button class="fin-tab" onclick="finTab('pagar',this)">📤 A Pagar</button>
+        <button class="fin-tab active" onclick="finTab('lancamentos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Lançamentos</button>
+        <button class="fin-tab" onclick="finTab('fluxo',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Fluxo de Caixa</button>
+        <button class="fin-tab" onclick="finTab('receber',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> A Receber</button>
+        <button class="fin-tab" onclick="finTab('pagar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> A Pagar</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -185,7 +191,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
               <div style="background:var(--p-light);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
                   <input type="checkbox" id="lanParcelado" onchange="toggleParcelamento()" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
-                  <label for="lanParcelado" style="font-size:14px;font-weight:700;cursor:pointer;color:var(--p)">💳 Lançamento parcelado</label>
+                  <label for="lanParcelado" style="font-size:14px;font-weight:700;cursor:pointer;color:var(--p)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Lançamento parcelado</label>
                 </div>
                 <div id="parcelaFields" style="display:none;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
                   <div class="field" style="margin:0">
@@ -289,13 +295,13 @@ function can(area){const s=getSession();if(!s)return false;return true;}
 <!-- MODAL DETALHES -->
 <div class="modal-overlay" id="modalDetalhe">
 <div class="modal" style="max-width:620px">
-  <h3>📋 Detalhes do lançamento</h3>
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Detalhes do lançamento</h3>
   <input type="hidden" id="detId">
   <div id="detConteudo"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
-    <button class="btn2" id="detEditBtn">✏️ Editar</button>
-    <button class="btn" id="detBaixarBtn">✓ Baixar</button>
+    <button class="btn2" id="detEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+    <button class="btn" id="detBaixarBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>
   </div>
 </div>
 </div>
@@ -303,7 +309,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
 <!-- MODAL BAIXAR -->
 <div class="modal-overlay" id="modalBaixar">
 <div class="modal" style="max-width:420px">
-  <h3>✓ Confirmar baixa</h3>
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Confirmar baixa</h3>
   <input type="hidden" id="baixarId">
   <input type="hidden" id="baixarTipo">
   <div class="baixar-info">
@@ -324,7 +330,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
   <div id="baixarMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalBaixar')">Cancelar</button>
-    <button class="btn" onclick="confirmarBaixa()">✓ Confirmar baixa</button>
+    <button class="btn" onclick="confirmarBaixa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Confirmar baixa</button>
   </div>
 </div>
 </div>
@@ -451,7 +457,7 @@ async function salvarLancamento(){
         await db.post('financeiro',payload);
         criados++;
       }
-      msg('lanMsg',`✅ ${criados} parcelas criadas!`,'ok');
+      msg('lanMsg',`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> ${criados} parcelas criadas!`,'ok');
     } else {
       // NOVO — POST simples
       await db.post('financeiro',{...base,valor,descricao:desc,vencimento:val('lanVenc')||null});
@@ -520,7 +526,7 @@ function editarLancamento(id){
   $('lanAgencia').value=f.agencia||'';
   $('lanConta').value=f.conta||'';
   $('lanObs').value=f.observacao||'';
-  $('lanTitulo').textContent='✏️ Editar lançamento';
+  $('lanTitulo').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar lançamento';
   finTab('lancamentos');
   const ms=document.querySelector('.main-scroll');
   if(ms)ms.scrollTop=0;else window.scrollTo({top:0,behavior:'smooth'});
@@ -537,7 +543,7 @@ function verDetalhe(id){
   setHTML('detConteudo',`
     <div style="background:${f.tipo==='Receita'?'var(--green-bg)':'var(--red-bg)'};border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
       <div>
-        <div style="font-size:11px;font-weight:700;color:${f.tipo==='Receita'?'#065F46':'#7F1D1D'};text-transform:uppercase;letter-spacing:.05em">${f.tipo}</div>
+        <div style="font-size:11px;font-weight:700;color:${f.tipo==='Receita'?'var(--p2)':'var(--txt)'};text-transform:uppercase;letter-spacing:.05em">${f.tipo}</div>
         <div style="font-size:22px;font-weight:900;color:${f.tipo==='Receita'?'var(--green)':'var(--red)'}">${money(f.valor)}</div>
       </div>
       <span class="badge ${pago?'ok':atrasado?'bad':''}" style="font-size:13px;padding:6px 14px">${f.status||'Pendente'}</span>
@@ -556,7 +562,7 @@ function verDetalhe(id){
     ${f.valor_pago&&f.valor?`<div class="det-row"><span class="det-lbl">Valor restante</span><span class="det-val" style="color:var(--amber)">${money(Number(f.valor||0)-Number(f.valor_pago||0))}</span></div>`:''}
     <div class="det-section">Datas</div>
     <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${fmtData(f.data_lancamento)}</span></div>
-    <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' ⚠️ Atrasado':''}</span></div>
+    <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
     <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val" style="color:${f.data_pagamento?'var(--green)':'var(--muted)'}">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
     <div class="det-section">Registro</div>
@@ -567,7 +573,7 @@ function verDetalhe(id){
   $('detEditBtn').onclick=()=>editarLancamento(f.id);
   if(!pago){
     $('detBaixarBtn').style.display='block';
-    $('detBaixarBtn').textContent=f.tipo==='Receita'?'✓ Marcar como Recebido':'✓ Marcar como Pago';
+    $('detBaixarBtn').innerHTML=f.tipo==='Receita'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Recebido':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Pago';
     $('detBaixarBtn').onclick=()=>{fecharModal('modalDetalhe');abrirBaixar(f.id);};
   } else {
     $('detBaixarBtn').style.display='none';
@@ -609,7 +615,7 @@ async function confirmarBaixa(){
       observacao_baixa:val('baixarObs').trim()||null,
       updated_at:new Date().toISOString(),
     });
-    toast('✅ '+status+' em '+fmtData(dataPgto)+'!');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> '+status+' em '+fmtData(dataPgto)+'!');
     fecharModal('modalBaixar');
     await loadData();
   }catch(e){msg('baixarMsg','Erro: '+e.message,'err');}
@@ -668,10 +674,10 @@ function renderLancamentos(){
       <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${!pago?`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--green-bg);color:#065F46">✓ Baixar</button>`:''}
-          <button class="btn2" onclick="verDetalhe('${f.id}')" style="font-size:11px;padding:5px 8px">👁️</button>
-          <button class="btn2" onclick="editarLancamento('${f.id}')" style="font-size:11px;padding:5px 8px">✏️</button>
-          <button class="danger" onclick="excluirLancamento('${f.id}')" style="font-size:11px;padding:5px 8px">🗑️</button>
+          ${!pago?`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>`:''}
+          <button class="btn2" onclick="verDetalhe('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <button class="btn2" onclick="editarLancamento('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="danger" onclick="excluirLancamento('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </td>
     </tr>`;
@@ -701,7 +707,7 @@ function renderFluxo(){
     const dataRef=venc||String(f.data_lancamento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
     const atrasado=dataRef&&dataRef<hj&&!pago;
-    let sit=atrasado?'<span class="badge bad">⚠️ Atrasado</span>':pago?'<span class="badge ok">✓ Quitado</span>':dataRef===hj?'<span class="badge warn">Vence hoje</span>':'<span class="badge">A vencer</span>';
+    let sit=atrasado?'<span class="badge bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado</span>':pago?'<span class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Quitado</span>':dataRef===hj?'<span class="badge warn">Vence hoje</span>':'<span class="badge">A vencer</span>';
     return`<tr style="${atrasado?'color:var(--red)':''}">
       <td>${fmtData(f.data_lancamento)}</td>
       <td>${venc?fmtData(venc):'—'}</td>
@@ -736,7 +742,7 @@ function renderReceber(){
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge">${f.status||''}</span></td>
       <td>${sit}</td>
-      <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--green-bg);color:#065F46">✓ Recebido</button></td>
+      <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Recebido</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a receber.</td></tr>');
 }
@@ -764,7 +770,7 @@ function renderPagar(){
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge">${f.status||''}</span></td>
       <td>${sit}</td>
-      <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--red-bg);color:#991B1B">✓ Pago</button></td>
+      <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Pago</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar.</td></tr>');
 }

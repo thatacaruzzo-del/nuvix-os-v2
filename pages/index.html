@@ -9,8 +9,8 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#5B21B6;
-  --c4:#7C3AED;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
+  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#4C1D95;
+  --c4:#6D28D9;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
   --glass:rgba(255,255,255,0.04);
   --glass-border:rgba(139,92,246,0.25);
   --text:rgba(255,255,255,0.92);
@@ -43,7 +43,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
   width:48px;height:48px;border-radius:14px;
   background:linear-gradient(135deg,var(--c4),var(--c6));
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 24px rgba(124,58,237,.55),0 0 48px rgba(124,58,237,.2)
+  box-shadow:0 0 24px rgba(109,40,217,.55),0 0 48px rgba(109,40,217,.2)
 }
 .brand-mark svg{width:28px;height:21px}
 .brand-text{display:flex;flex-direction:column}
@@ -54,7 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
 .hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
-  background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);
+  background:rgba(109,40,217,.12);border:1px solid rgba(109,40,217,.3);
   border-radius:99px;padding:6px 16px;
   font-size:11px;font-weight:600;color:var(--c5);letter-spacing:.06em;
   text-transform:uppercase;margin-bottom:28px;width:fit-content
@@ -89,13 +89,13 @@ h1 .grad{
   color:rgba(220,210,255,.88);
   transition:all .25s ease;cursor:default
 }
-.pill:hover{background:rgba(124,58,237,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
+.pill:hover{background:rgba(109,40,217,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
 .pill-icon{
   width:30px;height:30px;border-radius:8px;
   background:linear-gradient(135deg,var(--c3),var(--c5));
   display:flex;align-items:center;justify-content:center;
   font-size:14px;
-  box-shadow:0 4px 12px rgba(91,33,182,.4)
+  box-shadow:0 4px 12px rgba(76,29,149,.4)
 }
 
 /* Footer */
@@ -121,7 +121,7 @@ h1 .grad{
   box-shadow:
     0 0 0 1px rgba(139,92,246,.08),
     0 32px 80px rgba(0,0,0,.6),
-    0 0 60px rgba(91,33,182,.08),
+    0 0 60px rgba(76,29,149,.08),
     inset 0 1px 0 rgba(255,255,255,.06);
   transition:transform .4s ease,box-shadow .4s ease;
   position:relative;overflow:hidden
@@ -133,7 +133,7 @@ h1 .grad{
 }
 .card:hover{
   transform:translateY(-4px);
-  box-shadow:0 0 0 1px rgba(139,92,246,.15),0 48px 100px rgba(0,0,0,.65),0 0 80px rgba(91,33,182,.12),inset 0 1px 0 rgba(255,255,255,.08)
+  box-shadow:0 0 0 1px rgba(139,92,246,.15),0 48px 100px rgba(0,0,0,.65),0 0 80px rgba(76,29,149,.12),inset 0 1px 0 rgba(255,255,255,.08)
 }
 
 /* Card header */
@@ -142,7 +142,7 @@ h1 .grad{
   width:52px;height:52px;border-radius:16px;
   background:linear-gradient(135deg,var(--c3),var(--c5));
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 32px rgba(124,58,237,.6),0 0 64px rgba(124,58,237,.2);
+  box-shadow:0 0 32px rgba(109,40,217,.6),0 0 64px rgba(109,40,217,.2);
   margin-bottom:4px
 }
 .card-logo-mark svg{width:30px;height:22px}
@@ -175,8 +175,8 @@ h1 .grad{
 .field input::placeholder{color:rgba(139,92,246,.35)}
 .field input:focus{
   border-color:var(--c5);
-  background:rgba(124,58,237,.08);
-  box-shadow:0 0 0 3px rgba(124,58,237,.15)
+  background:rgba(109,40,217,.08);
+  box-shadow:0 0 0 3px rgba(109,40,217,.15)
 }
 
 /* Extras */
@@ -197,7 +197,7 @@ h1 .grad{
   border:none;border-radius:12px;
   color:var(--white);font-size:14px;font-weight:700;
   font-family:inherit;cursor:pointer;
-  box-shadow:0 8px 28px rgba(91,33,182,.45);
+  box-shadow:0 8px 28px rgba(76,29,149,.45);
   transition:all .25s ease;position:relative;overflow:hidden;
   letter-spacing:.01em
 }
@@ -206,7 +206,7 @@ h1 .grad{
   background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);
   opacity:0;transition:opacity .25s
 }
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(91,33,182,.6)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(76,29,149,.6)}
 .btn-primary:hover::after{opacity:1}
 .btn-primary:active{transform:translateY(0)}
 
@@ -220,7 +220,7 @@ h1 .grad{
   transition:all .25s ease;letter-spacing:.01em
 }
 .btn-secondary:hover{
-  background:rgba(124,58,237,.1);
+  background:rgba(109,40,217,.1);
   border-color:rgba(139,92,246,.5);
   color:var(--white);transform:translateY(-1px)
 }
@@ -271,10 +271,10 @@ h1 .grad{
       <h1>O sistema operacional<br>da <span class="grad">sua empresa.</span></h1>
       <p class="subtitle">Centralize financeiro, transportes, CRM, RH, folha de ponto, folha de pagamento e indicadores em uma única plataforma.</p>
       <div class="pills">
-        <div class="pill"><div class="pill-icon">📊</div>Gestão Inteligente</div>
-        <div class="pill"><div class="pill-icon">💰</div>Resultados em Tempo Real</div>
-        <div class="pill"><div class="pill-icon">👥</div>Equipe Conectada</div>
-        <div class="pill"><div class="pill-icon">🛡️</div>Segurança Corporativa</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>Gestão Inteligente</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>Resultados em Tempo Real</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>Equipe Conectada</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></div>Segurança Corporativa</div>
       </div>
     </div>
 
@@ -324,9 +324,9 @@ h1 .grad{
 
       <div class="powered">Powered by <span>Nuvix Hub</span></div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(139,92,246,.4)">
-        <a href="privacidade.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Política de Privacidade</a>
+        <a href="../privacidade.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Política de Privacidade</a>
         <span style="margin:0 6px;color:rgba(139,92,246,.3)">·</span>
-        <a href="termos.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Termos de Uso</a>
+        <a href="../termos.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Termos de Uso</a>
       </div>
     </div>
   </div>
@@ -387,7 +387,7 @@ async function entrar(){
 }
 function showMsg(m){
   let el=document.getElementById('loginErr');
-  if(!el){el=document.createElement('div');el.id='loginErr';el.style.cssText='margin-top:12px;padding:11px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;font-size:13px;font-weight:600;color:#FCA5A5;text-align:center';document.getElementById('loginCard').insertBefore(el,document.querySelector('.btn-primary'));}
+  if(!el){el=document.createElement('div');el.id='loginErr';el.style.cssText='margin-top:12px;padding:11px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;font-size:13px;font-weight:600;color:#fff;text-align:center';document.getElementById('loginCard').insertBefore(el,document.querySelector('.btn-primary'));}
   el.textContent=m;
 }
 function demo(){window.open('mailto:contato@nuvixhub.com.br?subject=Solicitar Demonstração Nuvix Hub');}
@@ -476,10 +476,10 @@ function buildCloud(scale=1,bright=true){
     [1.5,-.9,-1,0,0xC4B5FD],[1.5,.9,-1,0,0xC4B5FD],
     [1.0,-4.4,.5,-.1,0xA78BFA],[1.0,4.4,.5,-.1,0xA78BFA],
     // back layer darker
-    [1.8,.5,.7,-1.6,0x8B5CF6],[1.6,-1.5,.5,-1.5,0x7C3AED],[1.6,2.2,.4,-1.5,0x7C3AED],
+    [1.8,.5,.7,-1.6,0x8B5CF6],[1.6,-1.5,.5,-1.5,0x6D28D9],[1.6,2.2,.4,-1.5,0x6D28D9],
   ]:[
-    [1.2,0,0,0,0x7C3AED],[1.0,-1.2,0,0,0x6D28D9],[1.0,1.2,0,0,0x6D28D9],
-    [.9,0,.9,.2,0x8B5CF6],[.8,-1.8,-.2,0,0x5B21B6],[.8,1.8,-.2,0,0x5B21B6],
+    [1.2,0,0,0,0x6D28D9],[1.0,-1.2,0,0,0x6D28D9],[1.0,1.2,0,0,0x6D28D9],
+    [.9,0,.9,.2,0x8B5CF6],[.8,-1.8,-.2,0,0x4C1D95],[.8,1.8,-.2,0,0x4C1D95],
   ];
   C.forEach(([r,x,y,z,c,ro=.35])=>{
     const p=makePuff(r*scale,c,ro);p.position.set(x*scale,y*scale,z*scale);g.add(p);
@@ -511,7 +511,7 @@ scene.add(horizon);
 // Horizon glow disc
 const hdGeo=new THREE.CircleGeometry(18,64);
 const hdMat=new THREE.MeshBasicMaterial({
-  color:0x7C3AED,transparent:true,opacity:.06,side:THREE.DoubleSide
+  color:0x6D28D9,transparent:true,opacity:.06,side:THREE.DoubleSide
 });
 const hdMesh=new THREE.Mesh(hdGeo,hdMat);
 hdMesh.rotation.x=-Math.PI/2;hdMesh.position.set(0,-6.1,0);
@@ -528,7 +528,7 @@ for(let i=0;i<24;i++){
     new THREE.Vector3(Math.cos(angle2)*r,0,Math.sin(angle2)*r)
   ];
   const lg=new THREE.BufferGeometry().setFromPoints(pts);
-  const lm=new THREE.LineBasicMaterial({color:0x7C3AED,transparent:true,opacity:.25});
+  const lm=new THREE.LineBasicMaterial({color:0x6D28D9,transparent:true,opacity:.25});
   netGroup.add(new THREE.Line(lg,lm));
 }
 netGroup.rotation.x=-Math.PI/2;netGroup.position.set(0,-6,0);
@@ -614,22 +614,22 @@ window.addEventListener('resize',()=>{
 </script>
 
 <!-- ── LGPD BANNER ── -->
-<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(124,58,237,.3);backdrop-filter:blur(12px);padding:16px 24px">
+<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,40,217,.3);backdrop-filter:blur(12px);padding:16px 24px">
   <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px">
-      <span style="font-size:24px">🍪</span>
+      <span style="font-size:24px"></span>
       <div>
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Privacidade e Cookies</div>
         <div style="font-size:12px;color:rgba(167,139,250,.7);line-height:1.5">
           Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa 
-          <a href="privacidade.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Política de Privacidade</a> e 
-          <a href="termos.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Termos de Uso</a>.
+          <a href="../privacidade.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Política de Privacidade</a> e 
+          <a href="../termos.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Termos de Uso</a>.
         </div>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0">
-      <a href="privacidade.html" target="_blank" style="background:rgba(124,58,237,.2);color:#A78BFA;border:1px solid rgba(124,58,237,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
-      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#5B21B6,#7C3AED);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito ✓</button>
+      <a href="../privacidade.html" target="_blank" style="background:rgba(109,40,217,.2);color:#A78BFA;border:1px solid rgba(109,40,217,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
+      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
     </div>
   </div>
 </div>

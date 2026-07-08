@@ -7,22 +7,22 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
 /* ── OS Tabs ── */
-.os-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.os-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
 .os-tabs::-webkit-scrollbar{display:none}
-.os-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.os-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;flex-shrink:0}
 .os-tab:hover{color:var(--p)}
-.os-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.os-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
 .os-pane{display:none}.os-pane.active{display:block}
 
-/* ── Status badges ── */
-.st-aberta{background:#EFF6FF;color:#1D4ED8}
-.st-agendada{background:#F5F3FF;color:#6D28D9}
+/* ── Status badges — cor semântica suave ── */
+.st-aberta{background:#DBEAFE;color:#1D4ED8}
+.st-agendada{background:var(--p-light);color:var(--p2)}
 .st-deslocamento{background:#FEF3C7;color:#92400E}
-.st-atendimento{background:#DCFCE7;color:#166534}
-.st-material{background:#FEE2E2;color:#991B1B}
-.st-pausada{background:#F3F4F6;color:#374151}
-.st-concluida{background:#DCFCE7;color:#166534}
-.st-cancelada{background:#FEE2E2;color:#991B1B}
+.st-atendimento{background:var(--p-light);color:var(--p)}
+.st-material{background:#FEF2F2;color:#DC2626}
+.st-pausada{background:#F1EFF7;color:var(--muted)}
+.st-concluida{background:#ECFDF5;color:#059669}
+.st-cancelada{background:#F1EFF7;color:var(--muted)}
 
 /* ── OS Card ── */
 .os-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .2s;cursor:pointer}
@@ -34,7 +34,7 @@
 .os-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .os-meta-item{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
 .os-meta-item b{color:var(--txt)}
-.prioridade-alta{color:var(--red);font-weight:700}
+.prioridade-alta{color:#D97706;font-weight:700}
 .prioridade-urgente{color:#DC2626;font-weight:800;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
@@ -42,7 +42,7 @@
 .os-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;overflow-y:auto;padding:20px}
 .os-modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .os-modal{background:#fff;border-radius:20px;width:100%;max-width:900px;margin:auto;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.3)}
-.os-modal-header{background:linear-gradient(135deg,#1E0A3C,#7C3AED);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
+.os-modal-header{background:linear-gradient(135deg,#1E0A3C,#6D28D9);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
 .os-modal-title{font-size:18px;font-weight:900}
 .os-modal-body{padding:24px 28px;max-height:80vh;overflow-y:auto}
 .os-modal-footer{padding:16px 28px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
@@ -142,7 +142,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div class="main-content" id="mainContent">
     <div class="topbar">
       <div class="topbar-left">
-        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
           <div class="topbar-title">Ordens de Serviço</div>
           <div class="topbar-breadcrumb" id="topbarSub"></div>
@@ -163,18 +163,18 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
       <!-- TABS -->
       <div class="os-tabs">
-        <button class="os-tab active" onclick="osTab('lista',this)">📋 Todas as OS</button>
-        <button class="os-tab" onclick="osTab('hoje',this)">📅 Hoje</button>
-        <button class="os-tab" onclick="osTab('abertas',this)">🔵 Abertas</button>
-        <button class="os-tab" onclick="osTab('andamento',this)">⚡ Em andamento</button>
-        <button class="os-tab" onclick="osTab('concluidas',this)">✅ Concluídas</button>
-        <button class="os-tab" onclick="osTab('nova',this)">➕ Nova OS</button>
+        <button class="os-tab active" onclick="osTab('lista',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Todas as OS</button>
+        <button class="os-tab" onclick="osTab('hoje',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Hoje</button>
+        <button class="os-tab" onclick="osTab('abertas',this)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4C1D95;margin-right:4px"></span> Abertas</button>
+        <button class="os-tab" onclick="osTab('andamento',this)">Em andamento</button>
+        <button class="os-tab" onclick="osTab('concluidas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluídas</button>
+        <button class="os-tab" onclick="osTab('nova',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova OS</button>
       </div>
 
       <!-- LISTA -->
       <div id="pane-lista" class="os-pane active">
         <div class="os-filtros">
-          <input type="text" id="filtBusca" placeholder="🔍 Buscar OS, cliente..." oninput="renderLista()" style="max-width:240px">
+          <input type="text" id="filtBusca" placeholder="Buscar OS, cliente..." oninput="renderLista()" style="max-width:240px">
           <select id="filtStatus" onchange="renderLista()">
             <option value="">Todos os status</option>
             <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
@@ -193,7 +193,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
       <!-- HOJE -->
       <div id="pane-hoje" class="os-pane">
-        <div style="margin-bottom:12px;font-size:13px;color:var(--muted);font-weight:600">📅 OS agendadas para hoje — <b id="dataHoje"></b></div>
+        <div style="margin-bottom:12px;font-size:13px;color:var(--muted);font-weight:600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> OS agendadas para hoje — <b id="dataHoje"></b></div>
         <div id="osHoje"></div>
       </div>
 
@@ -215,13 +215,13 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- NOVA OS -->
       <div id="pane-nova" class="os-pane">
         <div class="card">
-          <h2 id="osTitulo">➕ Nova Ordem de Serviço</h2>
+          <h2 id="osTitulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova Ordem de Serviço</h2>
           <input type="hidden" id="osId">
           <input type="hidden" id="osNumero">
 
           <!-- DADOS GERAIS -->
           <div class="os-section">
-            <div class="os-section-title">👤 Cliente</div>
+            <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Cliente</div>
             <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
               <div class="field"><label>Cliente *</label>
                 <select id="osCliente" onchange="preencherCliente(this)">
@@ -239,7 +239,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
           <!-- SERVIÇO -->
           <div class="os-section">
-            <div class="os-section-title">🔧 Serviço</div>
+            <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Serviço</div>
             <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
               <div class="field"><label>Serviço *</label><input id="osServico" placeholder="Tipo de serviço"></div>
               <div class="field"><label>Equipamento</label><input id="osEquipamento" placeholder="Ex: Notebook Dell, Ar-condicionado..."></div>
@@ -278,7 +278,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
           <!-- DESCRIÇÃO -->
           <div class="os-section">
-            <div class="os-section-title">📝 Descrição técnica</div>
+            <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Descrição técnica</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div class="field"><label>Problema informado pelo cliente</label><textarea id="osProblema" rows="3" style="resize:vertical;width:100%" placeholder="Descreva o problema relatado..."></textarea></div>
               <div class="field"><label>Diagnóstico</label><textarea id="osDiagnostico" rows="3" style="resize:vertical;width:100%" placeholder="Diagnóstico técnico..."></textarea></div>
@@ -291,7 +291,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <!-- MATERIAIS -->
           <div class="os-section">
             <div class="os-section-title" style="justify-content:space-between">
-              <span>📦 Materiais utilizados</span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Materiais utilizados</span>
               <button class="btn2" onclick="addMatOS()" style="font-size:12px;padding:6px 12px">+ Material</button>
             </div>
             <div class="mat-row-header"><span>Material</span><span>Qtd</span><span>Unid.</span><span>Custo unit.</span><span>Total</span><span></span></div>
@@ -305,7 +305,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <!-- MÃO DE OBRA -->
           <div class="os-section">
             <div class="os-section-title" style="justify-content:space-between">
-              <span>👷 Mão de obra</span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Mão de obra</span>
               <button class="btn2" onclick="addMaoObraOS()" style="font-size:12px;padding:6px 12px">+ Técnico</button>
             </div>
             <div id="osMaoObraLista"></div>
@@ -318,20 +318,20 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <!-- CHECKLIST -->
           <div class="os-section">
             <div class="os-section-title" style="justify-content:space-between">
-              <span>✅ Checklist</span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Checklist</span>
               <button class="btn2" onclick="addCheckOS()" style="font-size:12px;padding:6px 12px">+ Item</button>
             </div>
             <div id="osCheckLista"></div>
           </div>
 
           <!-- TOTAL GERAL -->
-          <div style="background:linear-gradient(135deg,#1E0A3C,#7C3AED);border-radius:16px;padding:20px 24px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="background:linear-gradient(135deg,#1E0A3C,#6D28D9);border-radius:16px;padding:20px 24px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:700">VALOR TOTAL DA OS</div>
             <div style="font-size:32px;font-weight:900;color:#fff" id="osTotalGeral">R$ 0,00</div>
           </div>
 
           <div class="actions" style="margin-top:16px">
-            <button class="btn" onclick="salvarOS()">💾 Salvar OS</button>
+            <button class="btn" onclick="salvarOS()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvar OS</button>
             <button class="btn2" onclick="limparOS()">Limpar</button>
           </div>
           <div id="osMsg" class="msg"></div>
@@ -359,14 +359,14 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <div class="os-modal-body" id="osModalBody"></div>
     <div class="os-modal-footer">
       <button class="btn2" onclick="fecharModalOS()">Fechar</button>
-      <button class="btn2" id="modalBtnEditar">✏️ Editar</button>
+      <button class="btn2" id="modalBtnEditar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
       <select id="modalMudarStatus" onchange="mudarStatusOS()" style="padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-weight:700">
         <option value="">Mudar status...</option>
         <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
         <option>Em atendimento</option><option>Aguardando material</option>
         <option>Pausada</option><option>Concluída</option><option>Cancelada</option>
       </select>
-      <button class="btn" id="modalBtnConcluir" style="background:var(--green)" onclick="concluirOS()">✅ Concluir OS</button>
+      <button class="btn" id="modalBtnConcluir" style="background:var(--green)" onclick="concluirOS()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluir OS</button>
     </div>
   </div>
 </div>
@@ -457,7 +457,7 @@ function renderKpis(){
   const vencidas=os.filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)<hj&&String(o.data_agendada||'').slice(0,10)).length;
 
   setHTML('osKpis',[
-    {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'#2563EB'},
+    {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'var(--p2)'},
     {lbl:'Em andamento',val:andamento,sub:'em execução',cor:'var(--p)'},
     {lbl:'Concluídas',val:concluidas,sub:'este mês',cor:'var(--green)'},
     {lbl:'Faturamento',val:money(fatMes),sub:'mês atual',cor:'var(--p)'},
@@ -473,10 +473,10 @@ function statusBadge(status){
 }
 
 function prioridadeBadge(p){
-  if(p==='Urgente')return`<span class="prioridade-urgente">🔴 Urgente</span>`;
-  if(p==='Alta')return`<span class="prioridade-alta">🟠 Alta</span>`;
-  if(p==='Baixa')return`<span style="color:var(--muted);font-size:12px">⚪ Baixa</span>`;
-  return`<span style="color:var(--muted);font-size:12px">🟡 Normal</span>`;
+  if(p==='Urgente')return`<span class="prioridade-urgente"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#DC2626;margin-right:4px"></span> Urgente</span>`;
+  if(p==='Alta')return`<span class="prioridade-alta"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#D97706;margin-right:4px"></span> Alta</span>`;
+  if(p==='Baixa')return`<span style="color:var(--muted);font-size:12px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;border:1.5px solid #9CA3AF;margin-right:4px"></span> Baixa</span>`;
+  return`<span style="color:var(--muted);font-size:12px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#9CA3AF;margin-right:4px"></span> Normal</span>`;
 }
 
 // ── RENDER OS CARD ──
@@ -485,7 +485,7 @@ function renderOsCard(o){
   return`<div class="os-card" style="${atrasada?'border-left:4px solid var(--red);':''}" onclick="verOS('${o.id}')">
     <div class="os-card-header">
       <div>
-        <div class="os-numero">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red);font-size:11px">⚠️ Atrasada</span>':''}</div>
+        <div class="os-numero">${esc(o.numero||'—')} ${atrasada?'<span style="color:var(--red);font-size:11px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasada</span>':''}</div>
         <div class="os-cliente">${esc(o.cliente_nome||'—')}</div>
         <div class="os-servico">${esc(o.servico||'—')} ${o.equipamento?'· '+esc(o.equipamento):''}</div>
       </div>
@@ -495,10 +495,10 @@ function renderOsCard(o){
       </div>
     </div>
     <div class="os-meta">
-      ${o.tecnico_nome?`<div class="os-meta-item">👷 <b>${esc(o.tecnico_nome)}</b></div>`:''}
-      ${o.data_agendada?`<div class="os-meta-item">📅 <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
-      ${o.valor_total?`<div class="os-meta-item">💰 <b style="color:var(--p)">${money(o.valor_total)}</b></div>`:''}
-      <div class="os-meta-item">🕒 <b>${new Date(o.created_at).toLocaleDateString('pt-BR')}</b></div>
+      ${o.tecnico_nome?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <b>${esc(o.tecnico_nome)}</b></div>`:''}
+      ${o.data_agendada?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
+      ${o.valor_total?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> <b style="color:var(--p)">${money(o.valor_total)}</b></div>`:''}
+      <div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <b>${new Date(o.created_at).toLocaleDateString('pt-BR')}</b></div>
     </div>
   </div>`;
 }
@@ -551,7 +551,7 @@ async function verOS(id){
   setHTML('osModalBody',`
     <!-- INFO GERAL -->
     <div class="os-section">
-      <div class="os-section-title">📋 Informações gerais</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Informações gerais</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Cliente:</span> <b>${esc(o.cliente_nome||'—')}</b></div>
         <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Telefone:</span> <b>${esc(o.telefone||'—')}</b></div>
@@ -568,7 +568,7 @@ async function verOS(id){
     <!-- DESCRIÇÃO -->
     ${o.problema_cliente||o.diagnostico||o.solucao?`
     <div class="os-section">
-      <div class="os-section-title">📝 Descrição técnica</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Descrição técnica</div>
       ${o.problema_cliente?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Problema do cliente</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.problema_cliente)}</div></div>`:''}
       ${o.diagnostico?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Diagnóstico</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.diagnostico)}</div></div>`:''}
       ${o.solucao?`<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Solução executada</div><div style="font-size:13px;background:var(--bg);border-radius:10px;padding:10px 14px">${esc(o.solucao)}</div></div>`:''}
@@ -577,7 +577,7 @@ async function verOS(id){
     <!-- MATERIAIS -->
     ${mats.length?`
     <div class="os-section">
-      <div class="os-section-title">📦 Materiais (${mats.length} itens)</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Materiais (${mats.length} itens)</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="background:var(--p-light)"><th style="padding:8px;text-align:left">Material</th><th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:right">Custo unit.</th><th style="padding:8px;text-align:right">Total</th></tr></thead>
         <tbody>${mats.map(m=>`<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px">${esc(m.material_nome)}</td><td style="padding:8px;text-align:center">${m.quantidade} ${m.unidade||'UN'}</td><td style="padding:8px;text-align:right">${money(m.custo_unitario)}</td><td style="padding:8px;text-align:right;font-weight:700">${money(m.valor_total)}</td></tr>`).join('')}</tbody>
@@ -588,7 +588,7 @@ async function verOS(id){
     <!-- MÃO DE OBRA -->
     ${mo.length?`
     <div class="os-section">
-      <div class="os-section-title">👷 Mão de obra</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Mão de obra</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="background:var(--p-light)"><th style="padding:8px;text-align:left">Técnico</th><th style="padding:8px;text-align:center">Horas</th><th style="padding:8px;text-align:right">Valor/hora</th><th style="padding:8px;text-align:right">Total</th></tr></thead>
         <tbody>${mo.map(m=>`<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px">${esc(m.tecnico||'—')}</td><td style="padding:8px;text-align:center">${m.horas}h</td><td style="padding:8px;text-align:right">${money(m.valor_hora)}</td><td style="padding:8px;text-align:right;font-weight:700">${money(m.total)}</td></tr>`).join('')}</tbody>
@@ -599,7 +599,7 @@ async function verOS(id){
     <!-- CHECKLIST -->
     ${check.length?`
     <div class="os-section">
-      <div class="os-section-title">✅ Checklist (${checkDone}/${check.length})</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Checklist (${checkDone}/${check.length})</div>
       <div style="background:var(--bg);border-radius:12px;padding:12px">
         <div style="height:6px;background:var(--line);border-radius:99px;margin-bottom:12px;overflow:hidden">
           <div style="height:6px;background:var(--green);border-radius:99px;width:${check.length?Math.round(checkDone/check.length*100):0}%"></div>
@@ -612,7 +612,7 @@ async function verOS(id){
     </div>`:''}
 
     <!-- TOTAIS -->
-    <div style="background:linear-gradient(135deg,#1E0A3C,#7C3AED);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div style="background:linear-gradient(135deg,#1E0A3C,#6D28D9);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Serviço</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_servico)}</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_materiais||totalMat)}</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Mão de obra</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_mao_obra||totalMO)}</div></div>
@@ -622,7 +622,7 @@ async function verOS(id){
     <!-- TIMELINE -->
     ${timeline.length?`
     <div class="os-section">
-      <div class="os-section-title">📅 Timeline</div>
+      <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Timeline</div>
       <div class="timeline">
         ${timeline.map(t=>`<div class="timeline-item">
           <div class="timeline-time">${new Date(t.created_at).toLocaleString('pt-BR')}</div>
@@ -651,10 +651,10 @@ async function reabrirOS(){
     });
     await db.post('os_timeline',withEmpresa({
       os_id:osAtualId,
-      evento:`↩️ OS reaberta pelo administrador (estava: ${o?.status})`,
+      evento:`↩ OS reaberta pelo administrador (estava: ${o?.status})`,
       usuario_nome:session?.nome||''
     }));
-    toast('↩️ OS reaberta com sucesso!');
+    toast('↩ OS reaberta com sucesso!');
     fecharModalOS();
     await loadData();
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -664,7 +664,7 @@ async function reabrirOS(){
 async function excluirOSModal(){
   if(!osAtualId)return;
   const o=dados.os.find(x=>x.id===osAtualId);
-  if(!confirm(`⚠️ ATENÇÃO!\n\nExcluir permanentemente a ${o?.numero}?\n\nIsso NÃO pode ser desfeito.\nTodos os dados desta OS serão perdidos.`))return;
+  if(!confirm(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ATENÇÃO!\n\nExcluir permanentemente a ${o?.numero}?\n\nIsso NÃO pode ser desfeito.\nTodos os dados desta OS serão perdidos.`))return;
   if(!confirm(`Confirmar exclusão de ${o?.numero} — ${o?.cliente_nome}?`))return;
   try{
     // Delete related records first
@@ -673,7 +673,7 @@ async function excluirOSModal(){
     await db.get('os_checklist',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_checklist',i.id).catch(()=>{});}).catch(()=>{});
     await db.get('os_timeline',`?os_id=eq.${osAtualId}&select=id`).then(async r=>{for(const i of r)await db.delete('os_timeline',i.id).catch(()=>{});}).catch(()=>{});
     await db.delete('ordens_servico',osAtualId);
-    toast('🗑️ OS excluída permanentemente.');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> OS excluída permanentemente.');
     fecharModalOS();
     await loadData();
   }catch(e){toast('Erro ao excluir: '+e.message,'err');}
@@ -751,9 +751,9 @@ async function concluirOS(){
     }));
 
     // 4. Registrar na timeline
-    await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:'✅ OS Concluída — Estoque atualizado e receita lançada no financeiro',usuario_nome:session?.nome||''}));
+    await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS Concluída — Estoque atualizado e receita lançada no financeiro',usuario_nome:session?.nome||''}));
 
-    toast('✅ OS concluída! Estoque baixado e receita lançada no financeiro.');
+    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS concluída! Estoque baixado e receita lançada no financeiro.');
     fecharModalOS();
     await loadData();
   }catch(e){toast('Erro ao concluir: '+e.message,'err');}
@@ -942,7 +942,7 @@ async function salvarOS(){
       await db.post('os_timeline',withEmpresa({os_id:osId,evento:id?'OS editada':'OS criada',usuario_nome:session?.nome||''}));
     }
 
-    toast(id?'✅ OS atualizada!':'✅ OS criada com sucesso!');
+    toast(id?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS atualizada!':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS criada com sucesso!');
     limparOS();
     await loadData();
     osTab('lista',document.querySelector('.os-tab'));
@@ -972,7 +972,7 @@ function editarOS(id){
   if($('osHoraInicio'))$('osHoraInicio').value=fmtHora(o.hora_inicio);
   if($('osHoraFim'))$('osHoraFim').value=fmtHora(o.hora_fim);
   if($('osValorServico'))$('osValorServico').value=o.valor_servico||0;
-  $('osTitulo').textContent='✏️ Editar OS — '+(o.numero||'');
+  $('osTitulo').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar OS — '+(o.numero||'');
   osMatItens=[];osMaoObraItens=[];osCheckItens=[];
   // Load items async
   Promise.all([
@@ -1000,7 +1000,7 @@ function limparOS(){
   if($('osHoraFim'))$('osHoraFim').value='';
   osMatItens=[];osMaoObraItens=[];osCheckItens=[];
   renderMatItens();renderMaoObraItens();renderCheckItens();
-  if($('osTitulo'))$('osTitulo').textContent='➕ Nova Ordem de Serviço';
+  if($('osTitulo'))$('osTitulo').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova Ordem de Serviço';
   if($('osTotalGeral'))$('osTotalGeral').textContent='R$ 0,00';
 }
 

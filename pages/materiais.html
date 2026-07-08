@@ -8,24 +8,23 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ── TABS ── */
-.mat-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.mat-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
 .mat-tabs::-webkit-scrollbar{display:none}
-.mat-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.mat-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
 .mat-tab:hover{color:var(--p)}
-.mat-tab.active{color:var(--p);border-bottom-color:var(--p)}
+.mat-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
 .mat-pane{display:none}.mat-pane.active{display:block}
 
 /* ── KPI CARDS ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:box-shadow .2s}
-.kpi-card:hover{box-shadow:var(--shadow-md)}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.kpi-card.purple::before{background:linear-gradient(90deg,var(--p),var(--p3))}
-.kpi-card.red::before{background:linear-gradient(90deg,#DC2626,#F87171)}
-.kpi-card.amber::before{background:linear-gradient(90deg,#D97706,#FCD34D)}
-.kpi-card.green::before{background:linear-gradient(90deg,#059669,#34D399)}
-.kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px}
-.kpi-value{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px}
+.kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden;transition:box-shadow .2s ease,transform .2s ease}
+.kpi-card:hover{box-shadow:0 4px 16px rgba(31,41,55,.06);transform:translateY(-2px)}
+.kpi-card.purple .kpi-icon{color:var(--p)}
+.kpi-card.red .kpi-icon{color:#DC2626}
+.kpi-card.amber .kpi-icon{color:var(--p2)}
+.kpi-card.green .kpi-icon{color:#059669}
+.kpi-label{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px}
+.kpi-value{font-size:24px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
 .kpi-sub{font-size:12px;color:var(--muted2)}
 .kpi-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:36px;opacity:.15}
 
@@ -49,16 +48,16 @@
 
 /* ── ESTOQUE BADGE ── */
 .est-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.est-ok{background:var(--green-bg);color:#065F46}
-.est-low{background:var(--amber-bg);color:#78350F}
-.est-zero{background:var(--red-bg);color:#7F1D1D}
+.est-ok{background:#ECFDF5;color:#059669}
+.est-low{background:#FEF3C7;color:#92400E}
+.est-zero{background:#FEF2F2;color:#DC2626}
 
 /* ── MOVIMENTAÇÃO ── */
 .mov-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.mov-entrada{background:#D1FAE5;color:#065F46}
-.mov-saida{background:#FEE2E2;color:#7F1D1D}
+.mov-entrada{background:#ECFDF5;color:#059669}
+.mov-saida{background:#FEF2F2;color:#DC2626}
 .mov-ajuste{background:#DBEAFE;color:#1E40AF}
-.mov-inventario{background:#EDE9FE;color:#5B21B6}
+.mov-inventario{background:#EDE9FE;color:#4C1D95}
 
 /* ── CHART CARDS ── */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
@@ -85,8 +84,8 @@
 .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 /* ── CRITICAL ALERT ── */
-.alert-critical{background:var(--red-bg);border:1px solid #FECACA;border-left:4px solid var(--red);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
-.alert-low{background:var(--amber-bg);border:1px solid #FDE68A;border-left:4px solid var(--amber);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.alert-critical{background:#F1EFF7;border:1px solid var(--line);border-left:3px solid var(--txt);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.alert-low{background:var(--p-light);border:1px solid #DDD6FE;border-left:3px solid var(--p);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
 
 /* ── FOTO PREVIEW ── */
 .foto-preview{width:100%;height:140px;background:var(--bg);border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:32px;transition:all .2s;overflow:hidden}
@@ -140,7 +139,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
 const CATEGORIAS=['Elétrica','Hidráulica','Climatização','Energia Solar','Ferramentas','EPIs','Consumíveis','Cabos','Conectores','Disjuntores','Parafusos','Tubulações','Equipamentos','Outros'];
 const UNIDADES=['UN','M','M²','M³','KG','G','L','ML','CX','PCT','RL','PC','PAR','JG','KIT','HR'];
-const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Energia Solar':'☀️',Ferramentas:'🔨',EPIs:'🦺',Consumíveis:'📦',Cabos:'🔌',Conectores:'🔗',Disjuntores:'⚡',Parafusos:'🔩',Tubulações:'🔧',Equipamentos:'🖥️',Outros:'📋'};
+const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',Climatização:'','Energia Solar':'',Ferramentas:'🔨',EPIs:'',Consumíveis:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',Cabos:'',Conectores:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',Disjuntores:'',Parafusos:'',Tubulações:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',Equipamentos:'',Outros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>'};
 </script>
 
 <!-- SIDEBAR -->
@@ -159,7 +158,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
     <!-- TOPBAR -->
     <div class="topbar">
       <div class="topbar-left">
-        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()">☰</button>
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
           <div class="topbar-title">Materiais & Estoque</div>
           <div class="topbar-breadcrumb" id="topbarSub"></div>
@@ -176,10 +175,10 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
     <div class="main-scroll">
       <!-- TABS -->
       <div class="mat-tabs">
-        <button class="mat-tab active" onclick="matTab('dashboard',this)">📊 Dashboard</button>
-        <button class="mat-tab" onclick="matTab('materiais',this)">📦 Materiais</button>
-        <button class="mat-tab" onclick="matTab('movimentacoes',this)">🔄 Movimentações</button>
-        <button class="mat-tab" onclick="matTab('estoque',this)">⚠️ Estoque Crítico</button>
+        <button class="mat-tab active" onclick="matTab('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Dashboard</button>
+        <button class="mat-tab" onclick="matTab('materiais',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Materiais</button>
+        <button class="mat-tab" onclick="matTab('movimentacoes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Movimentações</button>
+        <button class="mat-tab" onclick="matTab('estoque',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Estoque Crítico</button>
         <button class="mat-tab" onclick="matTab('fornecedores',this)">🏭 Fornecedores</button>
       </div>
 
@@ -187,10 +186,10 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
       <div id="pane-dashboard" class="mat-pane active">
         <div class="kpi-grid" id="dashKpis"></div>
         <div class="chart-grid">
-          <div class="chart-card"><h3>📈 Consumo mensal (6 meses)</h3><canvas id="chartConsumo" height="200"></canvas></div>
+          <div class="chart-card"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Consumo mensal (6 meses)</h3><canvas id="chartConsumo" height="200"></canvas></div>
           <div class="chart-card"><h3>🏆 Materiais mais utilizados</h3><canvas id="chartTop" height="200"></canvas></div>
           <div class="chart-card"><h3>📂 Estoque por categoria</h3><canvas id="chartCat" height="200"></canvas></div>
-          <div class="chart-card"><h3>💰 Entradas x Saídas (valor)</h3><canvas id="chartFluxo" height="200"></canvas></div>
+          <div class="chart-card"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Entradas x Saídas (valor)</h3><canvas id="chartFluxo" height="200"></canvas></div>
         </div>
         <div id="alertasCriticos"></div>
       </div>
@@ -199,7 +198,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
       <div id="pane-materiais" class="mat-pane">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <div class="search-wrap" style="margin:0;flex:1">
-            <input type="text" id="matBusca" placeholder="🔍 Buscar material..." oninput="renderMateriais()" style="max-width:280px;flex:1">
+            <input type="text" id="matBusca" placeholder="Buscar material..." oninput="renderMateriais()" style="max-width:280px;flex:1">
             <select id="matFiltroCateg" onchange="renderMateriais()" style="max-width:160px">
               <option value="">Todas as categorias</option>
             </select>
@@ -210,7 +209,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="view-toggle">
-              <button class="view-btn active" id="viewTabela" onclick="setView('tabela')" title="Tabela">☰</button>
+              <button class="view-btn active" id="viewTabela" onclick="setView('tabela')" title="Tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
               <button class="view-btn" id="viewGrid" onclick="setView('grid')" title="Grade">⊞</button>
             </div>
             <button class="btn" onclick="abrirModalMaterial()">+ Novo material</button>
@@ -247,10 +246,10 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div class="field"><label>Tipo *</label>
                 <select id="movTipo" onchange="atualizarMovTipo()">
-                  <option value="entrada">📥 Entrada</option>
-                  <option value="saida">📤 Saída</option>
-                  <option value="ajuste">🔧 Ajuste manual</option>
-                  <option value="inventario">📋 Inventário</option>
+                  <option value="entrada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> Entrada</option>
+                  <option value="saida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Saída</option>
+                  <option value="ajuste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Ajuste manual</option>
+                  <option value="inventario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Inventário</option>
                 </select>
               </div>
               <div class="field"><label>Material *</label>
@@ -314,7 +313,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
 
       <!-- ══ ESTOQUE CRÍTICO ══ -->
       <div id="pane-estoque" class="mat-pane">
-        <div class="notice" style="margin-bottom:20px">⚠️ Materiais com estoque abaixo do mínimo ou zerado.</div>
+        <div class="notice" style="margin-bottom:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Materiais com estoque abaixo do mínimo ou zerado.</div>
         <div id="estoqueCriticoLista"></div>
       </div>
 
@@ -361,7 +360,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
   <input type="hidden" id="matId">
 
   <div class="form-section">
-    <div class="form-section-title">📋 Identificação</div>
+    <div class="form-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Identificação</div>
     <div class="form-row-3">
       <div class="field"><label>Código interno</label><input id="matCodigo" placeholder="MAT-001"></div>
       <div class="field"><label>Código de barras</label><input id="matBarras" placeholder="EAN-13"></div>
@@ -386,7 +385,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
   </div>
 
   <div class="form-section">
-    <div class="form-section-title">💰 Valores</div>
+    <div class="form-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Valores</div>
     <div class="form-row-3">
       <div class="field"><label>Custo de compra (R$)</label><input type="number" id="matCusto" step="0.01" placeholder="0,00"></div>
       <div class="field"><label>Valor de venda (R$)</label><input type="number" id="matVenda" step="0.01" placeholder="0,00"></div>
@@ -395,7 +394,7 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
   </div>
 
   <div class="form-section">
-    <div class="form-section-title">📦 Estoque</div>
+    <div class="form-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Estoque</div>
     <div class="form-row-3">
       <div class="field"><label>Estoque atual</label><input type="number" id="matEstAtual" step="0.001" placeholder="0"></div>
       <div class="field"><label>Estoque mínimo</label><input type="number" id="matEstMin" step="0.001" placeholder="0"></div>
@@ -404,9 +403,9 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
   </div>
 
   <div class="form-section">
-    <div class="form-section-title">🖼️ Foto</div>
+    <div class="form-section-title">Foto</div>
     <div class="foto-preview" id="fotoPreview" onclick="$('matFotoInput').click()">
-      <span id="fotoPlaceholder">📷 Clique para adicionar foto</span>
+      <span id="fotoPlaceholder">Clique para adicionar foto</span>
     </div>
     <input type="file" id="matFotoInput" accept="image/*" style="display:none" onchange="previewFoto(this)">
     <input type="hidden" id="matFotoUrl">
@@ -433,8 +432,8 @@ const CAT_ICONS={Elétrica:'⚡',Hidráulica:'🔧',Climatização:'❄️','Ene
   <div id="detalheConteudo"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
-    <button class="btn2" id="detalheEditBtn">✏️ Editar</button>
-    <button class="btn" onclick="abrirMovRapida()">🔄 Movimentação</button>
+    <button class="btn2" id="detalheEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+    <button class="btn" onclick="abrirMovRapida()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Movimentação</button>
   </div>
 </div>
 </div>
@@ -494,18 +493,18 @@ function renderDashboard(){
   const valorTotal=mats.reduce((a,m)=>a+Number(m.estoque_atual||0)*Number(m.custo_compra||0),0);
 
   setHTML('dashKpis',[
-    {lbl:'Total de Materiais',val:total,sub:`${ativos} ativos`,cor:'purple',icon:'📦'},
-    {lbl:'Estoque Baixo',val:baixo,sub:'abaixo do mínimo',cor:'amber',icon:'⚠️'},
-    {lbl:'Sem Estoque',val:zero,sub:'zerados',cor:'red',icon:'🚨'},
-    {lbl:'Valor do Estoque',val:money(valorTotal),sub:'custo total',cor:'green',icon:'💰'},
+    {lbl:'Total de Materiais',val:total,sub:`${ativos} ativos`,cor:'purple',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'},
+    {lbl:'Estoque Baixo',val:baixo,sub:'abaixo do mínimo',cor:'amber',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'},
+    {lbl:'Sem Estoque',val:zero,sub:'zerados',cor:'red',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'},
+    {lbl:'Valor do Estoque',val:money(valorTotal),sub:'custo total',cor:'green',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>'},
   ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div><div class="kpi-icon">${k.icon}</div></div>`).join(''));
 
   // Alertas críticos
   const criticos=mats.filter(m=>Number(m.estoque_atual||0)===0&&m.status==='Ativo');
   const baixos=mats.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
   let alertasHtml='';
-  if(criticos.length)alertasHtml+=criticos.map(m=>`<div class="alert-critical"><span style="font-size:20px">🚨</span><div><b>${esc(m.nome)}</b> — Estoque zerado! <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
-  if(baixos.length)alertasHtml+=baixos.map(m=>`<div class="alert-low"><span style="font-size:20px">⚠️</span><div><b>${esc(m.nome)}</b> — Estoque: <b>${fmtNum(m.estoque_atual,3)} ${m.unidade||'UN'}</b> / Mín: ${fmtNum(m.estoque_minimo,3)} <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
+  if(criticos.length)alertasHtml+=criticos.map(m=>`<div class="alert-critical"><span style="font-size:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><div><b>${esc(m.nome)}</b> — Estoque zerado! <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
+  if(baixos.length)alertasHtml+=baixos.map(m=>`<div class="alert-low"><span style="font-size:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><div><b>${esc(m.nome)}</b> — Estoque: <b>${fmtNum(m.estoque_atual,3)} ${m.unidade||'UN'}</b> / Mín: ${fmtNum(m.estoque_minimo,3)} <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
   setHTML('alertasCriticos',alertasHtml);
 
   // Gráficos
@@ -526,7 +525,10 @@ function renderCharts(){
 
   if(charts.consumo)charts.consumo.destroy();
   const c1=$('chartConsumo');
-  if(c1)charts.consumo=new Chart(c1,{type:'bar',data:{labels,datasets:[{label:'Entradas',data:entradas,backgroundColor:'rgba(5,150,105,.75)',borderRadius:6},{label:'Saídas',data:saidas,backgroundColor:'rgba(220,38,38,.7)',borderRadius:6}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
+  if(c1)charts.consumo=new Chart(c1,{type:'line',data:{labels,datasets:[
+    {label:'Entradas',data:entradas,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
+  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 
   // Top materiais por saída
   const matMap={};
@@ -534,20 +536,23 @@ function renderCharts(){
   const top=Object.entries(matMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.top)charts.top.destroy();
   const c2=$('chartTop');
-  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(124,58,237,.8)',borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}}}}});
+  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(109,40,217,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
 
   // Por categoria
   const catMap={};dados.materiais.forEach(m=>{const c=m.categoria||'Outros';if(!catMap[c])catMap[c]=0;catMap[c]+=Number(m.estoque_atual||0)*Number(m.custo_compra||0);});
   const catEntries=Object.entries(catMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.cat)charts.cat.destroy();
   const c3=$('chartCat');
-  const colors=['#7C3AED','#2563EB','#059669','#D97706','#DC2626','#0891B2','#7C3AED','#A855F7'];
-  if(c3)charts.cat=new Chart(c3,{type:'doughnut',data:{labels:catEntries.map(x=>x[0]),datasets:[{data:catEntries.map(x=>x[1]),backgroundColor:colors,borderWidth:0}]},options:{responsive:true,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}}}}});
+  const colors=['#6D28D9','#8B5CF6','#A78BFA','#C4B5FD','#DDD6FE','#9CA3AF','#6D28D9','#A855F7'];
+  if(c3)charts.cat=new Chart(c3,{type:'doughnut',data:{labels:catEntries.map(x=>x[0]),datasets:[{data:catEntries.map(x=>x[1]),backgroundColor:colors,borderWidth:0,borderRadius:8,spacing:2}]},options:{responsive:true,cutout:'68%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}}}}});
 
   // Fluxo valor
   if(charts.fluxo)charts.fluxo.destroy();
   const c4=$('chartFluxo');
-  if(c4)charts.fluxo=new Chart(c4,{type:'line',data:{labels,datasets:[{label:'Entradas',data:entradas,borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.4,pointRadius:4},{label:'Saídas',data:saidas,borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,.06)',fill:true,tension:.4,pointRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
+  if(c4)charts.fluxo=new Chart(c4,{type:'line',data:{labels,datasets:[
+    {label:'Entradas',data:entradas,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
+  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 }
 
 // ══ MATERIAIS ══
@@ -590,7 +595,7 @@ function renderMateriais(){
     return`<tr onclick="verDetalhe('${m.id}')" style="cursor:pointer">
       <td style="font-family:monospace;font-size:12px">${esc(m.codigo||'—')}</td>
       <td><b>${esc(m.nome||'')}</b>${m.marca?`<div style="font-size:11px;color:var(--muted)">${esc(m.marca)}</div>`:''}</td>
-      <td><span style="font-size:11px;background:var(--p-light);color:var(--p);padding:2px 8px;border-radius:20px;font-weight:600">${CAT_ICONS[m.categoria]||'📋'} ${esc(m.categoria||'—')}</span></td>
+      <td><span style="font-size:11px;background:var(--p-light);color:var(--p);padding:2px 8px;border-radius:20px;font-weight:600">${CAT_ICONS[m.categoria]||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>'} ${esc(m.categoria||'—')}</span></td>
       <td style="font-weight:700;color:${estCor}">${fmtNum(est,3)} ${m.unidade||'UN'}</td>
       <td style="color:var(--muted)">${fmtNum(min,3)}</td>
       <td>${money(m.custo_compra)}</td>
@@ -599,10 +604,10 @@ function renderMateriais(){
       <td><span class="est-badge ${cls}">${txt}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
-          <button class="btn2" onclick="editarMaterial('${m.id}')" style="font-size:11px;padding:5px 8px">✏️</button>
-          <button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:11px;padding:5px 8px;background:var(--green-bg);color:#065F46">📥</button>
-          <button class="btn2" onclick="abrirMovMaterial('${m.id}','saida')" style="font-size:11px;padding:5px 8px;background:var(--red-bg);color:#7F1D1D">📤</button>
-          <button class="danger" onclick="excluirMaterial('${m.id}')" style="font-size:11px;padding:5px 8px">🗑️</button>
+          <button class="btn2" onclick="editarMaterial('${m.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+          <button class="btn2" onclick="abrirMovMaterial('${m.id}','saida')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+          <button class="danger" onclick="excluirMaterial('${m.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </td>
     </tr>`;
@@ -611,7 +616,7 @@ function renderMateriais(){
   // Grid
   setHTML('matGridView',lista.map(m=>{
     const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo);
-    const icon=CAT_ICONS[m.categoria]||'📦';
+    const icon=CAT_ICONS[m.categoria]||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
     return`<div class="mat-card" onclick="verDetalhe('${m.id}')">
       <div class="mat-card-img">${m.foto_url?`<img src="${esc(m.foto_url)}" alt="${esc(m.nome)}">`:icon}</div>
       <div class="mat-card-nome">${esc(m.nome)}</div>
@@ -640,7 +645,7 @@ function abrirModalMaterial(){
   if($('matCategoria'))$('matCategoria').value='Elétrica';
   if($('matUnidade'))$('matUnidade').value='UN';
   if($('matFornecedor'))$('matFornecedor').value='';
-  setHTML('fotoPreview','<span id="fotoPlaceholder">📷 Clique para adicionar foto</span>');
+  setHTML('fotoPreview','<span id="fotoPlaceholder">Clique para adicionar foto</span>');
   setHTML('matMargem','—');
   $('modalMatTitulo').textContent='Novo material';
   abrirModal('modalMaterial');
@@ -730,8 +735,8 @@ function previewFoto(input){
 }
 function atualizarFotoUrl(url){
   $('matFotoUrl').value=url;
-  if(url)setHTML('fotoPreview',`<img src="${esc(url)}" alt="foto" onerror="this.parentNode.innerHTML='❌ URL inválida'">`);
-  else setHTML('fotoPreview','<span>📷 Clique para adicionar foto</span>');
+  if(url)setHTML('fotoPreview',`<img src="${esc(url)}" alt="foto" onerror="this.parentNode.textContent='URL inválida'">`);
+  else setHTML('fotoPreview','<span>Clique para adicionar foto</span>');
 }
 
 // Detalhe
@@ -849,7 +854,7 @@ async function salvarMovimentacao(){
     }
     await dbPatch('materiais', matId, novosCampos);
     const msgCusto = novosCampos.custo_compra ? ` · Custo médio: ${money(novosCampos.custo_compra)}` : '';
-    msg('movMsg',`${tipo==='entrada'?'✅ Entrada':'✅ Saída'} registrada! Novo estoque: ${fmtNum(Math.max(0,estPost),3)} ${mat.unidade||'UN'}${msgCusto}` ,'ok');
+    msg('movMsg',`${tipo==='entrada'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Entrada':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Saída'} registrada! Novo estoque: ${fmtNum(Math.max(0,estPost),3)} ${mat.unidade||'UN'}${msgCusto}` ,'ok');
     limparMov();await carregarTudo();
   }catch(e){msg('movMsg','Erro: '+e.message,'err');}
 }
@@ -896,18 +901,18 @@ function renderEstoqueCritico(){
   const baixos=dados.materiais.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
   let html='';
   if(criticos.length){
-    html+=`<div style="font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">🚨 ${criticos.length} itens zerados</div>`;
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${criticos.length} itens zerados</div>`;
     html+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px"><div class="tablewrap"><table><thead><tr><th>Material</th><th>Categoria</th><th>Fornecedor</th><th>Custo unit.</th><th>Estoque mín.</th><th>Ação</th></tr></thead><tbody>`;
-    html+=criticos.map(m=>`<tr><td><b style="color:var(--red)">${esc(m.nome)}</b></td><td>${esc(m.categoria||'—')}</td><td>${esc(m.fornecedor_nome||'—')}</td><td>${money(m.custo_compra)}</td><td>${fmtNum(m.estoque_minimo,3)} ${m.unidade||'UN'}</td><td><button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:12px;padding:6px 12px;background:var(--green-bg);color:#065F46">📥 Dar entrada</button></td></tr>`).join('');
+    html+=criticos.map(m=>`<tr><td><b style="color:var(--red)">${esc(m.nome)}</b></td><td>${esc(m.categoria||'—')}</td><td>${esc(m.fornecedor_nome||'—')}</td><td>${money(m.custo_compra)}</td><td>${fmtNum(m.estoque_minimo,3)} ${m.unidade||'UN'}</td><td><button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:12px;padding:6px 12px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> Dar entrada</button></td></tr>`).join('');
     html+=`</tbody></table></div></div>`;
   }
   if(baixos.length){
-    html+=`<div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">⚠️ ${baixos.length} itens com estoque baixo</div>`;
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${baixos.length} itens com estoque baixo</div>`;
     html+=`<div class="card" style="padding:0;overflow:hidden"><div class="tablewrap"><table><thead><tr><th>Material</th><th>Categoria</th><th>Estoque atual</th><th>Estoque mínimo</th><th>Diferença</th><th>Ação</th></tr></thead><tbody>`;
-    html+=baixos.map(m=>{const diff=Number(m.estoque_minimo||0)-Number(m.estoque_atual||0);return`<tr><td><b style="color:var(--amber)">${esc(m.nome)}</b></td><td>${esc(m.categoria||'—')}</td><td style="font-weight:700;color:var(--amber)">${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'}</td><td>${fmtNum(m.estoque_minimo||0,3)}</td><td style="color:var(--red)">-${fmtNum(diff,3)}</td><td><button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:12px;padding:6px 12px;background:var(--amber-bg);color:#78350F">📥 Repor</button></td></tr>`;}).join('');
+    html+=baixos.map(m=>{const diff=Number(m.estoque_minimo||0)-Number(m.estoque_atual||0);return`<tr><td><b style="color:var(--amber)">${esc(m.nome)}</b></td><td>${esc(m.categoria||'—')}</td><td style="font-weight:700;color:var(--amber)">${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'}</td><td>${fmtNum(m.estoque_minimo||0,3)}</td><td style="color:var(--red)">-${fmtNum(diff,3)}</td><td><button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:12px;padding:6px 12px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> Repor</button></td></tr>`;}).join('');
     html+=`</tbody></table></div></div>`;
   }
-  if(!criticos.length&&!baixos.length)html=`<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px;margin-bottom:12px">✅</div><p style="color:var(--green);font-weight:700;font-size:16px">Todos os materiais estão com estoque OK!</p></div>`;
+  if(!criticos.length&&!baixos.length)html=`<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></div><p style="color:var(--green);font-weight:700;font-size:16px">Todos os materiais estão com estoque OK!</p></div>`;
   setHTML('estoqueCriticoLista',html);
 }
 
@@ -943,8 +948,8 @@ function renderFornecedores(){
     <td style="font-size:12px">${esc(f.contato||'—')}</td>
     <td><span class="badge ${f.ativo!==false?'ok':'bad'}">${f.ativo!==false?'Ativo':'Inativo'}</span></td>
     <td><div style="display:flex;gap:4px">
-      <button class="btn2" onclick="editarFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px">✏️ Editar</button>
-      <button class="danger" onclick="excluirFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px">🗑️</button>
+      <button class="btn2" onclick="editarFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+      <button class="danger" onclick="excluirFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
     </div></td>
   </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum fornecedor cadastrado.</td></tr>');
 }

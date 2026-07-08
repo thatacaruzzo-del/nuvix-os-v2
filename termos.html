@@ -8,12 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--p:#7C3AED;--p2:#5B21B6;--p3:#A78BFA;--p-light:#EDE9FE;--bg:#F8F8FC;--surface:#fff;--line:#EBEBF0;--txt:#111827;--muted:#6B7280;}
+:root{--p:#6D28D9;--p2:#4C1D95;--p3:#A78BFA;--p-light:#EDE9FE;--bg:#F8F8FC;--surface:#fff;--line:#E8E8F1;--txt:#1F2937;--muted:#6B7280;}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.7}
-.header{background:linear-gradient(135deg,#180033,#2B0A59,#5B21B6);color:#fff}
+.header{background:linear-gradient(135deg,#180033,#2B0A59,#4C1D95);color:#fff}
 .header-top{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid rgba(255,255,255,.1)}
 .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}
-.brand-logo{width:42px;height:42px;background:linear-gradient(135deg,var(--p),var(--p3));border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(124,58,237,.5)}
+.brand-logo{width:42px;height:42px;background:linear-gradient(135deg,var(--p),var(--p3));border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(109,40,217,.5)}
 .brand-logo svg{width:24px;height:18px}
 .brand-name{font-size:22px;font-weight:900;letter-spacing:-.04em}
 .brand-tag{font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--p3);text-transform:uppercase}
@@ -38,7 +38,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .section li{font-size:14px;color:var(--muted);margin-bottom:6px;line-height:1.7}
 .section li b{color:var(--txt)}
 .highlight{background:var(--p-light);border-left:4px solid var(--p);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--p2);font-weight:500}
-.warn{background:#FEF3C7;border-left:4px solid #D97706;border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:#78350F;font-weight:500}
+.warn{background:#F1EFF7;border-left:4px solid var(--txt);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--txt);font-weight:500}
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
 .plan-card{border:1.5px solid var(--line);border-radius:12px;padding:16px;text-align:center}
 .plan-card.featured{border-color:var(--p);background:var(--p-light)}
@@ -69,11 +69,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <a href="index.html" class="back-btn">← Voltar ao sistema</a>
   </div>
   <div class="header-hero">
-    <h1>📋 Termos de Uso</h1>
+    <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Termos de Uso</h1>
     <p>Condições gerais para uso da plataforma Nuvix Hub</p>
     <div class="header-meta">
-      <span class="meta-item">📅 Última atualização: 01/07/2026</span>
-      <span class="meta-item">📋 Versão 1.0</span>
+      <span class="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Última atualização: 01/07/2026</span>
+      <span class="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Versão 1.0</span>
       <span class="meta-item">🇧🇷 Legislação brasileira</span>
     </div>
   </div>
@@ -82,7 +82,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <div class="container">
 
   <div class="toc">
-    <h3>📋 Índice</h3>
+    <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Índice</h3>
     <ol>
       <li><a href="#t1">Aceitação dos termos</a></li>
       <li><a href="#t2">O que é o Nuvix Hub</a></li>
@@ -105,14 +105,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T1 -->
   <div class="section" id="t1">
-    <h2>✅ 1. Aceitação dos termos</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> 1. Aceitação dos termos</h2>
     <p>Estes Termos de Uso constituem um contrato legal entre você (pessoa física ou jurídica) e o <b>Nuvix Hub</b>. Ao criar uma conta, acessar ou usar a plataforma, você declara ter lido, compreendido e aceito estes termos integralmente.</p>
     <p>Caso esteja usando em nome de uma empresa, você declara ter autoridade para vincular a empresa a estes termos.</p>
   </div>
 
   <!-- T2 -->
   <div class="section" id="t2">
-    <h2>🖥️ 2. O que é o Nuvix Hub</h2>
+    <h2>2. O que é o Nuvix Hub</h2>
     <p>O <b>Nuvix Hub</b> é uma plataforma de gestão empresarial (ERP) na nuvem, desenvolvida para empresas de serviços, transporte e comércio, oferecendo os módulos:</p>
     <ul>
       <li>Dashboard executivo</li>
@@ -129,7 +129,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T3 -->
   <div class="section" id="t3">
-    <h2>👤 3. Cadastro e conta</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 3. Cadastro e conta</h2>
     <ul>
       <li>Para usar o Nuvix Hub, é necessário criar uma conta com dados verdadeiros e atualizados</li>
       <li>Você é responsável pela confidencialidade de sua senha</li>
@@ -137,16 +137,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <li>O administrador da empresa é responsável pelo acesso dos usuários da sua equipe</li>
       <li>Em caso de suspeita de acesso não autorizado, notifique-nos imediatamente</li>
     </ul>
-    <div class="warn">⚠️ Não compartilhe suas credenciais de acesso. Você é responsável por todas as ações realizadas em sua conta.</div>
+    <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Não compartilhe suas credenciais de acesso. Você é responsável por todas as ações realizadas em sua conta.</div>
   </div>
 
   <!-- T4 -->
   <div class="section" id="t4">
-    <h2>💳 4. Planos e pagamentos</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 4. Planos e pagamentos</h2>
     <p>O Nuvix Hub oferece os seguintes planos:</p>
     <div class="plan-grid">
       <div class="plan-card">
-        <h4>🚀 Start</h4>
+        <h4>Start</h4>
         <p>Módulos essenciais para começar a gestão da empresa</p>
       </div>
       <div class="plan-card featured">
@@ -154,7 +154,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <p>Módulos avançados incluindo Transporte e CRM</p>
       </div>
       <div class="plan-card">
-        <h4>💎 Plus</h4>
+        <h4>Plus</h4>
         <p>Acesso completo a todos os módulos da plataforma</p>
       </div>
     </div>
@@ -168,7 +168,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T5 -->
   <div class="section" id="t5">
-    <h2>✅ 5. Uso permitido</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> 5. Uso permitido</h2>
     <p>Você pode usar o Nuvix Hub para:</p>
     <ul>
       <li>Gerenciar as operações da sua empresa</li>
@@ -192,12 +192,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <li>Sobrecarregar intencionalmente os servidores</li>
       <li>Inserir dados falsos com intenção de prejudicar terceiros</li>
     </ul>
-    <div class="warn">⚠️ O descumprimento dessas regras pode resultar no cancelamento imediato da conta sem reembolso.</div>
+    <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> O descumprimento dessas regras pode resultar no cancelamento imediato da conta sem reembolso.</div>
   </div>
 
   <!-- T7 -->
   <div class="section" id="t7">
-    <h2>🔐 7. Seus dados</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 7. Seus dados</h2>
     <ul>
       <li><b>Propriedade:</b> Os dados inseridos por você na plataforma são de sua propriedade</li>
       <li><b>Exportação:</b> Você pode exportar seus dados a qualquer momento via CSV</li>
@@ -209,7 +209,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T8 -->
   <div class="section" id="t8">
-    <h2>⚡ 8. Disponibilidade do serviço</h2>
+    <h2>8. Disponibilidade do serviço</h2>
     <ul>
       <li>Nos esforçamos para manter a plataforma disponível <b>24 horas por dia, 7 dias por semana</b></li>
       <li>Manutenções programadas serão avisadas com antecedência mínima de 24 horas</li>
@@ -220,7 +220,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T9 -->
   <div class="section" id="t9">
-    <h2>❌ 9. Cancelamento</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> 9. Cancelamento</h2>
     <h3>Cancelamento pelo cliente</h3>
     <ul>
       <li>Você pode cancelar a qualquer momento pelo painel ou via e-mail</li>
@@ -238,7 +238,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T10 -->
   <div class="section" id="t10">
-    <h2>⚖️ 10. Limitação de responsabilidade</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="3" x2="12" y2="21"/><path d="M5 7l-3 6a4 4 0 0 0 6 0z"/><path d="M19 7l-3 6a4 4 0 0 0 6 0z"/><path d="M7 7h10"/></svg> 10. Limitação de responsabilidade</h2>
     <p>O Nuvix Hub não se responsabiliza por:</p>
     <ul>
       <li>Perdas financeiras decorrentes de erros nos dados inseridos pelo usuário</li>
@@ -247,13 +247,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <li>Ações de terceiros mal-intencionados que não decorram de falha nossa</li>
     </ul>
     <div class="highlight">
-      💡 O Nuvix Hub é uma ferramenta de gestão. As decisões e responsabilidades pelo negócio são sempre do cliente.
+      O Nuvix Hub é uma ferramenta de gestão. As decisões e responsabilidades pelo negócio são sempre do cliente.
     </div>
   </div>
 
   <!-- T11 -->
   <div class="section" id="t11">
-    <h2>🔄 11. Alterações nos termos</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 11. Alterações nos termos</h2>
     <p>Podemos atualizar estes termos periodicamente. Em caso de alterações significativas:</p>
     <ul>
       <li>Notificaremos por e-mail com <b>30 dias de antecedência</b></li>
@@ -265,7 +265,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- T12 -->
   <div class="section" id="t12">
-    <h2>📬 12. Contato e foro</h2>
+    <h2>12. Contato e foro</h2>
     <ul>
       <li><b>E-mail:</b> contato@nuvixhub.com.br</li>
       <li><b>Foro:</b> Fica eleito o foro da comarca de São Paulo/SP para dirimir quaisquer controvérsias</li>
@@ -276,7 +276,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="contact-card">
     <h3>Alguma dúvida sobre os termos?</h3>
     <p>Entre em contato com nossa equipe. Estamos aqui para ajudar!</p>
-    <a href="mailto:contato@nuvixhub.com.br">📧 Falar com o suporte</a>
+    <a href="mailto:contato@nuvixhub.com.br">Falar com o suporte</a>
   </div>
 
 </div>
