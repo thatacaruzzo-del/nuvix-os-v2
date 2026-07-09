@@ -460,7 +460,7 @@ function renderKpis(){
     {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'var(--p2)'},
     {lbl:'Em andamento',val:andamento,sub:'em execução',cor:'var(--p)'},
     {lbl:'Concluídas',val:concluidas,sub:'este mês',cor:'var(--green)'},
-    {lbl:'Faturamento',val:money(fatMes),sub:'mês atual',cor:'var(--p)'},
+    {lbl:'Faturamento',val:money(fatMes),sub:'OS concluídas · não é receita confirmada',cor:'var(--p)'},
     {lbl:'Ticket médio',val:money(ticket),sub:'por OS',cor:'var(--amber)'},
     {lbl:'Para hoje',val:hoje_os+(vencidas>0?` <span style="color:var(--red);font-size:12px">(${vencidas} venc.)</span>`:''),sub:'agendadas',cor:hoje_os>0?'var(--p)':'var(--muted)'},
   ].map(k=>`<div class="os-kpi"><div class="os-kpi-lbl">${k.lbl}</div><div class="os-kpi-val" style="color:${k.cor}">${k.val}</div><div class="os-kpi-sub">${k.sub}</div></div>`).join(''));
@@ -693,13 +693,73 @@ async function mudarStatusOS(){
   const novoStatus=val('modalMudarStatus');
   if(!novoStatus||!osAtualId)return;
   try{
-    await db.patch('ordens_servico',osAtualId,{status:novoStatus,updated_at:new Date().toISOString()});
+    const o=dados.os.find(x=>x.id===osAtualId);
+    const statusAnterior=o?.status;
+    const viraConcluida=novoStatus==='Concluída'&&statusAnterior!=='Concluída';
+    await db.patch('ordens_servico',osAtualId,{status:novoStatus,updated_at:new Date().toISOString(),...(viraConcluida?{data_conclusao:hoje()}:{})});
     await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:`Status alterado para: ${novoStatus}`,usuario_nome:session?.nome||''}));
+    // Mesma integração do botão "Concluir OS" — garante que baixa de estoque e receita
+    // no financeiro aconteçam também quando a conclusão vem pelo dropdown de status.
+    if(viraConcluida){
+      await processarConclusaoOS(osAtualId,o);
+      await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:'Estoque atualizado e receita lançada no financeiro',usuario_nome:session?.nome||''}));
+    }
     toast('Status atualizado!');
     $('modalMudarStatus').value='';
     fecharModalOS();
     await loadData();
   }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── INTEGRAÇÃO DE CONCLUSÃO (compartilhada entre "Concluir OS" e o dropdown de status) ──
+// Baixa materiais do estoque e lança a receita correspondente no financeiro.
+// Chamada sempre que uma OS transiciona PARA o status "Concluída", não importa por qual caminho.
+async function processarConclusaoOS(osId,o){
+  // Trava contra duplicação: se reabrirem a OS e concluírem de novo (ou qualquer outro
+  // caminho repetir a chamada), não baixa estoque nem lança receita uma segunda vez.
+  try{
+    const jaFaturado=await db.get('financeiro',`?categoria=eq.Serviços&descricao=like.*OS ${encodeURIComponent(o?.numero||'')}*&limit=1`).catch(()=>[]);
+    if(jaFaturado.length){toast('Esta OS já foi concluída e faturada anteriormente — nada foi duplicado.','err');return;}
+  }catch(e){/* se a checagem falhar, segue o fluxo normal abaixo */}
+
+  // Baixar materiais do estoque
+  const mats=await db.get('os_materiais',`?os_id=eq.${osId}`).catch(()=>[]);
+  for(const m of mats){
+    if(!m.material_id)continue;
+    try{
+      const matAtual=await db.get('materiais',`?id=eq.${m.material_id}&select=estoque_atual`);
+      if(matAtual.length){
+        const novoEstoque=Math.max(0,Number(matAtual[0].estoque_atual||0)-Number(m.quantidade||0));
+        await db.patch('materiais',m.material_id,{estoque_atual:novoEstoque,updated_at:new Date().toISOString()});
+        await db.post('material_movimentacoes',withEmpresa({
+          material_id:m.material_id,material_nome:m.material_nome,
+          tipo:'saida',quantidade:m.quantidade,
+          estoque_anterior:Number(matAtual[0].estoque_atual||0),
+          estoque_posterior:novoEstoque,
+          custo_unitario:m.custo_unitario,
+          valor_total:m.valor_total,
+          motivo:'Ordem de Serviço concluída',
+          os_numero:o?.numero||osId.slice(0,8),
+          usuario_nome:session?.nome||null
+        }));
+      }
+    }catch(e){console.warn('Erro ao baixar material:',e.message);}
+  }
+
+  // Lançar receita no financeiro
+  await db.post('financeiro',withEmpresa({
+    tipo:'Receita',
+    categoria:'Serviços',
+    descricao:`OS ${o?.numero||''} — ${o?.cliente_nome||''} — ${o?.servico||''}`,
+    valor:Number(o?.valor_total||0),
+    data_lancamento:hoje(),
+    vencimento:hoje(),
+    status:'Pendente',
+    forma_pagamento:'A combinar',
+    centro_custo:'Serviços',
+    favorecido:o?.cliente_nome||null,
+    observacao:`Ordem de Serviço ${o?.numero} concluída`,
+  }));
 }
 
 // ── CONCLUIR OS (com integração) ──
@@ -708,49 +768,8 @@ async function concluirOS(){
   const o=dados.os.find(x=>x.id===osAtualId);
   if(!confirm(`Concluir a OS ${o?.numero}?\n\nIsso irá:\n• Baixar materiais do estoque\n• Lançar receita no financeiro\n• Registrar na timeline`))return;
   try{
-    // 1. Atualizar status
     await db.patch('ordens_servico',osAtualId,{status:'Concluída',data_conclusao:hoje(),updated_at:new Date().toISOString()});
-
-    // 2. Baixar materiais do estoque
-    const mats=await db.get('os_materiais',`?os_id=eq.${osAtualId}`).catch(()=>[]);
-    for(const m of mats){
-      if(!m.material_id)continue;
-      try{
-        const matAtual=await db.get('materiais',`?id=eq.${m.material_id}&select=estoque_atual`);
-        if(matAtual.length){
-          const novoEstoque=Math.max(0,Number(matAtual[0].estoque_atual||0)-Number(m.quantidade||0));
-          await db.patch('materiais',m.material_id,{estoque_atual:novoEstoque,updated_at:new Date().toISOString()});
-          await db.post('material_movimentacoes',withEmpresa({
-            material_id:m.material_id,material_nome:m.material_nome,
-            tipo:'saida',quantidade:m.quantidade,
-            estoque_anterior:Number(matAtual[0].estoque_atual||0),
-            estoque_posterior:novoEstoque,
-            custo_unitario:m.custo_unitario,
-            valor_total:m.valor_total,
-            motivo:'Ordem de Serviço concluída',
-            os_numero:o?.numero||osAtualId.slice(0,8),
-            usuario_nome:session?.nome||null
-          }));
-        }
-      }catch(e){console.warn('Erro ao baixar material:',e.message);}
-    }
-
-    // 3. Lançar receita no financeiro
-    await db.post('financeiro',withEmpresa({
-      tipo:'Receita',
-      categoria:'Serviços',
-      descricao:`OS ${o?.numero||''} — ${o?.cliente_nome||''} — ${o?.servico||''}`,
-      valor:Number(o?.valor_total||0),
-      data_lancamento:hoje(),
-      vencimento:hoje(),
-      status:'Pendente',
-      forma_pagamento:'A combinar',
-      centro_custo:'Serviços',
-      favorecido:o?.cliente_nome||null,
-      observacao:`Ordem de Serviço ${o?.numero} concluída`,
-    }));
-
-    // 4. Registrar na timeline
+    await processarConclusaoOS(osAtualId,o);
     await db.post('os_timeline',withEmpresa({os_id:osAtualId,evento:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS Concluída — Estoque atualizado e receita lançada no financeiro',usuario_nome:session?.nome||''}));
 
     toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS concluída! Estoque baixado e receita lançada no financeiro.');

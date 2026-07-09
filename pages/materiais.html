@@ -488,8 +488,9 @@ function renderDashboard(){
   const movs=dados.movimentacoes;
   const total=mats.length;
   const ativos=mats.filter(m=>m.status==='Ativo').length;
-  const baixo=mats.filter(m=>Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0).length;
-  const zero=mats.filter(m=>Number(m.estoque_atual||0)===0).length;
+  const disp=m=>Math.max(0,Number(m.estoque_atual||0)-Number(m.estoque_reservado||0));
+  const baixo=mats.filter(m=>disp(m)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0).length;
+  const zero=mats.filter(m=>disp(m)===0).length;
   const valorTotal=mats.reduce((a,m)=>a+Number(m.estoque_atual||0)*Number(m.custo_compra||0),0);
 
   setHTML('dashKpis',[
@@ -500,8 +501,8 @@ function renderDashboard(){
   ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div><div class="kpi-icon">${k.icon}</div></div>`).join(''));
 
   // Alertas críticos
-  const criticos=mats.filter(m=>Number(m.estoque_atual||0)===0&&m.status==='Ativo');
-  const baixos=mats.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
+  const criticos=mats.filter(m=>disp(m)===0&&m.status==='Ativo');
+  const baixos=mats.filter(m=>disp(m)>0&&disp(m)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
   let alertasHtml='';
   if(criticos.length)alertasHtml+=criticos.map(m=>`<div class="alert-critical"><span style="font-size:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><div><b>${esc(m.nome)}</b> — Estoque zerado! <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
   if(baixos.length)alertasHtml+=baixos.map(m=>`<div class="alert-low"><span style="font-size:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><div><b>${esc(m.nome)}</b> — Estoque: <b>${fmtNum(m.estoque_atual,3)} ${m.unidade||'UN'}</b> / Mín: ${fmtNum(m.estoque_minimo,3)} <span style="color:var(--muted);font-size:12px">${esc(m.categoria||'')}</span></div><button class="btn2" style="margin-left:auto;font-size:12px;padding:6px 12px;flex-shrink:0" onclick="abrirMovMaterial('${m.id}','entrada')">+ Entrada</button></div>`).join('');
@@ -571,10 +572,13 @@ function popularSelectMovMaterial(){
   $('movMaterial').innerHTML='<option value="">Selecione o material...</option>'+dados.materiais.filter(m=>m.status==='Ativo').map(m=>`<option value="${m.id}" data-est="${m.estoque_atual||0}" data-custo="${m.custo_compra||0}" data-un="${m.unidade||'UN'}">${esc(m.nome)} (${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'})</option>`).join('');
 }
 
-function estoqueStatus(atual,min){
-  const a=Number(atual||0),m=Number(min||0);
-  if(a===0)return{cls:'est-zero',txt:'Zerado'};
-  if(m>0&&a<m)return{cls:'est-low',txt:'Baixo'};
+function estoqueStatus(atual,min,reservado){
+  // Considera o estoque JÁ RESERVADO por orçamentos de serviço em execução (servicos.html),
+  // senão um material 100% reservado aparece como "OK" aqui e falha na hora de usar.
+  const a=Number(atual||0),m=Number(min||0),r=Number(reservado||0);
+  const disp=Math.max(0,a-r);
+  if(disp===0)return{cls:'est-zero',txt:a>0&&r>0?'Reservado':'Zerado'};
+  if(m>0&&disp<m)return{cls:'est-low',txt:'Baixo'};
   return{cls:'est-ok',txt:'OK'};
 }
 
@@ -589,9 +593,10 @@ function renderMateriais(){
 
   // Tabela
   setHTML('matTable',lista.map(m=>{
-    const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo);
+    const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo,m.estoque_reservado);
     const est=Number(m.estoque_atual||0),min=Number(m.estoque_minimo||0);
-    const estCor=est===0?'var(--red)':min>0&&est<min?'var(--amber)':'var(--green)';
+    const disp=Math.max(0,est-Number(m.estoque_reservado||0));
+    const estCor=disp===0?'var(--red)':min>0&&disp<min?'var(--amber)':'var(--green)';
     return`<tr onclick="verDetalhe('${m.id}')" style="cursor:pointer">
       <td style="font-family:monospace;font-size:12px">${esc(m.codigo||'—')}</td>
       <td><b>${esc(m.nome||'')}</b>${m.marca?`<div style="font-size:11px;color:var(--muted)">${esc(m.marca)}</div>`:''}</td>
@@ -615,7 +620,7 @@ function renderMateriais(){
 
   // Grid
   setHTML('matGridView',lista.map(m=>{
-    const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo);
+    const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo,m.estoque_reservado);
     const icon=CAT_ICONS[m.categoria]||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
     return`<div class="mat-card" onclick="verDetalhe('${m.id}')">
       <div class="mat-card-img">${m.foto_url?`<img src="${esc(m.foto_url)}" alt="${esc(m.nome)}">`:icon}</div>
@@ -744,12 +749,14 @@ function verDetalhe(id){
   const m=dados.materiais.find(x=>x.id===id);if(!m)return;
   matDetalheId=id;
   $('detalheNome').textContent=m.nome;
-  const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo);
+  const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo,m.estoque_reservado);
+  const reservado=Number(m.estoque_reservado||0);
+  const disp=Math.max(0,Number(m.estoque_atual||0)-reservado);
   const movs=dados.movimentacoes.filter(v=>v.material_id===id).slice(0,5);
   setHTML('detalheConteudo',`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${m.foto_url?`<div style="grid-column:1/-1"><img src="${esc(m.foto_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px"></div>`:''}
-      <div class="kpi" style="padding:14px"><div class="kpi-label">Estoque atual</div><div class="kpi-value" style="font-size:22px;color:${Number(m.estoque_atual||0)===0?'var(--red)':Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)?'var(--amber)':'var(--green)'}">${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'}</div><span class="est-badge ${cls}">${txt}</span></div>
+      <div class="kpi" style="padding:14px"><div class="kpi-label">Estoque atual</div><div class="kpi-value" style="font-size:22px;color:${disp===0?'var(--red)':Number(m.estoque_minimo||0)>0&&disp<Number(m.estoque_minimo||0)?'var(--amber)':'var(--green)'}">${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'}</div><span class="est-badge ${cls}">${txt}</span></div>
       <div class="kpi" style="padding:14px"><div class="kpi-label">Valor do estoque</div><div class="kpi-value" style="font-size:22px;color:var(--p)">${money(Number(m.estoque_atual||0)*Number(m.custo_compra||0))}</div><div class="kpi-sub">Custo: ${money(m.custo_compra)} / Venda: ${money(m.valor_venda)}</div></div>
     </div>
     <div style="font-size:13px;color:var(--muted);line-height:1.9">
@@ -759,6 +766,7 @@ function verDetalhe(id){
       ${m.fornecedor_nome?`<b>Fornecedor:</b> ${esc(m.fornecedor_nome)}<br>`:''}
       ${m.localizacao?`<b>Localização:</b> ${esc(m.localizacao)}<br>`:''}
       ${m.estoque_minimo?`<b>Estoque mínimo:</b> ${fmtNum(m.estoque_minimo,3)} ${m.unidade||'UN'}<br>`:''}
+      ${reservado>0?`<b>Reservado (serviços em execução):</b> ${fmtNum(reservado,3)} ${m.unidade||'UN'}<br><b>Disponível:</b> ${fmtNum(disp,3)} ${m.unidade||'UN'}<br>`:''}
     </div>
     ${movs.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Últimas movimentações</div>${movs.map(v=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px"><span><span class="mov-badge mov-${v.tipo}">${v.tipo}</span> ${esc(v.motivo||'')}</span><span style="color:var(--muted)">${fmtNum(v.quantidade||0,3)} — ${v.created_at?new Date(v.created_at).toLocaleDateString('pt-BR'):'—'}</span></div>`).join('')}</div>`:''}
   `);
@@ -845,7 +853,8 @@ async function salvarMovimentacao(){
           descricao: `Compra: ${mat.nome} (${qtd} ${mat.unidade||'UN'})`,
           valor: custo * qtd,
           data_lancamento: hoje(),
-          status: 'Pago',
+          vencimento: hoje(),
+          status: 'Pendente',
           forma_pagamento: 'A combinar',
           centro_custo: 'Estoque / Materiais',
           observacao: `Entrada de estoque — custo unit: ${money(custo)}`,
@@ -897,8 +906,9 @@ function renderMovimentacoes(){
 
 // ══ ESTOQUE CRÍTICO ══
 function renderEstoqueCritico(){
-  const criticos=dados.materiais.filter(m=>Number(m.estoque_atual||0)===0&&m.status==='Ativo');
-  const baixos=dados.materiais.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
+  const disp=m=>Math.max(0,Number(m.estoque_atual||0)-Number(m.estoque_reservado||0));
+  const criticos=dados.materiais.filter(m=>disp(m)===0&&m.status==='Ativo');
+  const baixos=dados.materiais.filter(m=>disp(m)>0&&disp(m)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
   let html='';
   if(criticos.length){
     html+=`<div style="font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${criticos.length} itens zerados</div>`;

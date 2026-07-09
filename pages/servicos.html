@@ -251,7 +251,8 @@ function renderCatalogo(){const q=val('catBusca').toLowerCase();const lista=(dad
 function popularSelects(){const selCli=$('orcCliente');if(selCli)selCli.innerHTML='<option value="">Selecione o cliente...</option>'+(dados.clientes||[]).map(c=>`<option value="${c.id}">${esc(c.nome||c.razao||'')}</option>`).join('');const selSvc=$('orcServico');if(selSvc)selSvc.innerHTML='<option value="">Selecione o serviço...</option>'+(dados.catalogo||[]).filter(s=>s.ativo!==false).map(s=>`<option value="${s.id}" data-valor="${s.valor_base||0}">${esc(s.nome)} — ${money(s.valor_base)}</option>`).join('');}
 function aplicarServico(){const sel=$('orcServico');if(!sel?.value)return;const opt=sel.options[sel.selectedIndex];$('orcValor').value=opt.dataset.valor||0;calcularOrc();}
 function calcularOrc(){const qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),sub=qtd*valor,total=Math.max(0,sub-desc);if($('orcTotal'))$('orcTotal').style.display=valor>0?'block':'none';if($('orcSubtotal'))$('orcSubtotal').textContent=money(sub);if($('orcDescontoVal'))$('orcDescontoVal').textContent='- '+money(desc);if($('orcTotalVal'))$('orcTotalVal').textContent=money(total);}
-async function salvarOrcamento(){if(!can('comercial')){toast('Sem permissão.','err');return;}const cliId=val('orcCliente');if(!cliId){msg('orcMsg','Selecione um cliente.','err');return;}const cli=dados.clientes.find(x=>x.id===cliId),svcId=val('orcServico'),svc=dados.catalogo.find(x=>x.id===svcId),qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),total=Math.max(0,qtd*valor-desc),status=val('orcStatus'),id=val('orcId');const payload=withEmpresa({cliente_id:cliId,cliente_nome:cli?.nome||'',servico_id:svcId||null,servico_nome:svc?.nome||'',quantidade:qtd,valor_unitario:valor,desconto:desc,valor_total:total,validade:val('orcValidade')||null,data_execucao:val('orcExecucao')||null,status,observacao:val('orcObs').trim()});try{if(id){await db.patch('servicos_orcamentos',id,payload);}else{await db.post('servicos_orcamentos',payload);if(status==='Aprovado'||status==='Em execução'){try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Serviços',descricao:`${svc?.nome||''} — ${cli?.nome||''}`,valor:total,data_lancamento:hoje(),status:'Pendente'}));}catch(e){console.warn(e);}}}// Salvar materiais do orçamento
+async function salvarOrcamento(){if(!can('comercial')){toast('Sem permissão.','err');return;}const cliId=val('orcCliente');if(!cliId){msg('orcMsg','Selecione um cliente.','err');return;}const cli=dados.clientes.find(x=>x.id===cliId),svcId=val('orcServico'),svc=dados.catalogo.find(x=>x.id===svcId),qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),total=Math.max(0,qtd*valor-desc),status=val('orcStatus'),id=val('orcId');const payload=withEmpresa({cliente_id:cliId,cliente_nome:cli?.nome||'',servico_id:svcId||null,servico_nome:svc?.nome||'',quantidade:qtd,valor_unitario:valor,desconto:desc,valor_total:total,validade:val('orcValidade')||null,data_execucao:val('orcExecucao')||null,status,observacao:val('orcObs').trim()});try{if(id){await db.patch('servicos_orcamentos',id,payload);}else{await db.post('servicos_orcamentos',payload);}// Receita só é lançada no financeiro quando o serviço é Finalizado (ver mudarStatus) — aprovar um orçamento não é uma venda concluída.
+// Salvar materiais do orçamento
 const orcRes=await db.get('servicos_orcamentos',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=1`);
 const orcId=id||orcRes[0]?.id;
 if(orcId&&itensMateriais.length)await salvarMateriaisOrcamento(orcId);
@@ -272,18 +273,25 @@ async function mudarStatus(id,novoStatus){
       await liberarReservas(id);
       toast('Serviço cancelado. Reservas liberadas.');
     }
-    // ── Finalizado: DAR BAIXA no estoque ──
+    // ── Finalizado: DAR BAIXA no estoque e lançar a ÚNICA receita deste orçamento ──
     else if(novoStatus==='Finalizado'){
       await darBaixaEstoque(id);
-      // Lançar no financeiro
+      // Lançar no financeiro — só aqui (serviço realmente entregue), nunca em "Aprovado".
+      // Checa se já existe lançamento pra este orçamento antes de criar, pra não duplicar
+      // caso o status volte e avance de novo pra Finalizado.
       if(orc && !['Finalizado'].includes(statusAnt)){
-        try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Serviços',descricao:`${orc.servico_nome||''} — ${orc.cliente_nome||''}`,valor:Number(orc.valor_total||0),data_lancamento:hoje(),status:'Pendente'}));}catch(e){console.warn(e);}
+        try{
+          const desc=`${orc.servico_nome||''} — ${orc.cliente_nome||''}`;
+          const jaFaturado=await db.get('financeiro',`?categoria=eq.Serviços&descricao=eq.${encodeURIComponent(desc)}&limit=1`).catch(()=>[]);
+          if(!jaFaturado.length){
+            await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Serviços',descricao:desc,valor:Number(orc.valor_total||0),data_lancamento:hoje(),vencimento:hoje(),status:'Pendente'}));
+          }
+        }catch(e){console.warn(e);}
       }
       toast('Serviço finalizado! Estoque atualizado e receita gerada.');
     }
     else if(novoStatus==='Aprovado' && !['Aprovado','Em execução','Finalizado'].includes(statusAnt)){
-      try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Serviços',descricao:`${orc.servico_nome||''} — ${orc.cliente_nome||''}`,valor:Number(orc.valor_total||0),data_lancamento:hoje(),status:'Pendente'}));}catch(e){console.warn(e);}
-      toast('Status atualizado e receita gerada!');
+      toast('Status atualizado! Receita será lançada quando o serviço for finalizado.');
     }
     else{toast('Status atualizado!');}
     await loadData();

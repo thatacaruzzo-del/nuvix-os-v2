@@ -392,8 +392,8 @@ async function salvarOperacao(){
   try{
     if(id){await db.patch('transporte',id,payload);}else{
       await db.post('transporte',payload);
-      const receita=num('opReceita');if(receita>0)try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Transporte / Frete',descricao:`Frete — ${cli?.nome||''} (${payload.origem||''}${payload.destino?' → '+payload.destino:''})`,valor:receita,data_lancamento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
-      const custo=num('opCusto');if(custo>0)try{await db.post('financeiro',withEmpresa({tipo:'Despesa',categoria:'Combustível',descricao:`Custo frete — ${cli?.nome||''}`,valor:custo,data_lancamento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
+      const receita=num('opReceita');if(receita>0)try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Transporte / Frete',descricao:`Frete — ${cli?.nome||''} (${payload.origem||''}${payload.destino?' → '+payload.destino:''})`,valor:receita,data_lancamento:payload.data_lancamento||hoje(),vencimento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
+      const custo=num('opCusto');if(custo>0)try{await db.post('financeiro',withEmpresa({tipo:'Despesa',categoria:'Combustível',descricao:`Custo frete — ${cli?.nome||''}`,valor:custo,data_lancamento:payload.data_lancamento||hoje(),vencimento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
     }
     msg('opMsg',id?'Operação atualizada!':'Operação salva e lançada no Financeiro!','ok');limparOperacao();await loadData();
   }catch(e){msg('opMsg','Erro: '+e.message,'err');}

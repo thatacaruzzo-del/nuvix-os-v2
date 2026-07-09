@@ -358,6 +358,7 @@ async function init(){
     if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
   }
   if($('lanData'))$('lanData').value=hoje();
+  if($('filtMes'))$('filtMes').value=hoje().slice(0,7);
   await loadData();
   init3DCloud();
 }
@@ -371,17 +372,24 @@ async function loadData(){
 }
 
 // ── HERO ──
+// Regra: só conta como "realizado" o que já foi confirmado (status Recebido/Pago).
+// Enquanto Pendente, o valor entra em "Previsto", nunca em Receita/Despesa/Saldo.
+// Escopo: mês atual, pela data de vencimento de cada parcela/lançamento — não o total
+// histórico da dívida/parcelamento inteiro. Para ver outros meses, use a aba Lançamentos.
+function isReceitaConfirmada(f){return['Recebido','Pago'].includes(f.status||'');}
+function isDespesaConfirmada(f){return f.status==='Pago';}
 function renderHero(){
-  const hj=hoje().slice(0,7);
-  const receita=financeiro.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
-  const despesa=financeiro.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
+  const mesAtual=hoje().slice(0,7);
+  const noMes=f=>String(f.vencimento||'').slice(0,7)===mesAtual;
+  const receita=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const despesa=financeiro.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const saldo=receita-despesa;
-  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&String(f.data_lancamento||'').slice(0,7)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
+  const previstoMes=financeiro.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finHeroStats',[
-    {lbl:'Receita total',val:money(receita)},
-    {lbl:'Despesas',val:money(despesa)},
-    {lbl:'Saldo',val:money(saldo)},
-    {lbl:'Receita do mês',val:money(recMes)},
+    {lbl:'Receita confirmada',val:money(receita)},
+    {lbl:'Despesas confirmadas',val:money(despesa)},
+    {lbl:'Saldo do mês',val:money(saldo)},
+    {lbl:'Previsto a receber',val:money(previstoMes)},
   ].map((s,i)=>`${i>0?'<div class="fhs-div"></div>':''}
     <div class="fhs">
       <div class="fhs-lbl">${s.lbl}</div>
@@ -396,13 +404,13 @@ function renderStrip(){
   const aRecHoje=financeiro.filter(f=>f.tipo==='Receita'&&String(f.vencimento||'').slice(0,10)===hj&&!['Recebido','Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagHoje=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===hj&&!['Pago','Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagAm=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===amStr&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
-  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&String(f.data_lancamento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
+  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finStrip',[
     {lbl:'Entrou hoje',val:money(entHoje),cor:entHoje>0?'var(--green)':'var(--muted)',sub:'receitas realizadas'},
     {lbl:'A receber hoje',val:money(aRecHoje),cor:aRecHoje>0?'var(--amber)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar hoje',val:money(aPagHoje),cor:aPagHoje>0?'var(--red)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar amanhã',val:money(aPagAm),cor:aPagAm>0?'var(--amber)':'var(--muted)',sub:'próximo dia'},
-    {lbl:'Receita do mês',val:money(recMes),cor:'var(--p)',sub:'mês atual'},
+    {lbl:'Receita confirmada (mês)',val:money(recMes),cor:'var(--p)',sub:'mês atual · recebido/pago'},
   ].map(c=>`<div class="fin-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
 }
 
@@ -649,7 +657,7 @@ function renderLancamentos(){
   let lista=financeiro;
   if(tipo)lista=lista.filter(f=>f.tipo===tipo);
   if(status)lista=lista.filter(f=>f.status===status);
-  if(mes)lista=lista.filter(f=>String(f.data_lancamento||'').slice(0,7)===mes);
+  if(mes)lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,7)===mes);
   if(busca)lista=lista.filter(f=>(f.descricao||'').toLowerCase().includes(busca)||(f.categoria||'').toLowerCase().includes(busca)||(f.favorecido||'').toLowerCase().includes(busca));
   const totalRec=lista.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
   const totalDesp=lista.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
@@ -688,13 +696,13 @@ function renderLancamentos(){
 function filtrarFluxo(tipo){fluxoFiltro=tipo;renderFluxo();}
 function renderFluxo(){
   const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=sem.toISOString().slice(0,10),mes=hj.slice(0,7);
-  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&String(f.data_lancamento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
-  const despMes=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.data_lancamento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
+  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
+  const despMes=financeiro.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
   const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('fluxoKpis',[
-    {lbl:'Receita do mês',val:money(recMes),cor:'var(--green)'},
-    {lbl:'Despesa do mês',val:money(despMes),cor:'var(--red)'},
+    {lbl:'Receita confirmada (mês)',val:money(recMes),cor:'var(--green)'},
+    {lbl:'Despesa confirmada (mês)',val:money(despMes),cor:'var(--red)'},
     {lbl:'Total a receber',val:money(aRec),cor:'var(--amber)'},
     {lbl:'Total a pagar',val:money(aPag),cor:'var(--red)'},
   ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));

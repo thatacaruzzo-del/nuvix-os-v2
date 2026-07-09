@@ -586,6 +586,13 @@ async function salvarStatus(){
 
 async function concluirOSTecnico(){
   if(!osAtual)return;
+  // Trava contra duplicação: se essa OS já tem lançamento no financeiro (por qualquer
+  // caminho — reabrir e concluir de novo, clique duplo, etc.), não baixa estoque nem
+  // lança receita de novo.
+  try{
+    const jaFaturado=await db.get('financeiro',`?categoria=eq.Serviços&descricao=like.*OS ${encodeURIComponent(osAtual.numero)}*&limit=1`).catch(()=>[]);
+    if(jaFaturado.length){toast('Esta OS já foi concluída e faturada anteriormente.','err');fecharModal();await carregarOS();return;}
+  }catch(e){/* se a checagem falhar, segue o fluxo normal abaixo */}
   if(!confirm(`Concluir a ${osAtual.numero}?\n\nIsso irá:\n• Baixar materiais do estoque\n• Lançar receita no financeiro`))return;
   try{
     // 1. Update status
