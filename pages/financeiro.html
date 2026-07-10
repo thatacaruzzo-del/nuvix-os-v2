@@ -7,22 +7,23 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-/* ── Hero ── */
-.fin-hero{position:relative;background:linear-gradient(135deg,#1E0A3C 0%,#3B0F8A 50%,#6D28D9 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 20px 60px rgba(76,29,149,.3);min-height:130px}
-#finCloud{position:absolute;right:-10px;top:-10px;width:300px;height:150px;pointer-events:none;opacity:.9}
+/* ── Hero — mesmo padrão claro do Dashboard: card branco, texto escuro, sem gradiente roxo ── */
+.fin-hero{position:relative;background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:20px;padding:26px 32px;margin-bottom:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:var(--shadow);min-height:130px}
+#finCloud{display:none}
 .fin-hero-left{position:relative;z-index:2;flex:1}
-.fin-hero-title{font-size:24px;font-weight:900;color:#fff;letter-spacing:-.03em;margin-bottom:2px}
-.fin-hero-sub{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:16px}
+.fin-hero-title{font-size:18px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.fin-hero-title svg{color:var(--p)}
+.fin-hero-sub{font-size:13px;color:var(--muted);margin-bottom:18px}
 .fin-hero-stats{display:flex;gap:20px;flex-wrap:wrap}
 .fhs{text-align:left}
-.fhs-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
-.fhs-val{font-size:20px;font-weight:800;color:#fff;line-height:1}
-.fhs-div{width:1px;background:rgba(255,255,255,.2);align-self:stretch}
+.fhs-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.fhs-val{font-size:22px;font-weight:700;color:var(--txt);line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.fhs-div{width:1px;background:var(--line);align-self:stretch}
 
 /* ── Filtro Período + Base da consulta (mesmo componente do Dashboard) ── */
 .period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .period-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
-.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,40,217,.3)}
+.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,94,245,.3)}
 .period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
 .competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .comp-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
@@ -41,7 +42,7 @@
 .fgroup-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}
 .info-btn{width:16px;height:16px;border-radius:50%;background:var(--bg);color:var(--muted2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:help;position:relative;border:none}
 .info-btn:hover,.info-btn:focus{background:var(--p);color:#fff;outline:none}
-.info-tooltip{position:absolute;top:22px;right:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(76,29,149,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
+.info-tooltip{position:absolute;top:22px;right:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(91,76,240,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
 .info-tooltip b{font-weight:800}
 .info-btn:hover .info-tooltip,.info-btn:focus .info-tooltip{opacity:1}
 .info-tooltip::before{content:'';position:absolute;top:-5px;right:10px;width:9px;height:9px;background:var(--p2);transform:rotate(45deg)}
@@ -63,13 +64,13 @@
 
 /* ── Strip cards ── */
 .fin-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.fin-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
+.fin-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
 .fin-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px)}
 .fin-card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
 .fin-card .val{font-size:19px;font-weight:800;line-height:1;margin-bottom:2px}
 .fin-card .sub{font-size:11px;color:var(--muted2)}
 .fin-strip .fin-card:first-child{background:linear-gradient(150deg,#9B8CF0 0%,#8171E8 100%);border:none;color:#fff;box-shadow:0 10px 26px rgba(129,113,232,.3)}
-.fin-strip .fin-card:nth-child(2){background:linear-gradient(150deg,var(--p) 0%,var(--p2) 100%);border:none;color:#fff;box-shadow:0 10px 26px rgba(76,29,149,.32)}
+.fin-strip .fin-card:nth-child(2){background:linear-gradient(150deg,var(--p) 0%,var(--p2) 100%);border:none;color:#fff;box-shadow:0 10px 26px rgba(91,76,240,.32)}
 .fin-strip .fin-card:first-child .lbl,.fin-strip .fin-card:first-child .sub,
 .fin-strip .fin-card:nth-child(2) .lbl,.fin-strip .fin-card:nth-child(2) .sub{color:rgba(255,255,255,.72)}
 .fin-strip .fin-card:first-child .val,.fin-strip .fin-card:nth-child(2) .val{color:#fff}
@@ -104,7 +105,6 @@
 
 @media(max-width:900px){
   .fin-strip{grid-template-columns:1fr 1fr}
-  #finCloud{display:none}
   #hambBtn{display:block!important}
 }
 @media(max-width:600px){.fin-strip{grid-template-columns:1fr}}
@@ -625,7 +625,7 @@ function renderStrip(){
     {lbl:'A receber hoje',val:money(aRecHoje),cor:aRecHoje>0?'var(--amber)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar hoje',val:money(aPagHoje),cor:aPagHoje>0?'var(--red)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar amanhã',val:money(aPagAm),cor:aPagAm>0?'var(--amber)':'var(--muted)',sub:'próximo dia'},
-    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--p)',sub:'segue o filtro acima'},
+    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)',sub:'segue o filtro acima'},
   ].map(c=>`<div class="fin-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
 }
 
@@ -764,10 +764,10 @@ function verDetalhe(id){
   const hj=hoje();
   const atrasado=venc&&venc<hj&&!pago;
   setHTML('detConteudo',`
-    <div style="background:${f.tipo==='Receita'?'var(--green-bg)':'var(--red-bg)'};border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
       <div>
-        <div style="font-size:11px;font-weight:700;color:${f.tipo==='Receita'?'var(--p2)':'var(--txt)'};text-transform:uppercase;letter-spacing:.05em">${f.tipo}</div>
-        <div style="font-size:22px;font-weight:900;color:${f.tipo==='Receita'?'var(--green)':'var(--red)'}">${money(f.valor)}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">${f.tipo}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(f.valor)}</div>
       </div>
       <span class="badge ${pago?'ok':atrasado?'bad':''}" style="font-size:13px;padding:6px 14px">${f.status||'Pendente'}</span>
     </div>
@@ -780,13 +780,13 @@ function verDetalhe(id){
     ${f.pix_chave?`<div class="det-row"><span class="det-lbl">Chave Pix</span><span class="det-val">${esc(f.pix_chave)}</span></div>`:''}
     ${f.agencia||f.conta?`<div class="det-row"><span class="det-lbl">Banco</span><span class="det-val">Ag: ${esc(f.agencia||'—')} · CC: ${esc(f.conta||'—')}</span></div>`:''}
     <div class="det-section">Valores</div>
-    <div class="det-row"><span class="det-lbl">Valor original</span><span class="det-val" style="color:${f.tipo==='Receita'?'var(--green)':'var(--red)'}">${money(f.valor)}</span></div>
-    ${f.valor_pago?`<div class="det-row"><span class="det-lbl">Valor pago</span><span class="det-val" style="color:var(--green)">${money(f.valor_pago)}</span></div>`:''}
-    ${f.valor_pago&&f.valor?`<div class="det-row"><span class="det-lbl">Valor restante</span><span class="det-val" style="color:var(--amber)">${money(Number(f.valor||0)-Number(f.valor_pago||0))}</span></div>`:''}
+    <div class="det-row"><span class="det-lbl">Valor original</span><span class="det-val">${money(f.valor)}</span></div>
+    ${f.valor_pago?`<div class="det-row"><span class="det-lbl">Valor pago</span><span class="det-val">${money(f.valor_pago)}</span></div>`:''}
+    ${f.valor_pago&&f.valor?`<div class="det-row"><span class="det-lbl">Valor restante</span><span class="det-val">${money(Number(f.valor||0)-Number(f.valor_pago||0))}</span></div>`:''}
     <div class="det-section">Datas</div>
     <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${fmtData(f.data_lancamento)}</span></div>
     <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
-    <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val" style="color:${f.data_pagamento?'var(--green)':'var(--muted)'}">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
+    <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
     <div class="det-section">Registro</div>
     <div class="det-row"><span class="det-lbl">Criado em</span><span class="det-val">${f.created_at?new Date(f.created_at).toLocaleString('pt-BR'):'—'}</span></div>
@@ -895,8 +895,8 @@ function renderLancamentos(){
   const totalDesp=lista.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
   const saldo=totalRec-totalDesp;
   setHTML('lanResumo',[
-    {lbl:'Total receitas',val:money(totalRec),cor:'var(--green)'},
-    {lbl:'Total despesas',val:money(totalDesp),cor:'var(--red)'},
+    {lbl:'Total receitas',val:money(totalRec),cor:'var(--txt)'},
+    {lbl:'Total despesas',val:money(totalDesp),cor:'var(--txt)'},
     {lbl:'Saldo',val:money(saldo),cor:saldo>=0?'var(--green)':'var(--red)'},
   ].map(c=>`<div class="card" style="margin:0;padding:14px"><div class="metric-label">${c.lbl}</div><div style="font-size:20px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
   setHTML('lanTable',lista.map(f=>{
@@ -908,9 +908,9 @@ function renderLancamentos(){
       <td><span class="badge ${f.tipo==='Receita'?'ok':'bad'}">${f.tipo}</span></td>
       <td style="font-size:12px">${esc(f.categoria||'')}</td>
       <td><b>${esc(f.descricao||'')}</b>${f.parcela_total?`<span style="font-size:10px;background:var(--p-light);color:var(--p);border-radius:6px;padding:1px 6px;margin-left:4px;font-weight:700">${f.parcela_numero}/${f.parcela_total}</span>`:''} ${f.favorecido?`<div style="font-size:11px;color:var(--muted)">${esc(f.favorecido)}</div>`:''}</td>
-      <td style="font-weight:700;color:${f.tipo==='Receita'?'var(--green)':'var(--red)'}">${money(f.valor)}</td>
+      <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td style="${atrasado?'color:var(--red);font-weight:700':''}">${venc?fmtData(venc):'—'}</td>
-      <td style="color:${f.data_pagamento?'var(--green)':'var(--muted)'};font-size:12px">${f.data_pagamento?fmtData(f.data_pagamento):'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${f.data_pagamento?fmtData(f.data_pagamento):'—'}</td>
       <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -935,10 +935,10 @@ function renderFluxo(){
   const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('fluxoKpis',[
-    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--green)'},
-    {lbl:'Despesa confirmada (período)',val:money(despPeriodo),cor:'var(--red)'},
-    {lbl:'Total a receber',val:money(aRec),cor:'var(--amber)'},
-    {lbl:'Total a pagar',val:money(aPag),cor:'var(--red)'},
+    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)'},
+    {lbl:'Despesa confirmada (período)',val:money(despPeriodo),cor:'var(--txt)'},
+    {lbl:'Total a receber',val:money(aRec),cor:'var(--txt)'},
+    {lbl:'Total a pagar',val:money(aPag),cor:'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   let lista=[...financeiro].sort((a,b)=>String(a.vencimento||a.data_lancamento||'').localeCompare(String(b.vencimento||b.data_lancamento||'')));
   if(fluxoFiltro==='hoje')lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,10)===hj);
@@ -955,7 +955,7 @@ function renderFluxo(){
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge ${f.tipo==='Receita'?'ok':'bad'}">${f.tipo}</span></td>
       <td>${esc(f.descricao||'')}</td>
-      <td style="font-weight:700;color:${f.tipo==='Receita'?'var(--green)':'var(--red)'}">${money(f.valor)}</td>
+      <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
       <td>${sit}</td>
     </tr>`;
@@ -970,9 +970,9 @@ function renderReceber(){
   const atrasado=lista.filter(f=>{const v=String(f.vencimento||'').slice(0,10);return v&&v<hj}).reduce((a,f)=>a+Number(f.valor||0),0);
   const hjV=lista.filter(f=>String(f.vencimento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('receberKpis',[
-    {lbl:'Total a receber',val:money(total),cor:'var(--p)'},
-    {lbl:'Vence hoje',val:money(hjV),cor:'var(--amber)'},
-    {lbl:'Atrasado',val:money(atrasado),cor:'var(--red)'},
+    {lbl:'Total a receber',val:money(total),cor:'var(--txt)'},
+    {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
+    {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   setHTML('receberTable',lista.map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
@@ -980,7 +980,7 @@ function renderReceber(){
     return`<tr style="${at?'color:var(--red)':''}">
       <td><b>${esc(f.descricao||'')}</b></td>
       <td style="font-size:12px">${esc(f.favorecido||'—')}</td>
-      <td style="font-weight:700;color:var(--green)">${money(f.valor)}</td>
+      <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge">${f.status||''}</span></td>
       <td>${sit}</td>
@@ -996,9 +996,9 @@ function renderPagar(){
   const atrasado=lista.filter(f=>{const v=String(f.vencimento||'').slice(0,10);return v&&v<hj}).reduce((a,f)=>a+Number(f.valor||0),0);
   const hjV=lista.filter(f=>String(f.vencimento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('pagarKpis',[
-    {lbl:'Total a pagar',val:money(total),cor:'var(--red)'},
-    {lbl:'Vence hoje',val:money(hjV),cor:'var(--amber)'},
-    {lbl:'Atrasado',val:money(atrasado),cor:'var(--red)'},
+    {lbl:'Total a pagar',val:money(total),cor:'var(--txt)'},
+    {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
+    {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   setHTML('pagarTable',lista.map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
@@ -1008,7 +1008,7 @@ function renderPagar(){
       <td style="font-size:12px;font-weight:600">${esc(f.favorecido||'—')}</td>
       <td style="font-size:11px">${f.pix_chave?`<span class="badge ok" style="font-size:10px">Pix: ${esc(f.pix_chave)}</span>`:'—'}</td>
       <td style="font-size:12px">${esc(f.categoria||'')}</td>
-      <td style="font-weight:700;color:var(--red)">${money(f.valor)}</td>
+      <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge">${f.status||''}</span></td>
       <td>${sit}</td>

@@ -16,7 +16,7 @@
 .sla-ok{background:#ECFDF5;color:#059669;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
 .sla-warn{background:#FEF3C7;color:#92400E;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
 .sla-bad{background:#FEF2F2;color:#DC2626;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.orc-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.orc-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
 .orc-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .orc-card-title{font-size:15px;font-weight:800;color:var(--txt)}
 .orc-card-sub{font-size:12px;color:var(--muted);margin-top:2px}
@@ -26,11 +26,6 @@
 .btn-executar{background:var(--p2);color:#fff;border:1px solid var(--p2);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-finalizar{background:var(--p-light);color:var(--p2);border:1px solid #C4B5FD;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .indicadores-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.indicadores-grid .card:first-child{background:linear-gradient(150deg,#9B8CF0 0%,#8171E8 100%);border:none;box-shadow:0 10px 26px rgba(129,113,232,.3)}
-.indicadores-grid .card:nth-child(2){background:linear-gradient(150deg,var(--p) 0%,var(--p2) 100%);border:none;box-shadow:0 10px 26px rgba(76,29,149,.32)}
-.indicadores-grid .card:first-child .metric-label,.indicadores-grid .card:first-child .muted,
-.indicadores-grid .card:nth-child(2) .metric-label,.indicadores-grid .card:nth-child(2) .muted{color:rgba(255,255,255,.72)}
-.indicadores-grid .card:first-child .metric-value,.indicadores-grid .card:nth-child(2) .metric-value{color:#fff!important}
 @media(max-width:768px){#hambBtn{display:block!important}.indicadores-grid{grid-template-columns:1fr 1fr}}
 </style>
 <script src="../js/nuvix-logs.js"></script>
@@ -186,7 +181,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 
           <div id="orcTotal" style="background:var(--p-light);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px;display:none">
             <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px"><span>Subtotal</span><span id="orcSubtotal">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px"><span>Desconto</span><span id="orcDescontoVal" style="color:var(--red)">- R$ 0,00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px"><span>Desconto</span><span id="orcDescontoVal" style="color:var(--txt)">- R$ 0,00</span></div>
             <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;color:var(--p)"><span>Total</span><span id="orcTotalVal">R$ 0,00</span></div>
           </div>
           <div class="actions" style="margin-top:14px">
@@ -242,7 +237,7 @@ async function init(){
 }
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{const[cat,orc,cli,mats]=await Promise.all([db.get('servicos_catalogo',q),db.get('servicos_orcamentos',q),db.get('clientes',q),db.get('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&order=nome.asc`)]);dados={catalogo:cat,orcamentos:orc,clientes:cli,materiais:mats};popularSelectMateriais();renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
 function renderTudo(){renderIndicadores();renderCatalogo();renderOrcamentos();renderExecucao();renderHistorico();popularSelects();}
-function renderIndicadores(){const orc=dados.orcamentos||[];const abertos=orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length,emExec=orc.filter(o=>o.status==='Em execução').length,total=orc.length,txConv=total>0?Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100):0,hj=hoje(),vencidos=orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;setHTML('svcIndicadores',[{lbl:'Orçamentos abertos',val:abertos,cor:'var(--p)',sub:'rascunho + enviado'},{lbl:'Em execução',val:emExec,cor:'var(--blue)',sub:'em andamento'},{lbl:'SLA vencido',val:vencidos,cor:vencidos>0?'var(--red)':'var(--green)',sub:'fora do prazo'},{lbl:'Taxa de conversão',val:txConv+'%',cor:'var(--green)',sub:'aprovados'}].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));}
+function renderIndicadores(){const orc=dados.orcamentos||[];const abertos=orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length,emExec=orc.filter(o=>o.status==='Em execução').length,total=orc.length,txConv=total>0?Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100):0,hj=hoje(),vencidos=orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;setHTML('svcIndicadores',[{lbl:'Orçamentos abertos',val:abertos,cor:'var(--txt)',sub:'rascunho + enviado'},{lbl:'Em execução',val:emExec,cor:'var(--txt)',sub:'em andamento'},{lbl:'SLA vencido',val:vencidos,cor:vencidos>0?'var(--red)':'var(--green)',sub:'fora do prazo'},{lbl:'Taxa de conversão',val:txConv+'%',cor:'var(--txt)',sub:'aprovados'}].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));}
 async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const id=val('catId');const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
 function editarCatalogo(id){const s=dados.catalogo.find(x=>x.id===id);if(!s)return;$('catId').value=s.id;$('catNome').value=s.nome||'';$('catCategoria').value=s.categoria||'';$('catDesc').value=s.descricao||'';$('catValor').value=s.valor_base||'';$('catCusto').value=s.custo_estimado||'';$('catTempo').value=s.tempo_estimado||'';$('catRecorrente').value=s.recorrente?'true':'false';$('catAtivo').value=s.ativo===false?'false':'true';$('catTitulo').textContent='Editar serviço';svcTab('catalogo');window.scrollTo({top:0,behavior:'smooth'});}
 async function excluirCatalogo(id){if(!confirm('Excluir?'))return;try{await db.delete('servicos_catalogo',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}

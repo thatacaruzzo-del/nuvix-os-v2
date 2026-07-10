@@ -8,19 +8,37 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-.dash-hero{position:relative;background:linear-gradient(135deg,#1E0A3C 0%,#3B0F8A 50%,#6D28D9 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 20px 60px rgba(76,29,149,.3);min-height:150px}
-#cloudCanvas3D{position:absolute;right:-10px;top:-10px;width:300px;height:150px;pointer-events:none;opacity:.9}
-.hero-left{position:relative;z-index:2;flex:1}
-.hero-greeting{font-size:12px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
-.hero-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.03em;margin-bottom:14px}
-.veredito-frase{font-size:19px;font-weight:800;color:#fff;line-height:1.45;max-width:560px;text-wrap:balance}
-.veredito-sub{font-size:13px;color:rgba(255,255,255,.62);margin-top:8px}
+/* ── Hero rico: caixa + barra de saúde à esquerda, sparkline + próximo compromisso à direita ── */
+.dash-hero{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px 32px;margin-bottom:20px;display:flex;align-items:stretch;gap:36px;box-shadow:var(--shadow)}
+#cloudCanvas3D{display:none}
+.hero-badge-corner{position:absolute;top:26px;right:32px}
+.hero-left{flex:1.3;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.hero-caixa-lbl{font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.hero-caixa-lbl svg{width:17px;height:17px;color:var(--p);flex-shrink:0}
+.hero-caixa-val{font-size:38px;font-weight:700;color:var(--txt);letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+.hero-status-badge{font-size:11px;font-weight:700;padding:5px 13px;border-radius:20px;text-transform:none;letter-spacing:0;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.hero-status-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.hero-status-badge.ok{background:var(--green-bg);color:var(--green)}
+.hero-status-badge.warn{background:var(--p-light);color:var(--p2)}
+.hero-status-badge.crit{background:var(--red-bg);color:var(--red)}
+.veredito-sub{font-size:13.5px;font-weight:400;color:var(--muted);margin-top:6px;max-width:460px}
+.hero-health-track{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:16px;max-width:320px}
+.hero-health-fill{height:100%;border-radius:99px;background:var(--green);transition:width .5s ease}
+.hero-caption{font-size:11px;color:var(--muted2);margin-top:9px}
+.hero-divider{width:1px;background:var(--line);align-self:stretch;flex-shrink:0}
+.hero-right{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.hero-spark-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
+#heroSparkline{max-height:46px}
+.hero-proximo-box{padding-top:14px;border-top:1px solid var(--line)}
+.hero-proximo-lbl{font-size:11.5px;color:var(--muted2);margin-bottom:3px}
+.hero-proximo-val{font-size:15px;font-weight:600;color:var(--txt)}
+.hero-proximo-dias{font-size:12px;color:var(--muted);margin-top:2px}
 
 /* ── Período (só isso na tela principal) + Análise Financeira Avançada, escondida ── */
 .period-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .period-btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
-.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,40,217,.3)}
+.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,94,245,.3)}
 .period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
 .period-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .adv-toggle{background:none;border:1px dashed var(--muted2);color:var(--muted2);font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
@@ -28,8 +46,8 @@
 .mais-opcoes-arrow{display:inline-block;transition:transform .2s ease;font-size:9px}
 .mais-opcoes-arrow.open{transform:rotate(180deg)}
 .custom-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
-.custom-range.open{max-height:60px;opacity:1;margin-bottom:14px}
-.custom-range input{padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--txt)}
+.custom-range.open{max-height:120px;opacity:1;margin-bottom:14px}
+.custom-range input{width:auto;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--txt)}
 .custom-range span{font-size:12px;color:var(--muted)}
 .custom-range-lbl{font-size:11px;color:var(--muted2);white-space:nowrap}
 
@@ -40,7 +58,7 @@
 .adv-lbl{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2);display:flex;align-items:center;gap:6px}
 .info-btn{width:15px;height:15px;border-radius:50%;background:var(--bg);color:var(--muted2);font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:help;position:relative;border:none}
 .info-btn:hover,.info-btn:focus{background:var(--p);color:#fff;outline:none}
-.info-tooltip{position:absolute;top:20px;left:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(76,29,149,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
+.info-tooltip{position:absolute;top:20px;left:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(91,76,240,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
 .info-tooltip b{font-weight:800}
 .info-btn:hover .info-tooltip,.info-btn:focus .info-tooltip{opacity:1}
 .competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -57,70 +75,100 @@
 .refresh-btn:hover{background:var(--p);color:#fff}
 .last-upd{font-size:11px;color:var(--muted)}
 
-/* ── Indicadores-chave ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:22px}
-.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease;cursor:default}
-.kpi-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(31,41,55,.06)}
-.kpi-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;background:var(--p-light);color:var(--p)}
-.kpi-ico svg{width:16px;height:16px}
-.kc-p .kpi-ico{background:var(--p-light);color:var(--p)}
-.kc-g .kpi-ico{background:#ECFDF5;color:#059669}
-.kc-a .kpi-ico{background:#EDE0FC;color:var(--p2)}
-.kc-m .kpi-ico{background:#F1EFF7;color:var(--muted)}
-.kc-b .kpi-ico{background:#EDE9FE;color:#4C1D95}
-.kc-r .kpi-ico{background:#FEF2F2;color:#DC2626}
-.kpi-lbl{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.kpi-val{font-size:24px;font-weight:700;line-height:1;margin-bottom:6px;color:var(--txt);letter-spacing:-.02em}
-.kpi-sub{font-size:11px;color:var(--muted2)}
-#indicadores .kpi-card:first-child{background:linear-gradient(150deg,#9B8CF0 0%,#8171E8 100%);border:none;box-shadow:0 10px 26px rgba(129,113,232,.3)}
-#indicadores .kpi-card:nth-child(2){background:linear-gradient(150deg,var(--p) 0%,var(--p2) 100%);border:none;box-shadow:0 10px 26px rgba(76,29,149,.32)}
-#indicadores .kpi-card:first-child .kpi-ico,#indicadores .kpi-card:nth-child(2) .kpi-ico{background:rgba(255,255,255,.18);color:#fff}
-#indicadores .kpi-card:first-child .kpi-lbl,#indicadores .kpi-card:first-child .kpi-sub,
-#indicadores .kpi-card:nth-child(2) .kpi-lbl,#indicadores .kpi-card:nth-child(2) .kpi-sub{color:rgba(255,255,255,.72)}
-#indicadores .kpi-card:first-child .kpi-val,#indicadores .kpi-card:nth-child(2) .kpi-val{color:#fff}
-#indicadores .kpi-card:first-child .kpi-trend,#indicadores .kpi-card:nth-child(2) .kpi-trend{color:rgba(255,255,255,.85)!important}
-.kpi-trend{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700}
-.kpi-trend.up{color:#059669}
-.kpi-trend.down{color:#DC2626}
-.kpi-trend svg{width:11px;height:11px}
+/* ── Indicadores-chave (KPIs) — ícones pequenos (20px), sem caixas grandes; elegante e compacto ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+.kpi-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease;cursor:default;min-width:0}
+.kpi-card:hover{transform:scale(1.02);box-shadow:var(--shadow-md)}
+.kpi-hd{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.kpi-ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-ico svg{width:20px;height:20px;stroke-width:1.75}
+.kc-p .kpi-ico{color:var(--p)}
+.kc-g .kpi-ico{color:var(--green)}
+.kc-a .kpi-ico{color:var(--amber)}
+.kc-m .kpi-ico{color:var(--muted)}
+.kc-b .kpi-ico{color:var(--p2)}
+.kc-r .kpi-ico{color:var(--red)}
+.kpi-lbl{font-size:13px;font-weight:600;color:var(--muted);line-height:1.3}
+.kpi-val{font-size:clamp(17px,1.6vw,24px);font-weight:700;line-height:1.15;margin-bottom:8px;color:var(--txt);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:12.5px;color:var(--muted2)}
+.kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:20px}
+.kpi-trend.up{background:var(--green-bg);color:var(--green)}
+.kpi-trend.down{background:var(--red-bg);color:var(--red)}
+.kpi-trend svg{width:11px;height:11px;stroke-width:2}
 
-/* ── Ações necessárias ── */
-.acoes-list{background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 20px;margin-bottom:26px;box-shadow:0 1px 2px rgba(31,41,55,.03)}
-.acao-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.acao-row:last-child{border-bottom:none}
-.acao-left{display:flex;align-items:center;gap:12px;min-width:0}
-.acao-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.acao-dot.crit{background:#DC2626}
-.acao-dot.warn{background:var(--p)}
-.acao-txt{font-size:13.5px;font-weight:600;color:var(--txt)}
-.acao-right{display:flex;align-items:center;gap:16px}
-.acao-val{font-size:13px;font-weight:800;color:var(--muted)}
-.acao-cta{font-size:12px;color:var(--p);font-weight:700;text-decoration:none;white-space:nowrap}
+/* ── Saúde geral — 5 setores, status + 1 headline cada, sem dinheiro repetido ── */
+.sector-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+.sector-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;min-width:0}
+.sector-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--txt)}
+.sector-hd svg{width:15px;height:15px;stroke-width:1.75;color:var(--p);flex-shrink:0}
+.sector-headline{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:-.01em;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sector-sub{font-size:11.5px;color:var(--muted2)}
+.ponto-atencao{display:flex;align-items:center;gap:10px;border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;font-weight:600;margin-bottom:14px;text-decoration:none;transition:opacity .15s}
+.ponto-atencao:hover{opacity:.85}
+.ponto-atencao.crit{background:var(--red-bg);color:var(--red)}
+.ponto-atencao.warn{background:var(--amber-bg);color:var(--amber)}
+.ponto-atencao svg{width:16px;height:16px;stroke-width:1.75;flex-shrink:0}
+
+/* ── Blocos de detalhe por setor (Comercial/Operação/Materiais) — 4 cards, mesma linguagem do KPI grid ── */
+.kpi-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+
+/* ── Insights automáticos — narrativa causal entre setores ── */
+.insight-row{display:flex;align-items:flex-start;gap:11px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:13.5px;line-height:1.5}
+.insight-row:last-child{border-bottom:none}
+.insight-row .atencao-dot{margin-top:6px}
+.insight-txt{color:var(--muted)}
+.insight-txt b{color:var(--txt);font-weight:700}
+
+/* ── Alertas (estilo CFO, compacto) — separadores quase invisíveis, hover suave ── */
+.atencao-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:14px;font-weight:500;color:var(--txt);transition:background-color .15s ease}
+.atencao-row:last-child{border-bottom:none}
+.atencao-row a{color:inherit;text-decoration:none;display:flex;align-items:center;gap:10px;width:100%;border-radius:8px;transition:background-color .15s ease}
+.atencao-row a:hover{background:var(--bg)}
+.atencao-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.atencao-dot.crit{background:var(--red)}
+.atencao-dot.warn{background:var(--amber)}
+.atencao-dot.ok{background:var(--green)}
+.atencao-chev{margin-left:auto;color:var(--muted2);flex-shrink:0}
 
 /* ── Fluxo de caixa / seções ── */
-.section-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+.section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin:20px 0 10px;display:flex;align-items:center;gap:8px}
 .section-lbl::after{content:'';flex:1;height:1px;background:var(--line)}
-.chart-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px 22px;box-shadow:0 1px 2px rgba(31,41,55,.03),0 4px 16px rgba(31,41,55,.04);margin-bottom:8px}
-.chart-title{font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px}
-.chart-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
+.chart-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+.chart-hd-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.chart-title{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:2px}
+.chart-sub{font-size:13px;color:var(--muted)}
+.mini-period{display:flex;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.mini-p-btn{padding:6px 11px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:background-color .15s ease}
+.mini-p-btn.active{background:var(--p);color:#fff}
 
-/* ── Quem move o negócio / Movimentações (cards de lista, reaproveitados) ── */
+/* ── Blocos de lista — muito espaço, separadores quase invisíveis, alturas niveladas por grid ── */
 .recent-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.recent-card{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 1px 2px rgba(31,41,55,.03),0 4px 16px rgba(31,41,55,.04)}
-.recent-hdr{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
-.recent-hdr h3{font-size:13px;font-weight:800;margin:0;display:flex;align-items:center;gap:7px}
-.recent-body{padding:4px 18px}
-.recent-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.recent-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.recent-hdr{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.recent-hdr h3{font-size:14px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px}
+.recent-hdr .warn-ico{color:var(--amber);opacity:.85}
+.recent-body{padding:4px 20px 8px;flex:1}
+.recent-row{display:flex;align-items:center;gap:12px;padding:12px 10px;margin:0 -10px;border-radius:10px;border-bottom:1px solid var(--bg);transition:background-color .15s ease}
 .recent-row:last-child{border-bottom:none}
-.top-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.recent-row:hover{background:var(--bg)}
+.row-avatar{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0}
+.movi-row{display:flex;align-items:center;gap:12px;padding:12px 10px;margin:0 -10px;border-radius:10px;border-bottom:1px solid var(--bg);transition:background-color .15s ease}
+.movi-row:last-child{border-bottom:none}
+.movi-row:hover{background:var(--bg)}
+.movi-ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.movi-ico.rec{background:var(--green-bg);color:var(--green)}
+.movi-ico.pag{background:var(--red-bg);color:var(--red)}
+.movi-ico svg{width:14px;height:14px;stroke-width:1.75}
+.movi-chev{color:var(--muted2);flex-shrink:0;font-size:16px}
+.top-row{display:flex;align-items:center;gap:12px;padding:12px 10px;margin:0 -10px;border-radius:10px;border-bottom:1px solid var(--bg);transition:background-color .15s ease}
 .top-row:last-child{border-bottom:none}
-.top-name{font-size:12.5px;font-weight:600;width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top-bar-wrap{flex:1;height:6px;background:#F1EFF7;border-radius:99px;overflow:hidden}
-.top-bar{height:100%;background:var(--p);border-radius:99px}
-.top-val{font-size:11.5px;color:var(--muted);font-weight:700;flex-shrink:0;white-space:nowrap}
+.top-row:hover{background:var(--bg)}
+.top-num{font-size:12px;font-weight:600;color:var(--muted2);width:14px;flex-shrink:0}
+.top-name{font-size:14px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.top-val{font-size:13px;color:var(--muted);font-weight:600;flex-shrink:0;white-space:nowrap}
 
-@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:768px){#hambBtn{display:block!important}.kpi-grid{grid-template-columns:1fr 1fr}.recent-grid{grid-template-columns:1fr}#cloudCanvas3D{display:none}}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}.sector-grid{grid-template-columns:repeat(3,1fr)}.dash-hero{flex-direction:column}.hero-divider{width:auto;height:1px;align-self:stretch}}
+@media(max-width:768px){#hambBtn{display:block!important}.kpi-grid{grid-template-columns:1fr 1fr}.kpi-grid-4{grid-template-columns:1fr 1fr}.sector-grid{grid-template-columns:1fr 1fr}.recent-grid{grid-template-columns:1fr}#cloudCanvas3D{display:none}}
 </style>
 </head>
 <body>
@@ -165,7 +213,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
         <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
           <div class="topbar-title">Dashboard Executivo</div>
-          <div class="topbar-breadcrumb" id="topbarSub"></div>
+          <div class="topbar-breadcrumb" id="topbarSub">Bom dia 👋</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -178,18 +226,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
 
     <div class="main-scroll">
 
-      <!-- HERO / VEREDITO -->
-      <div class="dash-hero">
-        <canvas id="cloudCanvas3D"></canvas>
-        <div class="hero-left">
-          <div class="hero-greeting" id="heroGreeting">Bom dia</div>
-          <div class="hero-title" id="heroEmpresa">Nuvix Hub</div>
-          <div class="veredito-frase" id="veredictoFrase">Carregando…</div>
-          <div class="veredito-sub" id="veredictoSub"></div>
-        </div>
-      </div>
-
-      <!-- PERÍODO (só isso na tela principal) -->
+      <!-- PERÍODO (só isso na tela principal) — controla o desempenho do período em todas as seções -->
       <div class="period-row">
         <div class="period-btns" id="periodBtns">
           <button class="period-btn" onclick="setPeriodo('hoje',this)">Hoje</button>
@@ -243,56 +280,110 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
         </div>
       </div>
 
-      <!-- INDICADORES-CHAVE -->
-      <div class="kpi-grid" id="indicadores"></div>
+      <!-- 1 · SAÚDE GERAL — como cada área está, em 3 segundos. Sem dinheiro repetido aqui. -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Saúde geral</div>
+      <div id="pontoAtencao"></div>
+      <div class="sector-grid" id="setoresGrid"></div>
 
-      <!-- AÇÕES NECESSÁRIAS -->
-      <div class="acoes-list" id="acoesList"></div>
-
-      <!-- FLUXO DE CAIXA -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Fluxo de caixa</div>
-      <div class="chart-card">
-        <div class="chart-title">Recebido vs Pago</div>
-        <div class="chart-sub" id="subFluxo">—</div>
-        <canvas id="chartFluxo" height="170"></canvas>
+      <!-- 2 · O QUE MUDOU — narrativa automática conectando os setores, nunca fica muda -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> O que mudou</div>
+      <div class="recent-card" style="margin-bottom:20px">
+        <div class="recent-body" id="insightsList" style="padding:6px 20px 10px"></div>
       </div>
 
-      <!-- QUEM MOVE O NEGÓCIO -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Quem move o negócio</div>
-      <div class="recent-grid">
+      <!-- 3 · FINANCEIRO — tenho dinheiro? Único lugar da tela com valores em R$. -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Financeiro</div>
+      <div class="dash-hero">
+        <canvas id="cloudCanvas3D"></canvas>
+        <span class="hero-badge-corner" id="heroStatusBadge"></span>
+        <div class="hero-left">
+          <div class="hero-caixa-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Caixa disponível</div>
+          <div class="hero-caixa-val" id="heroCaixaVal">—</div>
+          <div class="veredito-sub" id="veredictoSub"></div>
+          <div class="hero-health-track"><div class="hero-health-fill" id="heroHealthFill"></div></div>
+          <div class="hero-caption" id="heroCaption"></div>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-right">
+          <div class="hero-spark-lbl">Tendência do caixa · 21 dias</div>
+          <canvas id="heroSparkline" height="46"></canvas>
+          <div class="hero-proximo-box">
+            <div class="hero-proximo-lbl">Próximo compromisso</div>
+            <div class="hero-proximo-val" id="heroProximoVal">—</div>
+            <div class="hero-proximo-dias" id="heroProximoDias"></div>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="indicadores" style="margin-top:20px"></div>
+      <div class="chart-card">
+        <div class="chart-hd-row">
+          <div>
+            <div class="chart-title">Recebido vs Pago</div>
+            <div class="chart-sub" id="subFluxo">—</div>
+          </div>
+          <div class="mini-period" id="fluxoPeriodoBtns">
+            <button class="mini-p-btn" onclick="setFluxoPeriodo(12,this)">12 dias</button>
+            <button class="mini-p-btn active" onclick="setFluxoPeriodo(30,this)">30 dias</button>
+            <button class="mini-p-btn" onclick="setFluxoPeriodo(60,this)">60 dias</button>
+          </div>
+        </div>
+        <div style="position:relative;height:210px">
+          <canvas id="chartFluxo"></canvas>
+        </div>
+      </div>
+      <div class="recent-grid" style="margin-top:16px">
         <div class="recent-card">
           <div class="recent-hdr">
-            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Top clientes</h3>
+            <h3>Próximos recebimentos</h3>
+            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+          </div>
+          <div class="recent-body" id="proximosRecebimentos"></div>
+        </div>
+        <div class="recent-card">
+          <div class="recent-hdr">
+            <h3>Próximos pagamentos</h3>
+            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+          </div>
+          <div class="recent-body" id="proximosPagamentos"></div>
+        </div>
+      </div>
+
+      <!-- 4 · COMERCIAL — estou vendendo? -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Comercial</div>
+      <div class="kpi-grid-4" id="comercialKpis"></div>
+      <div class="recent-grid" style="margin-top:16px">
+        <div class="recent-card">
+          <div class="recent-hdr">
+            <h3>Top clientes</h3>
             <a href="app.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
           </div>
           <div class="recent-body" id="topClientes"></div>
         </div>
         <div class="recent-card">
           <div class="recent-hdr">
-            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Serviços mais vendidos</h3>
+            <h3>Serviços mais vendidos</h3>
             <a href="servicos.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
           </div>
           <div class="recent-body" id="topServicos"></div>
         </div>
       </div>
 
-      <!-- MOVIMENTAÇÕES RECENTES -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Movimentações recentes</div>
-      <div class="recent-grid">
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Últimos recebimentos</h3>
-            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
-          </div>
-          <div class="recent-body" id="ultimosRecebimentos"></div>
-        </div>
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Últimos pagamentos</h3>
-            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
-          </div>
-          <div class="recent-body" id="ultimosPagamentos"></div>
-        </div>
+      <!-- 5 · OPERAÇÃO — estou entregando? -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/></svg> Operação</div>
+      <div class="kpi-grid-4" id="operacaoKpis"></div>
+
+      <!-- 6 · MATERIAIS — vou parar por falta de material? -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg> Materiais</div>
+      <div class="kpi-grid-4" id="materiaisKpis"></div>
+
+      <!-- 7 · RH — minha equipe está saudável? -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> RH</div>
+      <div class="kpi-grid" id="rhKpis"></div>
+
+      <!-- 8 · ÚLTIMAS MOVIMENTAÇÕES -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Últimas movimentações</div>
+      <div class="recent-card">
+        <div class="recent-body" id="ultimasMovimentacoes"></div>
       </div>
 
     </div>
@@ -301,7 +392,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
 
 <script>
 const session = requireAuth();
-let dados = {fin:[],orc:[],cli:[],mats:[]};
+let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[]};
 let periodo = {dias:'mes', de:'', ate:''};
 let competencia = 'vencimento';
 let direcao = 'passado'; // 'passado' ou 'futuro' — só é usado quando competencia==='vencimento'
@@ -312,18 +403,19 @@ async function init(){
   if(!session)return;
   $('userName').textContent = session.nome||'';
   $('userAvatar').textContent = initials(session.nome||'');
-  const emp = session.empresa;
-  if(emp){
-    $('topbarSub').textContent = (emp.fantasia||emp.razao||'')+' · '+(emp.segmento||emp.tipo||'');
-    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
-    const seg=emp.segmento||emp.tipo||'';
-    $('heroEmpresa').textContent = emp.fantasia||emp.razao||'';
-    if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='flex');
-    if(seg==='Transporte'||seg==='Mista') document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');
-  }
   const h = new Date().getHours();
   const nome = session.nome?.split(' ')[0]||'';
-  $('heroGreeting').textContent = (h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+(nome?' — '+nome:'');
+  const saudacao = (h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+(nome?' — '+nome:'')+' 👋';
+  const emp = session.empresa;
+  if(emp){
+    $('topbarSub').textContent = saudacao+' · '+(emp.fantasia||emp.razao||'');
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+    const seg=emp.segmento||emp.tipo||'';
+    if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='flex');
+    if(seg==='Transporte'||seg==='Mista') document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');
+  }else{
+    $('topbarSub').textContent = saudacao;
+  }
   recomputePeriodo();
   await loadData();
   init3DCloud();
@@ -386,6 +478,7 @@ function periodoAnterior(){
 }
 
 const PERIODO_TXT = {hoje:'Hoje',semana:'Essa semana',mes:'Esse mês','30':'Nos últimos 30 dias','3m':'Nos últimos 3 meses',custom:'No período selecionado'};
+const RESULTADO_LBL = {hoje:'Resultado de hoje',semana:'Resultado da semana',mes:'Resultado do mês','30':'Resultado dos últimos 30 dias','3m':'Resultado dos últimos 3 meses',custom:'Resultado do período'};
 
 function setPeriodo(dias, btn){
   document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
@@ -445,13 +538,18 @@ async function loadData(){
   if(!session?.empresa_id)return;
   const q = `?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   try{
-    const [fin,orc,cli,mats] = await Promise.all([
+    const [fin,orc,cli,mats,crm,os,movs,colab,ponto] = await Promise.all([
       db.get('financeiro', q),
       db.get('servicos_orcamentos', q).catch(()=>[]),
       db.get('clientes', q).catch(()=>[]),
-      db.get('materiais',`?select=id,nome,estoque_atual,estoque_minimo,categoria,unidade&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
+      db.get('materiais',`?select=id,nome,estoque_atual,estoque_minimo,categoria,unidade,custo_compra&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
+      db.get('crm_oportunidades', q).catch(()=>[]),
+      db.get('ordens_servico', q).catch(()=>[]),
+      db.get('material_movimentacoes',`?select=tipo,valor_total,quantidade,created_at&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
+      db.get('colaboradores',`?select=id,nome,ativo,salario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
+      db.get('ponto',`?select=data,horas_extras,tipo,colaborador_nome&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
     ]);
-    dados = {fin,orc,cli,mats};
+    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto};
     renderAll();
     $('lastUpd').textContent = 'Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -459,12 +557,18 @@ async function loadData(){
 
 // RENDER ALL
 function renderAll(){
-  renderVeredicto();
+  renderSetores();
+  renderPontoAtencao();
+  renderInsights();
+  renderHeroDiagnostico();
   renderIndicadores();
-  renderAcoes();
   renderFluxoChart();
-  renderQuemMove();
-  renderMovimentacoes();
+  renderProximosCompromissos();
+  renderComercial();
+  renderOperacao();
+  renderMateriais();
+  renderRH();
+  renderUltimasMovimentacoes();
 }
 
 // FILTRAR por período e competência
@@ -488,6 +592,200 @@ function calcIndicadoresJanela(de, ate){
   return {recebido, pago, saldo: recebido-pago};
 }
 
+// ── SEÇÕES POR SETOR — Comercial → Operação → Materiais → RH → Financeiro ──
+// Regra de produto: o filtro de período controla o DESEMPENHO do período (leads, OS abertas,
+// consumo, horas extras); indicadores de ESTADO ATUAL (atrasadas hoje, abaixo do mínimo,
+// funcionários ativos, caixa disponível, pipeline aberto) não mudam com o filtro — são "agora".
+function filtrarPorCampoData(lista, campo, de, ate){
+  if(!de||!ate) return lista||[];
+  return (lista||[]).filter(r=>{
+    const dt = String(r[campo]||'').slice(0,10);
+    return dt && dt>=de && dt<=ate;
+  });
+}
+function calcComercial(de,ate){
+  const periodo_ = filtrarPorCampoData(dados.crm,'created_at',de,ate);
+  const leads = periodo_.length;
+  const fechadosLista = periodo_.filter(o=>o.status==='Fechado');
+  const fechados = fechadosLista.length;
+  const txConv = leads ? Math.round(fechados/leads*100) : null;
+  const ticketMedio = fechadosLista.length ? fechadosLista.reduce((a,o)=>a+Number(o.valor_previsto||0),0)/fechadosLista.length : null;
+  const pipelineAberto = (dados.crm||[]).filter(o=>!['Fechado','Perdido'].includes(o.status||'')).reduce((a,o)=>a+Number(o.valor_previsto||0),0);
+  return {leads, fechados, txConv, ticketMedio, pipelineAberto};
+}
+function calcOperacao(de,ate){
+  const abertasPeriodo = filtrarPorCampoData(dados.os,'data_abertura',de,ate).length;
+  const concluidasLista = filtrarPorCampoData(dados.os,'data_conclusao',de,ate).filter(o=>o.status==='Concluída');
+  const concluidasPeriodo = concluidasLista.length;
+  const hj = hoje();
+  const atrasadasAgora = (dados.os||[]).filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)&&String(o.data_agendada||'').slice(0,10)<hj).length;
+  const tempos = concluidasLista.filter(o=>o.data_abertura&&o.data_conclusao).map(o=>Math.round((new Date(String(o.data_conclusao).slice(0,10)+'T12:00:00')-new Date(String(o.data_abertura).slice(0,10)+'T12:00:00'))/864e5));
+  const tempoMedio = tempos.length ? Math.round(tempos.reduce((a,v)=>a+v,0)/tempos.length) : null;
+  return {abertasPeriodo, concluidasPeriodo, atrasadasAgora, tempoMedio};
+}
+function calcMateriaisSetor(de,ate){
+  const consumoPeriodo = filtrarPorCampoData(dados.movs,'created_at',de,ate).filter(m=>m.tipo==='saida').reduce((a,m)=>a+Number(m.valor_total||0),0);
+  const itensBaixo = (dados.mats||[]).filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
+  const itensZerados = (dados.mats||[]).filter(m=>Number(m.estoque_atual||0)===0);
+  const investimentoReposicao = itensBaixo.reduce((a,m)=>a+(Number(m.estoque_minimo||0)-Number(m.estoque_atual||0))*Number(m.custo_compra||0),0);
+  return {consumoPeriodo, abaixoMinimo:itensBaixo.length, zerados:itensZerados.length, investimentoReposicao};
+}
+function calcRHSetor(de,ate){
+  const ativosLista = (dados.colab||[]).filter(c=>c.ativo!==false);
+  const ativos = ativosLista.length;
+  const folhaMensalEst = ativosLista.reduce((a,c)=>a+Number(c.salario||0),0);
+  const pontoPeriodo = filtrarPorCampoData(dados.ponto,'data',de,ate);
+  const horasExtras = pontoPeriodo.reduce((a,p)=>a+Number(p.horas_extras||0),0);
+  const faltas = pontoPeriodo.filter(p=>p.tipo==='Falta').length;
+  const hj = hoje();
+  const emFerias = new Set((dados.ponto||[]).filter(p=>p.tipo==='Férias'&&String(p.data||'').slice(0,10)===hj).map(p=>p.colaborador_nome)).size;
+  return {ativos, folhaMensalEst, horasExtras, faltas, emFerias};
+}
+
+const pathComercial='<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>';
+const pathOperacao='<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/>';
+const pathMateriais='<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/>';
+const pathRH='<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>';
+const pathFinanceiro='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
+
+// SAÚDE GERAL — 1 status + 1 headline por área. Financeiro mostra a PALAVRA do status, nunca o R$
+// (o valor mora exclusivamente na seção Financeiro, mais abaixo).
+function renderSetores(){
+  const {de:antDe,ate:antAte} = periodoAnterior();
+  const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
+  const opr=calcOperacao(periodo.de,periodo.ate);
+  const mat=calcMateriaisSetor(periodo.de,periodo.ate);
+  const rh=calcRHSetor(periodo.de,periodo.ate);
+  const fin=calcStatusFinanceiro();
+
+  let comCls='ok';
+  if(comA.leads===0 && comA.fechados===0) comCls='warn';
+  else if(comB.fechados && comA.fechados<comB.fechados) comCls='warn';
+
+  let oprCls='ok';
+  if(opr.atrasadasAgora>=4) oprCls='crit';
+  else if(opr.atrasadasAgora>=1) oprCls='warn';
+
+  let matCls='ok';
+  if(mat.zerados>0) matCls='crit';
+  else if(mat.abaixoMinimo>0) matCls='warn';
+
+  const rhCls = rh.faltas>=3 ? 'warn' : 'ok';
+
+  const card=(path,titulo,cls,headline,sub)=>`<div class="sector-card">
+    <div class="sector-hd">${icoSVG(path)} ${titulo}<span class="atencao-dot ${cls}" style="margin-left:auto"></span></div>
+    <div class="sector-headline">${headline}</div>
+    <div class="sector-sub">${sub}</div>
+  </div>`;
+
+  setHTML('setoresGrid', [
+    card(pathComercial,'Comercial',comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`, 'no período'),
+    card(pathOperacao,'Operação',oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`, 'no período'),
+    card(pathMateriais,'Materiais',matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mínimo` : 'Estoque em dia', 'agora'),
+    card(pathRH,'RH',rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`, 'ativos agora'),
+    card(pathFinanceiro,'Financeiro',fin.cls, fin.txt, 'posição atual'),
+  ].join(''));
+}
+
+// PONTO DE ATENÇÃO — reaproveita calcAcoes() (mesma priorização já usada no CFO) e mostra só o item
+// mais urgente como uma linha de destaque dentro de Saúde Geral. Substitui a antiga seção "Alertas":
+// cada pendência específica já aparece dentro da seção do setor dela (OS atrasada em Operação,
+// estoque zerado em Materiais etc.) — aqui só o item nº1, pra responder "tenho algo urgente?" em 1s.
+function renderPontoAtencao(){
+  const acoes=calcAcoes();
+  const top=acoes.find(a=>a.urg==='crit')||acoes[0];
+  if(!top){ setHTML('pontoAtencao',''); return; }
+  const icoAlerta='<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
+  setHTML('pontoAtencao', `<a class="ponto-atencao ${top.urg}" href="${top.href}">${icoSVG(icoAlerta)}<span>${esc(top.txt)}${top.val?' — '+top.val:''}</span></a>`);
+}
+
+// O QUE MUDOU — narrativa automática. Compara o período atual com o anterior equivalente e liga os
+// pontos entre setores. Sempre entrega pelo menos 1 frase (fallback no fôlego de caixa, que já é
+// calculado no Financeiro) — nunca fica muda.
+function pctPontos(atual,anterior){ return (anterior===null||anterior===undefined||atual===null)?null:atual-anterior; }
+function pctVar(atual,anterior){ return (!anterior)?null:Math.round(((atual-anterior)/Math.abs(anterior))*100); }
+function renderInsights(){
+  const {de:antDe,ate:antAte} = periodoAnterior();
+  const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
+  const oprA=calcOperacao(periodo.de,periodo.ate), oprB=calcOperacao(antDe,antAte);
+  const matA=calcMateriaisSetor(periodo.de,periodo.ate), matB=calcMateriaisSetor(antDe,antAte);
+  const rhA=calcRHSetor(periodo.de,periodo.ate), rhB=calcRHSetor(antDe,antAte);
+  const finA=calcIndicadoresJanela(periodo.de,periodo.ate), finB=calcIndicadoresJanela(antDe,antAte);
+
+  const insights=[];
+
+  // Receita ↑ mas resultado ↓ (custo subiu mais que a receita)
+  const dRec=pctVar(finA.recebido,finB.recebido), dSaldo=pctVar(finA.saldo,finB.saldo);
+  if(dRec!==null && dSaldo!==null && dRec>=8 && dSaldo<0){
+    insights.push({urg:'warn',
+      txt:`Receita cresceu ${dRec}% no período`,
+      efeito:`porém o resultado caiu ${Math.abs(dSaldo)}%, indicando que despesas/custos subiram mais rápido`});
+  }
+
+  // Comercial ↑ mas Operação não acompanhou (concluiu menos do que abriu)
+  const dFech=pctPontos(comA.fechados,comB.fechados);
+  if(dFech!==null && dFech>0 && oprA.abertasPeriodo>oprA.concluidasPeriodo){
+    insights.push({urg:'warn',
+      txt:`Novas vendas cresceram (+${dFech} fechamento${dFech!==1?'s':''} vs período anterior)`,
+      efeito:`mas a operação concluiu ${oprA.concluidasPeriodo} OS contra ${oprA.abertasPeriodo} abertas no mesmo intervalo`});
+  }
+
+  // Financeiro: recebeu mais no período (só quando não é já coberta pelo alerta de margem acima)
+  if(dRec!==null && dRec>0 && finA.recebido>finB.recebido && !(dSaldo!==null && dSaldo<0)){
+    insights.push({urg:'ok',
+      txt:`A empresa recebeu ${money(finA.recebido)} no período (${dRec>0?'+':''}${dRec}% vs anterior)`,
+      efeito:`resultado do período em ${money(finA.saldo)}`});
+  }
+
+  // Materiais: estoque crítico subiu após alta de vendas/OS
+  const dAbaixo=matA.abaixoMinimo-matB.abaixoMinimo;
+  if(dAbaixo>0 && (oprA.abertasPeriodo>oprB.abertasPeriodo || comA.fechados>comB.fechados)){
+    insights.push({urg:'warn',
+      txt:`O estoque crítico subiu (+${dAbaixo} ite${dAbaixo!==1?'ns':'m'} abaixo do mínimo)`,
+      efeito:`após crescimento na operação/vendas no mesmo período`});
+  }
+
+  // RH: horas extras ↑ → custo operacional ↑
+  const dHE=pctVar(rhA.horasExtras,rhB.horasExtras);
+  if(dHE!==null && dHE>=15 && oprA.abertasPeriodo>0){
+    insights.push({urg:'warn',
+      txt:`Horas extras subiram ${dHE}% no período`,
+      efeito:`acompanhando ${oprA.abertasPeriodo} OS aberta${oprA.abertasPeriodo!==1?'s':''} — custo operacional tende a subir junto`});
+  }
+
+  // OS abertas x consumo de materiais, mesma direção
+  const dOSpct=pctVar(oprA.abertasPeriodo,oprB.abertasPeriodo);
+  if(dOSpct!==null && Math.abs(dOSpct)>=10){
+    const dCons=pctVar(matA.consumoPeriodo,matB.consumoPeriodo);
+    if(dCons!==null && Math.abs(dCons)>=1){
+      insights.push({urg:(dOSpct>0&&dCons>0)?'warn':'ok',
+        txt:`OS abertas ${dOSpct>0?'aumentaram':'caíram'} ${Math.abs(dOSpct)}% vs período anterior`,
+        efeito:`consumo de materiais ${dCons>0?'subiu':'caiu'} ${Math.abs(dCons)}% no mesmo intervalo`});
+    }
+  }
+
+  // Conversão em queda → menos OS → menor faturamento futuro
+  const dConv=pctPontos(comA.txConv,comB.txConv);
+  if(dConv!==null && dConv<=-5){
+    const dOS=oprA.abertasPeriodo-oprB.abertasPeriodo;
+    insights.push({urg:'warn',
+      txt:`Conversão comercial caiu ${Math.abs(dConv)} ponto${Math.abs(dConv)!==1?'s':''} percentual${Math.abs(dConv)!==1?'is':''} vs período anterior`,
+      efeito:`${dOS<=0?'':'+' }${dOS} OS aberta${Math.abs(dOS)!==1?'s':''} no mesmo intervalo`});
+  }
+
+  let top=insights.slice(0,3);
+  if(!top.length){
+    // Fallback garantido — nunca fica muda. Reaproveita o mesmo cálculo de fôlego de caixa do Hero.
+    const caixa=calcCaixaDisponivel(), runway=calcRunway(caixa);
+    if(runway){
+      top=[{urg:'ok', txt:`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos`, efeito:'no ritmo atual, sem sinais de alerta nos demais setores'}];
+    }else{
+      top=[{urg:'ok', txt:'O período segue dentro do padrão em todos os setores acompanhados', efeito:'sem variações fora do comum'}];
+    }
+  }
+  setHTML('insightsList', top.map(i=>`<div class="insight-row"><span class="atencao-dot ${i.urg}"></span><span class="insight-txt"><b>${esc(i.txt)}</b> → ${esc(i.efeito)}</span></div>`).join(''));
+}
+
 // Ícones (SVG inline) reaproveitados nos indicadores e ações
 function icoSVG(path){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;}
 const icoWallet=icoSVG('<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>');
@@ -505,29 +803,139 @@ function trendBadge(atual, anterior, invertido){
   return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
 }
 
-// VEREDITO — a primeira coisa que o dono da empresa vê: uma frase, não uma tabela.
-function renderVeredicto(){
-  const atual = calcIndicadoresJanela(periodo.de, periodo.ate);
-  const acoes = calcAcoes();
-  const crit = acoes.filter(a=>a.urg==='crit').length;
-  const warn = acoes.filter(a=>a.urg==='warn').length;
-  const txt = PERIODO_TXT[periodo.dias] || 'No período selecionado';
-  let frase, sub;
-  if(atual.saldo<0){
-    frase = `${txt} está com saldo negativo de ${money(Math.abs(atual.saldo))}.`;
-    sub = 'Vale revisar o caixa antes de assumir novos compromissos.';
-  }else if(crit>0){
-    frase = `${txt} o saldo é positivo (${money(atual.saldo)}), mas ${crit} pendência${crit>1?'s':''} precisa${crit>1?'m':''} de atenção agora.`;
-    sub = 'Veja a lista de ações abaixo.';
-  }else{
-    frase = `${txt} está indo bem — saldo positivo de ${money(atual.saldo)}.`;
-    sub = warn>0 ? `${warn} pendência${warn>1?'s':''} pra ficar de olho, nada urgente.` : 'Nenhuma pendência no momento.';
+// ── CAIXA DISPONÍVEL ──
+// Sem integração bancária, o único jeito honesto de calcular é somar TODO o histórico confirmado
+// já registrado na Nuvix (sem filtro de período). Por isso o Hero sempre mostra, junto do valor,
+// desde quando esse cálculo é válido — nunca finge ser um extrato bancário auditado.
+function calcCaixaDisponivel(){
+  const rec = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const pag = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  return rec-pag;
+}
+function dataPrimeiroLancamento(){
+  const datas=dados.fin.map(f=>f.data_lancamento).filter(Boolean).sort();
+  return datas.length?datas[0]:null;
+}
+// Fôlego de caixa: média de despesa paga nos últimos 30 dias vira "queima diária".
+// Exige um mínimo de histórico — senão a estimativa é só ruído.
+function calcRunway(caixa){
+  const hj=new Date(); const de=new Date(hj); de.setDate(hj.getDate()-30);
+  const deStr=dataLocal(de), hjStr=dataLocal(hj);
+  const despRecentes=dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).filter(f=>{
+    const d=String(f.data_pagamento||f.vencimento||f.data_lancamento||'').slice(0,10);
+    return d>=deStr&&d<=hjStr;
+  });
+  const diasComDado=new Set(despRecentes.map(f=>String(f.data_pagamento||f.vencimento||f.data_lancamento||'').slice(0,10))).size;
+  if(diasComDado<3||despRecentes.length===0) return null;
+  const mediaDiaria=despRecentes.reduce((a,f)=>a+Number(f.valor||0),0)/30;
+  if(mediaDiaria<=0) return null;
+  return Math.floor(caixa/mediaDiaria);
+}
+// Simula dia a dia (até 60 dias à frente) somando/subtraindo só o que já está previsto e cadastrado —
+// não inventa receita ou despesa futura que não exista no sistema.
+function diasParaFicarNegativo(caixaInicial){
+  if(caixaInicial<0) return 0;
+  const hj=new Date();
+  let saldo=caixaInicial;
+  for(let i=1;i<=60;i++){
+    const d=new Date(hj); d.setDate(hj.getDate()+i);
+    const ds=dataLocal(d);
+    const rec=dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    saldo+=rec-pag;
+    if(saldo<0) return i;
   }
-  setHTML('veredictoFrase', esc(frase));
-  setHTML('veredictoSub', esc(sub));
+  return null;
+}
+function proximoCompromisso(){
+  const hj=hoje();
+  const pend=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)>=hj)
+    .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento)));
+  return pend[0]||null;
 }
 
-// INDICADORES-CHAVE — Recebido, Pago, Saldo (com tendência vs período anterior) + A Receber/A Pagar (totais em aberto)
+// Status do Financeiro (crit/warn/ok) — usado no Hero e no card "Financeiro" de Saúde Geral, uma
+// única fonte de verdade pra não divergir a leitura entre as duas seções.
+function calcStatusFinanceiro(){
+  const caixa=calcCaixaDisponivel();
+  const runway=calcRunway(caixa);
+  const negDias=diasParaFicarNegativo(caixa);
+  let txt,cls;
+  if(caixa<0){txt='Caixa negativo';cls='crit';}
+  else if(negDias&&negDias<=14){txt='Atenção ao caixa';cls='warn';}
+  else{txt='Caixa saudável';cls='ok';}
+  return {txt,cls,caixa,runway,negDias};
+}
+
+// HERO — diagnóstico, não número solto: caixa, fôlego, risco e próximo compromisso.
+function renderHeroDiagnostico(){
+  const {caixa,runway,negDias,txt:statusTxt,cls:statusCls}=calcStatusFinanceiro();
+  const prox=proximoCompromisso();
+  const primeira=dataPrimeiroLancamento();
+
+  setHTML('heroStatusBadge',`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`);
+  setHTML('heroCaixaVal',money(caixa));
+
+  // Barra de saúde financeira: 0 se negativo, senão proporcional ao fôlego de caixa (45 dias = 100%)
+  const healthPct = caixa<0 ? 4 : Math.max(6, Math.min(100, Math.round((runway||20)/45*100)));
+  const healthColor = statusCls==='crit' ? 'var(--red)' : statusCls==='warn' ? 'var(--amber)' : 'var(--green)';
+  const fillEl=$('heroHealthFill');
+  if(fillEl){ fillEl.style.width=healthPct+'%'; fillEl.style.background=healthColor; }
+
+  let sub;
+  if(caixa<0) sub='O caixa está negativo — verifique os pagamentos pendentes antes de assumir novos compromissos.';
+  else if(negDias) sub=`Seu caixa pode ficar negativo em ${negDias} dia${negDias>1?'s':''} caso nenhum recebimento previsto se confirme.`;
+  else if(runway) sub=`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos, no ritmo atual.`;
+  else sub='Ainda reunindo histórico suficiente pra estimar o fôlego de caixa.';
+  setHTML('veredictoSub',esc(sub));
+
+  if(prox){
+    const dias=Math.round((new Date(prox.vencimento+'T12:00:00')-new Date(hoje()+'T12:00:00'))/864e5);
+    const quando=dias<=0?'Vence hoje':dias===1?'Vence amanhã':`Vence em ${dias} dias`;
+    setHTML('heroProximoVal',`${esc(prox.favorecido||prox.descricao||'Pagamento')} — ${money(prox.valor)}`);
+    setHTML('heroProximoDias',quando);
+  }else{
+    setHTML('heroProximoVal','Nenhum pagamento pendente');
+    setHTML('heroProximoDias','');
+  }
+
+  setHTML('heroCaption', primeira ? `Considera lançamentos confirmados desde ${fmtData(primeira)}` : '');
+  renderHeroSparkline();
+}
+
+// Sparkline: saldo acumulado (caixa) dia a dia, últimos N dias — pura tendência visual, sem eixos.
+function calcSparklineCaixa(dias){
+  const hj=new Date();
+  const pontos=[];
+  for(let i=dias-1;i>=0;i--){
+    const d=new Date(hj); d.setDate(hj.getDate()-i);
+    const ds=dataLocal(d);
+    const rec=dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.data_pagamento||f.data_lancamento||'').slice(0,10)<=ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&String(f.data_pagamento||f.data_lancamento||'').slice(0,10)<=ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    pontos.push(rec-pag);
+  }
+  return pontos;
+}
+function renderHeroSparkline(){
+  const pontos=calcSparklineCaixa(21);
+  if(charts.spark)charts.spark.destroy();
+  const c=$('heroSparkline');
+  if(!c)return;
+  const subiu = pontos[pontos.length-1] >= pontos[0];
+  charts.spark=new Chart(c,{type:'line',data:{labels:pontos.map((_,i)=>i),datasets:[{data:pontos,borderColor:subiu?'#16A34A':'#DC2626',backgroundColor:subiu?'rgba(22,163,74,.07)':'rgba(220,38,38,.07)',borderWidth:2,fill:true,tension:.35,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:150},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}},elements:{line:{borderJoinStyle:'round'}}}});
+}
+
+// Template compartilhado por todos os grids de KPI (Financeiro/Comercial/Operação/Materiais/RH) —
+// mesma linguagem visual em toda a tela, sem repetir markup por seção.
+function kpiCardsHTML(items){
+  return items.map(k=>`<div class="kpi-card kc-${k.cls}">
+    <div class="kpi-hd"><div class="kpi-ico">${k.ico}</div><div class="kpi-lbl">${k.lbl}</div></div>
+    <div class="kpi-val">${k.val}</div>
+    ${k.trend || (k.sub?`<div class="kpi-sub">${k.sub}</div>`:'')}
+  </div>`).join('');
+}
+
+// INDICADORES-CHAVE — Movimento do período (Recebido/Pago/Resultado, com tendência) + Compromissos futuros (totais em aberto)
 function renderIndicadores(){
   const atual = calcIndicadoresJanela(periodo.de, periodo.ate);
   const {de:antDe,ate:antAte} = periodoAnterior();
@@ -536,24 +944,66 @@ function renderIndicadores(){
   const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const nRec = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).length;
   const nDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).length;
+  const rotuloResultado = RESULTADO_LBL[periodo.dias] || 'Resultado do período';
 
-  setHTML('indicadores',[
-    {ico:icoWallet,cls:'g',lbl:'Receita Recebida',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false)},
-    {ico:icoDown,cls:'m',lbl:'Despesas Pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true)},
-    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:'Saldo',val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false)},
-    {ico:icoClock,cls:'a',lbl:'A Receber',val:money(aReceber),sub:nRec+' pendência(s) no total'},
-    {ico:icoClock,cls:'r',lbl:'A Pagar',val:money(aPagar),sub:nDesp+' pendência(s) no total'},
-  ].map(k=>`<div class="kpi-card kc-${k.cls}">
-    <div class="kpi-ico">${k.ico}</div>
-    <div class="kpi-lbl">${k.lbl}</div>
-    <div class="kpi-val">${k.val}</div>
-    ${k.trend || (k.sub?`<div class="kpi-sub">${k.sub}</div>`:'')}
-  </div>`).join(''));
+  setHTML('indicadores', kpiCardsHTML([
+    {ico:icoWallet,cls:'g',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false)},
+    {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true)},
+    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false)},
+    {ico:icoClock,cls:'a',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
+    {ico:icoClock,cls:'r',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
+  ]));
 }
 
-// (bloco antigo abaixo — substituído pelas funções acima)
-// AÇÕES NECESSÁRIAS — reaproveita as mesmas fórmulas já existentes (vencendo hoje, SLA vencido,
-// estoque crítico), só muda a apresentação: de "card informativo" pra "tarefa priorizada".
+// COMERCIAL — estou vendendo?
+function renderComercial(){
+  const c = calcComercial(periodo.de, periodo.ate);
+  setHTML('comercialKpis', kpiCardsHTML([
+    {ico:icoSVG(pathComercial),cls:'p',lbl:'Novos clientes',val:c.fechados,sub:'no período'},
+    {ico:icoClock,cls:'b',lbl:'Receita prevista',val:money(c.pipelineAberto),sub:'pipeline em aberto · agora'},
+    {ico:icoScale,cls:'g',lbl:'Conversão',val:c.txConv!==null?c.txConv+'%':'—',sub:'no período'},
+    {ico:icoWallet,cls:'a',lbl:'Ticket médio',val:c.ticketMedio?money(c.ticketMedio):'—',sub:'estimado · fechados no período'},
+  ]));
+  renderQuemMove();
+}
+
+// OPERAÇÃO — estou entregando?
+function renderOperacao(){
+  const o = calcOperacao(periodo.de, periodo.ate);
+  setHTML('operacaoKpis', kpiCardsHTML([
+    {ico:icoSVG(pathOperacao),cls:'p',lbl:'OS abertas',val:o.abertasPeriodo,sub:'no período'},
+    {ico:icoScale,cls:'g',lbl:'OS concluídas',val:o.concluidasPeriodo,sub:'no período'},
+    {ico:icoClock,cls:o.atrasadasAgora>0?'r':'m',lbl:'OS atrasadas',val:o.atrasadasAgora,sub:'agora'},
+    {ico:icoDown,cls:'b',lbl:'Tempo médio',val:o.tempoMedio!==null?o.tempoMedio+' dia'+(o.tempoMedio!==1?'s':''):'—',sub:'abertura → conclusão'},
+  ]));
+}
+
+// MATERIAIS — vou parar por falta de material?
+function renderMateriais(){
+  const m = calcMateriaisSetor(periodo.de, periodo.ate);
+  setHTML('materiaisKpis', kpiCardsHTML([
+    {ico:icoSVG(pathMateriais),cls:m.abaixoMinimo>0?'a':'m',lbl:'Abaixo do mínimo',val:m.abaixoMinimo,sub:'agora'},
+    {ico:icoScale,cls:m.zerados>0?'r':'m',lbl:'Sem estoque',val:m.zerados,sub:'agora'},
+    {ico:icoDown,cls:'b',lbl:'Consumo no período',val:money(m.consumoPeriodo),sub:'saídas de estoque'},
+    {ico:icoWallet,cls:'a',lbl:'Investimento p/ repor mínimo',val:money(m.investimentoReposicao),sub:'estimado · agora'},
+  ]));
+}
+
+// RH — minha equipe está saudável?
+function renderRH(){
+  const r = calcRHSetor(periodo.de, periodo.ate);
+  setHTML('rhKpis', kpiCardsHTML([
+    {ico:icoSVG(pathRH),cls:'p',lbl:'Funcionários ativos',val:r.ativos,sub:'agora'},
+    {ico:icoWallet,cls:'m',lbl:'Folha mensal estimada',val:money(r.folhaMensalEst),sub:'agora'},
+    {ico:icoScale,cls:r.horasExtras>0?'a':'m',lbl:'Horas extras',val:r.horasExtras.toFixed(0)+'h',sub:'no período'},
+    {ico:icoClock,cls:'b',lbl:'Em férias',val:r.emFerias,sub:'agora'},
+    {ico:icoDown,cls:r.faltas>0?'r':'m',lbl:'Faltas',val:r.faltas,sub:'no período'},
+  ]));
+}
+
+// ATENÇÃO — a mesma leitura de um CFO: fatos interpretados, não contadores soltos.
+// Reaproveita as mesmas fórmulas já existentes (vencendo hoje, orçamento com prazo vencido,
+// estoque crítico) — só muda a apresentação, de "card informativo" pra frase priorizada.
 function calcAcoes(){
   const hj=hoje();
   const acoes=[];
@@ -562,11 +1012,11 @@ function calcAcoes(){
 
   const vHj = dados.fin.filter(f=>String(f.vencimento||'').slice(0,10)===hj && !['Pago','Recebido'].includes(f.status||''));
   const vHjRec=vHj.filter(f=>f.tipo==='Receita'), vHjDesp=vHj.filter(f=>f.tipo==='Despesa');
-  if(vHjRec.length) acoes.push({txt:`Receber ${vHjRec.length} conta${pl(vHjRec.length,'','s')} que vence${pl(vHjRec.length,'','m')} hoje`,val:money(soma(vHjRec)),urg:'warn',href:'financeiro.html?venc=hoje'});
-  if(vHjDesp.length) acoes.push({txt:`Pagar ${vHjDesp.length} conta${pl(vHjDesp.length,'','s')} que vence${pl(vHjDesp.length,'','m')} hoje`,val:money(soma(vHjDesp)),urg:'crit',href:'financeiro.html?venc=hoje'});
+  if(vHjRec.length) acoes.push({txt:`${vHjRec.length} conta${pl(vHjRec.length,'','s')} a receber vence${pl(vHjRec.length,'','m')} hoje`,val:money(soma(vHjRec)),urg:'warn',href:'financeiro.html?venc=hoje'});
+  if(vHjDesp.length) acoes.push({txt:`${vHjDesp.length} conta${pl(vHjDesp.length,'','s')} a pagar vence${pl(vHjDesp.length,'','m')} hoje`,val:money(soma(vHjDesp)),urg:'crit',href:'financeiro.html?venc=hoje'});
 
   const atrasRec = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj);
-  if(atrasRec.length) acoes.push({txt:`Cobrar ${atrasRec.length} cliente${pl(atrasRec.length,'','s')} com conta atrasada`,val:money(soma(atrasRec)),urg:'crit',href:'financeiro.html'});
+  if(atrasRec.length) acoes.push({txt:`${atrasRec.length} cliente${pl(atrasRec.length,'','s')} inadimplente${pl(atrasRec.length,'','s')}`,val:money(soma(atrasRec)),urg:'crit',href:'financeiro.html'});
 
   const atrasDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj);
   if(atrasDesp.length) acoes.push({txt:`${atrasDesp.length} conta${pl(atrasDesp.length,'','s')} sua${pl(atrasDesp.length,'','s')} em atraso`,val:money(soma(atrasDesp)),urg:'crit',href:'financeiro.html'});
@@ -580,53 +1030,46 @@ function calcAcoes(){
   const baixo = dados.mats.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
   if(baixo.length) acoes.push({txt:`${baixo.length} material${pl(baixo.length,'','is')} abaixo do mínimo`,val:'',urg:'warn',href:'materiais.html'});
 
+  const osAtrasadas = (dados.os||[]).filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)&&String(o.data_agendada||'').slice(0,10)<hj);
+  if(osAtrasadas.length) acoes.push({txt:`${osAtrasadas.length} ${osAtrasadas.length>1?'ordens de serviço atrasadas':'ordem de serviço atrasada'} (data agendada)`,val:'',urg:'warn',href:'os.html'});
+
+  const rhPeriodo = calcRHSetor(periodo.de,periodo.ate);
+  if(rhPeriodo.faltas>=3) acoes.push({txt:`${rhPeriodo.faltas} faltas registradas no período`,val:'',urg:'warn',href:'rh.html'});
+
   acoes.sort((a,b)=>(a.urg==='crit'?0:1)-(b.urg==='crit'?0:1));
   return acoes;
 }
-function renderAcoes(){
-  const acoes=calcAcoes();
-  if(!acoes.length){
-    setHTML('acoesList',`<div class="acao-row" style="border:none;justify-content:center;padding:18px 0"><span style="color:var(--p);font-weight:700;font-size:13.5px">Tudo em dia — nenhuma ação pendente.</span></div>`);
-    return;
-  }
-  setHTML('acoesList',acoes.map(a=>`<div class="acao-row">
-    <div class="acao-left"><span class="acao-dot ${a.urg}"></span><span class="acao-txt">${esc(a.txt)}</span></div>
-    <div class="acao-right">
-      ${a.val?`<span class="acao-val">${a.val}</span>`:''}
-      <a class="acao-cta" href="${a.href}">Resolver →</a>
-    </div>
-  </div>`).join(''));
-}
 
-// FLUXO DE CAIXA — um gráfico só: Recebido (sólido) vs Pago (sólido) vs Previsto a receber (claro/tracejado)
+// FLUXO DE CAIXA — janela própria (não usa o filtro Período do topo, que é só pra "Movimento do
+// período"). N dias no total: ~70% pra trás (histórico confirmado), ~30% pra frente (previsto).
+let fluxoPeriodoDias = 30;
+function setFluxoPeriodo(dias, btn){
+  fluxoPeriodoDias = dias;
+  document.querySelectorAll('#fluxoPeriodoBtns .mini-p-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderFluxoChart();
+}
 function renderFluxoChart(){
   Chart.defaults.font.family="'Inter',system-ui";
-  Chart.defaults.font.size=11;
-  Chart.defaults.color='#6B7280';
+  Chart.defaults.font.size=12;
+  Chart.defaults.color='#667085';
 
-  let finF = filtrarPorPeriodo(dados.fin);
-  if(finF.length===0) finF = dados.fin;
+  const passado=Math.round(fluxoPeriodoDias*0.7), futuro=fluxoPeriodoDias-passado;
+  const hj=new Date();
+  const de=new Date(hj); de.setDate(hj.getDate()-passado);
+  const ate=new Date(hj); ate.setDate(hj.getDate()+futuro);
+  const deStr=dataLocal(de), ateStr=dataLocal(ate);
 
-  const spanDias = (periodo.de && periodo.ate) ? Math.max(1, Math.round((new Date(periodo.ate)-new Date(periodo.de))/864e5)) : 999;
-  const porDia = spanDias <= 45;
+  const finF = dados.fin.filter(f=>{
+    const dt=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+    return dt>=deStr && dt<=ateStr;
+  });
 
-  let buckets;
-  if(porDia){
-    buckets=[];
-    const d=new Date((periodo.de||hoje())+'T12:00:00'), fim=new Date((periodo.ate||hoje())+'T12:00:00');
-    while(d<=fim){buckets.push(dataLocal(d));d.setDate(d.getDate()+1);}
-  }else{
-    const setM=new Set();
-    const d=new Date((periodo.de||hoje())+'T12:00:00'), fim=new Date((periodo.ate||hoje())+'T12:00:00');
-    d.setDate(1);
-    while(d<=fim){setM.add(dataLocal(d).slice(0,7));d.setMonth(d.getMonth()+1);}
-    buckets=[...setM].sort();
-  }
-  const lblBuckets = porDia
-    ? buckets.map(b=>{const p=b.split('-');return p[2]+'/'+p[1];})
-    : buckets.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
-  const bucketOf = f => porDia ? getCampoData(f).slice(0,10) : getCampoData(f).slice(0,7);
-  const moneyTick = v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v;
+  const buckets=[]; const d=new Date(de);
+  while(d<=ate){buckets.push(dataLocal(d));d.setDate(d.getDate()+1);}
+  const lblBuckets=buckets.map(b=>{const p=b.split('-');return p[2]+'/'+p[1];});
+  const bucketOf=f=>String(f.vencimento||f.data_lancamento||'').slice(0,10);
+  const moneyTick=v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v;
 
   const recConf=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
   const despConf=buckets.map(b=>finF.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
@@ -634,12 +1077,40 @@ function renderFluxoChart(){
 
   if(charts.fluxo)charts.fluxo.destroy();
   const c=$('chartFluxo');
-  if(c)charts.fluxo=new Chart(c,{type:'line',data:{labels:lblBuckets,datasets:[
-    {label:'Recebido',data:recConf,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.12)',borderWidth:2.5,fill:true,tension:.3,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
-    {label:'Pago',data:despConf,borderColor:'#6B7280',backgroundColor:'transparent',borderWidth:2.5,fill:false,tension:.3,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6B7280',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
-    {label:'Previsto a receber',data:recPrev,borderColor:'#C4B5FD',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],fill:false,tension:.3,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:'#C4B5FD',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:moneyTick}}}}});
-  setHTML('subFluxo', porDia?'Por dia':'Por mês');
+  if(c)charts.fluxo=new Chart(c,{type:'bar',data:{labels:lblBuckets,datasets:[
+    {label:'Recebido',data:recConf,backgroundColor:'#6D5EF5',borderRadius:4,maxBarThickness:14},
+    {label:'Pago',data:despConf,backgroundColor:'#98A2B3',borderRadius:4,maxBarThickness:14},
+    {label:'Previsto',data:recPrev,backgroundColor:'transparent',borderColor:'#B4ABF9',borderWidth:1.5,borderDash:[3,2],borderRadius:4,maxBarThickness:14}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14,color:'#667085',font:{size:12}}}},scales:{x:{grid:{display:false},ticks:{color:'#98A2B3',maxRotation:0,autoSkip:true,maxTicksLimit:12}},y:{beginAtZero:true,grid:{color:'rgba(16,24,40,.03)'},border:{display:false},ticks:{color:'#98A2B3',maxTicksLimit:5,callback:moneyTick}}}}});
+  setHTML('subFluxo', `${passado} dias passados + ${futuro} dias à frente`);
+}
+
+// PRÓXIMOS COMPROMISSOS — as próximas contas a receber/pagar (não misturado com caixa nem resultado)
+// Avatar com iniciais, cor derivada do nome — mesma pessoa/empresa sempre cai na mesma cor.
+const AVATAR_CORES=['#6D5EF5','#0EA5E9','#F59E0B','#EF4444','#10B981','#EC4899'];
+function avatarHTML(nome){
+  const n=nome||'?';
+  const letra=n.trim()[0]?.toUpperCase()||'?';
+  let hash=0; for(let i=0;i<n.length;i++) hash=n.charCodeAt(i)+((hash<<5)-hash);
+  const cor=AVATAR_CORES[Math.abs(hash)%AVATAR_CORES.length];
+  return `<div class="row-avatar" style="background:${cor}1c;color:${cor}">${esc(letra)}</div>`;
+}
+
+function renderProximosCompromissos(){
+  const row=(f)=>`<div class="recent-row">
+    ${avatarHTML(f.favorecido||f.descricao)}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.favorecido||f.descricao||f.categoria||'')}</div>
+      <div style="font-size:11px;color:var(--muted)">${fmtData(f.vencimento)}</div>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:var(--txt);flex-shrink:0">${money(f.valor)}</div>
+  </div>`;
+  const rec=dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&f.vencimento)
+    .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,5);
+  const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento)
+    .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,5);
+  setHTML('proximosRecebimentos', rec.length?rec.map(f=>row(f)).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nada a receber agendado</div>');
+  setHTML('proximosPagamentos', pag.length?pag.map(f=>row(f)).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nada a pagar agendado</div>');
 }
 
 // QUEM MOVE O NEGÓCIO — Top clientes e Serviços mais vendidos, a partir dos orçamentos já carregados
@@ -647,33 +1118,36 @@ function renderQuemMove(){
   const mapCli={};
   dados.orc.forEach(o=>{const c=o.cliente_nome||'Sem nome';mapCli[c]=(mapCli[c]||0)+Number(o.valor_total||0);});
   const topCli=Object.entries(mapCli).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxCli=topCli.length?topCli[0][1]:1;
-  setHTML('topClientes', topCli.length ? topCli.map(([nome,val])=>`<div class="top-row"><span class="top-name">${esc(nome)}</span><div class="top-bar-wrap"><div class="top-bar" style="width:${Math.max(6,Math.round(val/maxCli*100))}%"></div></div><span class="top-val">${money(val)}</span></div>`).join('')
+  setHTML('topClientes', topCli.length ? topCli.map(([nome,val],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${money(val)}</span></div>`).join('')
     : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhum orçamento cadastrado ainda</div>');
 
   const mapSrv={};
   dados.orc.forEach(o=>{const s=o.servico_nome||'Outros';mapSrv[s]=(mapSrv[s]||0)+1;});
   const topSrv=Object.entries(mapSrv).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxSrv=topSrv.length?topSrv[0][1]:1;
-  setHTML('topServicos', topSrv.length ? topSrv.map(([nome,qt])=>`<div class="top-row"><span class="top-name">${esc(nome)}</span><div class="top-bar-wrap"><div class="top-bar" style="width:${Math.max(6,Math.round(qt/maxSrv*100))}%"></div></div><span class="top-val">${qt} venda${qt>1?'s':''}</span></div>`).join('')
+  setHTML('topServicos', topSrv.length ? topSrv.map(([nome,qt],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${qt} venda${qt>1?'s':''}</span></div>`).join('')
     : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhum serviço vendido ainda</div>');
 }
 
-// MOVIMENTAÇÕES RECENTES — últimos recebimentos e pagamentos CONFIRMADOS (dinheiro que já se moveu)
-function renderMovimentacoes(){
-  const row=(f,sinal,cor)=>`<div class="recent-row">
-    <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.descricao||f.categoria||'')}</div>
-      <div style="font-size:11px;color:var(--muted)">${fmtData(f.data_pagamento||f.data_lancamento)}</div>
-    </div>
-    <div style="font-size:13px;font-weight:800;color:${cor};flex-shrink:0;margin-left:10px">${sinal}${money(f.valor)}</div>
-  </div>`;
-  const receb = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f))
-    .sort((a,b)=>String(b.data_pagamento||b.data_lancamento||'').localeCompare(String(a.data_pagamento||a.data_lancamento||''))).slice(0,5);
-  const pagtos = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f))
-    .sort((a,b)=>String(b.data_pagamento||b.data_lancamento||'').localeCompare(String(a.data_pagamento||a.data_lancamento||''))).slice(0,5);
-  setHTML('ultimosRecebimentos', receb.length?receb.map(f=>row(f,'+','var(--green)')).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhum recebimento ainda</div>');
-  setHTML('ultimosPagamentos', pagtos.length?pagtos.map(f=>row(f,'-','var(--red)')).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhum pagamento ainda</div>');
+// ÚLTIMAS MOVIMENTAÇÕES — feed único (recebimentos + pagamentos confirmados juntos, mais recente primeiro)
+function renderUltimasMovimentacoes(){
+  const receb = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).map(f=>({...f,_data:f.data_pagamento||f.data_lancamento}));
+  const pagtos = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).map(f=>({...f,_data:f.data_pagamento||f.data_lancamento}));
+  const lista=[...receb,...pagtos].sort((a,b)=>String(b._data||'').localeCompare(String(a._data||''))).slice(0,8);
+  const icoRec='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
+  const icoPag='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
+  setHTML('ultimasMovimentacoes', lista.length ? lista.map(f=>{
+    const isRec=f.tipo==='Receita';
+    const quem=esc(f.favorecido||f.descricao||f.categoria||'');
+    return `<div class="movi-row">
+      <div class="movi-ico ${isRec?'rec':'pag'}">${isRec?icoRec:icoPag}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${isRec?'Recebimento de':'Pagamento para'} ${quem}</div>
+        <div style="font-size:10.5px;color:var(--muted)">${fmtData(f._data)}</div>
+      </div>
+      <div style="font-size:12.5px;font-weight:800;color:var(--txt);flex-shrink:0">${isRec?'+':'-'}${money(f.valor)}</div>
+      <span class="movi-chev">›</span>
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhuma movimentação ainda</div>');
 }
 
 // 3D CLOUD

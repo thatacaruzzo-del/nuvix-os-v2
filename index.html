@@ -9,12 +9,12 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#4C1D95;
-  --c4:#6D28D9;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
+  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#5B4CF0;
+  --c4:#6D5EF5;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
   --glass:rgba(255,255,255,0.04);
   --glass-border:rgba(139,92,246,0.25);
   --text:rgba(255,255,255,0.92);
-  --muted:rgba(167,139,250,0.6);
+  --muted:rgba(180,171,249,0.6);
 }
 html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--c0);color:var(--text)}
 #bgCanvas{position:fixed;inset:0;z-index:0}
@@ -22,13 +22,13 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
 @keyframes fadeIn{to{opacity:1}}
 .left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden}
 .brand{display:flex;align-items:center;gap:14px}
-.brand-mark{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--c4),var(--c6));display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,40,217,.55),0 0 48px rgba(109,40,217,.2)}
+.brand-mark{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--c4),var(--c6));display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,94,245,.55),0 0 48px rgba(109,94,245,.2)}
 .brand-mark svg{width:28px;height:21px}
 .brand-text{display:flex;flex-direction:column}
 .brand-name{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1}
 .brand-sub{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--c5);text-transform:uppercase;margin-top:2px}
 .hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(109,40,217,.12);border:1px solid rgba(109,40,217,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:var(--c5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(109,94,245,.12);border:1px solid rgba(109,94,245,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:var(--c5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
 .eyebrow-dot{width:6px;height:6px;background:var(--c6);border-radius:50%;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.8)}}
 h1{font-size:clamp(36px,4.2vw,58px);font-weight:900;line-height:1.06;letter-spacing:-.03em;color:var(--white);margin-bottom:20px}
@@ -36,9 +36,9 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 .subtitle{font-size:16px;line-height:1.7;color:rgba(200,185,255,.65);max-width:480px;margin-bottom:40px}
 .pills{display:flex;flex-wrap:wrap;gap:10px}
 .pill{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.88);transition:all .25s ease;cursor:default}
-.pill:hover{background:rgba(109,40,217,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
-.pill-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--c3),var(--c5));display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 12px rgba(76,29,149,.4)}
-.left-footer{font-size:12px;color:rgba(167,139,250,.3);font-weight:400}
+.pill:hover{background:rgba(109,94,245,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
+.pill-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--c3),var(--c5));display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 12px rgba(91,76,240,.4)}
+.left-footer{font-size:12px;color:rgba(180,171,249,.3);font-weight:400}
 .right{display:flex;align-items:center;justify-content:center;padding:32px 44px;background:rgba(9,0,20,.3);border-left:1px solid rgba(139,92,246,.12);backdrop-filter:blur(2px)}
 /* ══════════════════════════════════
    NUVIX HUB — CARD PREMIUM
@@ -80,19 +80,19 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 .card-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
 .card-logo-mark{
   width:54px;height:54px;border-radius:16px;
-  background:linear-gradient(135deg,#4C1D95,#6D28D9);
+  background:linear-gradient(135deg,#5B4CF0,#6D5EF5);
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 8px rgba(109,40,217,.08),0 12px 32px rgba(109,40,217,.4);
+  box-shadow:0 0 0 8px rgba(109,94,245,.08),0 12px 32px rgba(109,94,245,.4);
   margin-bottom:4px;
   transition:box-shadow .3s ease,transform .3s ease
 }
-.card-logo-mark:hover{transform:scale(1.05);box-shadow:0 0 0 12px rgba(109,40,217,.12),0 16px 40px rgba(109,40,217,.5)}
+.card-logo-mark:hover{transform:scale(1.05);box-shadow:0 0 0 12px rgba(109,94,245,.12),0 16px 40px rgba(109,94,245,.5)}
 .card-logo-mark svg{width:30px;height:23px}
 .card-logo-name{font-size:20px;font-weight:800;letter-spacing:-.04em;color:#2A145D}
 .card-logo-tag{font-size:10px;font-weight:700;letter-spacing:.24em;color:#8B7CB8;text-transform:uppercase}
 
 /* Divider */
-.card-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(109,40,217,.15),transparent);margin-bottom:0px;display:none}
+.card-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(109,94,245,.15),transparent);margin-bottom:0px;display:none}
 
 /* Welcome / Hierarquia */
 .card-welcome{display:none}
@@ -111,11 +111,11 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 .field-wrap{position:relative}
 .field-icon{
   position:absolute;left:20px;top:50%;transform:translateY(-50%);
-  color:#6D28D9;
+  color:#6D5EF5;
   display:flex;align-items:center;pointer-events:none;
   transition:color .2s ease
 }
-.field-wrap:focus-within .field-icon{color:#4C1D95}
+.field-wrap:focus-within .field-icon{color:#5B4CF0}
 .field-eye{
   position:absolute;right:18px;top:50%;transform:translateY(-50%);
   color:#9B8EC4;cursor:pointer;
@@ -141,8 +141,8 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 .field input::placeholder{color:#8B7CB8;font-weight:400}
 .field input:hover{border-color:#B8A9F0;box-shadow:0 2px 8px rgba(88,40,180,.1)}
 .field input:focus{
-  border-color:#6D28D9;
-  box-shadow:0 0 0 4px rgba(109,40,217,.18);
+  border-color:#6D5EF5;
+  box-shadow:0 0 0 4px rgba(109,94,245,.18);
   background:#FDFBFF
 }
 .field input[type=password]{padding-right:52px}
@@ -168,12 +168,12 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 }
 .remember span{font-size:13px;color:#6A58A5;font-weight:500;user-select:none}
 .forgot{
-  font-size:13px;color:#6D28D9;font-weight:600;
+  font-size:13px;color:#6D5EF5;font-weight:600;
   text-decoration:none;
   transition:all 200ms ease-in-out;
   border-bottom:1px solid transparent
 }
-.forgot:hover{color:#4C1D95;border-bottom-color:rgba(76,29,149,.4)}
+.forgot:hover{color:#5B4CF0;border-bottom-color:rgba(91,76,240,.4)}
 
 /* Botão principal */
 .btn-primary{
@@ -211,20 +211,20 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
   background:transparent;
   border:1.5px solid #C4B5FD;
   border-radius:18px;
-  color:#6D28D9;font-size:14px;font-weight:600;
+  color:#6D5EF5;font-size:14px;font-weight:600;
   font-family:inherit;cursor:pointer;
   transition:all 200ms ease-in-out;letter-spacing:.01em
 }
 .btn-secondary:hover{
-  background:rgba(109,40,217,.06);
+  background:rgba(109,94,245,.06);
   border-color:#9B67FF;
-  color:#4C1D95;
+  color:#5B4CF0;
   transform:translateY(-2px)
 }
 
 /* Powered */
 .powered{text-align:center;margin-top:14px;font-size:11px;color:#9B8EC4;font-weight:500;letter-spacing:.04em}
-.powered span{color:#6D28D9;font-weight:600}
+.powered span{color:#6D5EF5;font-weight:600}
 
 /* Error */
 #loginErr{
@@ -309,9 +309,9 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
       <div id="loginErr"></div>
       <div class="powered">Powered by <span>Nuvix Hub</span></div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(139,92,246,.4)">
-        <a href="privacidade.html" style="color:#6D28D9;text-decoration:none;font-weight:500">Política de Privacidade</a>
+        <a href="privacidade.html" style="color:#6D5EF5;text-decoration:none;font-weight:500">Política de Privacidade</a>
         <span style="margin:0 6px;color:rgba(139,92,246,.3)">·</span>
-        <a href="termos.html" style="color:#6D28D9;text-decoration:none;font-weight:500">Termos de Uso</a>
+        <a href="termos.html" style="color:#6D5EF5;text-decoration:none;font-weight:500">Termos de Uso</a>
       </div>
     </div>
   </div>
@@ -417,18 +417,18 @@ animate();
 window.addEventListener('resize',()=>{W=window.innerWidth;H=window.innerHeight;canvas.width=W;canvas.height=H;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();});
 </script>
 
-<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,40,217,.3);backdrop-filter:blur(12px);padding:16px 24px">
+<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,94,245,.3);backdrop-filter:blur(12px);padding:16px 24px">
   <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px">
       <span style="font-size:24px"></span>
       <div>
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Privacidade e Cookies</div>
-        <div style="font-size:12px;color:rgba(167,139,250,.7);line-height:1.5">Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa <a href="privacidade.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Política de Privacidade</a> e <a href="termos.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Termos de Uso</a>.</div>
+        <div style="font-size:12px;color:rgba(180,171,249,.7);line-height:1.5">Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa <a href="privacidade.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Política de Privacidade</a> e <a href="termos.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Termos de Uso</a>.</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0">
-      <a href="privacidade.html" target="_blank" style="background:rgba(109,40,217,.2);color:#A78BFA;border:1px solid rgba(109,40,217,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
-      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
+      <a href="privacidade.html" target="_blank" style="background:rgba(109,94,245,.2);color:#B4ABF9;border:1px solid rgba(109,94,245,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
+      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#5B4CF0,#6D5EF5);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
     </div>
   </div>
 </div>

@@ -9,20 +9,20 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --p:#6D28D9;--p2:#4C1D95;--p3:#A78BFA;--p-light:#EDE9FE;
+  --p:#6D5EF5;--p2:#5B4CF0;--p3:#B4ABF9;--p-light:#EFEEFE;
   --green:#059669;--green-bg:#ECFDF5;
   --red:#DC2626;--red-bg:#FEF2F2;
   --amber:#D97706;--amber-bg:#FFFBEB;
   --blue:#2563EB;--blue-bg:#EFF6FF;
   --bg:#F8F8FC;--surface:#fff;--line:#E8E8F1;
-  --txt:#1F2937;--muted:#6B7280;
+  --txt:#101828;--muted:#667085;--muted2:#98A2B3;
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
 
 /* ── LOGIN ── */
-.login-screen{min-height:100vh;background:linear-gradient(135deg,#0D0730,#1E0A3C,#4C1D95);display:flex;align-items:center;justify-content:center;padding:20px}
-.login-card{background:#fff;border-radius:24px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 40px 80px rgba(0,0,0,.3)}
-.login-logo{width:56px;height:56px;background:linear-gradient(135deg,#4C1D95,#A78BFA);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 28px rgba(109,40,217,.4)}
+.login-screen{min-height:100vh;background:linear-gradient(135deg,#0D0730,#241463,#5B4CF0);display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border-radius:24px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 40px 80px rgba(0,0,0,.3)}
+.login-logo{width:56px;height:56px;background:linear-gradient(135deg,#5B4CF0,#B4ABF9);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 28px rgba(109,94,245,.4)}
 .login-logo svg{width:30px;height:22px}
 .login-title{text-align:center;font-size:22px;font-weight:900;color:var(--txt);margin-bottom:4px}
 .login-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px}
@@ -30,13 +30,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .login-field label{display:block;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .login-field input{width:100%;padding:13px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
 .login-field input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-light)}
-.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#4C1D95,#6D28D9);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
-.login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(76,29,149,.4)}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#5B4CF0,#6D5EF5);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(91,76,240,.4)}
 .login-err{background:var(--red-bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);font-weight:600;margin-top:12px;display:none;text-align:center}
 
 /* ── PORTAL ── */
 .portal{display:none;min-height:100vh;background:var(--bg)}
-.portal-header{background:linear-gradient(135deg,#1E0A3C,#6D28D9);padding:20px 20px 60px;position:relative}
+.portal-header{background:linear-gradient(135deg,#241463,#6D5EF5);padding:20px 20px 60px;position:relative}
 .portal-header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .portal-logo{display:flex;align-items:center;gap:10px}
 .portal-logo-ico{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center}
@@ -49,8 +49,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 /* ── STATS ── */
 .portal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:-36px 16px 20px;position:relative;z-index:2}
-.stat-card{background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.1)}
-.stat-val{font-size:24px;font-weight:900;color:var(--p)}
+.stat-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border-radius:14px;padding:14px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.stat-val{font-size:24px;font-weight:900;color:var(--txt)}
 .stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
 
 /* ── TABS ── */
@@ -62,7 +62,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .portal-pane{display:none;padding:16px}.portal-pane.active{display:block}
 
 /* ── OS CARD ── */
-.os-item{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid var(--line)}
+.os-item{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid var(--line)}
 .os-item.urgente{border-left-color:var(--red)}
 .os-item.alta{border-left-color:var(--amber)}
 .os-item.normal{border-left-color:var(--p)}
@@ -91,7 +91,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;overflow-y:auto;padding:16px}
 .modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .modal{background:#fff;border-radius:20px;width:100%;max-width:560px;margin:auto;overflow:hidden}
-.modal-hdr{background:linear-gradient(135deg,#1E0A3C,#6D28D9);color:#fff;padding:20px}
+.modal-hdr{background:linear-gradient(135deg,#241463,#6D5EF5);color:#fff;padding:20px}
 .modal-hdr-num{font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.08em}
 .modal-hdr-cli{font-size:18px;font-weight:900;margin-top:2px}
 .modal-hdr-svc{font-size:13px;opacity:.7;margin-top:2px}
@@ -128,7 +128,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .empty-sub{font-size:13px}
 
 /* ── TOAST ── */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1E0A3C;color:#fff;padding:12px 24px;border-radius:99px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .3s}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#241463;color:#fff;padding:12px 24px;border-radius:99px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .3s}
 
 @media(min-width:600px){
   .portal-stats{margin:-36px 24px 20px}
@@ -194,7 +194,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <div class="stat-lbl">Abertas</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val" id="statConcluidas" style="color:var(--green)">0</div>
+      <div class="stat-val" id="statConcluidas">0</div>
       <div class="stat-lbl">Concluídas</div>
     </div>
   </div>
@@ -428,7 +428,7 @@ function renderRelatorio(){
       </div>
       <div class="stat-card" style="text-align:left;padding:16px">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Concluídas</div>
-        <div style="font-size:28px;font-weight:900;color:var(--green)">${concluidas.length}</div>
+        <div style="font-size:28px;font-weight:900;color:var(--txt)">${concluidas.length}</div>
         <div style="font-size:12px;color:var(--muted)">${doMes.length} este mês</div>
       </div>
       <div class="stat-card" style="text-align:left;padding:16px">
@@ -451,7 +451,7 @@ function renderRelatorio(){
             <div style="font-size:13px;font-weight:700">${esc(o.numero||'—')} — ${esc(o.cliente_nome||'—')}</div>
             <div style="font-size:12px;color:var(--muted)">${esc(o.servico||'—')} · ${o.data_conclusao?new Date(o.data_conclusao+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
           </div>
-          <div style="font-size:14px;font-weight:800;color:var(--green)">${Number(o.valor_total||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--txt)">${Number(o.valor_total||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
         </div>`).join('')}
       ${!concluidas.length?'<div style="text-align:center;padding:20px;color:var(--muted)">Nenhuma OS concluída ainda</div>':''}
     </div>`;

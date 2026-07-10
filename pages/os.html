@@ -25,10 +25,10 @@
 .st-cancelada{background:#F1EFF7;color:var(--muted)}
 
 /* ── OS Card ── */
-.os-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .2s;cursor:pointer}
+.os-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .2s;cursor:pointer}
 .os-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-1px)}
 .os-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
-.os-numero{font-size:13px;font-weight:800;color:var(--p);letter-spacing:.04em}
+.os-numero{font-size:13px;font-weight:800;color:var(--txt);letter-spacing:.04em}
 .os-cliente{font-size:15px;font-weight:800;color:var(--txt);margin-top:2px}
 .os-servico{font-size:12px;color:var(--muted);margin-top:2px}
 .os-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
@@ -42,7 +42,7 @@
 .os-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;overflow-y:auto;padding:20px}
 .os-modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .os-modal{background:#fff;border-radius:20px;width:100%;max-width:900px;margin:auto;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.3)}
-.os-modal-header{background:linear-gradient(135deg,#1E0A3C,#6D28D9);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
+.os-modal-header{background:linear-gradient(135deg,#241463,#6D5EF5);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
 .os-modal-title{font-size:18px;font-weight:900}
 .os-modal-body{padding:24px 28px;max-height:80vh;overflow-y:auto}
 .os-modal-footer{padding:16px 28px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
@@ -165,7 +165,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div class="os-tabs">
         <button class="os-tab active" onclick="osTab('lista',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Todas as OS</button>
         <button class="os-tab" onclick="osTab('hoje',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Hoje</button>
-        <button class="os-tab" onclick="osTab('abertas',this)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4C1D95;margin-right:4px"></span> Abertas</button>
+        <button class="os-tab" onclick="osTab('abertas',this)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#5B4CF0;margin-right:4px"></span> Abertas</button>
         <button class="os-tab" onclick="osTab('andamento',this)">Em andamento</button>
         <button class="os-tab" onclick="osTab('concluidas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Concluídas</button>
         <button class="os-tab" onclick="osTab('nova',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova OS</button>
@@ -325,7 +325,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           </div>
 
           <!-- TOTAL GERAL -->
-          <div style="background:linear-gradient(135deg,#1E0A3C,#6D28D9);border-radius:16px;padding:20px 24px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="background:linear-gradient(135deg,#241463,#6D5EF5);border-radius:16px;padding:20px 24px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:700">VALOR TOTAL DA OS</div>
             <div style="font-size:32px;font-weight:900;color:#fff" id="osTotalGeral">R$ 0,00</div>
           </div>
@@ -457,12 +457,12 @@ function renderKpis(){
   const vencidas=os.filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)<hj&&String(o.data_agendada||'').slice(0,10)).length;
 
   setHTML('osKpis',[
-    {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'var(--p2)'},
-    {lbl:'Em andamento',val:andamento,sub:'em execução',cor:'var(--p)'},
-    {lbl:'Concluídas',val:concluidas,sub:'este mês',cor:'var(--green)'},
-    {lbl:'Faturamento',val:money(fatMes),sub:'OS concluídas · não é receita confirmada',cor:'var(--p)'},
-    {lbl:'Ticket médio',val:money(ticket),sub:'por OS',cor:'var(--amber)'},
-    {lbl:'Para hoje',val:hoje_os+(vencidas>0?` <span style="color:var(--red);font-size:12px">(${vencidas} venc.)</span>`:''),sub:'agendadas',cor:hoje_os>0?'var(--p)':'var(--muted)'},
+    {lbl:'Abertas',val:abertas,sub:'aguardando',cor:'var(--txt)'},
+    {lbl:'Em andamento',val:andamento,sub:'em execução',cor:'var(--txt)'},
+    {lbl:'Concluídas',val:concluidas,sub:'este mês',cor:'var(--txt)'},
+    {lbl:'Faturamento',val:money(fatMes),sub:'OS concluídas · não é receita confirmada',cor:'var(--txt)'},
+    {lbl:'Ticket médio',val:money(ticket),sub:'por OS',cor:'var(--txt)'},
+    {lbl:'Para hoje',val:hoje_os+(vencidas>0?` <span style="color:var(--red);font-size:12px">(${vencidas} venc.)</span>`:''),sub:'agendadas',cor:'var(--txt)'},
   ].map(k=>`<div class="os-kpi"><div class="os-kpi-lbl">${k.lbl}</div><div class="os-kpi-val" style="color:${k.cor}">${k.val}</div><div class="os-kpi-sub">${k.sub}</div></div>`).join(''));
 }
 
@@ -497,7 +497,7 @@ function renderOsCard(o){
     <div class="os-meta">
       ${o.tecnico_nome?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <b>${esc(o.tecnico_nome)}</b></div>`:''}
       ${o.data_agendada?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
-      ${o.valor_total?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> <b style="color:var(--p)">${money(o.valor_total)}</b></div>`:''}
+      ${o.valor_total?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> <b style="color:var(--txt)">${money(o.valor_total)}</b></div>`:''}
       <div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <b>${new Date(o.created_at).toLocaleDateString('pt-BR')}</b></div>
     </div>
   </div>`;
@@ -612,7 +612,7 @@ async function verOS(id){
     </div>`:''}
 
     <!-- TOTAIS -->
-    <div style="background:linear-gradient(135deg,#1E0A3C,#6D28D9);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div style="background:linear-gradient(135deg,#241463,#6D5EF5);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Serviço</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_servico)}</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Materiais</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_materiais||totalMat)}</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700;text-transform:uppercase;margin-bottom:4px">Mão de obra</div><div style="font-size:18px;font-weight:800;color:#fff">${money(o.valor_mao_obra||totalMO)}</div></div>
@@ -796,7 +796,7 @@ function renderMatItens(){
       <input type="number" value="${m.quantidade}" min="0.001" step="0.001" onchange="updMatOS(${i},'quantidade',this.value)" style="text-align:center">
       <input type="text" value="${m.unidade}" onchange="updMatOS(${i},'unidade',this.value)">
       <input type="number" value="${m.custo_unitario}" step="0.01" onchange="updMatOS(${i},'custo_unitario',this.value)">
-      <div style="font-size:13px;font-weight:700;color:var(--p);padding:6px">${money(m.valor_total)}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--txt);padding:6px">${money(m.valor_total)}</div>
       <button onclick="remMatOS(${i})" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button>
     </div>`).join('');
   calcularTotalOS();

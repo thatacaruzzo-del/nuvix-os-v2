@@ -9,12 +9,12 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#4C1D95;
-  --c4:#6D28D9;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
+  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#5B4CF0;
+  --c4:#6D5EF5;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
   --glass:rgba(255,255,255,0.04);
   --glass-border:rgba(139,92,246,0.25);
   --text:rgba(255,255,255,0.92);
-  --muted:rgba(167,139,250,0.6);
+  --muted:rgba(180,171,249,0.6);
 }
 html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--c0);color:var(--text)}
 
@@ -43,7 +43,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
   width:48px;height:48px;border-radius:14px;
   background:linear-gradient(135deg,var(--c4),var(--c6));
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 24px rgba(109,40,217,.55),0 0 48px rgba(109,40,217,.2)
+  box-shadow:0 0 24px rgba(109,94,245,.55),0 0 48px rgba(109,94,245,.2)
 }
 .brand-mark svg{width:28px;height:21px}
 .brand-text{display:flex;flex-direction:column}
@@ -54,7 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
 .hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
-  background:rgba(109,40,217,.12);border:1px solid rgba(109,40,217,.3);
+  background:rgba(109,94,245,.12);border:1px solid rgba(109,94,245,.3);
   border-radius:99px;padding:6px 16px;
   font-size:11px;font-weight:600;color:var(--c5);letter-spacing:.06em;
   text-transform:uppercase;margin-bottom:28px;width:fit-content
@@ -89,17 +89,17 @@ h1 .grad{
   color:rgba(220,210,255,.88);
   transition:all .25s ease;cursor:default
 }
-.pill:hover{background:rgba(109,40,217,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
+.pill:hover{background:rgba(109,94,245,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
 .pill-icon{
   width:30px;height:30px;border-radius:8px;
   background:linear-gradient(135deg,var(--c3),var(--c5));
   display:flex;align-items:center;justify-content:center;
   font-size:14px;
-  box-shadow:0 4px 12px rgba(76,29,149,.4)
+  box-shadow:0 4px 12px rgba(91,76,240,.4)
 }
 
 /* Footer */
-.left-footer{font-size:12px;color:rgba(167,139,250,.3);font-weight:400}
+.left-footer{font-size:12px;color:rgba(180,171,249,.3);font-weight:400}
 
 /* ═══ RIGHT ═══ */
 .right{
@@ -121,7 +121,7 @@ h1 .grad{
   box-shadow:
     0 0 0 1px rgba(139,92,246,.08),
     0 32px 80px rgba(0,0,0,.6),
-    0 0 60px rgba(76,29,149,.08),
+    0 0 60px rgba(91,76,240,.08),
     inset 0 1px 0 rgba(255,255,255,.06);
   transition:transform .4s ease,box-shadow .4s ease;
   position:relative;overflow:hidden
@@ -133,7 +133,7 @@ h1 .grad{
 }
 .card:hover{
   transform:translateY(-4px);
-  box-shadow:0 0 0 1px rgba(139,92,246,.15),0 48px 100px rgba(0,0,0,.65),0 0 80px rgba(76,29,149,.12),inset 0 1px 0 rgba(255,255,255,.08)
+  box-shadow:0 0 0 1px rgba(139,92,246,.15),0 48px 100px rgba(0,0,0,.65),0 0 80px rgba(91,76,240,.12),inset 0 1px 0 rgba(255,255,255,.08)
 }
 
 /* Card header */
@@ -142,7 +142,7 @@ h1 .grad{
   width:52px;height:52px;border-radius:16px;
   background:linear-gradient(135deg,var(--c3),var(--c5));
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 32px rgba(109,40,217,.6),0 0 64px rgba(109,40,217,.2);
+  box-shadow:0 0 32px rgba(109,94,245,.6),0 0 64px rgba(109,94,245,.2);
   margin-bottom:4px
 }
 .card-logo-mark svg{width:30px;height:22px}
@@ -175,8 +175,8 @@ h1 .grad{
 .field input::placeholder{color:rgba(139,92,246,.35)}
 .field input:focus{
   border-color:var(--c5);
-  background:rgba(109,40,217,.08);
-  box-shadow:0 0 0 3px rgba(109,40,217,.15)
+  background:rgba(109,94,245,.08);
+  box-shadow:0 0 0 3px rgba(109,94,245,.15)
 }
 
 /* Extras */
@@ -186,7 +186,7 @@ h1 .grad{
   width:16px;height:16px;
   accent-color:var(--c5);cursor:pointer
 }
-.remember span{font-size:12px;color:rgba(167,139,250,.6);font-weight:500}
+.remember span{font-size:12px;color:rgba(180,171,249,.6);font-weight:500}
 .forgot{font-size:12px;color:var(--c5);font-weight:600;text-decoration:none;opacity:.8;transition:opacity .2s}
 .forgot:hover{opacity:1}
 
@@ -197,7 +197,7 @@ h1 .grad{
   border:none;border-radius:12px;
   color:var(--white);font-size:14px;font-weight:700;
   font-family:inherit;cursor:pointer;
-  box-shadow:0 8px 28px rgba(76,29,149,.45);
+  box-shadow:0 8px 28px rgba(91,76,240,.45);
   transition:all .25s ease;position:relative;overflow:hidden;
   letter-spacing:.01em
 }
@@ -206,7 +206,7 @@ h1 .grad{
   background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);
   opacity:0;transition:opacity .25s
 }
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(76,29,149,.6)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(91,76,240,.6)}
 .btn-primary:hover::after{opacity:1}
 .btn-primary:active{transform:translateY(0)}
 
@@ -215,12 +215,12 @@ h1 .grad{
   background:transparent;
   border:1px solid rgba(139,92,246,.3);
   border-radius:12px;
-  color:rgba(167,139,250,.8);font-size:14px;font-weight:600;
+  color:rgba(180,171,249,.8);font-size:14px;font-weight:600;
   font-family:inherit;cursor:pointer;
   transition:all .25s ease;letter-spacing:.01em
 }
 .btn-secondary:hover{
-  background:rgba(109,40,217,.1);
+  background:rgba(109,94,245,.1);
   border-color:rgba(139,92,246,.5);
   color:var(--white);transform:translateY(-1px)
 }
@@ -231,7 +231,7 @@ h1 .grad{
   font-size:11px;color:rgba(139,92,246,.35);
   font-weight:500;letter-spacing:.03em
 }
-.powered span{color:rgba(167,139,250,.5);font-weight:600}
+.powered span{color:rgba(180,171,249,.5);font-weight:600}
 
 /* ═══ RESPONSIVE ═══ */
 @media(max-width:900px){
@@ -324,9 +324,9 @@ h1 .grad{
 
       <div class="powered">Powered by <span>Nuvix Hub</span></div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(139,92,246,.4)">
-        <a href="../privacidade.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Política de Privacidade</a>
+        <a href="../privacidade.html" style="color:rgba(180,171,249,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#B4ABF9'" onmouseout="this.style.color='rgba(180,171,249,.5)'">Política de Privacidade</a>
         <span style="margin:0 6px;color:rgba(139,92,246,.3)">·</span>
-        <a href="../termos.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#A78BFA'" onmouseout="this.style.color='rgba(167,139,250,.5)'">Termos de Uso</a>
+        <a href="../termos.html" style="color:rgba(180,171,249,.5);text-decoration:none;font-weight:500" onmouseover="this.style.color='#B4ABF9'" onmouseout="this.style.color='rgba(180,171,249,.5)'">Termos de Uso</a>
       </div>
     </div>
   </div>
@@ -614,22 +614,22 @@ window.addEventListener('resize',()=>{
 </script>
 
 <!-- ── LGPD BANNER ── -->
-<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,40,217,.3);backdrop-filter:blur(12px);padding:16px 24px">
+<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,94,245,.3);backdrop-filter:blur(12px);padding:16px 24px">
   <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px">
       <span style="font-size:24px"></span>
       <div>
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Privacidade e Cookies</div>
-        <div style="font-size:12px;color:rgba(167,139,250,.7);line-height:1.5">
+        <div style="font-size:12px;color:rgba(180,171,249,.7);line-height:1.5">
           Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa 
-          <a href="../privacidade.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Política de Privacidade</a> e 
-          <a href="../termos.html" target="_blank" style="color:#A78BFA;font-weight:600;text-decoration:underline">Termos de Uso</a>.
+          <a href="../privacidade.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Política de Privacidade</a> e 
+          <a href="../termos.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Termos de Uso</a>.
         </div>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0">
-      <a href="../privacidade.html" target="_blank" style="background:rgba(109,40,217,.2);color:#A78BFA;border:1px solid rgba(109,40,217,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
-      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
+      <a href="../privacidade.html" target="_blank" style="background:rgba(109,94,245,.2);color:#B4ABF9;border:1px solid rgba(109,94,245,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
+      <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#5B4CF0,#6D5EF5);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
     </div>
   </div>
 </div>

@@ -9,9 +9,9 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --p:#6D28D9;--p2:#4C1D95;--p3:#A78BFA;--p-light:#EDE9FE;
+  --p:#6D5EF5;--p2:#5B4CF0;--p3:#B4ABF9;--p-light:#EFEEFE;
   --bg:#F8F8FC;--surface:#fff;--line:#E8E8F1;
-  --txt:#1F2937;--muted:#6B7280;--muted2:#9CA3AF;
+  --txt:#101828;--muted:#667085;--muted2:#98A2B3;
   --green:#059669;--green-bg:#ECFDF5;
   --red:#DC2626;--red-bg:#FEF2F2;
   --amber:#D97706;--amber-bg:#FEF3C7;
@@ -23,7 +23,7 @@
 html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.5}
 button,input,select,textarea{font-family:inherit}
 input,select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--txt);font-size:14px;transition:border-color .2s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px rgba(109,40,217,.1)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px rgba(109,94,245,.1)}
 label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:6px}
 .btn{background:var(--p);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s}
 .btn:hover{background:var(--p2)}
@@ -39,7 +39,7 @@ label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:
 .badge-cancelado{background:#F1EFF7;color:var(--muted)}
 .badge-start{background:#DBEAFE;color:#1E40AF}
 .badge-pro{background:var(--p-light);color:var(--p2)}
-.badge-plus{background:linear-gradient(135deg,#6D28D9,#A855F7);color:#fff}
+.badge-plus{background:linear-gradient(135deg,#6D5EF5,#A855F7);color:#fff}
 .msg{display:none;padding:11px 14px;border-radius:10px;margin-top:10px;font-size:13px;font-weight:600}
 .msg.show{display:block}
 .msg.ok{background:var(--green-bg);color:#065F46}
@@ -50,18 +50,18 @@ label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:
 .topnav{
   position:sticky;top:0;z-index:100;
   background:linear-gradient(135deg,#0D0730,#180033);
-  border-bottom:1px solid rgba(109,40,217,.2);
+  border-bottom:1px solid rgba(109,94,245,.2);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 28px;height:64px;
   box-shadow:0 4px 24px rgba(0,0,0,.3);
 }
 .topnav-brand{display:flex;align-items:center;gap:12px}
-.topnav-logo{width:40px;height:40px;background:linear-gradient(135deg,#6D28D9,#A78BFA);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(109,40,217,.5)}
+.topnav-logo{width:40px;height:40px;background:linear-gradient(135deg,#6D5EF5,#B4ABF9);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(109,94,245,.5)}
 .topnav-logo svg{width:22px;height:16px}
 .topnav-name{font-size:20px;font-weight:900;letter-spacing:-.04em;color:#fff}
-.topnav-tag{font-size:10px;font-weight:700;letter-spacing:.15em;color:#A78BFA;text-transform:uppercase;margin-left:4px;background:rgba(167,139,250,.15);padding:3px 8px;border-radius:20px;border:1px solid rgba(167,139,250,.3)}
+.topnav-tag{font-size:10px;font-weight:700;letter-spacing:.15em;color:#B4ABF9;text-transform:uppercase;margin-left:4px;background:rgba(180,171,249,.15);padding:3px 8px;border-radius:20px;border:1px solid rgba(180,171,249,.3)}
 .topnav-right{display:flex;align-items:center;gap:12px}
-.topnav-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6D28D9,#A855F7);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(109,40,217,.4);border:2px solid rgba(167,139,250,.3)}
+.topnav-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6D5EF5,#A855F7);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(109,94,245,.4);border:2px solid rgba(180,171,249,.3)}
 .topnav-user{font-size:13px;font-weight:600;color:rgba(255,255,255,.85)}
 .topnav-logout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:12px;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer;transition:all .15s}
 .topnav-logout:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff}
@@ -80,7 +80,7 @@ body{background:#F0EEF8}
 #adminMainContent{background:#F0EEF8;min-height:100vh}
 
 /* ── CARDS ── */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
 .card h2{font-size:16px;font-weight:800;margin-bottom:16px}
 .card h3{font-size:14px;font-weight:700;margin-bottom:12px}
 
@@ -246,22 +246,22 @@ const MODULOS_PLANO={
     <div style="display:flex;flex-direction:column;justify-content:center;padding:60px">
       <!-- Brand -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:60px">
-        <div style="width:48px;height:48px;background:linear-gradient(135deg,#6D28D9,#A78BFA);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,40,217,.6)">
+        <div style="width:48px;height:48px;background:linear-gradient(135deg,#6D5EF5,#B4ABF9);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,94,245,.6)">
           <svg width="26" height="20" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
         </div>
         <div>
           <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-.04em">Nuvix</div>
-          <div style="font-size:10px;font-weight:700;color:#A78BFA;letter-spacing:.22em;text-transform:uppercase">Hub</div>
+          <div style="font-size:10px;font-weight:700;color:#B4ABF9;letter-spacing:.22em;text-transform:uppercase">Hub</div>
         </div>
       </div>
 
       <!-- Hero -->
-      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(109,40,217,.12);border:1px solid rgba(109,40,217,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(109,94,245,.12);border:1px solid rgba(109,94,245,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:#B4ABF9;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
         <span style="width:6px;height:6px;background:#A855F7;border-radius:50%;display:inline-block"></span>
         Painel Administrativo
       </div>
       <h1 style="font-size:52px;font-weight:900;line-height:1.06;letter-spacing:-.03em;color:#fff;margin-bottom:20px">
-        Controle total<br>da <span style="background:linear-gradient(135deg,#A78BFA,#6D28D9);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
+        Controle total<br>da <span style="background:linear-gradient(135deg,#B4ABF9,#6D5EF5);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
       </h1>
       <p style="font-size:16px;color:rgba(200,185,255,.6);line-height:1.7;max-width:440px;margin-bottom:40px">
         Gerencie empresas, usuários, módulos, assinaturas e monitore todos os acessos da plataforma Nuvix Hub.
@@ -269,16 +269,16 @@ const MODULOS_PLANO={
       <!-- Feature pills -->
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Gestão de Clientes
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B4CF0,#6D5EF5);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Gestão de Clientes
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Controle de Módulos
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B4CF0,#6D5EF5);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Controle de Módulos
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></span>Logs de Acesso
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B4CF0,#6D5EF5);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></span>Logs de Acesso
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4C1D95,#6D28D9);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Assinaturas
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#5B4CF0,#6D5EF5);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Assinaturas
         </div>
       </div>
     </div>
@@ -289,32 +289,32 @@ const MODULOS_PLANO={
 
         <!-- Card logo -->
         <div style="text-align:center;margin-bottom:32px">
-          <div style="width:60px;height:60px;background:linear-gradient(135deg,#4C1D95,#8B5CF6);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 0 36px rgba(109,40,217,.6),0 0 72px rgba(109,40,217,.2)">
+          <div style="width:60px;height:60px;background:linear-gradient(135deg,#5B4CF0,#8B5CF6);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 0 36px rgba(109,94,245,.6),0 0 72px rgba(109,94,245,.2)">
             <svg width="32" height="24" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
           </div>
           <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.04em">Nuvix Hub</div>
-          <div style="font-size:10px;font-weight:700;color:#A78BFA;letter-spacing:.2em;text-transform:uppercase;margin-top:2px">Painel Administrativo</div>
+          <div style="font-size:10px;font-weight:700;color:#B4ABF9;letter-spacing:.2em;text-transform:uppercase;margin-top:2px">Painel Administrativo</div>
         </div>
 
         <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.3),transparent);margin-bottom:24px"></div>
-        <div style="font-size:13px;color:rgba(167,139,250,.5);text-align:center;margin-bottom:22px">Acesso restrito à equipe Nuvix</div>
+        <div style="font-size:13px;color:rgba(180,171,249,.5);text-align:center;margin-bottom:22px">Acesso restrito à equipe Nuvix</div>
 
         <!-- Email -->
         <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">E-mail</label>
+          <label style="display:block;font-size:11px;font-weight:700;color:#B4ABF9;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">E-mail</label>
           <input type="email" id="adminEmail" placeholder="seu@nuvixhub.com.br"
             onkeydown="if(event.key==='Enter')document.getElementById('adminSenha').focus()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.15)'"
+            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,94,245,.15)'"
             onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
             style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
         </div>
 
         <!-- Senha -->
         <div style="margin-bottom:20px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#A78BFA;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Senha</label>
+          <label style="display:block;font-size:11px;font-weight:700;color:#B4ABF9;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Senha</label>
           <input type="password" id="adminSenha" placeholder="••••••••••••"
             onkeydown="if(event.key==='Enter')fazerLoginAdmin()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.15)'"
+            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(109,94,245,.15)'"
             onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
             style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
         </div>
@@ -324,15 +324,15 @@ const MODULOS_PLANO={
 
         <!-- Button -->
         <button id="adminLoginBtn" onclick="fazerLoginAdmin()"
-          style="width:100%;padding:14px;background:linear-gradient(135deg,#4C1D95,#8B5CF6);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 28px rgba(76,29,149,.45);transition:all .25s;position:relative;overflow:hidden"
-          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 14px 40px rgba(76,29,149,.6)'"
-          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 28px rgba(76,29,149,.45)'">
+          style="width:100%;padding:14px;background:linear-gradient(135deg,#5B4CF0,#8B5CF6);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 28px rgba(91,76,240,.45);transition:all .25s;position:relative;overflow:hidden"
+          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 14px 40px rgba(91,76,240,.6)'"
+          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 28px rgba(91,76,240,.45)'">
           Entrar no painel
         </button>
 
-        <p style="text-align:center;margin-top:18px;font-size:12px;color:rgba(167,139,250,.4);line-height:1.6">
+        <p style="text-align:center;margin-top:18px;font-size:12px;color:rgba(180,171,249,.4);line-height:1.6">
           Acesso exclusivo para administradores Nuvix<br>
-          <a href="index.html" style="color:rgba(167,139,250,.5);text-decoration:none;font-size:11px">← Voltar ao sistema</a>
+          <a href="index.html" style="color:rgba(180,171,249,.5);text-decoration:none;font-size:11px">← Voltar ao sistema</a>
         </p>
       </div>
     </div>
@@ -849,7 +849,7 @@ function renderKpisClientes(){
   const bloqueados=empresas.filter(e=>e.ativo===false||(e.status_conta||'')==='bloqueado').length;
   const inadimplentes=empresas.filter(e=>(e.status_conta||'')==='inadimplente').length;
   setHTML('kpisClientes',[
-    {lbl:'Total empresas',val:total,cor:'var(--p)',sub:'cadastradas'},
+    {lbl:'Total empresas',val:total,cor:'var(--txt)',sub:'cadastradas'},
     {lbl:'Ativas',val:ativos,cor:'var(--green)',sub:'pagando'},
     {lbl:'Em trial',val:trial,cor:'var(--amber)',sub:'período grátis'},
     {lbl:'Inadimplentes',val:inadimplentes,cor:'var(--red)',sub:'em atraso'},
@@ -1315,16 +1315,16 @@ function renderAssinaturas(){
   const pend=lista.filter(a=>a.status==='pendente').reduce((s,a)=>s+Number(a.valor||0),0);
   setHTML('resumoAssinaturas',`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="kpi"><div class="kpi-label">Total registrado</div><div class="kpi-value" style="color:var(--p)">${money(total)}</div></div>
-      <div class="kpi"><div class="kpi-label">Pagos</div><div class="kpi-value" style="color:var(--green)">${money(pagos)}</div></div>
-      <div class="kpi"><div class="kpi-label">Pendentes</div><div class="kpi-value" style="color:var(--amber)">${money(pend)}</div></div>
+      <div class="kpi"><div class="kpi-label">Total registrado</div><div class="kpi-value">${money(total)}</div></div>
+      <div class="kpi"><div class="kpi-label">Pagos</div><div class="kpi-value">${money(pagos)}</div></div>
+      <div class="kpi"><div class="kpi-label">Pendentes</div><div class="kpi-value">${money(pend)}</div></div>
       <div class="kpi"><div class="kpi-label">Registros</div><div class="kpi-value">${lista.length}</div></div>
     </div>`);
   const stBadge={pago:'badge-ativo',pendente:'badge-trial',atrasado:'badge-inadimplente',cancelado:'badge-bloqueado'};
   setHTML('tabelaAssinaturas',lista.map(a=>`<tr>
     <td><b>${esc(empMap[a.empresa_id]||'—')}</b></td>
     <td>${planoBadge(a.plano)}</td>
-    <td style="font-weight:700;color:var(--green)">${money(a.valor)}</td>
+    <td style="font-weight:700;color:var(--txt)">${money(a.valor)}</td>
     <td>${fmtData(a.vencimento)}</td>
     <td><span class="badge ${stBadge[a.status]||''}">${a.status||''}</span></td>
     <td style="font-size:12px;color:var(--muted)">${esc(a.observacao||'—')}</td>

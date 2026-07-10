@@ -17,7 +17,7 @@
 
 /* ── KPI CARDS ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden;transition:box-shadow .2s ease,transform .2s ease}
+.kpi-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden;transition:box-shadow .2s ease,transform .2s ease}
 .kpi-card:hover{box-shadow:0 4px 16px rgba(31,41,55,.06);transform:translateY(-2px)}
 .kpi-card.purple .kpi-icon{color:var(--p)}
 .kpi-card.red .kpi-icon{color:#DC2626}
@@ -34,7 +34,7 @@
 
 /* ── MATERIAL CARD (grid view) ── */
 .mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:16px}
-.mat-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);transition:all .2s;cursor:pointer;position:relative}
+.mat-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);transition:all .2s;cursor:pointer;position:relative}
 .mat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--p3)}
 .mat-card-img{width:100%;height:120px;border-radius:10px;background:var(--p-light);display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:12px;overflow:hidden}
 .mat-card-img img{width:100%;height:100%;object-fit:cover}
@@ -57,11 +57,11 @@
 .mov-entrada{background:#ECFDF5;color:#059669}
 .mov-saida{background:#FEF2F2;color:#DC2626}
 .mov-ajuste{background:#DBEAFE;color:#1E40AF}
-.mov-inventario{background:#EDE9FE;color:#4C1D95}
+.mov-inventario{background:#EFEEFE;color:#5B4CF0}
 
 /* ── CHART CARDS ── */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.chart-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
 .chart-card h3{font-size:13px;font-weight:700;margin-bottom:16px;color:var(--txt)}
 
 /* ── TOGGLE VIEW ── */
@@ -528,7 +528,7 @@ function renderCharts(){
   if(charts.consumo)charts.consumo.destroy();
   const c1=$('chartConsumo');
   if(c1)charts.consumo=new Chart(c1,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D5EF5',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 
@@ -538,21 +538,21 @@ function renderCharts(){
   const top=Object.entries(matMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.top)charts.top.destroy();
   const c2=$('chartTop');
-  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(109,40,217,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
+  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(109,94,245,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
 
   // Por categoria
   const catMap={};dados.materiais.forEach(m=>{const c=m.categoria||'Outros';if(!catMap[c])catMap[c]=0;catMap[c]+=Number(m.estoque_atual||0)*Number(m.custo_compra||0);});
   const catEntries=Object.entries(catMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.cat)charts.cat.destroy();
   const c3=$('chartCat');
-  const colors=['#6D28D9','#8B5CF6','#A78BFA','#C4B5FD','#DDD6FE','#9CA3AF','#6D28D9','#A855F7'];
+  const colors=['#6D5EF5','#8B5CF6','#B4ABF9','#C4B5FD','#DDD6FE','#9CA3AF','#6D5EF5','#A855F7'];
   if(c3)charts.cat=new Chart(c3,{type:'doughnut',data:{labels:catEntries.map(x=>x[0]),datasets:[{data:catEntries.map(x=>x[1]),backgroundColor:colors,borderWidth:0,borderRadius:8,spacing:2}]},options:{responsive:true,cutout:'68%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}}}}});
 
   // Fluxo valor
   if(charts.fluxo)charts.fluxo.destroy();
   const c4=$('chartFluxo');
   if(c4)charts.fluxo=new Chart(c4,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D5EF5',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 }
@@ -880,16 +880,16 @@ function renderMovimentacoes(){
   const entTotal=lista.filter(v=>v.tipo==='entrada').reduce((a,v)=>a+Number(v.valor_total||0),0);
   const saiTotal=lista.filter(v=>v.tipo==='saida').reduce((a,v)=>a+Number(v.valor_total||0),0);
   setHTML('movResumo',[
-    {lbl:'Total entradas',val:lista.filter(v=>v.tipo==='entrada').length+' mov.',sub:money(entTotal),cor:'var(--green)'},
-    {lbl:'Total saídas',val:lista.filter(v=>v.tipo==='saida').length+' mov.',sub:money(saiTotal),cor:'var(--red)'},
-    {lbl:'Ajustes',val:lista.filter(v=>v.tipo==='ajuste'||v.tipo==='inventario').length,sub:'movimentações',cor:'var(--blue)'},
-    {lbl:'Registros',val:lista.length,sub:'no período',cor:'var(--p)'},
+    {lbl:'Total entradas',val:lista.filter(v=>v.tipo==='entrada').length+' mov.',sub:money(entTotal),cor:'var(--txt)'},
+    {lbl:'Total saídas',val:lista.filter(v=>v.tipo==='saida').length+' mov.',sub:money(saiTotal),cor:'var(--txt)'},
+    {lbl:'Ajustes',val:lista.filter(v=>v.tipo==='ajuste'||v.tipo==='inventario').length,sub:'movimentações',cor:'var(--txt)'},
+    {lbl:'Registros',val:lista.length,sub:'no período',cor:'var(--txt)'},
   ].map(k=>`<div class="kpi" style="padding:14px;margin:0"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="font-size:18px;color:${k.cor}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join(''));
 
   setHTML('movTable',lista.map(v=>{
     const dt=v.created_at?new Date(v.created_at).toLocaleString('pt-BR'):'—';
     const qtdStr=(v.tipo==='saida'?'-':'+')+fmtNum(v.quantidade||0,3);
-    const qtdCor=v.tipo==='saida'?'var(--red)':'var(--green)';
+    const qtdCor='var(--txt)';
     return`<tr>
       <td style="font-size:11px">${dt}</td>
       <td><span class="mov-badge mov-${v.tipo}">${v.tipo}</span></td>
@@ -923,7 +923,7 @@ function renderEstoqueCritico(){
     html+=baixos.map(m=>{const diff=Number(m.estoque_minimo||0)-Number(m.estoque_atual||0);return`<tr><td><b style="color:var(--amber)">${esc(m.nome)}</b></td><td>${esc(m.categoria||'—')}</td><td style="font-weight:700;color:var(--amber)">${fmtNum(m.estoque_atual||0,3)} ${m.unidade||'UN'}</td><td>${fmtNum(m.estoque_minimo||0,3)}</td><td style="color:var(--red)">-${fmtNum(diff,3)}</td><td><button class="btn2" onclick="abrirMovMaterial('${m.id}','entrada')" style="font-size:12px;padding:6px 12px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> Repor</button></td></tr>`;}).join('');
     html+=`</tbody></table></div></div>`;
   }
-  if(!criticos.length&&!baixos.length)html=`<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></div><p style="color:var(--green);font-weight:700;font-size:16px">Todos os materiais estão com estoque OK!</p></div>`;
+  if(!criticos.length&&!baixos.length)html=`<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px;margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></div><p style="color:var(--txt);font-weight:700;font-size:16px">Todos os materiais estão com estoque OK!</p></div>`;
   setHTML('estoqueCriticoLista',html);
 }
 
