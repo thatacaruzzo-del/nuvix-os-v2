@@ -37,7 +37,8 @@ function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
@@ -445,7 +446,7 @@ function renderOperacoes(){
 
 function filtroPPE(tipo,btn){ppeFiltro=tipo;document.querySelectorAll('.ppe-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderPPE();}
 function renderPPE(){
-  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=am.toISOString().slice(0,10),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=sem.toISOString().slice(0,10);
+  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=dataLocal(am),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=dataLocal(sem);
   let lista=(dados.operacoes||[]).filter(o=>{const p=String(o.ppe||'').slice(0,10),e=o.status==='Entregue';
     if(ppeFiltro==='hoje')return p===hj&&!e;if(ppeFiltro==='amanha')return p===amStr&&!e;if(ppeFiltro==='semana')return p>=hj&&p<=semStr&&!e;if(ppeFiltro==='atrasados')return p&&p<hj&&!e;return!e&&p;});
   setHTML('ppeTable',lista.map(o=>{const{badge}=slaInfo(o.ppe,o.status);

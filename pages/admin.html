@@ -171,7 +171,8 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function toast(text,type='ok'){
   document.querySelector('.nx-toast')?.remove();
@@ -930,7 +931,7 @@ function abrirModalNovaEmpresa(){
   if($('empPlano'))$('empPlano').value='Start';
   if($('empStatusConta'))$('empStatusConta').value='trial';
   const v30=new Date();v30.setDate(v30.getDate()+30);
-  if($('empTrialFim'))$('empTrialFim').value=v30.toISOString().slice(0,10);
+  if($('empTrialFim'))$('empTrialFim').value=dataLocal(v30);
   $('tituloModalEmp').textContent='Nova empresa';
   abrirModal('modalNovaEmp');
 }

@@ -12,7 +12,8 @@ function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function toast(t,tp){document.querySelector('.nx-toast')?.remove();const el=document.createElement('div');el.className='nx-toast '+(tp||'ok');el.textContent=t;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0'},3000);setTimeout(()=>el.remove(),3400)}
@@ -204,7 +205,7 @@ function init(){
   // Set default dates (last 30 days)
   const ate=hoje();
   const de=new Date();de.setDate(de.getDate()-30);
-  if($('relDe'))$('relDe').value=de.toISOString().slice(0,10);
+  if($('relDe'))$('relDe').value=dataLocal(de);
   if($('relAte'))$('relAte').value=ate;
 
   // Quick access cards

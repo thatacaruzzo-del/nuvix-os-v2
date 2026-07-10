@@ -75,7 +75,8 @@ function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
@@ -406,7 +407,7 @@ function renderHero(){
 
 // ── STRIP ──
 function renderStrip(){
-  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=am.toISOString().slice(0,10),mes=hj.slice(0,7);
+  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=dataLocal(am),mes=hj.slice(0,7);
   const entHoje=financeiro.filter(f=>f.tipo==='Receita'&&['Recebido','Pago'].includes(f.status||'')&&String(f.data_pagamento||f.data_lancamento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
   const aRecHoje=financeiro.filter(f=>f.tipo==='Receita'&&String(f.vencimento||'').slice(0,10)===hj&&!['Recebido','Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagHoje=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===hj&&!['Pago','Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -719,7 +720,7 @@ function renderLancamentos(){
 // ── RENDER FLUXO ──
 function filtrarFluxo(tipo){fluxoFiltro=tipo;renderFluxo();}
 function renderFluxo(){
-  const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=sem.toISOString().slice(0,10),mes=hj.slice(0,7);
+  const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=dataLocal(sem),mes=hj.slice(0,7);
   const recMes=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
   const despMes=financeiro.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
   const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);

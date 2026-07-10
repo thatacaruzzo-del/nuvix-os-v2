@@ -129,7 +129,8 @@ function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
@@ -360,12 +361,12 @@ function recomputePeriodo(){
   const outraPonta = new Date();
   if(usaFuturo){
     outraPonta.setDate(hj.getDate()+n);
-    periodo.de = hj.toISOString().slice(0,10);
-    periodo.ate = outraPonta.toISOString().slice(0,10);
+    periodo.de = dataLocal(hj);
+    periodo.ate = dataLocal(outraPonta);
   }else{
     outraPonta.setDate(hj.getDate()-n);
-    periodo.de = outraPonta.toISOString().slice(0,10);
-    periodo.ate = hj.toISOString().slice(0,10);
+    periodo.de = dataLocal(outraPonta);
+    periodo.ate = dataLocal(hj);
   }
   if($('periodoDE'))$('periodoDE').value = periodo.de;
   if($('periodoATE'))$('periodoATE').value = periodo.ate;
@@ -606,7 +607,7 @@ function renderCharts(){
   // Descobrir TODOS os meses que têm lançamentos (dinâmico!)
   const mesesComDados = [...new Set(dados.fin.map(f=>getDataGrafico(f)).filter(m=>m))];
   // Garantir mês atual e 2 anteriores mesmo sem dados
-  for(let i=2;i>=-2;i--){const d=new Date();d.setMonth(d.getMonth()-i);const m=d.toISOString().slice(0,7);if(!mesesComDados.includes(m))mesesComDados.push(m);}
+  for(let i=2;i>=-2;i--){const d=new Date();d.setMonth(d.getMonth()-i);const m=dataLocal(d).slice(0,7);if(!mesesComDados.includes(m))mesesComDados.push(m);}
   const meses=mesesComDados.sort();
   const lblM=meses.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
   const recM=meses.map(m=>dados.fin.filter(f=>f.tipo==='Receita'&&getDataGrafico(f)===m).reduce((a,f)=>a+Number(f.valor||0),0));

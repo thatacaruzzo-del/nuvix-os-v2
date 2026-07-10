@@ -115,7 +115,8 @@ function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtNum(v,dec=2){return Number(v||0).toFixed(dec)}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
@@ -519,7 +520,7 @@ function renderCharts(){
   Chart.defaults.color='#6B7280';
 
   // Consumo mensal
-  const meses=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);meses.push(d.toISOString().slice(0,7));}
+  const meses=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);meses.push(dataLocal(d).slice(0,7));}
   const labels=meses.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
   const entradas=meses.map(m=>movs.filter(v=>v.tipo==='entrada'&&String(v.created_at||'').slice(0,7)===m).reduce((a,v)=>a+Number(v.valor_total||0),0));
   const saidas=meses.map(m=>movs.filter(v=>v.tipo==='saida'&&String(v.created_at||'').slice(0,7)===m).reduce((a,v)=>a+Number(v.valor_total||0),0));

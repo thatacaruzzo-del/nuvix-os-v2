@@ -279,7 +279,8 @@ const db={
 
 function $(id){return document.getElementById(id)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function hoje(){return new Date().toISOString().slice(0,10)}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtHora(h){return h?String(h).slice(0,5):'—'}
 function toast(txt,tipo){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=txt;if(tipo==='err')t.style.background='var(--red)';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},2500);setTimeout(()=>t.remove(),2800)}
@@ -413,7 +414,7 @@ function renderRelatorio(){
   const concluidas=minhasOS.filter(o=>o.status==='Concluída');
   const abertas=minhasOS.filter(o=>!['Concluída','Cancelada'].includes(o.status||''));
   const faturamento=concluidas.reduce((a,o)=>a+Number(o.valor_total||0),0);
-  const mes=new Date().toISOString().slice(0,7);
+  const mes=dataLocal(new Date()).slice(0,7);
   const doMes=concluidas.filter(o=>String(o.data_conclusao||o.created_at||'').slice(0,7)===mes);
   const fatMes=doMes.reduce((a,o)=>a+Number(o.valor_total||0),0);
   const ticket=concluidas.length?faturamento/concluidas.length:0;
