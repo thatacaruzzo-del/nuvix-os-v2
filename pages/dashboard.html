@@ -137,12 +137,24 @@
 .ia-dot.informacao{background:var(--blue)}
 .ia-row-body{flex:1;min-width:0}
 .ia-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:block;margin-bottom:4px}
-.ia-row-titulo{font-size:14.5px;font-weight:700;color:var(--txt);margin-bottom:4px}
-.ia-row-texto{font-size:13.5px;color:var(--muted);line-height:1.55;margin-bottom:6px}
-.ia-row-impacto,.ia-row-acao{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:4px}
-.ia-row-impacto b,.ia-row-acao b{color:var(--txt);font-weight:600}
-.ia-row-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted2);margin-top:8px}
+.ia-row-titulo{font-size:14.5px;font-weight:700;color:var(--txt);margin-bottom:10px}
+/* Cada insight sempre nas mesmas 4 etapas, cada uma com seu próprio rótulo — nunca um parágrafo só */
+.ia-block{margin-bottom:10px}
+.ia-block:last-of-type{margin-bottom:8px}
+.ia-block-lbl{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:3px}
+.ia-block-txt{font-size:13px;color:var(--muted);line-height:1.5}
+.ia-row-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted2);margin-top:4px}
 .ia-row-footer a{color:var(--p);font-weight:600;text-decoration:none}
+/* Impacto em forma de caixa — usado quando o "impacto provável" é uma conta, não uma frase */
+.ia-waterfall{display:flex;flex-direction:column;align-items:flex-start}
+.ia-wf-step{display:flex;flex-direction:column;gap:1px;padding:5px 0}
+.ia-wf-step.final{border-top:1px solid var(--line);margin-top:3px;padding-top:9px}
+.ia-wf-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2)}
+.ia-wf-val{font-size:15px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums}
+.ia-wf-step.final .ia-wf-val{font-size:17px}
+.ia-wf-val.neg{color:var(--red)}
+.ia-wf-val.pos{color:var(--green)}
+.ia-wf-arrow{font-size:12px;color:var(--muted2);line-height:1;padding-left:1px}
 .ia-vertodos{margin-top:14px;background:none;border:none;color:var(--p);font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
 .ia-extra{display:none;flex-direction:column}
 .ia-extra.open{display:flex}
@@ -749,6 +761,12 @@ function renderSetores(){
 
 // CAMADA 1 — coleta de métricas: empacota os calc* que já existem num JSON padronizado.
 // Nenhuma query nova, nenhum cálculo novo — só serialização do que já foi calculado.
+// Todo campo pertence a uma de 3 categorias (ver CAMPO_CATEGORIA logo abaixo):
+//  · Período       — muda com o filtro de data, mede o que aconteceu na janela.
+//  · Posição atual — sempre "agora", nunca muda com o filtro (a Nuvix não guarda histórico
+//                    de caixa/estoque/OS-em-aberto de datas passadas, só o valor de hoje).
+//  · Projeção      — simulação em cima de compromissos JÁ agendados no sistema, nunca uma
+//                    estimativa de receita/despesa que ainda não existe.
 function coletarMetricas(de, ate){
   const fin = calcIndicadoresJanela(de, ate);
   const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -757,9 +775,10 @@ function coletarMetricas(de, ate){
   const opr = calcOperacao(de, ate);
   const mat = calcMateriaisSetor(de, ate);
   const rh = calcRHSetor(de, ate);
+  const caixa = calcCaixaDisponivel();
   return {
     periodo: {inicio: de, fim: ate},
-    financeiro: {caixa: calcCaixaDisponivel(), recebido: fin.recebido, pago: fin.pago, resultado: fin.saldo, a_receber: aReceber, a_pagar: aPagar},
+    financeiro: {caixa, recebido: fin.recebido, pago: fin.pago, resultado: fin.saldo, a_receber: aReceber, a_pagar: aPagar, dias_ate_negativo: diasParaFicarNegativo(caixa), runway_dias: calcRunway(caixa)},
     comercial: {leads: com.leads, novos_clientes: com.fechados, conversao: com.txConv},
     operacao: {os_abertas: opr.abertasPeriodo, os_concluidas: opr.concluidasPeriodo, os_atrasadas: opr.atrasadasAgora},
     materiais: {itens_zerados: mat.zerados, itens_abaixo_minimo: mat.abaixoMinimo, consumo: mat.consumoPeriodo},
@@ -767,13 +786,26 @@ function coletarMetricas(de, ate){
   };
 }
 
-// CAMADA 2 — comparação de períodos: delta e variação % campo a campo entre dois snapshots
-// da camada 1. Não decide se é bom ou ruim, só mede a diferença.
+// Classificação de cada campo nas 3 categorias. Usada pela camada 2 pra nunca comparar um
+// campo de Posição Atual/Projeção contra "período anterior" — isso daria sempre delta zero
+// (comparando "agora" com "agora" disfarçado) ou pior, um número sem sentido.
+const CAMPO_CATEGORIA = {
+  financeiro: {recebido:'periodo', pago:'periodo', resultado:'periodo', caixa:'posicao_atual', a_receber:'posicao_atual', a_pagar:'posicao_atual', dias_ate_negativo:'projecao', runway_dias:'projecao'},
+  comercial: {leads:'periodo', novos_clientes:'periodo', conversao:'periodo'},
+  operacao: {os_abertas:'periodo', os_concluidas:'periodo', os_atrasadas:'posicao_atual'},
+  materiais: {consumo:'periodo', itens_zerados:'posicao_atual', itens_abaixo_minimo:'posicao_atual'},
+  rh: {horas_extras:'periodo', funcionarios_ativos:'posicao_atual'},
+};
+
+// CAMADA 2 — comparação de períodos: delta e variação % campo a campo, só pros campos de
+// categoria "período" (os únicos onde "período anterior" faz sentido). Não decide se é bom
+// ou ruim, só mede a diferença.
 function compararPeriodos(atual, anterior){
   const diff = {};
   ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{
     diff[area] = {};
     Object.keys(atual[area]).forEach(campo=>{
+      if(CAMPO_CATEGORIA[area]?.[campo] !== 'periodo') return;
       const a = atual[area][campo], b = anterior[area][campo];
       if(typeof a==='number' && typeof b==='number'){
         diff[area][campo] = {delta: a-b, variacaoPct: b ? Math.round((a-b)/Math.abs(b)*100) : null};
@@ -781,6 +813,65 @@ function compararPeriodos(atual, anterior){
     });
   });
   return diff;
+}
+
+// CAMADA 0 — Timeline de Eventos: normaliza os dados já buscados (dados.fin/crm/os/movs/ponto)
+// num único log cronológico de fatos, sem query nova e sem persistir nada — é reconstruída em
+// memória a cada render e descartada depois. É o que dá à camada 3 uma visão de MAIS de 2
+// pontos no tempo (tendência), além da comparação simples atual-vs-anterior.
+// Limitação real e assumida: Comercial só tem a data de criação do lead (created_at) — não
+// existe campo de data de fechamento/perda em crm_oportunidades, então não dá pra cravar
+// "fechou em tal dia" na timeline, só "entrou no funil em tal dia".
+function construirTimeline(){
+  const eventos = [];
+  (dados.fin||[]).forEach(f=>{
+    if(f.tipo==='Receita' && isReceitaConfirmada(f)){
+      const d = String(f.data_pagamento||f.data_lancamento||'').slice(0,10);
+      if(d) eventos.push({data:d, area:'financeiro', tipo:'recebimento', descricao:f.favorecido||f.descricao||'Recebimento', valor:Number(f.valor||0)});
+    }
+    if(f.tipo==='Despesa' && isDespesaConfirmada(f)){
+      const d = String(f.data_pagamento||f.data_lancamento||'').slice(0,10);
+      if(d) eventos.push({data:d, area:'financeiro', tipo:'pagamento', descricao:f.favorecido||f.descricao||'Pagamento', valor:Number(f.valor||0)});
+    }
+  });
+  (dados.crm||[]).forEach(o=>{
+    const d = String(o.created_at||'').slice(0,10);
+    if(d) eventos.push({data:d, area:'comercial', tipo:'lead_criado', descricao:o.nome||'Lead', valor:Number(o.valor_previsto||0)});
+  });
+  (dados.os||[]).forEach(o=>{
+    const dAb = String(o.data_abertura||'').slice(0,10);
+    if(dAb) eventos.push({data:dAb, area:'operacao', tipo:'os_aberta', descricao:o.numero||'OS', valor:Number(o.valor_total||0)});
+    if(o.status==='Concluída'){
+      const dConc = String(o.data_conclusao||'').slice(0,10);
+      if(dConc) eventos.push({data:dConc, area:'operacao', tipo:'os_concluida', descricao:o.numero||'OS', valor:Number(o.valor_total||0)});
+    }
+  });
+  (dados.movs||[]).forEach(m=>{
+    const d = String(m.created_at||'').slice(0,10);
+    if(d && m.tipo==='saida') eventos.push({data:d, area:'materiais', tipo:'consumo', descricao:m.material_nome||'Material', valor:Number(m.valor_total||0)});
+  });
+  (dados.ponto||[]).forEach(p=>{
+    const d = String(p.data||'').slice(0,10);
+    if(d && p.tipo==='Falta') eventos.push({data:d, area:'rh', tipo:'falta', descricao:p.colaborador_nome||'Colaborador'});
+  });
+  return eventos.sort((a,b)=>a.data.localeCompare(b.data));
+}
+// Conta eventos de um tipo/área dentro de uma janela de data — usado pelas regras de tendência.
+function contarEventosTimeline(timeline, area, tipo, de, ate){
+  return timeline.filter(e=>e.area===area && e.tipo===tipo && e.data>=de && e.data<=ate).length;
+}
+// N janelas consecutivas de mesmo tamanho, terminando na janela atual (a mais recente é a última
+// do array). Permite comparar 3+ pontos no tempo, não só "atual vs anterior".
+function janelasConsecutivas(de, ate, n){
+  const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
+  const span=Math.round((dFim-dIni)/864e5)+1;
+  const janelas=[];
+  for(let i=n-1;i>=0;i--){
+    const fim=new Date(dFim); fim.setDate(dFim.getDate()-i*span);
+    const ini=new Date(fim); ini.setDate(fim.getDate()-span+1);
+    janelas.push({de:dataLocal(ini), ate:dataLocal(fim)});
+  }
+  return janelas;
 }
 
 // CAMADA 3 — motor de regras: cada função é pura e determinística, avalia 1 condição e
@@ -799,9 +890,13 @@ const REGRAS = [
       confianca:'alta', recomendacao:'Revisar as maiores despesas do período e avaliar cobranças pendentes que possam ser antecipadas.', periodo:atual.periodo, href:'financeiro.html'};
   },
   (atual)=>{
-    if(atual.financeiro.a_pagar>0 && atual.financeiro.a_pagar>atual.financeiro.a_receber*1.5) return {id:'financeiro-contas-desequilibradas', categoria:'atencao', area:'financeiro',
-      titulo:'A pagar está bem acima do a receber', evidencias:{a_pagar:atual.financeiro.a_pagar,a_receber:atual.financeiro.a_receber},
+    if(atual.financeiro.a_pagar>0 && atual.financeiro.a_pagar>atual.financeiro.a_receber*1.5){
+      const caixaProjetado = atual.financeiro.caixa - atual.financeiro.a_pagar + atual.financeiro.a_receber;
+      return {id:'financeiro-contas-desequilibradas', categoria:'atencao', area:'financeiro',
+      titulo:'A pagar está bem acima do a receber',
+      evidencias:{a_pagar:atual.financeiro.a_pagar,a_receber:atual.financeiro.a_receber,caixa:atual.financeiro.caixa,caixa_projetado:caixaProjetado},
       confianca:'media', recomendacao:'Negociar prazos ou acelerar cobranças pendentes.', periodo:atual.periodo, href:'financeiro.html'};
+    }
   },
   (atual)=>{
     if(atual.operacao.os_atrasadas>0) return {id:'operacao-atrasadas', categoria:atual.operacao.os_atrasadas>=4?'prioridade':'atencao', area:'operacao',
@@ -847,10 +942,29 @@ const REGRAS = [
       confianca:'media', recomendacao:'Identificar o que mudou na abordagem e repetir.', periodo:atual.periodo, href:'crm.html'};
   },
   (atual)=>{
-    const runway=calcRunway(atual.financeiro.caixa);
-    if(atual.financeiro.caixa>=0 && runway && runway>45) return {id:'financeiro-caixa-folego', categoria:'oportunidade', area:'financeiro',
-      titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:runway},
+    if(atual.financeiro.caixa>=0 && atual.financeiro.runway_dias && atual.financeiro.runway_dias>45) return {id:'financeiro-caixa-folego', categoria:'oportunidade', area:'financeiro',
+      titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:atual.financeiro.runway_dias},
       confianca:'media', recomendacao:'Bom momento para considerar investimentos ou antecipar pagamentos com desconto.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  // Projeção — só dispara com caixa ainda positivo (se já estiver negativo, a regra
+  // "financeiro-caixa-negativo" acima já cobre isso, evitando mensagem duplicada).
+  (atual)=>{
+    if(atual.financeiro.caixa>=0 && atual.financeiro.dias_ate_negativo!=null && atual.financeiro.dias_ate_negativo<=14) return {
+      id:'financeiro-projecao-negativa', categoria: atual.financeiro.dias_ate_negativo<=7?'prioridade':'atencao', area:'financeiro',
+      titulo:'Caixa pode ficar negativo em breve', evidencias:{dias:atual.financeiro.dias_ate_negativo},
+      confianca:'media', recomendacao:'Revisar os pagamentos previstos para os próximos dias e avaliar antecipação de recebimentos.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  // Tendência (usa a Timeline de Eventos, não só atual/anterior) — leads caindo em 2 janelas
+  // seguidas. Só dispara com um padrão real de 3 pontos consecutivos, nunca com 2.
+  (atual,anterior,diff,timeline)=>{
+    if(!timeline) return;
+    const janelas = janelasConsecutivas(atual.periodo.inicio, atual.periodo.fim, 3);
+    const contagens = janelas.map(j=>contarEventosTimeline(timeline,'comercial','lead_criado',j.de,j.ate));
+    const [maisAntigo, meio, atualC] = contagens;
+    if(maisAntigo>0 && meio<maisAntigo && atualC<meio) return {
+      id:'comercial-tendencia-leads-queda', categoria:'atencao', area:'comercial',
+      titulo:'Leads em queda há dois períodos seguidos', evidencias:{periodo_mais_antigo:maisAntigo,periodo_anterior:meio,periodo_atual:atualC},
+      confianca: maisAntigo>=5?'alta':'media', recomendacao:'Revisar os canais de geração de leads antes que o funil esvazie.', periodo:atual.periodo, href:'crm.html'};
   },
   (atual,anterior,diff)=>{
     const dCons=diff.materiais.consumo?.variacaoPct;
@@ -869,8 +983,8 @@ const REGRAS = [
       recomendacao:'Continuar acompanhando.', periodo:atual.periodo, href:'crm.html'};
   },
 ];
-function avaliarRegras(atual, anterior, diff){
-  return REGRAS.map(r=>r(atual,anterior,diff)).filter(Boolean).map(ins=>({...ins, id:`${ins.id}-${atual.periodo.inicio}`}));
+function avaliarRegras(atual, anterior, diff, timeline){
+  return REGRAS.map(r=>r(atual,anterior,diff,timeline)).filter(Boolean).map(ins=>({...ins, id:`${ins.id}-${atual.periodo.inicio}`}));
 }
 
 // CAMADA 4 — priorização: ordem fixa de categoria (prioridade > atenção > oportunidade >
@@ -894,10 +1008,15 @@ function priorizarInsights(lista){
 // insight já decidido pela camada 3, nunca dados brutos) — uma Fase 2 troca só esta camada
 // por uma chamada de IA real, sem alterar as camadas 1-4.
 function idBase(insight){ return insight.id.replace(/-\d{4}-\d{2}-\d{2}$/,''); }
+// Cada insight segue sempre as mesmas 4 etapas, nunca misturadas num parágrafo só:
+//  1. O que está acontecendo agora  → NARRATIVA_TEMPLATES (fato, sem interpretação)
+//  2. Por que isso importa          → PORQUE_IMPORTA (o conceito por trás do fato)
+//  3. Qual o impacto provável       → IMPACTO (consequência — texto ou, num caso, visual)
+//  4. O que eu faço                 → insight.recomendacao (já vem do motor de regras)
 const NARRATIVA_TEMPLATES = {
   'financeiro-caixa-negativo': ev=>`O caixa disponível está em ${money(ev.caixa)}.`,
   'financeiro-resultado-negativo': ev=>`Você recebeu ${money(ev.recebido)} e pagou ${money(ev.pago)} no período, fechando em ${money(ev.resultado)}.`,
-  'financeiro-contas-desequilibradas': ev=>`Há ${money(ev.a_pagar)} a pagar contra ${money(ev.a_receber)} a receber.`,
+  'financeiro-contas-desequilibradas': ev=>`Há ${money(ev.a_pagar)} em contas por pagar contra ${money(ev.a_receber)} previstos a receber.`,
   'operacao-atrasadas': ev=>`${ev.os_atrasadas} ordem${ev.os_atrasadas!==1?'s':''} de serviço já passou do prazo agendado.`,
   'operacao-fila-crescendo': ev=>`${ev.os_abertas} OS abertas contra ${ev.os_concluidas} concluídas no período.`,
   'comercial-sem-leads': ()=>`O funil comercial não recebeu nenhum lead novo neste período.`,
@@ -910,27 +1029,65 @@ const NARRATIVA_TEMPLATES = {
   'materiais-consumo-eficiente': ev=>`Consumo caiu de ${money(ev.consumo_anterior)} para ${money(ev.consumo_atual)}, com ${ev.os_abertas} OS abertas no mesmo intervalo.`,
   'operacao-os-concluidas': ev=>`${ev.os_concluidas} ordens de serviço foram concluídas neste período.`,
   'comercial-novos-clientes': ev=>`${ev.novos_clientes} novo${ev.novos_clientes!==1?'s':''} cliente${ev.novos_clientes!==1?'s':''} fechado${ev.novos_clientes!==1?'s':''} neste período.`,
+  'financeiro-projecao-negativa': ev=>`Com os compromissos já agendados, o caixa pode ficar negativo em ${ev.dias} dia${ev.dias!==1?'s':''}.`,
+  'comercial-tendencia-leads-queda': ev=>`Leads foram de ${ev.periodo_mais_antigo} para ${ev.periodo_anterior} e agora ${ev.periodo_atual}, em 3 períodos seguidos.`,
+};
+const PORQUE_IMPORTA = {
+  'financeiro-caixa-negativo':'Sem caixa positivo, compromissos já assumidos podem ficar sem cobertura.',
+  'financeiro-resultado-negativo':'O resultado do período é diferente do caixa disponível — ele mostra se o ritmo atual está gerando ou consumindo caixa.',
+  'financeiro-contas-desequilibradas':'Contas a pagar são compromissos praticamente certos; contas a receber dependem do cliente pagar em dia.',
+  'operacao-atrasadas':'Atrasos recorrentes afetam a percepção do cliente sobre a confiabilidade do serviço.',
+  'operacao-fila-crescendo':'Quando mais OS abrem do que fecham no mesmo período, o trabalho pendente se acumula.',
+  'comercial-sem-leads':'Sem leads entrando, não há novos negócios em formação no funil.',
+  'comercial-conversao-queda':'Conversão mede quantos leads viram negócio — uma queda indica perda de eficiência no funil.',
+  'materiais-zerado':'Sem estoque, uma OS que dependa desse material não pode ser concluída.',
+  'materiais-abaixo-minimo':'Estoque abaixo do mínimo é o estágio anterior a zerar.',
+  'rh-horas-extras':'Horas extras sustentadas por muito tempo custam mais que reforçar a equipe, e podem indicar sobrecarga.',
+  'comercial-conversao-alta':'Uma conversão maior significa que o mesmo esforço comercial está gerando mais negócios.',
+  'financeiro-caixa-folego':'Um fôlego de caixa alto abre espaço para decisões que normalmente ficariam travadas por falta de caixa.',
+  'materiais-consumo-eficiente':'Manter o mesmo volume de operação consumindo menos material é ganho de eficiência real.',
+  'operacao-os-concluidas':'Mostra o ritmo de entrega da operação no período.',
+  'comercial-novos-clientes':'Reflete o resultado direto do funil comercial no período.',
+  'financeiro-projecao-negativa':'Essa projeção considera só o que já está agendado no sistema — não é previsão de novas vendas.',
+  'comercial-tendencia-leads-queda':'Um funil mais vazio hoje tende a significar menos fechamentos daqui a algumas semanas.',
 };
 const IMPACTO = {
-  'financeiro-caixa-negativo':'Sem ajuste, pode faltar cobertura para os próximos compromissos.',
-  'financeiro-resultado-negativo':'Se esse ritmo continuar, o caixa disponível tende a reduzir.',
-  'financeiro-contas-desequilibradas':'Pode apertar o caixa nos próximos vencimentos.',
-  'operacao-atrasadas':'Atraso recorrente tende a afetar a percepção do cliente.',
-  'operacao-fila-crescendo':'Se o ritmo não mudar, a fila tende a crescer.',
-  'comercial-sem-leads':'Sem leads novos, a receita dos próximos períodos pode ficar comprometida.',
+  'financeiro-caixa-negativo':'Novos pagamentos podem ficar sem cobertura até o caixa voltar a ficar positivo.',
+  'financeiro-resultado-negativo':'Se esse ritmo se repetir nos próximos períodos, o caixa disponível tende a reduzir.',
+  'operacao-atrasadas':'Sem ação, o número de clientes insatisfeitos tende a crescer.',
+  'operacao-fila-crescendo':'Se o ritmo não mudar, o tempo de espera dos clientes tende a aumentar.',
+  'comercial-sem-leads':'Sem ação, a receita dos próximos períodos pode ficar comprometida.',
   'comercial-conversao-queda':'Menos fechamentos tendem a reduzir a receita dos próximos períodos.',
   'materiais-zerado':'Pode travar uma ordem de serviço por falta de material.',
-  'materiais-abaixo-minimo':'Vale repor antes que o estoque zere.',
-  'rh-horas-extras':'Horas extras sustentadas por muito tempo elevam o custo operacional.',
-  'comercial-conversao-alta':'Há espaço para consolidar o que funcionou.',
+  'materiais-abaixo-minimo':'Vale repor antes que o estoque zere e trave uma OS.',
+  'rh-horas-extras':'Se continuar, o custo operacional tende a subir.',
+  'comercial-conversao-alta':'Há espaço para consolidar o que funcionou e repetir em outros períodos.',
   'financeiro-caixa-folego':'Boa janela para decisões que exigem caixa disponível.',
-  'materiais-consumo-eficiente':'Indica ganho de eficiência que vale entender e manter.',
-  'operacao-os-concluidas':'Ritmo de entrega dentro do acompanhado no período.',
-  'comercial-novos-clientes':'Reflete o resultado do funil comercial no período.',
+  'materiais-consumo-eficiente':'Se mantido, reduz custo operacional sem reduzir entrega.',
+  'financeiro-projecao-negativa':'Se nada mudar, o caixa deve entrar no vermelho dentro desse prazo.',
+  'comercial-tendencia-leads-queda':'Se a queda continuar, o volume de novos negócios deve cair nos próximos períodos.',
 };
 function gerarNarrativaTemplate(insight){
   const fn = NARRATIVA_TEMPLATES[idBase(insight)];
   return fn ? fn(insight.evidencias) : insight.titulo;
+}
+// Impacto provável — texto na maioria dos casos, mas quando o impacto é uma conta de caixa
+// (contas a pagar vs a receber), vira uma sequência visual passo a passo em vez de frase.
+function renderImpacto(insight){
+  if(idBase(insight)==='financeiro-contas-desequilibradas'){
+    const ev=insight.evidencias, projNeg=ev.caixa_projetado<0;
+    return `<div class="ia-waterfall">
+      <div class="ia-wf-step"><span class="ia-wf-lbl">Caixa hoje</span><span class="ia-wf-val">${money(ev.caixa)}</span></div>
+      <div class="ia-wf-arrow">↓</div>
+      <div class="ia-wf-step"><span class="ia-wf-lbl">Compromissos</span><span class="ia-wf-val neg">-${money(ev.a_pagar)}</span></div>
+      <div class="ia-wf-arrow">↓</div>
+      <div class="ia-wf-step"><span class="ia-wf-lbl">Recebimentos previstos</span><span class="ia-wf-val pos">+${money(ev.a_receber)}</span></div>
+      <div class="ia-wf-arrow">↓</div>
+      <div class="ia-wf-step final"><span class="ia-wf-lbl">Caixa estimado</span><span class="ia-wf-val ${projNeg?'neg':''}">${money(ev.caixa_projetado)}</span></div>
+    </div>`;
+  }
+  const txt = IMPACTO[idBase(insight)];
+  return txt ? esc(txt) : '';
 }
 
 // RESUMO EXECUTIVO — 1 frase no topo do bloco, cruzando setores só quando há evidência dupla
@@ -965,28 +1122,32 @@ function renderInteligenciaNuvix(){
   const atual = coletarMetricas(periodo.de, periodo.ate);
   const anterior = coletarMetricas(antDe, antAte);
   const diff = compararPeriodos(atual, anterior);
-  const {principais, todos} = priorizarInsights(avaliarRegras(atual, anterior, diff));
+  const timeline = construirTimeline();
+  const {principais, todos} = priorizarInsights(avaliarRegras(atual, anterior, diff, timeline));
   const resumo = gerarResumoExecutivo(atual, diff, principais);
   const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
   const overflow = todos.length - principais.length;
 
   const linha = ins=>{
     const oQueAconteceu = gerarNarrativaTemplate(ins);
-    const impacto = IMPACTO[idBase(ins)] || '';
+    const porque = PORQUE_IMPORTA[idBase(ins)] || '';
+    const impactoHTML = renderImpacto(ins);
+    const bloco = (lbl,conteudoHTML)=>conteudoHTML ? `<div class="ia-block"><span class="ia-block-lbl">${lbl}</span><div class="ia-block-txt">${conteudoHTML}</div></div>` : '';
     return `<div class="ia-row">
       <span class="ia-dot ${ins.categoria}"></span>
       <div class="ia-row-body">
         <div class="ia-row-hd"><span class="ia-badge">${CATEGORIA_LBL[ins.categoria]}</span></div>
         <div class="ia-row-titulo">${esc(ins.titulo)}</div>
-        <div class="ia-row-texto">${esc(oQueAconteceu)}</div>
-        ${impacto?`<div class="ia-row-impacto"><b>Impacto:</b> ${esc(impacto)}</div>`:''}
-        <div class="ia-row-acao"><b>Ação recomendada:</b> ${esc(ins.recomendacao)}</div>
+        ${bloco('O que está acontecendo', esc(oQueAconteceu))}
+        ${bloco('Por que importa', esc(porque))}
+        ${bloco('Impacto provável', impactoHTML)}
+        ${bloco('O que eu faço', esc(ins.recomendacao))}
         <div class="ia-row-footer"><span>Confiança: ${ins.confianca} · ${periodoFmt}</span><a href="${ins.href}">Ver em ${ins.href.replace('.html','')} →</a></div>
       </div>
     </div>`;
   };
 
-  const linhas = principais.length ? principais.map(linha).join('') : `<div class="ia-row"><div class="ia-row-body"><div class="ia-row-texto">Nenhum ponto relevante para destacar neste período.</div></div></div>`;
+  const linhas = principais.length ? principais.map(linha).join('') : `<div class="ia-row"><div class="ia-row-body"><div class="ia-block-txt">Nenhum ponto relevante para destacar neste período.</div></div></div>`;
   const verTodos = overflow>0 ? `<button type="button" class="ia-vertodos" onclick="this.nextElementSibling.classList.toggle('open');this.style.display='none'">Ver todos os insights (${todos.length}) →</button><div class="ia-extra">${todos.slice(principais.length).map(linha).join('')}</div>` : '';
 
   setHTML('inteligenciaNuvix', `
