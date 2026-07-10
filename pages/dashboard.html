@@ -96,18 +96,29 @@
 .kpi-trend.down{background:var(--red-bg);color:var(--red)}
 .kpi-trend svg{width:11px;height:11px;stroke-width:2}
 
-/* ── Saúde geral — 5 setores, status + 1 headline cada, sem dinheiro repetido ── */
-.sector-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
-.sector-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;min-width:0}
-.sector-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--txt)}
-.sector-hd svg{width:15px;height:15px;stroke-width:1.75;color:var(--p);flex-shrink:0}
-.sector-headline{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:-.01em;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sector-sub{font-size:11.5px;color:var(--muted2)}
-.ponto-atencao{display:flex;align-items:center;gap:10px;border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;font-weight:600;margin-bottom:14px;text-decoration:none;transition:opacity .15s}
-.ponto-atencao:hover{opacity:.85}
-.ponto-atencao.crit{background:var(--red-bg);color:var(--red)}
-.ponto-atencao.warn{background:var(--amber-bg);color:var(--amber)}
-.ponto-atencao svg{width:16px;height:16px;stroke-width:1.75;flex-shrink:0}
+/* ── Hero consolidado — caixa + tira de status dos 5 setores + top insight, tudo em 1 lugar ── */
+.hero-status-strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.hstat{flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px}
+.hstat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:flex;align-items:center;gap:5px}
+.hstat-lbl .atencao-dot{width:6px;height:6px}
+.hstat-val{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero-insight{border-top:1px solid var(--line);margin-top:16px;padding-top:16px;display:flex;align-items:flex-start;gap:12px}
+.hero-insight-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.hero-insight-dot.prioridade{background:var(--red)}
+.hero-insight-dot.atencao{background:var(--amber)}
+.hero-insight-dot.oportunidade{background:var(--green)}
+.hero-insight-dot.informacao{background:var(--blue)}
+.hero-insight-txt{flex:1;font-size:13.5px;color:var(--muted);line-height:1.5}
+.hero-insight-txt b{color:var(--txt);font-weight:700}
+.hero-insight-link{font-size:12.5px;color:var(--p);font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;background:none;border:none;cursor:pointer;font-family:inherit}
+
+/* ── Navegação por abas — cada setor vira uma aba, sem scroll infinito ── */
+.tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px;margin:20px 0;overflow-x:auto}
+.tab{padding:9px 16px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);background:transparent;border:none;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.tab.active{background:var(--p);color:#fff}
+.tab:hover:not(.active){background:var(--p-light);color:var(--p)}
+.pane{display:none}
+.pane.active{display:block}
 
 /* ── Blocos de detalhe por setor (Comercial/Operação/Materiais) — 4 cards, mesma linguagem do KPI grid ── */
 .kpi-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
@@ -135,7 +146,6 @@
 .ia-vertodos{margin-top:14px;background:none;border:none;color:var(--p);font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
 .ia-extra{display:none;flex-direction:column}
 .ia-extra.open{display:flex}
-.ia-footer a{color:var(--p);font-weight:600;text-decoration:none}
 
 /* ── Alertas (estilo CFO, compacto) — separadores quase invisíveis, hover suave ── */
 .atencao-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:14px;font-weight:500;color:var(--txt);transition:background-color .15s ease}
@@ -185,8 +195,8 @@
 .top-name{font-size:14px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
 .top-val{font-size:13px;color:var(--muted);font-weight:600;flex-shrink:0;white-space:nowrap}
 
-@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}.sector-grid{grid-template-columns:repeat(3,1fr)}.dash-hero{flex-direction:column}.hero-divider{width:auto;height:1px;align-self:stretch}}
-@media(max-width:768px){#hambBtn{display:block!important}.kpi-grid{grid-template-columns:1fr 1fr}.kpi-grid-4{grid-template-columns:1fr 1fr}.sector-grid{grid-template-columns:1fr 1fr}.recent-grid{grid-template-columns:1fr}#cloudCanvas3D{display:none}}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}.dash-hero{flex-direction:column}.hero-divider{width:auto;height:1px;align-self:stretch}}
+@media(max-width:768px){#hambBtn{display:block!important}.kpi-grid{grid-template-columns:1fr 1fr}.kpi-grid-4{grid-template-columns:1fr 1fr}.hero-status-strip{flex-direction:column}.recent-grid{grid-template-columns:1fr}#cloudCanvas3D{display:none}}
 </style>
 </head>
 <body>
@@ -298,17 +308,9 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
         </div>
       </div>
 
-      <!-- 1 · SAÚDE GERAL — como cada área está, em 3 segundos. Sem dinheiro repetido aqui. -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Saúde geral</div>
-      <div id="pontoAtencao"></div>
-      <div class="sector-grid" id="setoresGrid"></div>
-
-      <!-- 2 · INTELIGÊNCIA NUVIX — motor de regras determinístico prioriza, narrativa explica -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 3a6 6 0 0 0-6 6c0 2 1 3 2 4v2h8v-2c1-1 2-2 2-4a6 6 0 0 0-6-6Z"/><line x1="10" y1="19" x2="14" y2="19"/><line x1="11" y1="22" x2="13" y2="22"/></svg> Inteligência Nuvix</div>
-      <div id="inteligenciaNuvix" style="margin-bottom:20px"></div>
-
-      <!-- 3 · FINANCEIRO — tenho dinheiro? Único lugar da tela com valores em R$. -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Financeiro</div>
+      <!-- HERO CONSOLIDADO — caixa, tira de status dos 5 setores e o insight mais importante,
+           tudo em 1 único bloco de abertura (substitui os antigos Saúde Geral + Inteligência
+           Nuvix + Hero do Financeiro empilhados) -->
       <div class="dash-hero">
         <canvas id="cloudCanvas3D"></canvas>
         <span class="hero-badge-corner" id="heroStatusBadge"></span>
@@ -330,76 +332,103 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
           </div>
         </div>
       </div>
-      <div class="kpi-grid" id="indicadores" style="margin-top:20px"></div>
-      <div class="chart-card">
-        <div class="chart-hd-row">
-          <div>
-            <div class="chart-title">Recebido vs Pago</div>
-            <div class="chart-sub" id="subFluxo">—</div>
-          </div>
-          <div class="mini-period" id="fluxoPeriodoBtns">
-            <button class="mini-p-btn" onclick="setFluxoPeriodo(12,this)">12 dias</button>
-            <button class="mini-p-btn active" onclick="setFluxoPeriodo(30,this)">30 dias</button>
-            <button class="mini-p-btn" onclick="setFluxoPeriodo(60,this)">60 dias</button>
-          </div>
-        </div>
-        <div style="position:relative;height:210px">
-          <canvas id="chartFluxo"></canvas>
-        </div>
-      </div>
-      <div class="recent-grid" style="margin-top:16px">
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Próximos recebimentos</h3>
-            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
-          </div>
-          <div class="recent-body" id="proximosRecebimentos"></div>
-        </div>
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Próximos pagamentos</h3>
-            <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
-          </div>
-          <div class="recent-body" id="proximosPagamentos"></div>
-        </div>
+      <div class="hero-status-strip" id="heroStatusStrip"></div>
+      <div class="hero-insight" id="heroInsight"></div>
+
+      <!-- ABAS — cada setor vira uma aba, sem scroll infinito -->
+      <div class="tabs">
+        <button class="tab active" onclick="abrirAba('geral',this)">Visão geral</button>
+        <button class="tab" onclick="abrirAba('financeiro',this)">Financeiro</button>
+        <button class="tab" onclick="abrirAba('comercial',this)">Comercial</button>
+        <button class="tab" onclick="abrirAba('operacao',this)">Operação</button>
+        <button class="tab" onclick="abrirAba('materiais',this)">Materiais</button>
+        <button class="tab" onclick="abrirAba('rh',this)">RH</button>
+        <button class="tab" onclick="abrirAba('atividade',this)">Atividade</button>
       </div>
 
-      <!-- 4 · COMERCIAL — estou vendendo? -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Comercial</div>
-      <div class="kpi-grid-4" id="comercialKpis"></div>
-      <div class="recent-grid" style="margin-top:16px">
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Top clientes</h3>
-            <a href="app.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+      <!-- VISÃO GERAL — Inteligência Nuvix completa -->
+      <div class="pane active" id="pane-geral">
+        <div id="inteligenciaNuvix"></div>
+      </div>
+
+      <!-- FINANCEIRO — tenho dinheiro? Único lugar da tela com valores em R$. -->
+      <div class="pane" id="pane-financeiro">
+        <div class="kpi-grid" id="indicadores"></div>
+        <div class="chart-card">
+          <div class="chart-hd-row">
+            <div>
+              <div class="chart-title">Recebido vs Pago</div>
+              <div class="chart-sub" id="subFluxo">—</div>
+            </div>
+            <div class="mini-period" id="fluxoPeriodoBtns">
+              <button class="mini-p-btn" onclick="setFluxoPeriodo(12,this)">12 dias</button>
+              <button class="mini-p-btn active" onclick="setFluxoPeriodo(30,this)">30 dias</button>
+              <button class="mini-p-btn" onclick="setFluxoPeriodo(60,this)">60 dias</button>
+            </div>
           </div>
-          <div class="recent-body" id="topClientes"></div>
+          <div style="position:relative;height:210px">
+            <canvas id="chartFluxo"></canvas>
+          </div>
         </div>
-        <div class="recent-card">
-          <div class="recent-hdr">
-            <h3>Serviços mais vendidos</h3>
-            <a href="servicos.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+        <div class="recent-grid" style="margin-top:16px">
+          <div class="recent-card">
+            <div class="recent-hdr">
+              <h3>Próximos recebimentos</h3>
+              <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+            </div>
+            <div class="recent-body" id="proximosRecebimentos"></div>
           </div>
-          <div class="recent-body" id="topServicos"></div>
+          <div class="recent-card">
+            <div class="recent-hdr">
+              <h3>Próximos pagamentos</h3>
+              <a href="financeiro.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+            </div>
+            <div class="recent-body" id="proximosPagamentos"></div>
+          </div>
         </div>
       </div>
 
-      <!-- 5 · OPERAÇÃO — estou entregando? -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/></svg> Operação</div>
-      <div class="kpi-grid-4" id="operacaoKpis"></div>
+      <!-- COMERCIAL — estou vendendo? -->
+      <div class="pane" id="pane-comercial">
+        <div class="kpi-grid-4" id="comercialKpis"></div>
+        <div class="recent-grid" style="margin-top:16px">
+          <div class="recent-card">
+            <div class="recent-hdr">
+              <h3>Top clientes</h3>
+              <a href="app.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+            </div>
+            <div class="recent-body" id="topClientes"></div>
+          </div>
+          <div class="recent-card">
+            <div class="recent-hdr">
+              <h3>Serviços mais vendidos</h3>
+              <a href="servicos.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+            </div>
+            <div class="recent-body" id="topServicos"></div>
+          </div>
+        </div>
+      </div>
 
-      <!-- 6 · MATERIAIS — vou parar por falta de material? -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg> Materiais</div>
-      <div class="kpi-grid-4" id="materiaisKpis"></div>
+      <!-- OPERAÇÃO — estou entregando? -->
+      <div class="pane" id="pane-operacao">
+        <div class="kpi-grid-4" id="operacaoKpis"></div>
+      </div>
 
-      <!-- 7 · RH — minha equipe está saudável? -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> RH</div>
-      <div class="kpi-grid" id="rhKpis"></div>
+      <!-- MATERIAIS — vou parar por falta de material? -->
+      <div class="pane" id="pane-materiais">
+        <div class="kpi-grid-4" id="materiaisKpis"></div>
+      </div>
 
-      <!-- 8 · ÚLTIMAS MOVIMENTAÇÕES -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Últimas movimentações</div>
-      <div class="recent-card">
-        <div class="recent-body" id="ultimasMovimentacoes"></div>
+      <!-- RH — minha equipe está saudável? -->
+      <div class="pane" id="pane-rh">
+        <div class="kpi-grid" id="rhKpis"></div>
+      </div>
+
+      <!-- ATIVIDADE — últimas movimentações -->
+      <div class="pane" id="pane-atividade">
+        <div class="recent-card">
+          <div class="recent-body" id="ultimasMovimentacoes"></div>
+        </div>
       </div>
 
     </div>
@@ -530,6 +559,14 @@ function toggleAnalise(){
   const aberto=painel.classList.toggle('open');
   seta.classList.toggle('open', aberto);
 }
+// ABAS — troca qual setor está visível, em vez de empilhar tudo num scroll só.
+function abrirAba(id, btn){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  $('pane-'+id)?.classList.add('active');
+  if(btn) btn.classList.add('active');
+  else document.querySelector(`.tab[onclick*="'${id}'"]`)?.classList.add('active');
+}
 function setDirecao(dir, btn){
   document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
@@ -574,7 +611,6 @@ async function loadData(){
 // RENDER ALL
 function renderAll(){
   renderSetores();
-  renderPontoAtencao();
   renderInteligenciaNuvix();
   renderHeroDiagnostico();
   renderIndicadores();
@@ -664,8 +700,9 @@ const pathMateriais='<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A
 const pathRH='<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>';
 const pathFinanceiro='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
 
-// SAÚDE GERAL — 1 status + 1 headline por área. Financeiro mostra a PALAVRA do status, nunca o R$
-// (o valor mora exclusivamente na seção Financeiro, mais abaixo).
+// SAÚDE GERAL — 1 status + 1 headline por área, renderizada como tira compacta dentro do Hero
+// consolidado. Financeiro mostra a PALAVRA do status, nunca o R$ (o valor mora exclusivamente
+// na aba Financeiro).
 function renderSetores(){
   const {de:antDe,ate:antAte} = periodoAnterior();
   const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
@@ -688,31 +725,18 @@ function renderSetores(){
 
   const rhCls = rh.faltas>=3 ? 'warn' : 'ok';
 
-  const card=(path,titulo,cls,headline,sub)=>`<div class="sector-card">
-    <div class="sector-hd">${icoSVG(path)} ${titulo}<span class="atencao-dot ${cls}" style="margin-left:auto"></span></div>
-    <div class="sector-headline">${headline}</div>
-    <div class="sector-sub">${sub}</div>
+  const stat=(titulo,cls,headline)=>`<div class="hstat">
+    <div class="hstat-lbl"><span class="atencao-dot ${cls}"></span>${titulo}</div>
+    <div class="hstat-val">${headline}</div>
   </div>`;
 
-  setHTML('setoresGrid', [
-    card(pathComercial,'Comercial',comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`, 'no período'),
-    card(pathOperacao,'Operação',oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`, 'no período'),
-    card(pathMateriais,'Materiais',matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mínimo` : 'Estoque em dia', 'agora'),
-    card(pathRH,'RH',rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`, 'ativos agora'),
-    card(pathFinanceiro,'Financeiro',fin.cls, fin.txt, 'posição atual'),
+  setHTML('heroStatusStrip', [
+    stat('Comercial', comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`),
+    stat('Operação', oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`),
+    stat('Materiais', matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mín.` : 'Estoque em dia'),
+    stat('RH', rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`),
+    stat('Financeiro', fin.cls, fin.txt),
   ].join(''));
-}
-
-// PONTO DE ATENÇÃO — reaproveita calcAcoes() (mesma priorização já usada no CFO) e mostra só o item
-// mais urgente como uma linha de destaque dentro de Saúde Geral. Substitui a antiga seção "Alertas":
-// cada pendência específica já aparece dentro da seção do setor dela (OS atrasada em Operação,
-// estoque zerado em Materiais etc.) — aqui só o item nº1, pra responder "tenho algo urgente?" em 1s.
-function renderPontoAtencao(){
-  const acoes=calcAcoes();
-  const top=acoes.find(a=>a.urg==='crit')||acoes[0];
-  if(!top){ setHTML('pontoAtencao',''); return; }
-  const icoAlerta='<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
-  setHTML('pontoAtencao', `<a class="ponto-atencao ${top.urg}" href="${top.href}">${icoSVG(icoAlerta)}<span>${esc(top.txt)}${top.val?' — '+top.val:''}</span></a>`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -972,6 +996,18 @@ function renderInteligenciaNuvix(){
       <div class="ia-lista">${linhas}</div>
       ${verTodos}
     </div>`);
+
+  // Teaser no Hero consolidado: só o insight nº1, com link pra abrir a aba "Visão geral".
+  const top = principais[0];
+  if(top){
+    const oQueAconteceu = gerarNarrativaTemplate(top);
+    setHTML('heroInsight', `
+      <span class="hero-insight-dot ${top.categoria}"></span>
+      <span class="hero-insight-txt"><b>${esc(top.titulo)}.</b> ${esc(oQueAconteceu)}</span>
+      <button type="button" class="hero-insight-link" onclick="abrirAba('geral')">Ver Inteligência Nuvix →</button>`);
+  }else{
+    setHTML('heroInsight', '');
+  }
 }
 
 // Ícones (SVG inline) reaproveitados nos indicadores e ações
@@ -1187,45 +1223,6 @@ function renderRH(){
     {ico:icoClock,cls:'b',lbl:'Em férias',val:r.emFerias,sub:'agora'},
     {ico:icoDown,cls:r.faltas>0?'r':'m',lbl:'Faltas',val:r.faltas,sub:'no período'},
   ]));
-}
-
-// ATENÇÃO — a mesma leitura de um CFO: fatos interpretados, não contadores soltos.
-// Reaproveita as mesmas fórmulas já existentes (vencendo hoje, orçamento com prazo vencido,
-// estoque crítico) — só muda a apresentação, de "card informativo" pra frase priorizada.
-function calcAcoes(){
-  const hj=hoje();
-  const acoes=[];
-  const soma=l=>l.reduce((a,f)=>a+Number(f.valor||0),0);
-  const pl=(n,s,p)=>n>1?p:s;
-
-  const vHj = dados.fin.filter(f=>String(f.vencimento||'').slice(0,10)===hj && !['Pago','Recebido'].includes(f.status||''));
-  const vHjRec=vHj.filter(f=>f.tipo==='Receita'), vHjDesp=vHj.filter(f=>f.tipo==='Despesa');
-  if(vHjRec.length) acoes.push({txt:`${vHjRec.length} conta${pl(vHjRec.length,'','s')} a receber vence${pl(vHjRec.length,'','m')} hoje`,val:money(soma(vHjRec)),urg:'warn',href:'financeiro.html?venc=hoje'});
-  if(vHjDesp.length) acoes.push({txt:`${vHjDesp.length} conta${pl(vHjDesp.length,'','s')} a pagar vence${pl(vHjDesp.length,'','m')} hoje`,val:money(soma(vHjDesp)),urg:'crit',href:'financeiro.html?venc=hoje'});
-
-  const atrasRec = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj);
-  if(atrasRec.length) acoes.push({txt:`${atrasRec.length} cliente${pl(atrasRec.length,'','s')} inadimplente${pl(atrasRec.length,'','s')}`,val:money(soma(atrasRec)),urg:'crit',href:'financeiro.html'});
-
-  const atrasDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj);
-  if(atrasDesp.length) acoes.push({txt:`${atrasDesp.length} conta${pl(atrasDesp.length,'','s')} sua${pl(atrasDesp.length,'','s')} em atraso`,val:money(soma(atrasDesp)),urg:'crit',href:'financeiro.html'});
-
-  const parados = dados.orc.filter(o=>{const v=String(o.validade||'').slice(0,10);return v&&v<hj&&!['Finalizado','Recusado'].includes(o.status||'');});
-  if(parados.length) acoes.push({txt:`${parados.length} orçamento${pl(parados.length,'','s')} com prazo vencido, sem retorno`,val:'',urg:'warn',href:'servicos.html'});
-
-  const zerado = dados.mats.filter(m=>Number(m.estoque_atual||0)===0);
-  if(zerado.length) acoes.push({txt:`${zerado.length} material${pl(zerado.length,'','is')} zerado${pl(zerado.length,'','s')} no estoque`,val:'',urg:'crit',href:'materiais.html'});
-
-  const baixo = dados.mats.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);
-  if(baixo.length) acoes.push({txt:`${baixo.length} material${pl(baixo.length,'','is')} abaixo do mínimo`,val:'',urg:'warn',href:'materiais.html'});
-
-  const osAtrasadas = (dados.os||[]).filter(o=>!['Concluída','Cancelada'].includes(o.status||'')&&String(o.data_agendada||'').slice(0,10)&&String(o.data_agendada||'').slice(0,10)<hj);
-  if(osAtrasadas.length) acoes.push({txt:`${osAtrasadas.length} ${osAtrasadas.length>1?'ordens de serviço atrasadas':'ordem de serviço atrasada'} (data agendada)`,val:'',urg:'warn',href:'os.html'});
-
-  const rhPeriodo = calcRHSetor(periodo.de,periodo.ate);
-  if(rhPeriodo.faltas>=3) acoes.push({txt:`${rhPeriodo.faltas} faltas registradas no período`,val:'',urg:'warn',href:'rh.html'});
-
-  acoes.sort((a,b)=>(a.urg==='crit'?0:1)-(b.urg==='crit'?0:1));
-  return acoes;
 }
 
 // FLUXO DE CAIXA — janela própria (não usa o filtro Período do topo, que é só pra "Movimento do
