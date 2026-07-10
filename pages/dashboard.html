@@ -41,16 +41,17 @@
 .info-tooltip b{font-weight:800}
 .info-btn:hover .info-tooltip,.info-btn:focus .info-tooltip{opacity:1}
 .info-tooltip::before{content:'';position:absolute;top:-5px;right:10px;width:9px;height:9px;background:var(--p2);transform:rotate(45deg)}
-.custom-range{display:flex;align-items:center;gap:8px;max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
-.custom-range.open{max-height:60px;opacity:1;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.custom-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .custom-range input{padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--txt)}
 .custom-range span{font-size:12px;color:var(--muted)}
+.custom-range-lbl{font-size:11px;color:var(--muted2);white-space:nowrap}
 .dir-toggle{display:flex;align-items:center;gap:10px;max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
 .dir-toggle.open{max-height:60px;opacity:1;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .dir-toggle-lbl{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
 .dir-pills{display:flex;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px}
 .dir-pill{padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s}
 .dir-pill.active{background:var(--p2);color:#fff}
+.dir-hint{font-size:11px;color:var(--muted2)}
 .filter-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .filtro-resumo{font-size:12px;color:var(--muted);font-weight:600}
 .filtro-resumo b{color:var(--p2);font-weight:700}
@@ -199,9 +200,9 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
               <button class="period-btn active" onclick="setPeriodo('30',this)">30 dias</button>
               <button class="period-btn" onclick="setPeriodo('90',this)">3 meses</button>
               <button class="period-btn" onclick="setPeriodo('180',this)">6 meses</button>
-              <button class="period-btn" onclick="setPeriodo('custom',this)">Personalizado</button>
             </div>
             <div class="custom-range" id="customRangeWrap">
+              <span class="custom-range-lbl">ou escolha as datas:</span>
               <input type="date" id="periodoDE" onchange="setPeriodoCustom()">
               <span>até</span>
               <input type="date" id="periodoATE" onchange="setPeriodoCustom()">
@@ -230,6 +231,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
                 <button class="dir-pill active" onclick="setDirecao('passado',this)">Vencidos</button>
                 <button class="dir-pill" onclick="setDirecao('futuro',this)">A vencer</button>
               </div>
+              <span class="dir-hint">vale pra receitas e despesas juntas</span>
             </div>
           </div>
         </div>
@@ -388,9 +390,6 @@ function setPeriodo(dias, btn){
   document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   periodo.dias = dias;
-  const isCustom = dias==='custom';
-  if($('customRangeWrap'))$('customRangeWrap').classList.toggle('open', isCustom);
-  if(isCustom) return; // aguarda o usuário preencher as datas
   recomputePeriodo();
   renderAll();
   atualizarLegendaFiltro();
@@ -398,6 +397,7 @@ function setPeriodo(dias, btn){
 function setPeriodoCustom(){
   const de=val('periodoDE'), ate=val('periodoATE');
   if(!de||!ate)return;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active')); // datas manuais não correspondem a nenhuma pill fixa
   periodo = {dias:'custom', de, ate};
   renderAll();
   atualizarLegendaFiltro();
@@ -570,9 +570,19 @@ function renderAlertas(){
   const mats=dados.mats;
   let html='';
   const vencHj=fin.filter(f=>String(f.vencimento||'').slice(0,10)===hj&&f.status==='Pendente');
-  if(vencHj.length){
-    const tot=vencHj.reduce((a,f)=>a+Number(f.valor||0),0);
-    html+=`<div class="alert-strip alert-amber"><div style="display:flex;align-items:center;gap:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div><b style="color:var(--txt)">${vencHj.length} vencimento(s) hoje</b><div style="font-size:12px;color:var(--muted)">Total: ${money(tot)}</div></div></div><a href="financeiro.html" style="background:var(--p);color:#fff;padding:7px 14px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">Ver →</a></div>`;
+  const recHj=vencHj.filter(f=>f.tipo==='Receita');
+  const despHj=vencHj.filter(f=>f.tipo==='Despesa');
+  if(recHj.length||despHj.length){
+    const totRec=recHj.reduce((a,f)=>a+Number(f.valor||0),0);
+    const totDesp=despHj.reduce((a,f)=>a+Number(f.valor||0),0);
+    html+=`<div class="alert-strip alert-amber">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div><b style="color:var(--txt)">Vencendo hoje</b><div style="font-size:11px;color:var(--muted)">receitas e despesas com vencimento em ${fmtData(hj)}</div></div></div>
+        ${recHj.length?`<div><div style="font-size:11px;font-weight:700;color:var(--green,#059669)">${recHj.length} a receber</div><div style="font-size:14px;font-weight:800;color:var(--green,#059669)">${money(totRec)}</div></div>`:''}
+        ${despHj.length?`<div><div style="font-size:11px;font-weight:700;color:#DC2626">${despHj.length} a pagar</div><div style="font-size:14px;font-weight:800;color:#DC2626">${money(totDesp)}</div></div>`:''}
+      </div>
+      <a href="financeiro.html?venc=hoje" style="background:var(--p);color:#fff;padding:7px 14px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">Ver →</a>
+    </div>`;
   }
   const zer=mats.filter(m=>Number(m.estoque_atual||0)===0);
   const bx=mats.filter(m=>Number(m.estoque_atual||0)>0&&Number(m.estoque_atual||0)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0);

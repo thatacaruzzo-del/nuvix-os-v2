@@ -224,6 +224,10 @@ function can(area){const s=getSession();if(!s)return false;return true;}
         </div>
 
         <div class="card" style="margin-top:4px">
+          <div id="filtroDiaBanner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);color:var(--p2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600">
+            <span id="filtroDiaTexto"></span>
+            <a href="#" onclick="limparFiltroDia();return false" style="color:var(--p2);font-weight:700;text-decoration:underline;white-space:nowrap">Ver todos os lançamentos</a>
+          </div>
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
             <div><label>Tipo</label><select id="filtTipo" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Receita</option><option>Despesa</option></select></div>
             <div><label>Status</label><select id="filtStatus" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Pendente</option><option>Pago</option><option>Recebido</option><option>Vencido</option></select></div>
@@ -346,6 +350,7 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 const session = requireAuth();
 let financeiro = [];
 let fluxoFiltro = 'todos';
+let filtroDiaURL = ''; // vencimento único vindo de um link externo (ex: alerta do Dashboard), sobrepõe o filtro de mês
 
 async function init(){
   if(!session)return;
@@ -359,6 +364,8 @@ async function init(){
   }
   if($('lanData'))$('lanData').value=hoje();
   if($('filtMes'))$('filtMes').value=hoje().slice(0,7);
+  const vencParam=new URLSearchParams(location.search).get('venc');
+  if(vencParam)aplicarFiltroDia(vencParam==='hoje'?hoje():vencParam);
   await loadData();
   init3DCloud();
 }
@@ -651,13 +658,30 @@ function limparLancamento(){
   $('lanTitulo').textContent='Novo lançamento';
 }
 
+// ── FILTRO POR DIA (vindo de um link externo, ex: alerta "vencendo hoje" do Dashboard) ──
+function aplicarFiltroDia(data){
+  filtroDiaURL=data;
+  const banner=$('filtroDiaBanner');
+  if(banner){banner.style.display='flex';$('filtroDiaTexto').textContent='Filtrando por vencimento: '+fmtData(data);}
+}
+function limparFiltroDia(){
+  filtroDiaURL='';
+  if($('filtroDiaBanner'))$('filtroDiaBanner').style.display='none';
+  history.replaceState(null,'','financeiro.html');
+  renderLancamentos();
+}
+
 // ── RENDER LANÇAMENTOS ──
 function renderLancamentos(){
   const tipo=val('filtTipo'),status=val('filtStatus'),mes=val('filtMes'),busca=val('filtBusca').toLowerCase(),hj=hoje();
   let lista=financeiro;
+  if(filtroDiaURL){
+    lista=lista.filter(f=>String(f.vencimento||'').slice(0,10)===filtroDiaURL);
+  }else{
+    if(mes)lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,7)===mes);
+  }
   if(tipo)lista=lista.filter(f=>f.tipo===tipo);
   if(status)lista=lista.filter(f=>f.status===status);
-  if(mes)lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,7)===mes);
   if(busca)lista=lista.filter(f=>(f.descricao||'').toLowerCase().includes(busca)||(f.categoria||'').toLowerCase().includes(busca)||(f.favorecido||'').toLowerCase().includes(busca));
   const totalRec=lista.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
   const totalDesp=lista.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
