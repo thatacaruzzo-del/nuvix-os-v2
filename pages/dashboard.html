@@ -28,6 +28,13 @@
 .competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .comp-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
 .comp-btn.active{background:var(--p2);color:#fff}
+.rec-badge{display:block;font-size:8.5px;font-weight:700;letter-spacing:.02em;opacity:.7;margin-top:1px;text-transform:uppercase}
+.mais-opcoes-toggle{background:none;border:none;color:var(--muted2);font-size:11px;font-weight:600;cursor:pointer;padding:6px 2px 0;display:flex;align-items:center;gap:4px}
+.mais-opcoes-toggle:hover{color:var(--p)}
+.mais-opcoes-arrow{display:inline-block;transition:transform .2s ease;font-size:9px}
+.mais-opcoes-arrow.open{transform:rotate(180deg)}
+.mais-opcoes-panel{max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
+.mais-opcoes-panel.open{max-height:60px;opacity:1;margin-top:8px}
 
 /* Filtro reformulado: dois grupos (Período / Base da consulta) + resumo em texto */
 .filter-panel{margin-bottom:18px}
@@ -222,8 +229,11 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
               </button>
             </div>
             <div class="competencia-btns">
-              <button class="comp-btn active" onclick="setCompetencia('vencimento',this)">Vencimento</button>
+              <button class="comp-btn active" onclick="setCompetencia('vencimento',this)">Vencimento<span class="rec-badge">recomendado</span></button>
               <button class="comp-btn" onclick="setCompetencia('pagamento',this)">Pagamento</button>
+            </div>
+            <button type="button" class="mais-opcoes-toggle" onclick="toggleMaisOpcoes()">Mais opções <span id="maisOpcoesArrow" class="mais-opcoes-arrow">▾</span></button>
+            <div class="mais-opcoes-panel" id="maisOpcoesPanel">
               <button class="comp-btn" onclick="setCompetencia('lancamento',this)">Lançamento</button>
             </div>
             <div class="dir-toggle open" id="direcaoToggle">
@@ -258,33 +268,33 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
       <div class="kpi-grid" id="kpisOp" style="display:none"></div>
 
       <!-- GRÁFICOS -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Análises <span class="scope-tag off">janelas próprias — não usa o filtro</span></div>
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Análises <span class="scope-tag on">usa o filtro acima</span></div>
       <div class="charts-grid">
         <div class="chart-card">
           <div class="chart-title">Receita vs Despesa</div>
-          <div class="chart-sub">Evolução mensal (últimos 6 meses)</div>
+          <div class="chart-sub" id="subChartRD">—</div>
           <canvas id="chartRD" height="200"></canvas>
         </div>
         <div class="chart-card">
           <div class="chart-title">Orçamentos por status</div>
-          <div class="chart-sub">Distribuição atual</div>
+          <div class="chart-sub">Distribuição atual — não usa o filtro</div>
           <canvas id="chartOrc" height="200"></canvas>
         </div>
       </div>
       <div class="charts-3">
         <div class="chart-card">
-          <div class="chart-title">Receita mensal</div>
-          <div class="chart-sub">Últimos 6 meses</div>
+          <div class="chart-title">Receita</div>
+          <div class="chart-sub" id="subChartRec">—</div>
           <canvas id="chartRec" height="160"></canvas>
         </div>
         <div class="chart-card">
           <div class="chart-title">Despesas por categoria</div>
-          <div class="chart-sub">Histórico completo — não usa o filtro acima</div>
+          <div class="chart-sub" id="subChartCat">—</div>
           <canvas id="chartCat" height="160"></canvas>
         </div>
         <div class="chart-card">
-          <div class="chart-title">Saldo acumulado</div>
-          <div class="chart-sub">Receita - Despesa por mês</div>
+          <div class="chart-title">Saldo</div>
+          <div class="chart-sub" id="subChartSaldo">—</div>
           <canvas id="chartSaldo" height="160"></canvas>
         </div>
       </div>
@@ -418,6 +428,12 @@ function setCompetencia(tipo, btn){
   renderAll();
   atualizarLegendaFiltro();
 }
+function toggleMaisOpcoes(){
+  const painel=$('maisOpcoesPanel'), seta=$('maisOpcoesArrow');
+  const aberto=painel.classList.toggle('open');
+  seta.classList.toggle('open', aberto);
+  seta.textContent = aberto ? '▴' : '▾';
+}
 function setDirecao(dir, btn){
   document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
@@ -434,6 +450,9 @@ function getCampoData(f){
   // Vencimento: usa vencimento se disponível, senão data_lancamento
   return String(f.vencimento||f.data_lancamento||'').slice(0,10);
 }
+// Mesmo critério de "confirmado" usado nos KPIs do Dashboard e no Financeiro — usado também pelos gráficos.
+function isReceitaConfirmada(f){return['Recebido','Pago'].includes(f.status||'');}
+function isDespesaConfirmada(f){return f.status==='Pago';}
 
 // LOAD
 async function loadData(){
@@ -598,57 +617,94 @@ function renderCharts(){
   Chart.defaults.font.family="'Inter',system-ui";
   Chart.defaults.font.size=11;
   Chart.defaults.color='#6B7280';
-  const fin=dados.fin;
 
-  // 4 meses anteriores + mês atual + 1 futuro (para pegar lançamentos futuros)
-  // Função para obter mês do lançamento
-  const getDataGrafico = f => String(f.vencimento||f.data_lancamento||'').slice(0,7);
+  // Gráficos financeiros respeitam o mesmo filtro Período + Base da consulta do topo da tela.
+  let finF = filtrarPorPeriodo(dados.fin);
+  if(finF.length===0) finF = dados.fin; // evita gráfico vazio quando o período não tem nenhum lançamento
 
-  // Descobrir TODOS os meses que têm lançamentos (dinâmico!)
-  const mesesComDados = [...new Set(dados.fin.map(f=>getDataGrafico(f)).filter(m=>m))];
-  // Garantir mês atual e 2 anteriores mesmo sem dados
-  for(let i=2;i>=-2;i--){const d=new Date();d.setMonth(d.getMonth()-i);const m=dataLocal(d).slice(0,7);if(!mesesComDados.includes(m))mesesComDados.push(m);}
-  const meses=mesesComDados.sort();
-  const lblM=meses.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
-  const recM=meses.map(m=>dados.fin.filter(f=>f.tipo==='Receita'&&getDataGrafico(f)===m).reduce((a,f)=>a+Number(f.valor||0),0));
-  const despM=meses.map(m=>dados.fin.filter(f=>f.tipo==='Despesa'&&getDataGrafico(f)===m).reduce((a,f)=>a+Number(f.valor||0),0));
-  const saldoM=recM.map((r,i)=>r-despM[i]);
+  const spanDias = (periodo.de && periodo.ate) ? Math.max(1, Math.round((new Date(periodo.ate)-new Date(periodo.de))/864e5)) : 999;
+  const porDia = spanDias <= 45; // períodos curtos (até ~45 dias) ficam mais legíveis por dia do que por mês
 
+  let buckets;
+  if(porDia){
+    buckets=[];
+    const d=new Date((periodo.de||hoje())+'T12:00:00'), fim=new Date((periodo.ate||hoje())+'T12:00:00');
+    while(d<=fim){buckets.push(dataLocal(d));d.setDate(d.getDate()+1);}
+  }else{
+    const setM=new Set();
+    const d=new Date((periodo.de||hoje())+'T12:00:00'), fim=new Date((periodo.ate||hoje())+'T12:00:00');
+    d.setDate(1);
+    while(d<=fim){setM.add(dataLocal(d).slice(0,7));d.setMonth(d.getMonth()+1);}
+    buckets=[...setM].sort();
+  }
+  const lblBuckets = porDia
+    ? buckets.map(b=>{const p=b.split('-');return p[2]+'/'+p[1];})
+    : buckets.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
+  const bucketOf = f => porDia ? getCampoData(f).slice(0,10) : getCampoData(f).slice(0,7);
+  const granLbl = porDia ? 'por dia' : 'por mês';
+  const legendaBase = {vencimento:'vencimento',pagamento:'pagamento',lancamento:'lançamento'}[competencia];
+  const moneyTick = v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v;
+
+  // Confirmado (Recebido/Pago) e Previsto (pendente) SEMPRE separados — nunca somados na mesma série.
+  const recConf=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
+  const recPrev=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
+  const despConf=buckets.map(b=>finF.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
+  const despPrev=buckets.map(b=>finF.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
+
+  // ── Receita vs Despesa: confirmado sólido (dado principal), previsto claro/tracejado (complemento) ──
   if(charts.rd)charts.rd.destroy();
   const c1=$('chartRD');
-  if(c1)charts.rd=new Chart(c1,{type:'line',data:{labels:lblM,datasets:[
-    {label:'Receita',data:recM,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
-    {label:'Despesa',data:despM,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
+  if(c1)charts.rd=new Chart(c1,{type:'line',data:{labels:lblBuckets,datasets:[
+    {label:'Receita confirmada',data:recConf,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.1)',borderWidth:2,fill:true,tension:.3,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Receita prevista',data:recPrev,borderColor:'#C4B5FD',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],fill:false,tension:.3,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:'#C4B5FD',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Despesa confirmada',data:despConf,borderColor:'#6B7280',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.3,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6B7280',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Despesa prevista',data:despPrev,borderColor:'#D1D5DB',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],fill:false,tension:.3,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:'#D1D5DB',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
+  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:10.5}}}},scales:{x:{grid:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:moneyTick}}}}});
+  setHTML('subChartRD',`Confirmado sólido, previsto tracejado — ${granLbl}, por ${legendaBase}`);
 
+  // ── Orçamentos por status: domínio diferente (contagem, não dinheiro confirmado/pendente) ──
   if(charts.orc)charts.orc.destroy();
   const orcSt={};dados.orc.forEach(o=>{const s=o.status||'Rascunho';orcSt[s]=(orcSt[s]||0)+1;});
   const orcE=Object.entries(orcSt);
   const c2=$('chartOrc');
   if(c2&&orcE.length)charts.orc=new Chart(c2,{type:'doughnut',data:{labels:orcE.map(x=>x[0]),datasets:[{data:orcE.map(x=>x[1]),backgroundColor:['#6D28D9','#8B5CF6','#A78BFA','#C4B5FD','#DDD6FE','#E5E7EB'],borderWidth:0,borderRadius:8,spacing:2,hoverOffset:6}]},options:{responsive:true,cutout:'70%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,color:'#6B7280',font:{size:11}}}}}});
 
-  // Últimos 6 meses para o gráfico de linha
-  // meses6 = últimos 6 meses da lista dinâmica
-  const meses6=meses.slice(-6);
-  const lblM6=meses6.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+mo-1]+'/'+y.slice(2)});
-  const recM6=meses6.map(m=>dados.fin.filter(f=>f.tipo==='Receita'&&getDataGrafico(f)===m).reduce((a,f)=>a+Number(f.valor||0),0));
-  const despM6=meses6.map(m=>dados.fin.filter(f=>f.tipo==='Despesa'&&getDataGrafico(f)===m).reduce((a,f)=>a+Number(f.valor||0),0));
+  // ── Receita: confirmada vs prevista ──
   if(charts.rec)charts.rec.destroy();
   const c3=$('chartRec');
-  if(c3)charts.rec=new Chart(c3,{type:'line',data:{labels:lblM6,datasets:[
-    {label:'Receita',data:recM6,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
-    {label:'Despesa',data:despM6,borderColor:'#C4B5FD',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#C4B5FD',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
-  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
+  if(c3)charts.rec=new Chart(c3,{type:'line',data:{labels:lblBuckets,datasets:[
+    {label:'Confirmada',data:recConf,borderColor:'#6D28D9',backgroundColor:'rgba(109,40,217,.1)',borderWidth:2,fill:true,tension:.3,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D28D9',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Prevista',data:recPrev,borderColor:'#C4B5FD',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],fill:false,tension:.3,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:'#C4B5FD',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
+  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:moneyTick}}}}});
+  setHTML('subChartRec',`${granLbl}, por ${legendaBase}`);
 
-  const catMap={};dados.fin.filter(f=>f.tipo==='Despesa').forEach(f=>{const c=f.categoria||'Outros';catMap[c]=(catMap[c]||0)+Number(f.valor||0);});
-  const catE=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  // ── Despesas por categoria: confirmado sólido e previsto claro, lado a lado (nunca somados) ──
+  const catConf={}, catPrev={};
+  finF.filter(f=>f.tipo==='Despesa').forEach(f=>{
+    const c=f.categoria||'Outros';
+    if(isDespesaConfirmada(f)) catConf[c]=(catConf[c]||0)+Number(f.valor||0);
+    else catPrev[c]=(catPrev[c]||0)+Number(f.valor||0);
+  });
+  const categorias=[...new Set([...Object.keys(catConf),...Object.keys(catPrev)])]
+    .sort((a,b)=>((catConf[b]||0)+(catPrev[b]||0))-((catConf[a]||0)+(catPrev[a]||0))).slice(0,6);
   if(charts.cat)charts.cat.destroy();
   const c4=$('chartCat');
-  if(c4&&catE.length)charts.cat=new Chart(c4,{type:'bar',data:{labels:catE.map(x=>x[0].slice(0,14)),datasets:[{data:catE.map(x=>x[1]),backgroundColor:['#6D28D9','#8B5CF6','#A78BFA','#C4B5FD','#DDD6FE','#E5E7EB'],borderRadius:8,borderSkipped:false,maxBarThickness:20}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
+  if(c4&&categorias.length)charts.cat=new Chart(c4,{type:'bar',data:{labels:categorias.map(c=>c.slice(0,14)),datasets:[
+    {label:'Confirmado',data:categorias.map(c=>catConf[c]||0),backgroundColor:'#6D28D9',borderRadius:8,borderSkipped:false,maxBarThickness:16},
+    {label:'Previsto',data:categorias.map(c=>catPrev[c]||0),backgroundColor:'#DDD6FE',borderRadius:8,borderSkipped:false,maxBarThickness:16}
+  ]},options:{indexAxis:'y',responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,color:'#6B7280',font:{size:11}}}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:moneyTick}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
+  setHTML('subChartCat',`Só despesas, ${granLbl}, por ${legendaBase}`);
 
+  // ── Saldo: confirmado (recebido - pago) vs projetado (se tudo previsto também confirmasse) ──
+  const saldoConf=recConf.map((r,i)=>r-despConf[i]);
+  const saldoProj=recConf.map((r,i)=>(r+recPrev[i])-(despConf[i]+despPrev[i]));
   if(charts.saldo)charts.saldo.destroy();
   const c5=$('chartSaldo');
-  if(c5)charts.saldo=new Chart(c5,{type:'bar',data:{labels:lblM,datasets:[{label:'Saldo',data:saldoM,backgroundColor:saldoM.map(v=>v>=0?'rgba(109,40,217,.8)':'rgba(156,163,175,.6)'),borderRadius:10,borderSkipped:false,maxBarThickness:24}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:false,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
+  if(c5)charts.saldo=new Chart(c5,{type:'bar',data:{labels:lblBuckets,datasets:[
+    {label:'Confirmado',data:saldoConf,backgroundColor:saldoConf.map(v=>v>=0?'rgba(109,40,217,.85)':'rgba(107,114,128,.75)'),borderRadius:8,borderSkipped:false,maxBarThickness:18},
+    {label:'Projetado (c/ previsto)',data:saldoProj,backgroundColor:saldoProj.map(v=>v>=0?'rgba(109,40,217,.25)':'rgba(107,114,128,.25)'),borderRadius:8,borderSkipped:false,maxBarThickness:18}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:false,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:moneyTick}}}}});
+  setHTML('subChartSaldo',`Confirmado sólido, projetado claro — ${granLbl}`);
 }
 
 // RECENTES

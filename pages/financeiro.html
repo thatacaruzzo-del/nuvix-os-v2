@@ -19,6 +19,48 @@
 .fhs-val{font-size:20px;font-weight:800;color:#fff;line-height:1}
 .fhs-div{width:1px;background:rgba(255,255,255,.2);align-self:stretch}
 
+/* ── Filtro Período + Base da consulta (mesmo componente do Dashboard) ── */
+.period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
+.period-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
+.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,40,217,.3)}
+.period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
+.competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
+.comp-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
+.comp-btn.active{background:var(--p2);color:#fff}
+.rec-badge{display:block;font-size:8.5px;font-weight:700;letter-spacing:.02em;opacity:.7;margin-top:1px;text-transform:uppercase}
+.mais-opcoes-toggle{background:none;border:none;color:var(--muted2);font-size:11px;font-weight:600;cursor:pointer;padding:6px 2px 0;display:flex;align-items:center;gap:4px}
+.mais-opcoes-toggle:hover{color:var(--p)}
+.mais-opcoes-arrow{display:inline-block;transition:transform .2s ease;font-size:9px}
+.mais-opcoes-arrow.open{transform:rotate(180deg)}
+.mais-opcoes-panel{max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
+.mais-opcoes-panel.open{max-height:60px;opacity:1;margin-top:8px}
+.filter-panel{margin-bottom:18px}
+.filter-groups{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.fgroup{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;flex:1;min-width:280px}
+.fgroup-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.fgroup-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}
+.info-btn{width:16px;height:16px;border-radius:50%;background:var(--bg);color:var(--muted2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:help;position:relative;border:none}
+.info-btn:hover,.info-btn:focus{background:var(--p);color:#fff;outline:none}
+.info-tooltip{position:absolute;top:22px;right:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(76,29,149,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
+.info-tooltip b{font-weight:800}
+.info-btn:hover .info-tooltip,.info-btn:focus .info-tooltip{opacity:1}
+.info-tooltip::before{content:'';position:absolute;top:-5px;right:10px;width:9px;height:9px;background:var(--p2);transform:rotate(45deg)}
+.custom-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.custom-range input{padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--txt)}
+.custom-range span{font-size:12px;color:var(--muted)}
+.custom-range-lbl{font-size:11px;color:var(--muted2);white-space:nowrap}
+.dir-toggle{display:flex;align-items:center;gap:10px;max-height:0;opacity:0;overflow:hidden;transition:all .2s ease}
+.dir-toggle.open{max-height:60px;opacity:1;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.dir-toggle-lbl{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+.dir-pills{display:flex;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px}
+.dir-pill{padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s}
+.dir-pill.active{background:var(--p2);color:#fff}
+.dir-hint{font-size:11px;color:var(--muted2)}
+.filter-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.filtro-resumo{font-size:12px;color:var(--muted);font-weight:600}
+.filtro-resumo b{color:var(--p2);font-weight:700}
+@media(max-width:768px){.fgroup{min-width:100%}}
+
 /* ── Strip cards ── */
 .fin-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
 .fin-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
@@ -139,6 +181,62 @@ function can(area){const s=getSession();if(!s)return false;return true;}
           <div class="fin-hero-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Financeiro</div>
           <div class="fin-hero-sub" id="finHeroSub">Controle financeiro completo</div>
           <div class="fin-hero-stats" id="finHeroStats"></div>
+        </div>
+      </div>
+
+      <!-- FILTROS (mesmo componente do Dashboard) -->
+      <div class="filter-panel">
+        <div class="filter-groups">
+          <div class="fgroup">
+            <div class="fgroup-hd"><span class="fgroup-title">Período</span></div>
+            <div class="period-btns" id="periodBtns">
+              <button class="period-btn" onclick="setPeriodo('hoje',this)">Hoje</button>
+              <button class="period-btn" onclick="setPeriodo('7',this)">7 dias</button>
+              <button class="period-btn" onclick="setPeriodo('15',this)">15 dias</button>
+              <button class="period-btn active" onclick="setPeriodo('30',this)">30 dias</button>
+              <button class="period-btn" onclick="setPeriodo('90',this)">3 meses</button>
+              <button class="period-btn" onclick="setPeriodo('180',this)">6 meses</button>
+            </div>
+            <div class="custom-range" id="customRangeWrap">
+              <span class="custom-range-lbl">ou escolha as datas:</span>
+              <input type="date" id="periodoDE" onchange="setPeriodoCustom()">
+              <span>até</span>
+              <input type="date" id="periodoATE" onchange="setPeriodoCustom()">
+            </div>
+          </div>
+
+          <div class="fgroup">
+            <div class="fgroup-hd">
+              <span class="fgroup-title">Base da consulta</span>
+              <button class="info-btn" type="button" aria-label="O que é base da consulta">i
+                <span class="info-tooltip">
+                  <b>Vencimento</b> — data em que a conta vence.<br>
+                  <b>Pagamento</b> — data em que foi efetivamente paga ou recebida.<br>
+                  <b>Lançamento</b> — data em que o registro foi criado.
+                </span>
+              </button>
+            </div>
+            <div class="competencia-btns">
+              <button class="comp-btn active" onclick="setCompetencia('vencimento',this)">Vencimento<span class="rec-badge">recomendado</span></button>
+              <button class="comp-btn" onclick="setCompetencia('pagamento',this)">Pagamento</button>
+            </div>
+            <button type="button" class="mais-opcoes-toggle" onclick="toggleMaisOpcoes()">Mais opções <span id="maisOpcoesArrow" class="mais-opcoes-arrow">▾</span></button>
+            <div class="mais-opcoes-panel" id="maisOpcoesPanel">
+              <button class="comp-btn" onclick="setCompetencia('lancamento',this)">Lançamento</button>
+            </div>
+            <div class="dir-toggle open" id="direcaoToggle">
+              <span class="dir-toggle-lbl">Direção:</span>
+              <div class="dir-pills">
+                <button class="dir-pill active" onclick="setDirecao('passado',this)">Vencidos</button>
+                <button class="dir-pill" onclick="setDirecao('futuro',this)">A vencer</button>
+              </div>
+              <span class="dir-hint">vale pra receitas e despesas juntas</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-footer">
+          <span class="filtro-resumo" id="filtroResumo"></span>
         </div>
       </div>
 
@@ -353,6 +451,111 @@ let financeiro = [];
 let fluxoFiltro = 'todos';
 let filtroDiaURL = ''; // vencimento único vindo de um link externo (ex: alerta do Dashboard), sobrepõe o filtro de mês
 
+// Filtro Período + Base da consulta — mesmo estado e mesma lógica do Dashboard,
+// pra que os indicadores das duas telas sejam comparáveis quando o mesmo período/base é escolhido.
+let periodo = {dias:'30', de:'', ate:''};
+let competencia = 'vencimento';
+let direcao = 'passado'; // 'passado' ou 'futuro' — só é usado quando competencia==='vencimento'
+
+function recomputePeriodo(){
+  if(periodo.dias==='custom') return;
+  const hj = new Date();
+  if(periodo.dias==='hoje'){
+    periodo.de = hoje(); periodo.ate = hoje();
+    return;
+  }
+  const n = Number(periodo.dias);
+  const usaFuturo = competencia==='vencimento' && direcao==='futuro';
+  const outraPonta = new Date();
+  if(usaFuturo){
+    outraPonta.setDate(hj.getDate()+n);
+    periodo.de = dataLocal(hj);
+    periodo.ate = dataLocal(outraPonta);
+  }else{
+    outraPonta.setDate(hj.getDate()-n);
+    periodo.de = dataLocal(outraPonta);
+    periodo.ate = dataLocal(hj);
+  }
+  if($('periodoDE'))$('periodoDE').value = periodo.de;
+  if($('periodoATE'))$('periodoATE').value = periodo.ate;
+}
+
+const PERIODO_LBL = {hoje:'hoje','7':'7 dias','15':'15 dias','30':'30 dias','90':'3 meses','180':'6 meses'};
+const BASE_LBL = {vencimento:'vencimento', pagamento:'pagamento', lancamento:'lançamento'};
+function atualizarLegendaFiltro(){
+  const el = $('filtroResumo'); if(!el) return;
+  let quando;
+  if(periodo.dias==='custom') quando = `${fmtData(periodo.de)} até ${fmtData(periodo.ate)}`;
+  else if(periodo.dias==='hoje') quando = 'hoje';
+  else{
+    const usaFuturo = competencia==='vencimento' && direcao==='futuro';
+    quando = `${usaFuturo?'próximos':'últimos'} ${PERIODO_LBL[periodo.dias]||periodo.dias+' dias'}`;
+  }
+  el.innerHTML = `Mostrando: <b>${quando}</b> · por <b>${BASE_LBL[competencia]}</b>`;
+}
+
+function renderComparaveis(){renderHero();renderStrip();renderFluxo();}
+
+function setPeriodo(dias, btn){
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  periodo.dias = dias;
+  recomputePeriodo();
+  renderComparaveis();
+  atualizarLegendaFiltro();
+}
+function setPeriodoCustom(){
+  const de=val('periodoDE'), ate=val('periodoATE');
+  if(!de||!ate)return;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  periodo = {dias:'custom', de, ate};
+  renderComparaveis();
+  atualizarLegendaFiltro();
+}
+function setCompetencia(tipo, btn){
+  document.querySelectorAll('.comp-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  competencia = tipo;
+  // Direção (Vencidos/A vencer) só faz sentido pra Vencimento — Pagamento e Lançamento são sempre passado.
+  if($('direcaoToggle'))$('direcaoToggle').classList.toggle('open', tipo==='vencimento');
+  if(tipo!=='vencimento'){
+    direcao = 'passado';
+    document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('active'));
+    const first=document.querySelector('.dir-pill'); if(first)first.classList.add('active');
+  }
+  recomputePeriodo();
+  renderComparaveis();
+  atualizarLegendaFiltro();
+}
+function toggleMaisOpcoes(){
+  const painel=$('maisOpcoesPanel'), seta=$('maisOpcoesArrow');
+  const aberto=painel.classList.toggle('open');
+  seta.classList.toggle('open', aberto);
+  seta.textContent = aberto ? '▴' : '▾';
+}
+function setDirecao(dir, btn){
+  document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  direcao = dir;
+  recomputePeriodo();
+  renderComparaveis();
+  atualizarLegendaFiltro();
+}
+// Campo de data conforme a Base da consulta selecionada — mesma regra do Dashboard.
+function getCampoData(f){
+  if(competencia==='pagamento') return String(f.data_pagamento||f.vencimento||f.data_lancamento||'').slice(0,10);
+  if(competencia==='lancamento') return String(f.data_lancamento||f.vencimento||'').slice(0,10);
+  return String(f.vencimento||f.data_lancamento||'').slice(0,10);
+}
+function filtrarPorPeriodo(lista){
+  if(!periodo.de || !periodo.ate) return lista;
+  return lista.filter(f=>{
+    const dt = getCampoData(f);
+    if(!dt) return true;
+    return dt >= periodo.de && dt <= periodo.ate;
+  });
+}
+
 async function init(){
   if(!session)return;
   $('userName').textContent=session.nome||'';
@@ -367,6 +570,8 @@ async function init(){
   if($('filtMes'))$('filtMes').value=hoje().slice(0,7);
   const vencParam=new URLSearchParams(location.search).get('venc');
   if(vencParam)aplicarFiltroDia(vencParam==='hoje'?hoje():vencParam);
+  recomputePeriodo();
+  atualizarLegendaFiltro();
   await loadData();
   init3DCloud();
 }
@@ -382,22 +587,22 @@ async function loadData(){
 // ── HERO ──
 // Regra: só conta como "realizado" o que já foi confirmado (status Recebido/Pago).
 // Enquanto Pendente, o valor entra em "Previsto", nunca em Receita/Despesa/Saldo.
-// Escopo: mês atual, pela data de vencimento de cada parcela/lançamento — não o total
-// histórico da dívida/parcelamento inteiro. Para ver outros meses, use a aba Lançamentos.
+// Escopo: o período + base da consulta escolhidos no filtro acima (mesmo componente do
+// Dashboard) — não o total histórico da dívida/parcelamento inteiro.
 function isReceitaConfirmada(f){return['Recebido','Pago'].includes(f.status||'');}
 function isDespesaConfirmada(f){return f.status==='Pago';}
 function renderHero(){
-  const mesAtual=hoje().slice(0,7);
-  const noMes=f=>String(f.vencimento||'').slice(0,7)===mesAtual;
-  const receita=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const despesa=financeiro.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  let fin = filtrarPorPeriodo(financeiro);
+  if(fin.length===0) fin = financeiro; // evita ficar tudo zerado quando o período não tem nenhum lançamento
+  const receita=fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const despesa=fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const saldo=receita-despesa;
-  const previstoMes=financeiro.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&noMes(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const previsto=fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finHeroStats',[
     {lbl:'Receita confirmada',val:money(receita)},
     {lbl:'Despesas confirmadas',val:money(despesa)},
-    {lbl:'Saldo do mês',val:money(saldo)},
-    {lbl:'Previsto a receber',val:money(previstoMes)},
+    {lbl:'Saldo do período',val:money(saldo)},
+    {lbl:'Previsto a receber',val:money(previsto)},
   ].map((s,i)=>`${i>0?'<div class="fhs-div"></div>':''}
     <div class="fhs">
       <div class="fhs-lbl">${s.lbl}</div>
@@ -407,18 +612,20 @@ function renderHero(){
 
 // ── STRIP ──
 function renderStrip(){
-  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=dataLocal(am),mes=hj.slice(0,7);
+  const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=dataLocal(am);
   const entHoje=financeiro.filter(f=>f.tipo==='Receita'&&['Recebido','Pago'].includes(f.status||'')&&String(f.data_pagamento||f.data_lancamento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
   const aRecHoje=financeiro.filter(f=>f.tipo==='Receita'&&String(f.vencimento||'').slice(0,10)===hj&&!['Recebido','Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagHoje=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===hj&&!['Pago','Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagAm=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===amStr&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
-  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
+  let finP = filtrarPorPeriodo(financeiro);
+  if(finP.length===0) finP = financeiro;
+  const recPeriodo=finP.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finStrip',[
     {lbl:'Entrou hoje',val:money(entHoje),cor:entHoje>0?'var(--green)':'var(--muted)',sub:'receitas realizadas'},
     {lbl:'A receber hoje',val:money(aRecHoje),cor:aRecHoje>0?'var(--amber)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar hoje',val:money(aPagHoje),cor:aPagHoje>0?'var(--red)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar amanhã',val:money(aPagAm),cor:aPagAm>0?'var(--amber)':'var(--muted)',sub:'próximo dia'},
-    {lbl:'Receita confirmada (mês)',val:money(recMes),cor:'var(--p)',sub:'mês atual · recebido/pago'},
+    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--p)',sub:'segue o filtro acima'},
   ].map(c=>`<div class="fin-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
 }
 
@@ -720,14 +927,16 @@ function renderLancamentos(){
 // ── RENDER FLUXO ──
 function filtrarFluxo(tipo){fluxoFiltro=tipo;renderFluxo();}
 function renderFluxo(){
-  const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=dataLocal(sem),mes=hj.slice(0,7);
-  const recMes=financeiro.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
-  const despMes=financeiro.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&String(f.vencimento||'').slice(0,7)===mes).reduce((a,f)=>a+Number(f.valor||0),0);
+  const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=dataLocal(sem);
+  let finFx = filtrarPorPeriodo(financeiro);
+  if(finFx.length===0) finFx = financeiro;
+  const recPeriodo=finFx.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const despPeriodo=finFx.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('fluxoKpis',[
-    {lbl:'Receita confirmada (mês)',val:money(recMes),cor:'var(--green)'},
-    {lbl:'Despesa confirmada (mês)',val:money(despMes),cor:'var(--red)'},
+    {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--green)'},
+    {lbl:'Despesa confirmada (período)',val:money(despPeriodo),cor:'var(--red)'},
     {lbl:'Total a receber',val:money(aRec),cor:'var(--amber)'},
     {lbl:'Total a pagar',val:money(aPag),cor:'var(--red)'},
   ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
