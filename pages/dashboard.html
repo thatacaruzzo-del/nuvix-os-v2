@@ -112,12 +112,30 @@
 /* ── Blocos de detalhe por setor (Comercial/Operação/Materiais) — 4 cards, mesma linguagem do KPI grid ── */
 .kpi-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 
-/* ── Insights automáticos — narrativa causal entre setores ── */
-.insight-row{display:flex;align-items:flex-start;gap:11px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:13.5px;line-height:1.5}
-.insight-row:last-child{border-bottom:none}
-.insight-row .atencao-dot{margin-top:6px}
-.insight-txt{color:var(--muted)}
-.insight-txt b{color:var(--txt);font-weight:700}
+/* ── Inteligência Nuvix — 1 bloco único, tons neutros/Nuvix, sinal de cor só no ponto ── */
+.ia-master-card{background:linear-gradient(135deg,#fff 0%,#fff 40%,var(--p-light) 100%);border:1px solid var(--line);border-radius:var(--radius-lg);padding:24px 26px;box-shadow:var(--shadow)}
+.ia-eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--p2);margin-bottom:9px}
+.ia-resumo{font-size:16px;font-weight:600;color:var(--txt);line-height:1.45;letter-spacing:-.01em;margin-bottom:16px}
+.ia-lista{display:flex;flex-direction:column}
+.ia-row{display:flex;gap:12px;padding:16px 0;border-top:1px solid var(--bg)}
+.ia-row:first-child{border-top:none;padding-top:0}
+.ia-dot{width:7px;height:7px;border-radius:50%;margin-top:7px;flex-shrink:0}
+.ia-dot.prioridade{background:var(--red)}
+.ia-dot.atencao{background:var(--amber)}
+.ia-dot.oportunidade{background:var(--green)}
+.ia-dot.informacao{background:var(--blue)}
+.ia-row-body{flex:1;min-width:0}
+.ia-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:block;margin-bottom:4px}
+.ia-row-titulo{font-size:14.5px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.ia-row-texto{font-size:13.5px;color:var(--muted);line-height:1.55;margin-bottom:6px}
+.ia-row-impacto,.ia-row-acao{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:4px}
+.ia-row-impacto b,.ia-row-acao b{color:var(--txt);font-weight:600}
+.ia-row-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted2);margin-top:8px}
+.ia-row-footer a{color:var(--p);font-weight:600;text-decoration:none}
+.ia-vertodos{margin-top:14px;background:none;border:none;color:var(--p);font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
+.ia-extra{display:none;flex-direction:column}
+.ia-extra.open{display:flex}
+.ia-footer a{color:var(--p);font-weight:600;text-decoration:none}
 
 /* ── Alertas (estilo CFO, compacto) — separadores quase invisíveis, hover suave ── */
 .atencao-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:14px;font-weight:500;color:var(--txt);transition:background-color .15s ease}
@@ -285,11 +303,9 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
       <div id="pontoAtencao"></div>
       <div class="sector-grid" id="setoresGrid"></div>
 
-      <!-- 2 · O QUE MUDOU — narrativa automática conectando os setores, nunca fica muda -->
-      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> O que mudou</div>
-      <div class="recent-card" style="margin-bottom:20px">
-        <div class="recent-body" id="insightsList" style="padding:6px 20px 10px"></div>
-      </div>
+      <!-- 2 · INTELIGÊNCIA NUVIX — motor de regras determinístico prioriza, narrativa explica -->
+      <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 3a6 6 0 0 0-6 6c0 2 1 3 2 4v2h8v-2c1-1 2-2 2-4a6 6 0 0 0-6-6Z"/><line x1="10" y1="19" x2="14" y2="19"/><line x1="11" y1="22" x2="13" y2="22"/></svg> Inteligência Nuvix</div>
+      <div id="inteligenciaNuvix" style="margin-bottom:20px"></div>
 
       <!-- 3 · FINANCEIRO — tenho dinheiro? Único lugar da tela com valores em R$. -->
       <div class="section-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Financeiro</div>
@@ -559,7 +575,7 @@ async function loadData(){
 function renderAll(){
   renderSetores();
   renderPontoAtencao();
-  renderInsights();
+  renderInteligenciaNuvix();
   renderHeroDiagnostico();
   renderIndicadores();
   renderFluxoChart();
@@ -699,91 +715,263 @@ function renderPontoAtencao(){
   setHTML('pontoAtencao', `<a class="ponto-atencao ${top.urg}" href="${top.href}">${icoSVG(icoAlerta)}<span>${esc(top.txt)}${top.val?' — '+top.val:''}</span></a>`);
 }
 
-// O QUE MUDOU — narrativa automática. Compara o período atual com o anterior equivalente e liga os
-// pontos entre setores. Sempre entrega pelo menos 1 frase (fallback no fôlego de caixa, que já é
-// calculado no Financeiro) — nunca fica muda.
-function pctPontos(atual,anterior){ return (anterior===null||anterior===undefined||atual===null)?null:atual-anterior; }
-function pctVar(atual,anterior){ return (!anterior)?null:Math.round(((atual-anterior)/Math.abs(anterior))*100); }
-function renderInsights(){
+// ══════════════════════════════════════════════════════════════════════════
+// INTELIGÊNCIA NUVIX — 5 camadas: métricas → comparação → regras → priorização → narrativa.
+// A partir da camada 3 nada mais toca em dados.* — só números já resumidos passam adiante.
+// Fase 1 (atual): a narrativa é gerada por template determinístico em JS. Uma Fase 2 futura
+// trocaria só a camada 5 por uma chamada de IA real (via function serverless) — a IA nunca
+// calcularia nada, só receberia o insight já pronto desta camada 3 e reescreveria em prosa.
+// ══════════════════════════════════════════════════════════════════════════
+
+// CAMADA 1 — coleta de métricas: empacota os calc* que já existem num JSON padronizado.
+// Nenhuma query nova, nenhum cálculo novo — só serialização do que já foi calculado.
+function coletarMetricas(de, ate){
+  const fin = calcIndicadoresJanela(de, ate);
+  const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const com = calcComercial(de, ate);
+  const opr = calcOperacao(de, ate);
+  const mat = calcMateriaisSetor(de, ate);
+  const rh = calcRHSetor(de, ate);
+  return {
+    periodo: {inicio: de, fim: ate},
+    financeiro: {caixa: calcCaixaDisponivel(), recebido: fin.recebido, pago: fin.pago, resultado: fin.saldo, a_receber: aReceber, a_pagar: aPagar},
+    comercial: {leads: com.leads, novos_clientes: com.fechados, conversao: com.txConv},
+    operacao: {os_abertas: opr.abertasPeriodo, os_concluidas: opr.concluidasPeriodo, os_atrasadas: opr.atrasadasAgora},
+    materiais: {itens_zerados: mat.zerados, itens_abaixo_minimo: mat.abaixoMinimo, consumo: mat.consumoPeriodo},
+    rh: {funcionarios_ativos: rh.ativos, horas_extras: rh.horasExtras},
+  };
+}
+
+// CAMADA 2 — comparação de períodos: delta e variação % campo a campo entre dois snapshots
+// da camada 1. Não decide se é bom ou ruim, só mede a diferença.
+function compararPeriodos(atual, anterior){
+  const diff = {};
+  ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{
+    diff[area] = {};
+    Object.keys(atual[area]).forEach(campo=>{
+      const a = atual[area][campo], b = anterior[area][campo];
+      if(typeof a==='number' && typeof b==='number'){
+        diff[area][campo] = {delta: a-b, variacaoPct: b ? Math.round((a-b)/Math.abs(b)*100) : null};
+      }
+    });
+  });
+  return diff;
+}
+
+// CAMADA 3 — motor de regras: cada função é pura e determinística, avalia 1 condição e
+// devolve no máximo 1 insight (ou nada). Nunca inventa número — só repassa o que já está
+// em atual/anterior/diff (camadas 1 e 2). "categoria" já sai classificada em uma das 4
+// categorias executivas (prioridade/atencao/oportunidade/informacao) — nunca "risco" genérico.
+const REGRAS = [
+  (atual)=>{
+    if(atual.financeiro.caixa<0) return {id:'financeiro-caixa-negativo', categoria:'prioridade', area:'financeiro',
+      titulo:'Caixa está negativo', evidencias:{caixa:atual.financeiro.caixa}, confianca:'alta',
+      recomendacao:'Revisar pagamentos pendentes antes de assumir novos compromissos.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  (atual)=>{
+    if(atual.financeiro.resultado<0) return {id:'financeiro-resultado-negativo', categoria:'prioridade', area:'financeiro',
+      titulo:'Resultado do período ficou negativo', evidencias:{resultado:atual.financeiro.resultado,recebido:atual.financeiro.recebido,pago:atual.financeiro.pago},
+      confianca:'alta', recomendacao:'Revisar as maiores despesas do período e avaliar cobranças pendentes que possam ser antecipadas.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  (atual)=>{
+    if(atual.financeiro.a_pagar>0 && atual.financeiro.a_pagar>atual.financeiro.a_receber*1.5) return {id:'financeiro-contas-desequilibradas', categoria:'atencao', area:'financeiro',
+      titulo:'A pagar está bem acima do a receber', evidencias:{a_pagar:atual.financeiro.a_pagar,a_receber:atual.financeiro.a_receber},
+      confianca:'media', recomendacao:'Negociar prazos ou acelerar cobranças pendentes.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  (atual)=>{
+    if(atual.operacao.os_atrasadas>0) return {id:'operacao-atrasadas', categoria:atual.operacao.os_atrasadas>=4?'prioridade':'atencao', area:'operacao',
+      titulo:'Existem ordens de serviço atrasadas', evidencias:{os_atrasadas:atual.operacao.os_atrasadas}, confianca:'alta',
+      recomendacao:'Priorizar o atendimento das ordens já vencidas.', periodo:atual.periodo, href:'os.html'};
+  },
+  (atual,anterior,diff)=>{
+    if(atual.operacao.os_abertas>atual.operacao.os_concluidas && diff.operacao.os_abertas.delta>0) return {id:'operacao-fila-crescendo', categoria:'atencao', area:'operacao',
+      titulo:'Fila operacional aumentou', evidencias:{os_abertas:atual.operacao.os_abertas,os_concluidas:atual.operacao.os_concluidas},
+      confianca:'media', recomendacao:'Avaliar se a equipe atual comporta o volume atual de OS.', periodo:atual.periodo, href:'os.html'};
+  },
+  (atual)=>{
+    if(atual.comercial.leads===0) return {id:'comercial-sem-leads', categoria:'atencao', area:'comercial',
+      titulo:'Nenhum lead novo no período', evidencias:{leads:atual.comercial.leads}, confianca:'alta',
+      recomendacao:'Revisar os canais de geração de leads (indicação, site, campanhas).', periodo:atual.periodo, href:'crm.html'};
+  },
+  (atual,anterior,diff)=>{
+    const dConv=diff.comercial.conversao?.delta;
+    if(dConv!=null && dConv<=-5 && anterior.comercial.leads>=3) return {id:'comercial-conversao-queda', categoria:'atencao', area:'comercial',
+      titulo:'Conversão comercial caiu', evidencias:{atual:atual.comercial.conversao,anterior:anterior.comercial.conversao},
+      confianca:anterior.comercial.leads>=5?'alta':'media', recomendacao:'Revisar os motivos de perda no funil de vendas.', periodo:atual.periodo, href:'crm.html'};
+  },
+  (atual)=>{
+    if(atual.materiais.itens_zerados>0) return {id:'materiais-zerado', categoria:'prioridade', area:'materiais',
+      titulo:'Itens de material zerados', evidencias:{itens_zerados:atual.materiais.itens_zerados}, confianca:'alta',
+      recomendacao:'Repor os itens zerados o quanto antes.', periodo:atual.periodo, href:'materiais.html'};
+  },
+  (atual)=>{
+    if(atual.materiais.itens_abaixo_minimo>0) return {id:'materiais-abaixo-minimo', categoria:'atencao', area:'materiais',
+      titulo:'Itens de material abaixo do mínimo', evidencias:{itens_abaixo_minimo:atual.materiais.itens_abaixo_minimo}, confianca:'alta',
+      recomendacao:'Programar a reposição antes que o estoque zere.', periodo:atual.periodo, href:'materiais.html'};
+  },
+  (atual,anterior,diff)=>{
+    const dHE=diff.rh.horas_extras?.variacaoPct;
+    if(dHE!=null && dHE>=15 && atual.operacao.os_abertas>0) return {id:'rh-horas-extras', categoria:'atencao', area:'rh',
+      titulo:'Horas extras subiram', evidencias:{atual:atual.rh.horas_extras,anterior:anterior.rh.horas_extras,os_abertas:atual.operacao.os_abertas},
+      confianca:'media', recomendacao:'Avaliar se o time precisa de reforço para o volume atual de OS.', periodo:atual.periodo, href:'rh.html'};
+  },
+  (atual,anterior,diff)=>{
+    const dConv=diff.comercial.conversao?.delta;
+    if(dConv!=null && dConv>=5 && anterior.comercial.leads>=3) return {id:'comercial-conversao-alta', categoria:'oportunidade', area:'comercial',
+      titulo:'Conversão comercial melhorou', evidencias:{atual:atual.comercial.conversao,anterior:anterior.comercial.conversao},
+      confianca:'media', recomendacao:'Identificar o que mudou na abordagem e repetir.', periodo:atual.periodo, href:'crm.html'};
+  },
+  (atual)=>{
+    const runway=calcRunway(atual.financeiro.caixa);
+    if(atual.financeiro.caixa>=0 && runway && runway>45) return {id:'financeiro-caixa-folego', categoria:'oportunidade', area:'financeiro',
+      titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:runway},
+      confianca:'media', recomendacao:'Bom momento para considerar investimentos ou antecipar pagamentos com desconto.', periodo:atual.periodo, href:'financeiro.html'};
+  },
+  (atual,anterior,diff)=>{
+    const dCons=diff.materiais.consumo?.variacaoPct;
+    if(dCons!=null && dCons<0 && atual.operacao.os_abertas>=anterior.operacao.os_abertas) return {id:'materiais-consumo-eficiente', categoria:'oportunidade', area:'materiais',
+      titulo:'Consumo de materiais caiu com a operação estável', evidencias:{consumo_atual:atual.materiais.consumo,consumo_anterior:anterior.materiais.consumo,os_abertas:atual.operacao.os_abertas},
+      confianca:'baixa', recomendacao:'Investigar o que mudou, para manter o padrão.', periodo:atual.periodo, href:'materiais.html'};
+  },
+  (atual)=>{
+    if(atual.operacao.os_concluidas>0) return {id:'operacao-os-concluidas', categoria:'informacao', area:'operacao',
+      titulo:'OS concluídas no período', evidencias:{os_concluidas:atual.operacao.os_concluidas}, confianca:'alta',
+      recomendacao:'Continuar acompanhando.', periodo:atual.periodo, href:'os.html'};
+  },
+  (atual)=>{
+    if(atual.comercial.novos_clientes>0) return {id:'comercial-novos-clientes', categoria:'informacao', area:'comercial',
+      titulo:'Novos clientes fechados no período', evidencias:{novos_clientes:atual.comercial.novos_clientes}, confianca:'alta',
+      recomendacao:'Continuar acompanhando.', periodo:atual.periodo, href:'crm.html'};
+  },
+];
+function avaliarRegras(atual, anterior, diff){
+  return REGRAS.map(r=>r(atual,anterior,diff)).filter(Boolean).map(ins=>({...ins, id:`${ins.id}-${atual.periodo.inicio}`}));
+}
+
+// CAMADA 4 — priorização: ordem fixa de categoria (prioridade > atenção > oportunidade >
+// informação), no máximo 1 por categoria (4 no total). Dentro da mesma categoria, desempate
+// pela ordem fixa de área (financeiro > operação > comercial > materiais > rh). O restante
+// fica disponível em "todos", pra alimentar o "ver todos os insights".
+const ORDEM_CATEGORIA = {prioridade:0, atencao:1, oportunidade:2, informacao:3};
+const ORDEM_AREA = {financeiro:0, operacao:1, comercial:2, materiais:3, rh:4};
+function priorizarInsights(lista){
+  const ordenados = [...lista].sort((a,b)=>{
+    const c = ORDEM_CATEGORIA[a.categoria]-ORDEM_CATEGORIA[b.categoria];
+    return c!==0 ? c : (ORDEM_AREA[a.area]??9)-(ORDEM_AREA[b.area]??9);
+  });
+  const vistos = new Set();
+  const principais = [];
+  ordenados.forEach(ins=>{ if(!vistos.has(ins.categoria)){ vistos.add(ins.categoria); principais.push(ins); } });
+  return {principais, todos: ordenados};
+}
+
+// CAMADA 5 (Fase 1) — narrativa por template determinístico. Mesma interface (recebe só o
+// insight já decidido pela camada 3, nunca dados brutos) — uma Fase 2 troca só esta camada
+// por uma chamada de IA real, sem alterar as camadas 1-4.
+function idBase(insight){ return insight.id.replace(/-\d{4}-\d{2}-\d{2}$/,''); }
+const NARRATIVA_TEMPLATES = {
+  'financeiro-caixa-negativo': ev=>`O caixa disponível está em ${money(ev.caixa)}.`,
+  'financeiro-resultado-negativo': ev=>`Você recebeu ${money(ev.recebido)} e pagou ${money(ev.pago)} no período, fechando em ${money(ev.resultado)}.`,
+  'financeiro-contas-desequilibradas': ev=>`Há ${money(ev.a_pagar)} a pagar contra ${money(ev.a_receber)} a receber.`,
+  'operacao-atrasadas': ev=>`${ev.os_atrasadas} ordem${ev.os_atrasadas!==1?'s':''} de serviço já passou do prazo agendado.`,
+  'operacao-fila-crescendo': ev=>`${ev.os_abertas} OS abertas contra ${ev.os_concluidas} concluídas no período.`,
+  'comercial-sem-leads': ()=>`O funil comercial não recebeu nenhum lead novo neste período.`,
+  'comercial-conversao-queda': ev=>`A conversão foi de ${ev.anterior}% para ${ev.atual}% em relação ao período anterior.`,
+  'materiais-zerado': ev=>`${ev.itens_zerados} ite${ev.itens_zerados!==1?'ns estão':'m está'} com estoque zerado.`,
+  'materiais-abaixo-minimo': ev=>`${ev.itens_abaixo_minimo} ite${ev.itens_abaixo_minimo!==1?'ns estão':'m está'} abaixo do estoque mínimo.`,
+  'rh-horas-extras': ev=>`Horas extras foram de ${Number(ev.anterior).toFixed(0)}h para ${Number(ev.atual).toFixed(0)}h, acompanhando ${ev.os_abertas} OS abertas.`,
+  'comercial-conversao-alta': ev=>`A conversão foi de ${ev.anterior}% para ${ev.atual}% em relação ao período anterior.`,
+  'financeiro-caixa-folego': ev=>`O caixa atual (${money(ev.caixa)}) cobre aproximadamente ${ev.dias_cobertos} dias de compromissos.`,
+  'materiais-consumo-eficiente': ev=>`Consumo caiu de ${money(ev.consumo_anterior)} para ${money(ev.consumo_atual)}, com ${ev.os_abertas} OS abertas no mesmo intervalo.`,
+  'operacao-os-concluidas': ev=>`${ev.os_concluidas} ordens de serviço foram concluídas neste período.`,
+  'comercial-novos-clientes': ev=>`${ev.novos_clientes} novo${ev.novos_clientes!==1?'s':''} cliente${ev.novos_clientes!==1?'s':''} fechado${ev.novos_clientes!==1?'s':''} neste período.`,
+};
+const IMPACTO = {
+  'financeiro-caixa-negativo':'Sem ajuste, pode faltar cobertura para os próximos compromissos.',
+  'financeiro-resultado-negativo':'Se esse ritmo continuar, o caixa disponível tende a reduzir.',
+  'financeiro-contas-desequilibradas':'Pode apertar o caixa nos próximos vencimentos.',
+  'operacao-atrasadas':'Atraso recorrente tende a afetar a percepção do cliente.',
+  'operacao-fila-crescendo':'Se o ritmo não mudar, a fila tende a crescer.',
+  'comercial-sem-leads':'Sem leads novos, a receita dos próximos períodos pode ficar comprometida.',
+  'comercial-conversao-queda':'Menos fechamentos tendem a reduzir a receita dos próximos períodos.',
+  'materiais-zerado':'Pode travar uma ordem de serviço por falta de material.',
+  'materiais-abaixo-minimo':'Vale repor antes que o estoque zere.',
+  'rh-horas-extras':'Horas extras sustentadas por muito tempo elevam o custo operacional.',
+  'comercial-conversao-alta':'Há espaço para consolidar o que funcionou.',
+  'financeiro-caixa-folego':'Boa janela para decisões que exigem caixa disponível.',
+  'materiais-consumo-eficiente':'Indica ganho de eficiência que vale entender e manter.',
+  'operacao-os-concluidas':'Ritmo de entrega dentro do acompanhado no período.',
+  'comercial-novos-clientes':'Reflete o resultado do funil comercial no período.',
+};
+function gerarNarrativaTemplate(insight){
+  const fn = NARRATIVA_TEMPLATES[idBase(insight)];
+  return fn ? fn(insight.evidencias) : insight.titulo;
+}
+
+// RESUMO EXECUTIVO — 1 frase no topo do bloco, cruzando setores só quando há evidência dupla
+// e real (nunca causalidade inventada). Reaproveita só o que a camada 3/4 já decidiu.
+const AREA_LABEL = {financeiro:'financeiro', operacao:'operacional', comercial:'comercial', materiais:'materiais', rh:'RH'};
+function gerarResumoExecutivo(atual, diff, principais){
+  const prioridade = principais.find(i=>i.categoria==='prioridade');
+  const atencao = principais.find(i=>i.categoria==='atencao');
+  const oportunidade = principais.find(i=>i.categoria==='oportunidade');
+
+  // Caso específico com evidência dupla real: conversão caiu E OS abertas também em queda.
+  const convCaiu = principais.some(i=>idBase(i)==='comercial-conversao-queda');
+  const osEmQueda = diff.operacao.os_abertas && diff.operacao.os_abertas.delta<0;
+  if(convCaiu && osEmQueda) return 'A queda comercial ainda não afetou o caixa, mas pode reduzir novas OS nas próximas semanas.';
+
+  if(prioridade){
+    const semPontos = ['financeiro','operacao','comercial','materiais','rh'].filter(a=>a!==prioridade.area && !principais.some(i=>i.area===a));
+    const complemento = semPontos.length ? `, enquanto ${semPontos.slice(0,2).map(a=>AREA_LABEL[a]).join(' e ')} segue${semPontos.length===1?'':'m'} estável` : '';
+    return `O principal ponto de atenção hoje está no ${AREA_LABEL[prioridade.area]}${complemento}.`;
+  }
+  if(atencao && oportunidade) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]} — e aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
+  if(atencao) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}.`;
+  if(oportunidade) return `A empresa está saudável, com espaço para melhorar no ${AREA_LABEL[oportunidade.area]}.`;
+  return 'Sem pontos relevantes para destacar neste período.';
+}
+
+// RENDER — Inteligência Nuvix: 1 bloco único, resumo no topo, até 4 linhas internas (1 por
+// categoria), "ver todos" só quando existirem mais insights do que os 4 mostrados.
+const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
+function renderInteligenciaNuvix(){
   const {de:antDe,ate:antAte} = periodoAnterior();
-  const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
-  const oprA=calcOperacao(periodo.de,periodo.ate), oprB=calcOperacao(antDe,antAte);
-  const matA=calcMateriaisSetor(periodo.de,periodo.ate), matB=calcMateriaisSetor(antDe,antAte);
-  const rhA=calcRHSetor(periodo.de,periodo.ate), rhB=calcRHSetor(antDe,antAte);
-  const finA=calcIndicadoresJanela(periodo.de,periodo.ate), finB=calcIndicadoresJanela(antDe,antAte);
+  const atual = coletarMetricas(periodo.de, periodo.ate);
+  const anterior = coletarMetricas(antDe, antAte);
+  const diff = compararPeriodos(atual, anterior);
+  const {principais, todos} = priorizarInsights(avaliarRegras(atual, anterior, diff));
+  const resumo = gerarResumoExecutivo(atual, diff, principais);
+  const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
+  const overflow = todos.length - principais.length;
 
-  const insights=[];
+  const linha = ins=>{
+    const oQueAconteceu = gerarNarrativaTemplate(ins);
+    const impacto = IMPACTO[idBase(ins)] || '';
+    return `<div class="ia-row">
+      <span class="ia-dot ${ins.categoria}"></span>
+      <div class="ia-row-body">
+        <div class="ia-row-hd"><span class="ia-badge">${CATEGORIA_LBL[ins.categoria]}</span></div>
+        <div class="ia-row-titulo">${esc(ins.titulo)}</div>
+        <div class="ia-row-texto">${esc(oQueAconteceu)}</div>
+        ${impacto?`<div class="ia-row-impacto"><b>Impacto:</b> ${esc(impacto)}</div>`:''}
+        <div class="ia-row-acao"><b>Ação recomendada:</b> ${esc(ins.recomendacao)}</div>
+        <div class="ia-row-footer"><span>Confiança: ${ins.confianca} · ${periodoFmt}</span><a href="${ins.href}">Ver em ${ins.href.replace('.html','')} →</a></div>
+      </div>
+    </div>`;
+  };
 
-  // Receita ↑ mas resultado ↓ (custo subiu mais que a receita)
-  const dRec=pctVar(finA.recebido,finB.recebido), dSaldo=pctVar(finA.saldo,finB.saldo);
-  if(dRec!==null && dSaldo!==null && dRec>=8 && dSaldo<0){
-    insights.push({urg:'warn',
-      txt:`Receita cresceu ${dRec}% no período`,
-      efeito:`porém o resultado caiu ${Math.abs(dSaldo)}%, indicando que despesas/custos subiram mais rápido`});
-  }
+  const linhas = principais.length ? principais.map(linha).join('') : `<div class="ia-row"><div class="ia-row-body"><div class="ia-row-texto">Nenhum ponto relevante para destacar neste período.</div></div></div>`;
+  const verTodos = overflow>0 ? `<button type="button" class="ia-vertodos" onclick="this.nextElementSibling.classList.toggle('open');this.style.display='none'">Ver todos os insights (${todos.length}) →</button><div class="ia-extra">${todos.slice(principais.length).map(linha).join('')}</div>` : '';
 
-  // Comercial ↑ mas Operação não acompanhou (concluiu menos do que abriu)
-  const dFech=pctPontos(comA.fechados,comB.fechados);
-  if(dFech!==null && dFech>0 && oprA.abertasPeriodo>oprA.concluidasPeriodo){
-    insights.push({urg:'warn',
-      txt:`Novas vendas cresceram (+${dFech} fechamento${dFech!==1?'s':''} vs período anterior)`,
-      efeito:`mas a operação concluiu ${oprA.concluidasPeriodo} OS contra ${oprA.abertasPeriodo} abertas no mesmo intervalo`});
-  }
-
-  // Financeiro: recebeu mais no período (só quando não é já coberta pelo alerta de margem acima)
-  if(dRec!==null && dRec>0 && finA.recebido>finB.recebido && !(dSaldo!==null && dSaldo<0)){
-    insights.push({urg:'ok',
-      txt:`A empresa recebeu ${money(finA.recebido)} no período (${dRec>0?'+':''}${dRec}% vs anterior)`,
-      efeito:`resultado do período em ${money(finA.saldo)}`});
-  }
-
-  // Materiais: estoque crítico subiu após alta de vendas/OS
-  const dAbaixo=matA.abaixoMinimo-matB.abaixoMinimo;
-  if(dAbaixo>0 && (oprA.abertasPeriodo>oprB.abertasPeriodo || comA.fechados>comB.fechados)){
-    insights.push({urg:'warn',
-      txt:`O estoque crítico subiu (+${dAbaixo} ite${dAbaixo!==1?'ns':'m'} abaixo do mínimo)`,
-      efeito:`após crescimento na operação/vendas no mesmo período`});
-  }
-
-  // RH: horas extras ↑ → custo operacional ↑
-  const dHE=pctVar(rhA.horasExtras,rhB.horasExtras);
-  if(dHE!==null && dHE>=15 && oprA.abertasPeriodo>0){
-    insights.push({urg:'warn',
-      txt:`Horas extras subiram ${dHE}% no período`,
-      efeito:`acompanhando ${oprA.abertasPeriodo} OS aberta${oprA.abertasPeriodo!==1?'s':''} — custo operacional tende a subir junto`});
-  }
-
-  // OS abertas x consumo de materiais, mesma direção
-  const dOSpct=pctVar(oprA.abertasPeriodo,oprB.abertasPeriodo);
-  if(dOSpct!==null && Math.abs(dOSpct)>=10){
-    const dCons=pctVar(matA.consumoPeriodo,matB.consumoPeriodo);
-    if(dCons!==null && Math.abs(dCons)>=1){
-      insights.push({urg:(dOSpct>0&&dCons>0)?'warn':'ok',
-        txt:`OS abertas ${dOSpct>0?'aumentaram':'caíram'} ${Math.abs(dOSpct)}% vs período anterior`,
-        efeito:`consumo de materiais ${dCons>0?'subiu':'caiu'} ${Math.abs(dCons)}% no mesmo intervalo`});
-    }
-  }
-
-  // Conversão em queda → menos OS → menor faturamento futuro
-  const dConv=pctPontos(comA.txConv,comB.txConv);
-  if(dConv!==null && dConv<=-5){
-    const dOS=oprA.abertasPeriodo-oprB.abertasPeriodo;
-    insights.push({urg:'warn',
-      txt:`Conversão comercial caiu ${Math.abs(dConv)} ponto${Math.abs(dConv)!==1?'s':''} percentual${Math.abs(dConv)!==1?'is':''} vs período anterior`,
-      efeito:`${dOS<=0?'':'+' }${dOS} OS aberta${Math.abs(dOS)!==1?'s':''} no mesmo intervalo`});
-  }
-
-  let top=insights.slice(0,3);
-  if(!top.length){
-    // Fallback garantido — nunca fica muda. Reaproveita o mesmo cálculo de fôlego de caixa do Hero.
-    const caixa=calcCaixaDisponivel(), runway=calcRunway(caixa);
-    if(runway){
-      top=[{urg:'ok', txt:`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos`, efeito:'no ritmo atual, sem sinais de alerta nos demais setores'}];
-    }else{
-      top=[{urg:'ok', txt:'O período segue dentro do padrão em todos os setores acompanhados', efeito:'sem variações fora do comum'}];
-    }
-  }
-  setHTML('insightsList', top.map(i=>`<div class="insight-row"><span class="atencao-dot ${i.urg}"></span><span class="insight-txt"><b>${esc(i.txt)}</b> → ${esc(i.efeito)}</span></div>`).join(''));
+  setHTML('inteligenciaNuvix', `
+    <div class="ia-master-card">
+      <div class="ia-eyebrow">Inteligência Nuvix</div>
+      <div class="ia-resumo">${esc(resumo)}</div>
+      <div class="ia-lista">${linhas}</div>
+      ${verTodos}
+    </div>`);
 }
 
 // Ícones (SVG inline) reaproveitados nos indicadores e ações
