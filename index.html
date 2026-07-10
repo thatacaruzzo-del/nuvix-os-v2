@@ -9,37 +9,33 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --c0:#090014;--c1:#180033;--c2:#2B0A59;--c3:#5B4CF0;
-  --c4:#6D5EF5;--c5:#8B5CF6;--c6:#A855F7;--white:#FFFFFF;
-  --glass:rgba(255,255,255,0.04);
-  --glass-border:rgba(139,92,246,0.25);
-  --text:rgba(255,255,255,0.92);
-  --muted:rgba(180,171,249,0.6);
+  --c3:#5B4CF0;--c4:#6D5EF5;--c5:#8B5CF6;--white:#FFFFFF;
+  --bg:#F8F9FC;--p-light:#EFEEFE;--line:#EAECF0;
+  --text:#101828;
+  --muted:#667085;
 }
-html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--c0);color:var(--text)}
-#bgCanvas{position:fixed;inset:0;z-index:0}
+html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
 .shell{position:relative;z-index:1;min-height:100vh;height:100vh;display:grid;grid-template-columns:1fr 480px;opacity:0;animation:fadeIn .9s ease .1s forwards}
 @keyframes fadeIn{to{opacity:1}}
-.left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden}
+.left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%)}
 .brand{display:flex;align-items:center;gap:14px}
-.brand-mark{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--c4),var(--c6));display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,94,245,.55),0 0 48px rgba(109,94,245,.2)}
-.brand-mark svg{width:28px;height:21px}
+.brand-mark{width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 6px 20px rgba(109,94,245,.22)}
+.brand-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .brand-text{display:flex;flex-direction:column}
-.brand-name{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1}
-.brand-sub{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--c5);text-transform:uppercase;margin-top:2px}
+.brand-name{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--text)}
+.brand-sub{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--c4);text-transform:uppercase;margin-top:2px}
 .hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(109,94,245,.12);border:1px solid rgba(109,94,245,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:var(--c5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
-.eyebrow-dot{width:6px;height:6px;background:var(--c6);border-radius:50%;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.8)}}
-h1{font-size:clamp(36px,4.2vw,58px);font-weight:900;line-height:1.06;letter-spacing:-.03em;color:var(--white);margin-bottom:20px}
-h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.subtitle{font-size:16px;line-height:1.7;color:rgba(200,185,255,.65);max-width:480px;margin-bottom:40px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--p-light);border:1px solid #DAD3FC;border-radius:99px;padding:6px 16px;font-size:11px;font-weight:700;color:var(--c3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
+.eyebrow-dot{width:6px;height:6px;background:var(--c4);border-radius:50%}
+h1{font-size:clamp(36px,4.2vw,58px);font-weight:800;line-height:1.08;letter-spacing:-.03em;color:var(--text);margin-bottom:20px}
+h1 .grad{color:var(--c4)}
+.subtitle{font-size:16px;line-height:1.7;color:var(--muted);max-width:480px;margin-bottom:40px}
 .pills{display:flex;flex-wrap:wrap;gap:10px}
-.pill{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.88);transition:all .25s ease;cursor:default}
-.pill:hover{background:rgba(109,94,245,.16);border-color:rgba(139,92,246,.45);transform:translateY(-1px)}
-.pill-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--c3),var(--c5));display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 12px rgba(91,76,240,.4)}
-.left-footer{font-size:12px;color:rgba(180,171,249,.3);font-weight:400}
-.right{display:flex;align-items:center;justify-content:center;padding:32px 44px;background:rgba(9,0,20,.3);border-left:1px solid rgba(139,92,246,.12);backdrop-filter:blur(2px)}
+.pill{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:var(--text);transition:all .25s ease;cursor:default;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+.pill:hover{border-color:#C7BFF5;transform:translateY(-1px)}
+.pill-icon{width:30px;height:30px;border-radius:8px;background:var(--p-light);color:var(--c4);display:flex;align-items:center;justify-content:center;font-size:14px}
+.left-footer{font-size:12px;color:var(--muted);font-weight:400}
+.right{display:flex;align-items:center;justify-content:center;padding:32px 44px;background:var(--bg)}
 /* ══════════════════════════════════
    NUVIX HUB — CARD PREMIUM
    Enterprise SaaS UI — Light Card
@@ -60,7 +56,7 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
   backdrop-filter:blur(24px);
   -webkit-backdrop-filter:blur(24px);
   box-shadow:
-    0 30px 80px rgba(88,40,180,.28),
+    0 20px 50px rgba(88,40,180,.14),
     0 0 0 1px rgba(255,255,255,.5),
     inset 0 1px 0 rgba(255,255,255,.8);
   transition:transform .4s cubic-bezier(.23,1,.32,1),box-shadow .4s ease;
@@ -73,21 +69,20 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 }
 .card:hover{
   transform:translateY(-5px);
-  box-shadow:0 50px 120px rgba(88,40,180,.35),0 0 0 1px rgba(255,255,255,.6),inset 0 1px 0 rgba(255,255,255,.9)
+  box-shadow:0 30px 70px rgba(88,40,180,.18),0 0 0 1px rgba(255,255,255,.6),inset 0 1px 0 rgba(255,255,255,.9)
 }
 
 /* Logo */
 .card-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
 .card-logo-mark{
-  width:54px;height:54px;border-radius:16px;
-  background:linear-gradient(135deg,#5B4CF0,#6D5EF5);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 8px rgba(109,94,245,.08),0 12px 32px rgba(109,94,245,.4);
+  width:60px;height:60px;border-radius:17px;
+  overflow:hidden;
+  box-shadow:0 0 0 8px rgba(109,94,245,.06),0 10px 26px rgba(109,94,245,.22);
   margin-bottom:4px;
   transition:box-shadow .3s ease,transform .3s ease
 }
-.card-logo-mark:hover{transform:scale(1.05);box-shadow:0 0 0 12px rgba(109,94,245,.12),0 16px 40px rgba(109,94,245,.5)}
-.card-logo-mark svg{width:30px;height:23px}
+.card-logo-mark:hover{transform:scale(1.05);box-shadow:0 0 0 12px rgba(109,94,245,.1),0 14px 32px rgba(109,94,245,.3)}
+.card-logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .card-logo-name{font-size:20px;font-weight:800;letter-spacing:-.04em;color:#2A145D}
 .card-logo-tag{font-size:10px;font-weight:700;letter-spacing:.24em;color:#8B7CB8;text-transform:uppercase}
 
@@ -242,11 +237,10 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
 </style>
 </head>
 <body>
-<canvas id="bgCanvas"></canvas>
 <div class="shell" id="shell">
   <div class="left" id="leftPanel">
     <div class="brand">
-      <div class="brand-mark"><svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg></div>
+      <div class="brand-mark"><img src="assets/logo.png" alt="Nuvix"></div>
       <div class="brand-text"><div class="brand-name">Nuvix</div><div class="brand-sub">Hub</div></div>
     </div>
     <div class="hero">
@@ -265,7 +259,7 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
   <div class="right">
     <div class="card" id="loginCard">
       <div class="card-logo">
-        <div class="card-logo-mark"><svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg></div>
+        <div class="card-logo-mark"><img src="assets/logo.png" alt="Nuvix"></div>
         <div class="card-logo-name">Nuvix Hub</div>
         <div class="card-logo-tag">Enterprise Platform</div>
       </div>
@@ -317,7 +311,6 @@ h1 .grad{background:linear-gradient(135deg,var(--c5) 0%,var(--c6) 50%,#C084FC 10
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
@@ -359,75 +352,19 @@ function toggleSenha(){
   }
 }
 
-// THREE.JS
-const canvas=document.getElementById('bgCanvas');
-let W=window.innerWidth,H=window.innerHeight;
-canvas.width=W;canvas.height=H;
-const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.setSize(W,H);renderer.setClearColor(0x000000,0);
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(55,W/H,0.1,300);
-camera.position.set(0,2,14);camera.lookAt(0,0,0);
-const bgGeo=new THREE.PlaneGeometry(300,200);
-const bgMat=new THREE.ShaderMaterial({uniforms:{t:{value:0}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,fragmentShader:`uniform float t;varying vec2 vUv;void main(){vec3 c0=vec3(0.035,0.0,0.078);vec3 c1=vec3(0.094,0.02,0.2);vec3 c2=vec3(0.169,0.039,0.349);float y=vUv.y;float x=vUv.x;vec3 col=mix(c0,c1,y*1.2);col=mix(col,c2,smoothstep(0.4,0.9,y)*smoothstep(0.2,0.8,x)*0.6);float glow=exp(-pow((x-0.65)*2.5,2.0))*exp(-pow((y-0.5)*2.0,2.0))*0.5;col+=vec3(0.18,0.04,0.5)*glow*(0.8+0.2*sin(t*0.5));gl_FragColor=vec4(col,1.0);}`,side:THREE.FrontSide,depthWrite:false});
-const bgMesh=new THREE.Mesh(bgGeo,bgMat);bgMesh.position.z=-50;scene.add(bgMesh);
-const sg=new THREE.BufferGeometry();const sc=900;const sp=new Float32Array(sc*3);
-for(let i=0;i<sc;i++){sp[i*3]=(Math.random()-.5)*180;sp[i*3+1]=(Math.random()-.5)*100;sp[i*3+2]=(Math.random()-.5)*80-10;}
-sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
-const starMat=new THREE.PointsMaterial({color:0xffffff,size:0.08,transparent:true,opacity:0.7});
-scene.add(new THREE.Points(sg,starMat));
-scene.add(new THREE.AmbientLight(0xffffff,0.3));
-const sunL=new THREE.DirectionalLight(0xffffff,1.4);sunL.position.set(3,10,6);scene.add(sunL);
-const purL=new THREE.PointLight(0x9B3FFF,5,30);purL.position.set(-4,5,4);scene.add(purL);
-const rimL=new THREE.PointLight(0x6C31E3,3,20);rimL.position.set(6,0,-2);scene.add(rimL);
-const botL=new THREE.PointLight(0xA855F7,3,18);botL.position.set(2,-4,5);scene.add(botL);
-const fillL=new THREE.PointLight(0xDDD6FE,1.5,25);fillL.position.set(-6,-2,6);scene.add(fillL);
-function makePuff(r,c,ro=.35){return new THREE.Mesh(new THREE.SphereGeometry(r,32,32),new THREE.MeshStandardMaterial({color:c,roughness:ro,metalness:.04}));}
-function buildCloud(s=1,bright=true){
-  const g=new THREE.Group();
-  const C=bright?[[2.2,0,0,0,0xF5F3FF],[1.9,-2.1,-.1,0,0xEDE9FE],[1.9,2.1,-.1,0,0xEDE9FE],[1.6,-3.8,-.4,0,0xDDD6FE],[1.6,3.8,-.4,0,0xDDD6FE],[1.7,-1.1,1.3,.5,0xF5F3FF],[1.8,.9,1.4,.5,0xFAF5FF],[1.4,2.8,1.0,.3,0xEDE9FE],[1.3,-2.8,.9,.3,0xEDE9FE],[1.4,0,2.5,.3,0xFAF5FF],[1.1,-1.0,2.8,.2,0xF5F3FF],[1.1,1.1,2.7,.2,0xFAF5FF],[1.5,-.9,-1,0,0xC4B5FD],[1.5,.9,-1,0,0xC4B5FD],[1.0,-4.4,.5,-.1,0xA78BFA],[1.0,4.4,.5,-.1,0xA78BFA],[1.8,.5,.7,-1.6,0x8B5CF6],[1.6,-1.5,.5,-1.5,0x6D28D9],[1.6,2.2,.4,-1.5,0x6D28D9]]:[[1.2,0,0,0,0x6D28D9],[1.0,-1.2,0,0,0x6D28D9],[1.0,1.2,0,0,0x6D28D9],[.9,0,.9,.2,0x8B5CF6],[.8,-1.8,-.2,0,0x4C1D95],[.8,1.8,-.2,0,0x4C1D95]];
-  C.forEach(([r,x,y,z,c])=>{const p=makePuff(r*s,c);p.position.set(x*s,y*s,z*s);g.add(p);});return g;
-}
-const mainCloud=buildCloud(0.65,true);mainCloud.position.set(2,-.5,-1);scene.add(mainCloud);
-const sm1=buildCloud(.45,false);sm1.position.set(-6,4,-4);scene.add(sm1);
-const sm2=buildCloud(.35,false);sm2.position.set(-8,-1,-6);scene.add(sm2);
-const sm3=buildCloud(.3,false);sm3.position.set(10,5,-5);scene.add(sm3);
-const cgMat=new THREE.MeshBasicMaterial({color:0x8B5CF6,transparent:true,opacity:.03,side:THREE.BackSide});
-const cloudGlow=new THREE.Mesh(new THREE.SphereGeometry(4,32,32),cgMat);
-cloudGlow.position.copy(mainCloud.position);scene.add(cloudGlow);
-const hMesh=new THREE.Mesh(new THREE.TorusGeometry(18,.06,8,120,Math.PI),new THREE.MeshBasicMaterial({color:0x9333EA,transparent:true,opacity:.5}));
-hMesh.rotation.x=Math.PI/2;hMesh.rotation.y=Math.PI;hMesh.position.set(0,-6,0);scene.add(hMesh);
-let mx=0,my=0,tx=0,ty=0;
-window.addEventListener('mousemove',e=>{mx=(e.clientX/W-.5)*2;my=(e.clientY/H-.5)*2;});
-let t=0;
-function animate(){
-  requestAnimationFrame(animate);t+=.008;
-  bgMat.uniforms.t.value=t;
-  tx+=(mx-tx)*.04;ty+=(my-ty)*.04;
-  camera.position.x=tx*1.5;camera.position.y=2-ty*1.0;camera.lookAt(tx*.3,ty*-.3,0);
-  mainCloud.position.y=-.5+Math.sin(t)*.22;mainCloud.rotation.y=Math.sin(t*.35)*.05;
-  cloudGlow.position.y=mainCloud.position.y;
-  sm1.position.y=4+Math.sin(t*1.1+1)*.18;sm2.position.y=-1+Math.sin(t*.9+2)*.15;sm3.position.y=5+Math.sin(t*1.2+3)*.2;
-  purL.intensity=4.5+Math.sin(t*.8)*.8;botL.intensity=2.5+Math.sin(t*.6+1)*.7;rimL.intensity=2.5+Math.sin(t*.7+2)*.6;
-  starMat.opacity=.65+Math.sin(t*2)*.08;
-  renderer.render(scene,camera);
-}
-animate();
-window.addEventListener('resize',()=>{W=window.innerWidth;H=window.innerHeight;canvas.width=W;canvas.height=H;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();});
 </script>
 
-<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(9,0,20,.96);border-top:1px solid rgba(109,94,245,.3);backdrop-filter:blur(12px);padding:16px 24px">
+<div id="lgpdBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#fff;border-top:1px solid #EAECF0;box-shadow:0 -4px 16px rgba(16,24,40,.06);padding:16px 24px">
   <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px">
       <span style="font-size:24px"></span>
       <div>
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Privacidade e Cookies</div>
-        <div style="font-size:12px;color:rgba(180,171,249,.7);line-height:1.5">Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa <a href="privacidade.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Política de Privacidade</a> e <a href="termos.html" target="_blank" style="color:#B4ABF9;font-weight:600;text-decoration:underline">Termos de Uso</a>.</div>
+        <div style="font-size:13px;font-weight:700;color:#101828;margin-bottom:3px">Privacidade e Cookies</div>
+        <div style="font-size:12px;color:#667085;line-height:1.5">Utilizamos session storage para manter sua sessão ativa. Ao usar o Nuvix Hub, você concorda com nossa <a href="privacidade.html" target="_blank" style="color:#6D5EF5;font-weight:600;text-decoration:underline">Política de Privacidade</a> e <a href="termos.html" target="_blank" style="color:#6D5EF5;font-weight:600;text-decoration:underline">Termos de Uso</a>.</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0">
-      <a href="privacidade.html" target="_blank" style="background:rgba(109,94,245,.2);color:#B4ABF9;border:1px solid rgba(109,94,245,.3);padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
+      <a href="privacidade.html" target="_blank" style="background:#EFEEFE;color:#5B4CF0;border:1px solid #DAD3FC;padding:9px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Saiba mais</a>
       <button onclick="aceitarLGPD()" style="background:linear-gradient(135deg,#5B4CF0,#6D5EF5);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Entendi e aceito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></button>
     </div>
   </div>
