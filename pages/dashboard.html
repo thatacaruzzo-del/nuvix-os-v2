@@ -105,7 +105,9 @@
 .estado-geral.prioridade{background:var(--red-bg);color:var(--red)}
 .estado-geral.atencao{background:var(--amber-bg);color:var(--amber)}
 .estado-geral.ok{background:var(--green-bg);color:var(--green)}
+.estado-geral.onboarding{background:var(--p-light);color:var(--p2)}
 .estado-geral-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ia-onboarding-txt{font-size:13px;color:var(--muted);line-height:1.5;margin-top:4px}
 
 /* ── Hero consolidado — caixa + tira de status dos 5 setores + top insight, tudo em 1 lugar ── */
 .hero-status-strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
@@ -1145,7 +1147,27 @@ function gerarResumoExecutivo(atual, diff, principais){
 // RENDER — Inteligência Nuvix: 1 bloco único, resumo no topo, até 4 linhas internas (1 por
 // categoria), "ver todos" só quando existirem mais insights do que os 4 mostrados.
 const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
+// Onboarding: com poucos lançamentos confirmados, qualquer veredito (mesmo "empresa saudável")
+// é pouco confiável — a régua é contar dado real (nunca proxy), então usamos o próprio total de
+// lançamentos confirmados na história inteira da conta, sem filtro de período.
+const MIN_LANCAMENTOS_DIAGNOSTICO = 5;
+function contarLancamentosConfirmados(){
+  return dados.fin.filter(f=>isReceitaConfirmada(f)||isDespesaConfirmada(f)).length;
+}
 function renderInteligenciaNuvix(){
+  const totalConfirmados = contarLancamentosConfirmados();
+  if(totalConfirmados < MIN_LANCAMENTOS_DIAGNOSTICO){
+    setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><span class="estado-geral-dot"></span>Ainda reunindo dados — ${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div>`);
+    setHTML('inteligenciaNuvix', `
+      <div class="ia-master-card">
+        <div class="ia-eyebrow">Inteligência Nuvix</div>
+        <div class="ia-resumo">Ainda reunindo dados suficientes pra gerar diagnósticos confiáveis.</div>
+        <div class="ia-onboarding-txt">Continue lançando receitas e despesas confirmadas — a análise aparece automaticamente assim que houver histórico suficiente (${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO}).</div>
+      </div>`);
+    setHTML('heroInsight', '');
+    ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{ const el=$('tabAlert-'+area); if(el) el.style.display='none'; });
+    return;
+  }
   const {de:antDe,ate:antAte} = periodoAnterior();
   const atual = coletarMetricas(periodo.de, periodo.ate);
   const anterior = coletarMetricas(antDe, antAte);
