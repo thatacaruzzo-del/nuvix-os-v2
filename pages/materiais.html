@@ -632,7 +632,7 @@ function renderMateriais(){
         <span style="font-size:12px;font-weight:700;color:var(--p)">${money(m.valor_venda)}</span>
       </div>
     </div>`;
-  }).join('')||'<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--muted)">Nenhum material.</div>');
+  }).join('')||'<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--muted)">Nenhum material encontrado. <a href="#" onclick="abrirModalMaterial()" style="color:var(--p)">+ Cadastrar material</a></div>');
 }
 
 function setView(v){
@@ -962,7 +962,7 @@ function renderFornecedores(){
       <button class="btn2" onclick="editarFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
       <button class="danger" onclick="excluirFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
     </div></td>
-  </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum fornecedor cadastrado.</td></tr>');
+  </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum fornecedor ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');
 }
 
 // ══ TABS ══

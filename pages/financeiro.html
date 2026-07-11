@@ -921,7 +921,7 @@ function renderLancamentos(){
         </div>
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento.</td></tr>');
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');
 }
 
 // ── RENDER FLUXO ──
@@ -959,7 +959,7 @@ function renderFluxo(){
       <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
       <td>${sit}</td>
     </tr>`;
-  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento.</td></tr>');
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento ainda. <a href="#" onclick="finTab(\'lancamentos\');return false" style="color:var(--p);font-weight:700">Cadastrar o primeiro →</a></td></tr>');
 }
 
 // ── RECEBER / PAGAR ──
@@ -986,7 +986,7 @@ function renderReceber(){
       <td>${sit}</td>
       <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Recebido</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a receber.</td></tr>');
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a receber no momento.</td></tr>');
 }
 
 function renderPagar(){
@@ -1014,7 +1014,7 @@ function renderPagar(){
       <td>${sit}</td>
       <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Pago</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar.</td></tr>');
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar no momento.</td></tr>');
 }
 
 // ── TABS ──

@@ -511,10 +511,11 @@ function renderLista(){
   if(status)lista=lista.filter(o=>o.status===status);
   if(prio)lista=lista.filter(o=>o.prioridade===prio);
   if(mes)lista=lista.filter(o=>String(o.created_at||'').slice(0,7)===mes);
-  setHTML('osLista',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS encontrada.</div>');
+  const vazio = dados.os.length===0 ? `Nenhuma OS cadastrada ainda. <a href="#" onclick="osTab('nova');return false" style="color:var(--p);font-weight:700">Criar a primeira →</a>` : 'Nenhuma OS encontrada.';
+  setHTML('osLista',lista.length?lista.map(renderOsCard).join(''):`<div style="text-align:center;padding:40px;color:var(--muted)">${vazio}</div>`);
 }
 function renderHoje(){const hj=hoje();const lista=dados.os.filter(o=>String(o.data_agendada||'').slice(0,10)===hj);setHTML('osHoje',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS agendada para hoje.</div>');}
-function renderAbertas(){const lista=dados.os.filter(o=>o.status==='Aberta');setHTML('osAbertas',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS aberta.</div>');}
+function renderAbertas(){const lista=dados.os.filter(o=>o.status==='Aberta');const vazio=dados.os.length===0?`Nenhuma OS cadastrada ainda. <a href="#" onclick="osTab('nova');return false" style="color:var(--p);font-weight:700">Criar a primeira →</a>`:'Nenhuma OS aberta.';setHTML('osAbertas',lista.length?lista.map(renderOsCard).join(''):`<div style="text-align:center;padding:40px;color:var(--muted)">${vazio}</div>`);}
 function renderAndamento(){const lista=dados.os.filter(o=>['Em atendimento','Em deslocamento','Agendada','Aguardando material','Pausada'].includes(o.status||''));setHTML('osAndamento',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS em andamento.</div>');}
 function renderConcluidas(){const lista=dados.os.filter(o=>o.status==='Concluída');setHTML('osConcluidas',lista.length?lista.map(renderOsCard).join(''):'<div style="text-align:center;padding:40px;color:var(--muted)">Nenhuma OS concluída.</div>');}
 
