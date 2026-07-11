@@ -108,6 +108,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
@@ -462,6 +463,7 @@ async function init(){
   }
   popularSelectsForm();
   await carregarTudo();
+  $('pageLoader')?.classList.add('hide');
 }
 
 async function carregarTudo(){

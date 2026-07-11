@@ -55,6 +55,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
@@ -299,6 +300,7 @@ async function init(){
   if($('folhaMes'))$('folhaMes').value=hoje().slice(0,7);
   if($('rescData'))$('rescData').value=hoje();
   await loadParams();await loadData();
+  $('pageLoader')?.classList.add('hide');
 }
 async function loadParams(){if(!session?.empresa_id)return;try{const lista=await db.get('parametros_empresa',`?select=*&empresa_id=eq.${session.empresa_id}&limit=1`);if(lista.length){const p=lista[0];Object.assign(P,p);if(p.tabela_inss)P.tabela_inss=typeof p.tabela_inss==='string'?JSON.parse(p.tabela_inss):p.tabela_inss;if(p.tabela_irrf)P.tabela_irrf=typeof p.tabela_irrf==='string'?JSON.parse(p.tabela_irrf):p.tabela_irrf;}else{if($('avisoParams'))$('avisoParams').style.display='block';}}catch(e){if($('avisoParams'))$('avisoParams').style.display='block';}}
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{[dados.colaboradores,dados.ponto]=await Promise.all([db.get('colaboradores',q),db.get('ponto',q)]);renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}

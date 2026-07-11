@@ -72,6 +72,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
@@ -228,6 +229,7 @@ async function init() {
   if(emp){$('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Trial: ${dias} dias`;$('trialBadge').style.display='inline-block';}}}
   if($('crmResp'))$('crmResp').value=session.nome||'';
   await loadData();
+  $('pageLoader')?.classList.add('hide');
 }
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{[oportunidades,clientes]=await Promise.all([db.get('crm_oportunidades',q),db.get('clientes',q)]);renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
 function renderTudo(){renderKpis();renderPipeline();renderAlertas();renderHistorico();}

@@ -273,6 +273,14 @@ tr:hover td { background: #FAF9FE; }
 .sb-btn.active svg { color: var(--p); }
 .sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; }
 
+/* ── Loader inicial de página — evita a tela em branco entre o HTML carregar e os dados
+   chegarem do Supabase. Some sozinho quando loadData() termina (com sucesso ou erro). ── */
+.page-loader { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity .2s ease; }
+.page-loader.hide { opacity: 0; pointer-events: none; }
+.page-loader-spinner { width: 32px; height: 32px; border: 3px solid var(--p-light); border-top-color: var(--p); border-radius: 50%; animation: pageLoaderSpin .7s linear infinite; }
+@keyframes pageLoaderSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .page-loader-spinner { animation-duration: 1.6s; } }
+
 /* Tooltip - só quando sidebar está fechada */
 /* tooltip removed - names always visible */
 
