@@ -110,6 +110,7 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function toast(t,type){document.querySelector('.nx-toast')?.remove();const el=document.createElement('div');el.className='nx-toast '+(type||'ok');el.textContent=t;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0'},3000);setTimeout(()=>el.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('input');input.type=opts.tipo||'text';input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';if(opts.valor)input.value=opts.valor;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'OK';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(null);if(e.key==='Enter'){e.preventDefault();finish(input.value);}}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value);overlay.onclick=e=>{if(e.target===overlay)finish(null)};document.addEventListener('keydown',onKey);input.focus();})}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function money2(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
@@ -161,6 +162,8 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     </div>
 
     <div class="main-scroll">
+
+      <div id="osInsightLine"></div>
 
       <!-- KPIs -->
       <div class="os-kpis" id="osKpis"></div>
@@ -469,6 +472,8 @@ function renderKpis(){
     {lbl:'Ticket médio',val:money(ticket),sub:'por OS',cor:'var(--txt)'},
     {lbl:'Para hoje',val:hoje_os+(vencidas>0?` <span style="color:var(--red);font-size:12px">(${vencidas} venc.)</span>`:''),sub:'agendadas',cor:'var(--txt)'},
   ].map(k=>`<div class="os-kpi"><div class="os-kpi-lbl">${k.lbl}</div><div class="os-kpi-val" style="color:${k.cor}">${k.val}</div><div class="os-kpi-sub">${k.sub}</div></div>`).join(''));
+  // Frase de contexto no topo — reaproveita "vencidas", já calculado acima pro card "Para hoje".
+  setHTML('osInsightLine',vencidas>0?`<div class="insight-line"><span class="insight-dot"></span><div class="insight-txt"><b>${vencidas} ordem${vencidas>1?'s':''} de serviço atrasada${vencidas>1?'s':''}.</b> Já passou da data agendada e ainda não foi concluída.</div></div>`:'');
 }
 
 // ── STATUS BADGE ──
@@ -848,8 +853,8 @@ function updMOOS(i,campo,v){
 }
 
 // ── CHECKLIST (formulário) ──
-function addCheckOS(){
-  const item=prompt('Item do checklist:');
+async function addCheckOS(){
+  const item=await promptAcao('Item do checklist:',{placeholder:'Ex: Verificar conexões',labelOk:'Adicionar'});
   if(!item)return;
   osCheckItens.push({item,concluido:false,ordem:osCheckItens.length});
   renderCheckItens();
