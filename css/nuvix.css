@@ -271,6 +271,7 @@ tr:hover td { background: #FAF9FE; }
   padding-left: 10.5px;
 }
 .sb-btn.active svg { color: var(--p); }
+.sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; }
 
 /* Tooltip - só quando sidebar está fechada */
 /* tooltip removed - names always visible */
