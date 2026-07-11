@@ -271,7 +271,20 @@ tr:hover td { background: #FAF9FE; }
   padding-left: 10.5px;
 }
 .sb-btn.active svg { color: var(--p); }
-.sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; }
+.sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; cursor: pointer; z-index: 2; }
+.sb-alert-dot:hover { transform: scale(1.2); }
+
+/* ── Popover do alerta da sidebar — resumo dos sinais ativos sem sair da página ── */
+.sb-alert-popover { position: fixed; width: 280px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 48px rgba(16,24,40,.22); padding: 16px; z-index: 10000; }
+.sb-alert-popover-item { padding: 10px 0; border-top: 1px solid var(--bg); }
+.sb-alert-popover-item:first-child { border-top: none; padding-top: 0; }
+.sb-alert-popover-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.sb-alert-popover-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sb-alert-popover-badge.prioridade { color: var(--red); }
+.sb-alert-popover-badge.atencao { color: var(--amber); }
+.sb-alert-popover-titulo { font-size: 13px; font-weight: 700; color: var(--txt); margin-bottom: 3px; }
+.sb-alert-popover-txt { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.sb-alert-popover-link { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--p); text-decoration: none; }
 
 /* ── Loader inicial de página — evita a tela em branco entre o HTML carregar e os dados
    chegarem do Supabase. Some sozinho quando loadData() termina (com sucesso ou erro). ── */
