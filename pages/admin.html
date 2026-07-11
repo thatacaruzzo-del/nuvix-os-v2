@@ -190,10 +190,11 @@ function msgEl(id,text,type='ok'){
 }
 
 // DB helpers
-async function dbGet(t,q=''){const r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()}
-async function dbPost(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()}
-async function dbPatch(t,id,d){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()}
-async function dbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});if(!r.ok)throw new Error(await r.text());return true}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+async function dbGet(t,q=''){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPost(t,d){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPatch(t,id,d){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbDelete(t,id){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()}
 
 // AUTH

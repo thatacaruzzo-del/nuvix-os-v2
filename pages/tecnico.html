@@ -293,10 +293,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 const SB='https://quullcxptbiqycyakzlc.supabase.co';
 const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 const db={
-  get:async(t,q)=>{const r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()},
-  post:async(t,d)=>{const r=await fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
-  patch:async(t,id,d)=>{const r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},
+  get:async(t,q)=>{let r;try{r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  post:async(t,d)=>{let r;try{r=await fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  patch:async(t,id,d)=>{let r;try{r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
 };
 
 function $(id){return document.getElementById(id)}
