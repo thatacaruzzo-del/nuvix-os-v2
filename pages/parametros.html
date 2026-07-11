@@ -24,6 +24,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 (function(){
   try{
@@ -176,7 +177,8 @@ const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
 const db={get:async(t,q='')=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});if(!r.ok)throw new Error(await r.text());return r.json()},post:async(t,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()},patch:async(t,id,d)=>{const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()}};
-// auth already defined aboveasync function loadParams(){
+// auth already defined above
+async function loadParams(){
   const s=getSession();if(!s?.empresa_id)return;
   try{const lista=await db.get('parametros_empresa',`?select=*&empresa_id=eq.${s.empresa_id}&limit=1`);if(lista.length){const p=lista[0];Object.assign(params,p);if(p.tabela_inss)tabelaINSS=JSON.parse(p.tabela_inss);if(p.tabela_irrf)tabelaIRRF=JSON.parse(p.tabela_irrf);if(p.feriados)feriados=JSON.parse(p.feriados);}}catch(e){console.log('Usando padrões 2025');}
 }
@@ -208,6 +210,22 @@ function simularFolha(){const salario=num('simSalario'),deps=num('simDependentes
 function parTab(id,btn){document.querySelectorAll('.par-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.par-tab').forEach(b=>b.classList.remove('active'));const pane=document.getElementById('pane-'+id);if(pane)pane.classList.add('active');if(btn)btn.classList.add('active');}
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+async function init(){
+  if(!session)return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Trial: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+  }
+  await loadParams();
+  preencherFormulario();
+  renderINSS();
+  renderIRRF();
+  renderFeriados();
+  $('pageLoader')?.classList.add('hide');
+}
 init();
 </script>
 <script>

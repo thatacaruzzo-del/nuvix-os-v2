@@ -30,6 +30,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 
 <script>
 function $(id){return document.getElementById(id)}
@@ -323,6 +324,7 @@ async function init() {
     if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Trial: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
   }
   await loadData();
+  $('pageLoader')?.classList.add('hide');
 }
 
 async function loadData() {

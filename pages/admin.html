@@ -158,6 +158,7 @@ tr:hover td{background:#FAFAFF}
 </style>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 
 <script>
 // ═══ UTILS ═══
@@ -769,12 +770,14 @@ async function initAdmin(){
       if(Date.now() - adminSession.loginAt < 8*60*60*1000){
         mostrarPainel();
         await carregarTudo();
+        $('pageLoader')?.classList.add('hide');
         return;
       }
     }
   } catch(e){}
   // Show login screen
   mostrarLogin();
+  $('pageLoader')?.classList.add('hide');
 }
 
 function mostrarLogin(){

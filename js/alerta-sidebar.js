@@ -1,10 +1,15 @@
 // Ponto de alerta no item "Dashboard" da barra lateral, visível em qualquer página do app —
-// não só quando o cliente está no Dashboard. Reflete o mesmo critério de "Atenção ao caixa"
-// já usado em calcStatusFinanceiro() (pages/dashboard.html): caixa negativo agora, ou projetado
-// pra ficar negativo nos próximos 14 dias com base só no que já está lançado.
+// não só quando o cliente está no Dashboard. Acende quando pelo menos um destes 3 sinais
+// (os mais graves e mais baratos de checar, sem repetir o motor completo de regras) é real:
+//   1. Caixa negativo agora, ou projetado ficar negativo nos próximos 14 dias — mesmo critério
+//      de "Atenção ao caixa" já usado em calcStatusFinanceiro() (pages/dashboard.html).
+//   2. Existe item de material com estoque zerado — mesmo critério de calcMateriaisSetor().
+//   3. Existe ordem de serviço atrasada (não concluída/cancelada, com data agendada no passado)
+//      — mesmo critério de calcOperacao().
 //
 // Autocontido de propósito (não depende de getSession/db definidos na página) e nunca lança
-// erro pra fora do try/catch — se algo falhar, simplesmente não acende o ponto.
+// erro pra fora do try/catch — se algo falhar, simplesmente não acende o ponto. Cada busca tem
+// seu próprio fallback silencioso, então a falha de uma tabela não derruba as outras.
 (function () {
   try {
     var SESSION_KEY = 'nuvix_v2_session';
@@ -24,20 +29,27 @@
     }
     function isReceitaConfirmada(f) { return ['Recebido', 'Pago'].indexOf(f.status || '') !== -1; }
     function isDespesaConfirmada(f) { return f.status === 'Pago'; }
+    function safeJson(r) { return r.ok ? r.json() : []; }
+    function vazio() { return []; }
 
-    fetch(SB + '/rest/v1/financeiro?select=tipo,status,valor,vencimento&empresa_id=eq.' + empresaId, { headers: H })
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (fin) {
-        if (!Array.isArray(fin) || fin.length === 0) return;
+    Promise.all([
+      fetch(SB + '/rest/v1/financeiro?select=tipo,status,valor,vencimento&empresa_id=eq.' + empresaId, { headers: H }).then(safeJson).catch(vazio),
+      fetch(SB + '/rest/v1/materiais?select=estoque_atual&empresa_id=eq.' + empresaId, { headers: H }).then(safeJson).catch(vazio),
+      fetch(SB + '/rest/v1/ordens_servico?select=status,data_agendada&empresa_id=eq.' + empresaId, { headers: H }).then(safeJson).catch(vazio),
+    ]).then(function (resultados) {
+      var fin = resultados[0], mats = resultados[1], os = resultados[2];
+      var alerta = false;
 
+      // Sinal 1 — caixa
+      if (Array.isArray(fin) && fin.length) {
         var rec = fin.filter(function (f) { return f.tipo === 'Receita' && isReceitaConfirmada(f); })
           .reduce(function (a, f) { return a + Number(f.valor || 0); }, 0);
         var pag = fin.filter(function (f) { return f.tipo === 'Despesa' && isDespesaConfirmada(f); })
           .reduce(function (a, f) { return a + Number(f.valor || 0); }, 0);
         var caixa = rec - pag;
-
-        var alerta = caixa < 0;
-        if (!alerta) {
+        if (caixa < 0) {
+          alerta = true;
+        } else {
           var hoje = new Date();
           var saldo = caixa;
           for (var i = 1; i <= 14; i++) {
@@ -52,14 +64,29 @@
             if (saldo < 0) { alerta = true; break; }
           }
         }
-        if (!alerta) return;
+      }
 
-        var link = document.querySelector('.sb-btn[href="dashboard.html"]');
-        if (!link || link.querySelector('.sb-alert-dot')) return;
-        var dot = document.createElement('span');
-        dot.className = 'sb-alert-dot';
-        link.appendChild(dot);
-      })
-      .catch(function () { /* silencioso: nunca deve afetar a página */ });
+      // Sinal 2 — material zerado
+      if (!alerta && Array.isArray(mats)) {
+        alerta = mats.some(function (m) { return Number(m.estoque_atual || 0) === 0; });
+      }
+
+      // Sinal 3 — OS atrasada
+      if (!alerta && Array.isArray(os)) {
+        var hj = dataLocalStr(new Date());
+        alerta = os.some(function (o) {
+          var dataAg = String(o.data_agendada || '').slice(0, 10);
+          return ['Concluída', 'Cancelada'].indexOf(o.status || '') === -1 && dataAg && dataAg < hj;
+        });
+      }
+
+      if (!alerta) return;
+
+      var link = document.querySelector('.sb-btn[href="dashboard.html"]');
+      if (!link || link.querySelector('.sb-alert-dot')) return;
+      var dot = document.createElement('span');
+      dot.className = 'sb-alert-dot';
+      link.appendChild(dot);
+    }).catch(function () { /* silencioso: nunca deve afetar a página */ });
   } catch (e) { /* silencioso: nunca deve afetar a página */ }
 })();

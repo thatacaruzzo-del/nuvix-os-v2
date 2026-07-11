@@ -42,6 +42,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 
 <script>
 function $(id){return document.getElementById(id)}
@@ -288,6 +289,7 @@ async function loadData() {
     [dados.clientes,dados.usuarios]=await Promise.all([db.get('clientes',q),db.get('usuarios',q)]);
     renderClientes(); renderUsuarios();
   } catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
+  $('pageLoader')?.classList.add('hide');
 }
 
 async function salvarCliente() {

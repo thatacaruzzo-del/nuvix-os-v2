@@ -31,6 +31,7 @@
 <script src="../js/nuvix-logs.js"></script>
 </head>
 <body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
@@ -235,6 +236,7 @@ async function init(){
   const emp=session.empresa;
   if(emp){if($('topbarSub'))$('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0&&$('trialBadge')){$('trialBadge').textContent=`Trial: ${dias} dias`;$('trialBadge').style.display='inline-block';}}}
   await loadData();
+  $('pageLoader')?.classList.add('hide');
 }
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{const[cat,orc,cli,mats]=await Promise.all([db.get('servicos_catalogo',q),db.get('servicos_orcamentos',q),db.get('clientes',q),db.get('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&order=nome.asc`)]);dados={catalogo:cat,orcamentos:orc,clientes:cli,materiais:mats};popularSelectMateriais();renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
 function renderTudo(){renderIndicadores();renderCatalogo();renderOrcamentos();renderExecucao();renderHistorico();popularSelects();}
