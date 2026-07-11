@@ -29,7 +29,15 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
 .eyebrow-dot{width:6px;height:6px;background:var(--c4);border-radius:50%}
 h1{font-size:clamp(36px,4.2vw,58px);font-weight:800;line-height:1.08;letter-spacing:-.03em;color:var(--text);margin-bottom:20px}
 h1 .grad{color:var(--c4)}
-.subtitle{font-size:16px;line-height:1.7;color:var(--muted);max-width:480px;margin-bottom:40px}
+.subtitle{font-size:16px;line-height:1.7;color:var(--muted);max-width:480px;margin-bottom:28px}
+/* Prévia real do produto — mostra em vez de só descrever. Dado ilustrativo, deixado claro no rótulo. */
+.produto-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px rgba(16,24,40,.08);margin-bottom:28px;max-width:420px}
+.pp-eyebrow{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--c3);margin-bottom:8px}
+.pp-row{display:flex;align-items:flex-start;gap:9px}
+.pp-dot{width:7px;height:7px;border-radius:50%;background:#D97706;margin-top:5px;flex-shrink:0}
+.pp-txt{font-size:12.5px;color:var(--text);line-height:1.5}
+.pp-txt b{font-weight:700}
+.pp-footer{font-size:10.5px;color:#98A2B3;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .pills{display:flex;flex-wrap:wrap;gap:10px}
 .pill{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:var(--text);transition:all .25s ease;cursor:default;box-shadow:0 1px 2px rgba(16,24,40,.03)}
 .pill:hover{border-color:#C7BFF5;transform:translateY(-1px)}
@@ -41,50 +49,26 @@ h1 .grad{color:var(--c4)}
    Enterprise SaaS UI — Light Card
 ══════════════════════════════════ */
 
-/* Card iluminado */
+/* Card do login — simples, no mesmo padrão dos cards usados no resto do sistema */
 .card{
   width:100%;max-width:400px;
-  background:linear-gradient(
-    135deg,
-    rgba(255,255,255,0.96) 0%,
-    rgba(245,238,255,0.95) 45%,
-    rgba(232,220,255,0.94) 100%
-  );
-  border:1px solid rgba(255,255,255,.45);
-  border-radius:28px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
   padding:32px 36px;
-  backdrop-filter:blur(24px);
-  -webkit-backdrop-filter:blur(24px);
-  box-shadow:
-    0 20px 50px rgba(88,40,180,.14),
-    0 0 0 1px rgba(255,255,255,.5),
-    inset 0 1px 0 rgba(255,255,255,.8);
-  transition:transform .4s cubic-bezier(.23,1,.32,1),box-shadow .4s ease;
-  position:relative;overflow:hidden
-}
-.card::before{
-  content:'';position:absolute;
-  top:-1px;left:8%;right:8%;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent)
-}
-.card:hover{
-  transform:translateY(-5px);
-  box-shadow:0 30px 70px rgba(88,40,180,.18),0 0 0 1px rgba(255,255,255,.6),inset 0 1px 0 rgba(255,255,255,.9)
+  box-shadow:0 4px 16px rgba(16,24,40,.06);
 }
 
 /* Logo */
 .card-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
 .card-logo-mark{
-  width:60px;height:60px;border-radius:17px;
+  width:56px;height:56px;border-radius:16px;
   overflow:hidden;
-  box-shadow:0 0 0 8px rgba(109,94,245,.06),0 10px 26px rgba(109,94,245,.22);
-  margin-bottom:4px;
-  transition:box-shadow .3s ease,transform .3s ease
+  box-shadow:0 4px 14px rgba(109,94,245,.2);
+  margin-bottom:4px
 }
-.card-logo-mark:hover{transform:scale(1.05);box-shadow:0 0 0 12px rgba(109,94,245,.1),0 14px 32px rgba(109,94,245,.3)}
 .card-logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .card-logo-name{font-size:20px;font-weight:800;letter-spacing:-.04em;color:#2A145D}
-.card-logo-tag{font-size:10px;font-weight:700;letter-spacing:.24em;color:#8B7CB8;text-transform:uppercase}
 
 /* Divider */
 .card-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(109,94,245,.15),transparent);margin-bottom:0px;display:none}
@@ -173,32 +157,13 @@ h1 .grad{color:var(--c4)}
 /* Botão principal */
 .btn-primary{
   width:100%;height:52px;
-  background:linear-gradient(135deg,#6C3CF7,#9B67FF);
+  background:var(--c4);
   border:none;border-radius:18px;
   color:#fff;font-size:15px;font-weight:700;
   font-family:inherit;cursor:pointer;
-  box-shadow:0 8px 24px rgba(108,60,247,.35),0 2px 6px rgba(0,0,0,.08);
-  transition:all 200ms ease-in-out;
-  position:relative;overflow:hidden;letter-spacing:.02em
+  transition:background 150ms ease-in-out;letter-spacing:.02em
 }
-.btn-primary::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(255,255,255,.2) 0%,transparent 60%);
-  border-radius:18px
-}
-.btn-primary::after{
-  content:'';position:absolute;
-  top:-50%;left:-75%;width:50%;height:200%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
-  transform:skewX(-20deg);
-  transition:left .5s ease
-}
-.btn-primary:hover{
-  transform:translateY(-3px);
-  box-shadow:0 16px 40px rgba(108,60,247,.5),0 4px 12px rgba(0,0,0,.1)
-}
-.btn-primary:hover::after{left:125%}
-.btn-primary:active{transform:translateY(-1px)}
+.btn-primary:hover{background:var(--c3)}
 
 /* Botão secundário */
 .btn-secondary{
@@ -213,8 +178,7 @@ h1 .grad{color:var(--c4)}
 .btn-secondary:hover{
   background:rgba(109,94,245,.06);
   border-color:#9B67FF;
-  color:#5B4CF0;
-  transform:translateY(-2px)
+  color:#5B4CF0
 }
 
 /* Powered */
@@ -244,14 +208,22 @@ h1 .grad{color:var(--c4)}
       <div class="brand-text"><div class="brand-name">Nuvix</div><div class="brand-sub">Hub</div></div>
     </div>
     <div class="hero">
-      <div class="eyebrow"><span class="eyebrow-dot"></span>Sistema Operacional Empresarial</div>
-      <h1>O sistema operacional<br>da <span class="grad">sua empresa.</span></h1>
-      <p class="subtitle">Centralize financeiro, transportes, CRM, RH, folha de ponto, folha de pagamento e indicadores em uma única plataforma.</p>
+      <div class="eyebrow"><span class="eyebrow-dot"></span>Feito pra pequenos negócios de serviço</div>
+      <h1>Entenda sua empresa<br>em <span class="grad">30 segundos.</span></h1>
+      <p class="subtitle">Chega de planilha e achismo. Se não tiver dado suficiente pra um diagnóstico, a Nuvix avisa — nunca inventa número só pra parecer inteligente.</p>
+      <div class="produto-preview">
+        <div class="pp-eyebrow">Inteligência Nuvix</div>
+        <div class="pp-row">
+          <span class="pp-dot"></span>
+          <div class="pp-txt"><b>Despesas em Combustível subiram 18% este mês.</b> Foi a categoria que mais cresceu em relação ao mês anterior.</div>
+        </div>
+        <div class="pp-footer">Confiança: alta · calculado com dados confirmados</div>
+      </div>
       <div class="pills">
-        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>Gestão Inteligente</div>
-        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>Resultados em Tempo Real</div>
-        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>Equipe Conectada</div>
-        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></div>Segurança Corporativa</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>Diagnóstico honesto, sem inventar números</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>Financeiro, CRM, OS e Estoque num só lugar</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>Sem planilha, sem complicação</div>
+        <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div>Alertas em qualquer tela</div>
       </div>
     </div>
     <div class="left-footer">© 2026 Nuvix Hub · Todos os direitos reservados</div>
@@ -261,7 +233,6 @@ h1 .grad{color:var(--c4)}
       <div class="card-logo">
         <div class="card-logo-mark"><img src="assets/logo.png" alt="Nuvix"></div>
         <div class="card-logo-name">Nuvix Hub</div>
-        <div class="card-logo-tag">Enterprise Platform</div>
       </div>
       <div class="card-divider"></div>
       <div class="card-welcome">Acesse sua conta para continuar</div>
