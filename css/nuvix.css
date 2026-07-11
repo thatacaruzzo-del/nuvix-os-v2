@@ -281,6 +281,22 @@ tr:hover td { background: #FAF9FE; }
 @keyframes pageLoaderSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .page-loader-spinner { animation-duration: 1.6s; } }
 
+/* ── Confirmação em modal — substitui o confirm() nativo do navegador, que quebra a
+   identidade visual da Nuvix. Ver confirmarAcao() em cada página. ── */
+.nx-confirm-overlay { position: fixed; inset: 0; background: rgba(16,24,40,.45); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.nx-confirm-box { background: #fff; border-radius: 18px; box-shadow: 0 20px 48px rgba(16,24,40,.25); max-width: 380px; width: 100%; padding: 24px; }
+.nx-confirm-msg { font-size: 14px; color: var(--txt); line-height: 1.55; white-space: pre-line; margin-bottom: 20px; }
+.nx-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.nx-confirm-cancel { height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--muted); font-weight: 600; font-size: 13px; cursor: pointer; }
+.nx-confirm-cancel:hover { background: var(--bg); }
+.nx-confirm-ok { height: 40px; padding: 0 16px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; color: #fff; }
+.nx-confirm-ok.perigo { background: var(--red); }
+.nx-confirm-ok.perigo:hover { filter: brightness(.88); }
+.nx-confirm-ok.aviso { background: var(--amber); }
+.nx-confirm-ok.aviso:hover { filter: brightness(.92); }
+.nx-confirm-ok.neutro { background: var(--p); }
+.nx-confirm-ok.neutro:hover { background: var(--p2); }
+
 /* Tooltip - só quando sidebar está fechada */
 /* tooltip removed - names always visible */
 

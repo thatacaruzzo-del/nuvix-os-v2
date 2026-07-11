@@ -130,6 +130,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* ── TOAST ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#241463;color:#fff;padding:12px 24px;border-radius:99px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .3s}
 
+/* ── CONFIRMAÇÃO EM MODAL (substitui o confirm() nativo) ── */
+.nx-confirm-overlay{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.nx-confirm-box{background:#fff;border-radius:18px;box-shadow:0 20px 48px rgba(16,24,40,.25);max-width:380px;width:100%;padding:24px}
+.nx-confirm-msg{font-size:14px;color:var(--txt);line-height:1.55;white-space:pre-line;margin-bottom:20px}
+.nx-confirm-actions{display:flex;justify-content:flex-end;gap:10px}
+.nx-confirm-cancel{height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
+.nx-confirm-cancel:hover{background:var(--bg)}
+.nx-confirm-ok{height:40px;padding:0 16px;border-radius:10px;border:none;font-weight:700;font-size:13px;cursor:pointer;color:#fff}
+.nx-confirm-ok.perigo{background:var(--red)}
+.nx-confirm-ok.perigo:hover{filter:brightness(.88)}
+.nx-confirm-ok.aviso{background:var(--amber)}
+.nx-confirm-ok.aviso:hover{filter:brightness(.92)}
+.nx-confirm-ok.neutro{background:var(--p)}
+.nx-confirm-ok.neutro:hover{background:var(--p2)}
+
 @media(min-width:600px){
   .portal-stats{margin:-36px 24px 20px}
   .portal-pane{padding:20px 24px}
@@ -284,6 +299,7 @@ function hoje(){return dataLocal(new Date())}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtHora(h){return h?String(h).slice(0,5):'—'}
 function toast(txt,tipo){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=txt;if(tipo==='err')t.style.background='var(--red)';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},2500);setTimeout(()=>t.remove(),2800)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 
 const TKEY='nuvix_tecnico_session';
 let tSession=null;
@@ -594,7 +610,7 @@ async function concluirOSTecnico(){
     const jaFaturado=await db.get('financeiro',`?categoria=eq.Serviços&descricao=like.*OS ${encodeURIComponent(osAtual.numero)}*&limit=1`).catch(()=>[]);
     if(jaFaturado.length){toast('Esta OS já foi concluída e faturada anteriormente.','err');fecharModal();await carregarOS();return;}
   }catch(e){/* se a checagem falhar, segue o fluxo normal abaixo */}
-  if(!confirm(`Concluir a ${osAtual.numero}?\n\nIsso irá:\n• Baixar materiais do estoque\n• Lançar receita no financeiro`))return;
+  if(!await confirmarAcao(`Concluir a ${osAtual.numero}?\n\nIsso irá:\n• Baixar materiais do estoque\n• Lançar receita no financeiro`,{variante:'neutro',labelOk:'Concluir'}))return;
   try{
     // 1. Update status
     await db.patch('ordens_servico',osAtual.id,{status:'Concluída',data_conclusao:hoje(),updated_at:new Date().toISOString()});

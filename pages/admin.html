@@ -182,6 +182,7 @@ function toast(text,type='ok'){
   t.textContent=text;document.body.appendChild(t);
   setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400);
 }
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 function msgEl(id,text,type='ok'){
   const e=$(id);if(!e)return;e.textContent=text;e.className=`msg show ${type}`;
   setTimeout(()=>e.classList.remove('show'),5000);
@@ -1015,7 +1016,7 @@ async function salvarEdicaoEmpresa(){
 }
 
 async function toggleEmpresa(id,ativar){
-  if(!confirm(ativar?'Reativar esta empresa?':'Bloquear acesso desta empresa?'))return;
+  if(!await confirmarAcao(ativar?'Reativar esta empresa?':'Bloquear acesso desta empresa?',{variante:ativar?'neutro':'aviso',labelOk:ativar?'Reativar':'Bloquear'}))return;
   try{
     await dbPatch('empresas',id,{ativo:ativar,status_conta:ativar?'ativo':'bloqueado',status_assinatura:ativar?'ativo':'bloqueado'});
     toast(ativar?'Empresa reativada!':'Empresa bloqueada.');
@@ -1024,8 +1025,8 @@ async function toggleEmpresa(id,ativar){
 }
 
 async function excluirEmpresa(id,nome){
-  if(!confirm(`Excluir "${nome}"?\n\nTODOS os dados serão perdidos:\n• Clientes, Usuários, Financeiro\n• Transporte, Materiais, Serviços, RH\n\nEsta ação NÃO pode ser desfeita!`))return;
-  if(!confirm(`CONFIRMAÇÃO FINAL: excluir "${nome}" permanentemente?`))return;
+  if(!await confirmarAcao(`Excluir "${nome}"?\n\nTODOS os dados serão perdidos:\n• Clientes, Usuários, Financeiro\n• Transporte, Materiais, Serviços, RH\n\nEsta ação NÃO pode ser desfeita!`,{labelOk:'Continuar'}))return;
+  if(!await confirmarAcao(`CONFIRMAÇÃO FINAL: excluir "${nome}" permanentemente?`,{labelOk:'Excluir permanentemente'}))return;
 
   toast('Excluindo dados... aguarde.','ok');
 
@@ -1153,7 +1154,7 @@ async function toggleUsuario(id,ativar){
 }
 
 async function excluirUsuario(id,nome){
-  if(!confirm(`Excluir usuário "${nome}"?`))return;
+  if(!await confirmarAcao(`Excluir usuário "${nome}"?`))return;
   try{await dbDelete('usuarios',id);toast('Usuário excluído.');await carregarTudo();}
   catch(e){toast('Erro: '+e.message,'err');}
 }
@@ -1281,7 +1282,7 @@ async function salvarModulosEmpresa(){
 }
 
 async function aplicarPadraoPLano(){
-  if(!confirm(`Restaurar módulos padrão do plano ${empAtualPlano}?`))return;
+  if(!await confirmarAcao(`Restaurar módulos padrão do plano ${empAtualPlano}?`,{variante:'neutro',labelOk:'Restaurar'}))return;
   const padrao=MODULOS_PLANO[empAtualPlano]||[];
   MODULOS_TODOS.forEach(m=>{modulosEmpresaAtual[m.id]=padrao.includes(m.id);});
   renderModulosGrid();

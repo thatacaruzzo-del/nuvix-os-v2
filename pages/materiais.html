@@ -123,6 +123,7 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 
 const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
@@ -731,7 +732,7 @@ async function salvarMaterial(){
 }
 
 async function excluirMaterial(id){
-  if(!confirm('Excluir este material? Histórico de movimentações será mantido.'))return;
+  if(!await confirmarAcao('Excluir este material? Histórico de movimentações será mantido.'))return;
   try{await dbDelete('materiais',id);toast('Material excluído.');await carregarTudo();}
   catch(e){toast('Erro: '+e.message,'err');}
 }
@@ -833,7 +834,7 @@ async function salvarMovimentacao(){
   const mat=dados.materiais.find(x=>x.id===matId);if(!mat){msg('movMsg','Material não encontrado.','err');return;}
   const estAnt=Number(mat.estoque_atual||0);
   let estPost=tipo==='entrada'?estAnt+qtd:tipo==='saida'?estAnt-qtd:qtd;
-  if(tipo==='saida'&&estPost<0){if(!confirm(`Estoque ficará negativo (${fmtNum(estPost,3)}). Continuar?`))return;}
+  if(tipo==='saida'&&estPost<0){if(!await confirmarAcao(`Estoque ficará negativo (${fmtNum(estPost,3)}). Continuar?`,{variante:'aviso',labelOk:'Continuar'}))return;}
   const custo=num('movCusto');
   try{
     await registrarMovimentacao({material_id:matId,material_nome:mat.nome,tipo,quantidade:qtd,estoque_anterior:estAnt,estoque_posterior:estPost,custo_unitario:custo||null,valor_total:custo?custo*qtd:null,motivo:val('movMotivo'),os_numero:val('movOS').trim()||null,usuario_nome:session?.nome||null,observacao:val('movObs').trim()||null});
@@ -949,7 +950,7 @@ function editarFornecedor(id){
   $('fornTitulo').textContent='Editar fornecedor';window.scrollTo({top:0,behavior:'smooth'});
 }
 async function excluirFornecedor(id){
-  if(!confirm('Excluir fornecedor?'))return;
+  if(!await confirmarAcao('Excluir fornecedor?'))return;
   try{await dbDelete('material_fornecedores',id);toast('Excluído.');await carregarTudo();}
   catch(e){toast('Erro: '+e.message,'err');}
 }
