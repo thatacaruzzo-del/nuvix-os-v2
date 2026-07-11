@@ -21,7 +21,14 @@ alter table empresas
   add column if not exists endereco_logradouro text,
   add column if not exists endereco_numero text,
   add column if not exists endereco_bairro text,
-  add column if not exists fiscal_ativo boolean not null default false;
+  add column if not exists fiscal_ativo boolean not null default false,
+  add column if not exists nfse_simulacao boolean not null default false;
+
+-- nfse_simulacao é só pra teste: quando true (e fiscal_ativo também true),
+-- o botão "Emitir Nota Fiscal" no Financeiro NÃO chama a Focus NFe de
+-- verdade — grava um resultado fake em notas_fiscais só pra testar a
+-- interface. Nunca deixar true numa empresa cliente real: se a Focus NFe
+-- cair de verdade, o sistema tem que mostrar erro, não fingir que emitiu.
 
 -- fiscal_ativo é o interruptor: só fica true depois que a Nuvix contratou
 -- a Focus NFe E cadastrou o CNPJ dessa empresa lá (ver NFSE-ATIVACAO.md).

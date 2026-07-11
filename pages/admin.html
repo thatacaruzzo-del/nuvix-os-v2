@@ -697,6 +697,10 @@ const MODULOS_PLANO={
         <input type="checkbox" id="editEmpFiscalAtivo" style="width:16px;height:16px">
         <label style="margin:0" for="editEmpFiscalAtivo">Emissão de nota fiscal ativa pra esta empresa</label>
       </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpNfseSimulacao" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpNfseSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade — só pra testar a tela. Nunca deixar ligado em cliente real)</label>
+      </div>
     </div>
   </div>
   <div id="editEmpMsg" class="msg"></div>
@@ -1028,6 +1032,7 @@ function editarEmpresa(id){
   $('editEmpNumero').value=e.endereco_numero||'';
   $('editEmpBairro').value=e.endereco_bairro||'';
   $('editEmpFiscalAtivo').checked=!!e.fiscal_ativo;
+  $('editEmpNfseSimulacao').checked=!!e.nfse_simulacao;
   abrirModal('modalEditEmp');
 }
 
@@ -1056,6 +1061,7 @@ async function salvarEdicaoEmpresa(){
       endereco_numero:val('editEmpNumero').trim()||null,
       endereco_bairro:val('editEmpBairro').trim()||null,
       fiscal_ativo:$('editEmpFiscalAtivo').checked,
+      nfse_simulacao:$('editEmpNfseSimulacao').checked,
     });
     msgEl('editEmpMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvo! O cliente precisa fazer logout e login novamente.','ok');
     setTimeout(()=>fecharModal('modalEditEmp'),1800);

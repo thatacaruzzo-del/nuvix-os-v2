@@ -453,6 +453,7 @@ const session = requireAuth();
 let financeiro = [];
 let fluxoFiltro = 'todos';
 let fiscalAtivo = false; // true só depois que a Focus NFe for contratada e ativada em Configurações
+let nfseSimulacao = false; // true só em empresa de teste — simula o resultado em vez de chamar a Focus NFe de verdade
 let notaAtual = null; // nota fiscal (se existir) do lançamento aberto no modal de detalhes
 let filtroDiaURL = ''; // vencimento único vindo de um link externo (ex: alerta do Dashboard), sobrepõe o filtro de mês
 
@@ -588,9 +589,10 @@ async function loadData(){
     renderHero();renderStrip();renderLancamentos();renderFluxo();renderReceber();renderPagar();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
   try{
-    const emp=await db.get('empresas',`?select=fiscal_ativo&id=eq.${session.empresa_id}&limit=1`);
+    const emp=await db.get('empresas',`?select=fiscal_ativo,nfse_simulacao&id=eq.${session.empresa_id}&limit=1`);
     fiscalAtivo=!!emp[0]?.fiscal_ativo;
-  }catch(e){fiscalAtivo=false;}
+    nfseSimulacao=!!emp[0]?.nfse_simulacao;
+  }catch(e){fiscalAtivo=false;nfseSimulacao=false;}
 }
 
 // ── HERO ──
@@ -890,12 +892,20 @@ async function emitirNotaFiscal(f){
       nota=criada[0];
       notaAtual=nota;
     }
-    const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:nota.id})});
-    const resp=await r.json().catch(()=>null);
-    if(!r.ok||!resp?.ok){
-      toast(resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');
+    if(nfseSimulacao){
+      // Modo simulação — NÃO chama a Focus NFe de verdade. Só existe pra
+      // testar a interface antes da API real estar plugada. Nunca roda em
+      // empresa sem nfse_simulacao=true (ver checkbox em admin.html).
+      await simularEmissaoTeste(nota);
+      toast('Simulação de teste — nenhuma nota real foi emitida.','ok');
     } else {
-      toast('Nota enviada para processamento.','ok');
+      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:nota.id})});
+      const resp=await r.json().catch(()=>null);
+      if(!r.ok||!resp?.ok){
+        toast(resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');
+      } else {
+        toast('Nota enviada para processamento.','ok');
+      }
     }
   }catch(e){
     toast('Emissão de nota fiscal ainda não está disponível neste ambiente.','err');
@@ -903,9 +913,27 @@ async function emitirNotaFiscal(f){
   carregarStatusNota(f);
 }
 
+async function simularEmissaoTeste(nota){
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await new Promise(res=>setTimeout(res,1000));
+  await db.patch('notas_fiscais',nota.id,{
+    status:'autorizada',
+    numero_nfse:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
+    codigo_verificacao:'TESTE-'+Date.now().toString(36).toUpperCase(),
+    data_emissao:new Date().toISOString(),
+    updated_at:new Date().toISOString(),
+  });
+}
+
 async function consultarNotaFiscal(f){
   if(!notaAtual)return;
   $('detNotaBtn').disabled=true;
+  if(nfseSimulacao){
+    await simularEmissaoTeste(notaAtual);
+    toast('Simulação de teste — nenhuma nota real foi emitida.','ok');
+    carregarStatusNota(f);
+    return;
+  }
   try{
     const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_id:notaAtual.id})});
     if(!r.ok)throw new Error();

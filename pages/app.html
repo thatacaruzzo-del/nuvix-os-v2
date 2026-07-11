@@ -11,6 +11,12 @@
 .nx-page{display:none}
 .nx-page.active{display:block}
 
+/* ── Abas Clientes / Relatórios / Minha Empresa / Usuários e Acessos ── */
+.app-tabs{display:flex;gap:8px;padding:16px 24px 0;flex-wrap:nowrap;overflow-x:auto}
+.app-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center}
+.app-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+@media(max-width:768px){.app-tabs{padding:12px 16px 0}}
+
 /* Garante que main-content scrolle normalmente */
 .main-content{
   display:flex;
@@ -120,6 +126,13 @@ async function deleteRow(table,id,area){
         <span class="topbar-username" id="userName"></span>
         <button class="btn-logout" onclick="logout()">Sair</button>
       </div>
+    </div>
+
+    <div class="app-tabs">
+      <button class="app-tab active" data-pagina="clientes" onclick="navegar('clientes',this)">Clientes</button>
+      <button class="app-tab" data-pagina="relatorios" onclick="navegar('relatorios',this)">Relatórios</button>
+      <button class="app-tab" data-pagina="empresa" onclick="navegar('empresa',this)">Minha Empresa</button>
+      <button class="app-tab" id="tabUsuarios" data-pagina="usuarios" onclick="navegar('usuarios',this)">Usuários e Acessos</button>
     </div>
 
     <!-- CLIENTES -->
@@ -274,6 +287,9 @@ async function init() {
     if($('empEmail'))$('empEmail').value=emp.email||'';
     if($('empSegmento'))$('empSegmento').value=seg||'Prestação de Serviço';
   }
+  if(session.perfil!=='Administrador'&&session.perfil!=='SuperAdmin'){
+    $('tabUsuarios')?.remove();
+  }
   navegar('clientes', null);
   const buscaParam=new URLSearchParams(location.search).get('busca');
   if(buscaParam&&$('cliBusca'))$('cliBusca').value=buscaParam;
@@ -284,6 +300,8 @@ function irPara(pagina){ window.location.href=pagina; }
 function navegar(pagina, btn) {
   document.querySelectorAll('.nx-page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sidebar-icon-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.app-tab').forEach(b=>b.classList.remove('active'));
+  (btn||document.querySelector(`.app-tab[data-pagina="${pagina}"]`))?.classList.add('active');
   const pg=$('pg-'+pagina); if(pg) pg.classList.add('active');
   const titles={clientes:'Clientes',relatorios:'Relatórios',empresa:'Minha Empresa',usuarios:'Usuários e Acessos'};
   const titleEl=$('topbarTitle'); if(titleEl) titleEl.textContent=titles[pagina]||pagina;

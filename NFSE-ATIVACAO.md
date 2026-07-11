@@ -11,6 +11,17 @@ pro cliente até você seguir os passos abaixo. Enquanto isso, o botão
 - `pages/financeiro.html` — botão "Emitir Nota Fiscal" em cada lançamento de Receita.
 - `pages/admin.html` — seção "Nota Fiscal (NFS-e)" na edição de cada empresa.
 
+## Testar a interface agora, sem Focus NFe nenhuma
+
+Em Admin → Editar empresa (numa empresa de TESTE, nunca num cliente real),
+marque as duas caixas: "Emissão de nota fiscal ativa" e "Modo simulação".
+Com isso o botão no Financeiro funciona de ponta a ponta (processando →
+autorizada, com número de nota fake "SIMULADA-xxxxx") sem chamar a Focus
+NFe de verdade — dá pra ver a tela toda funcionando antes de contratar
+qualquer coisa. **Nunca marcar "Modo simulação" numa empresa cliente real**
+— se marcar, toda nota vai aparecer como "autorizada" mesmo sem ter sido
+emitida de verdade.
+
 ## Passo a passo pra ativar
 
 ### 1. Contratar a Focus NFe
