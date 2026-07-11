@@ -54,8 +54,10 @@ create table if not exists notas_fiscais (
   link_xml text,
   focus_nfe_ref text,
   mensagem_erro text,
+  motivo_cancelamento text,
   data_competencia date,
   data_emissao timestamptz,
+  data_cancelamento timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

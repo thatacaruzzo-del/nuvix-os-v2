@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Notas Fiscais</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.nf-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.nf-card{background:linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+.nf-card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
+.nf-card .val{font-size:22px;font-weight:800;line-height:1}
+.nf-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
+.nf-filters .field{margin:0;min-width:160px}
+.nf-filters .field.grow{flex:1;min-width:220px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:600px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.modal-actions button{flex:1;min-width:130px}
+.det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;gap:12px}
+.det-row:last-child{border-bottom:none}
+.det-lbl{color:var(--muted);font-weight:600;flex-shrink:0}
+.det-val{font-weight:700;text-align:right;color:var(--txt)}
+.det-section{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-top:14px;border-top:1.5px solid var(--p-light)}
+.nf-simulacao-aviso{background:var(--amber-bg);color:#7A5B00;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:16px}
+@media(max-width:900px){.nf-strip{grid-template-columns:1fr 1fr}#hambBtn{display:block!important}}
+@media(max-width:600px){.nf-strip{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+<script>
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
+function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('textarea');input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';input.rows=3;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);input.focus();function onKey(e){if(e.key==='Escape')finish(null)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value.trim());document.addEventListener('keydown',onKey);})}
+
+const SB='https://quullcxptbiqycyakzlc.supabase.co';
+const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+const db={
+  get:async(t,q)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  post:async(t,d)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  patch:async(t,id,d)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+function abrirModal(id){$(id)?.classList.add('open')}
+function fecharModal(id){$(id)?.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
+</script>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="topbar-title">Notas Fiscais</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+      <div class="page-content">
+
+        <div id="nfSimulacaoAviso" class="nf-simulacao-aviso" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Modo simulação ativo — nenhuma nota fiscal real é emitida. Números e documentos aqui são só pra testar a tela.
+        </div>
+
+        <div class="nf-strip" id="nfStrip"></div>
+
+        <div class="card" style="margin-bottom:20px">
+          <div class="nf-filters">
+            <div class="field">
+              <label>Status</label>
+              <select id="filtStatus" onchange="renderLista()">
+                <option value="">Todos</option>
+                <option value="nao_emitida">Não emitida</option>
+                <option value="processando">Processando</option>
+                <option value="autorizada">Autorizada</option>
+                <option value="erro">Erro</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+            </div>
+            <div class="field grow">
+              <label>Buscar</label>
+              <input type="text" id="filtBusca" placeholder="Cliente, descrição, número da nota..." oninput="renderLista()">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-bottom:14px">Notas fiscais</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Emitida em</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Número</th><th>Status</th></tr></thead>
+              <tbody id="nfTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modalDetalhe">
+<div class="modal">
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg> Nota fiscal</h3>
+  <input type="hidden" id="detId">
+  <div id="detConteudo"></div>
+  <div id="detMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
+    <button class="btn2" id="detConsultarBtn" style="display:none" onclick="consultarStatus()">Consultar status</button>
+    <button class="btn2" id="detEmitirBtn" style="display:none" onclick="emitirNota()">Emitir agora</button>
+    <button class="btn2" id="detVerBtn" style="display:none" onclick="verImprimir()">Ver / Imprimir</button>
+    <button class="btn2" id="detXmlBtn" style="display:none" onclick="baixarXml()">Baixar XML</button>
+    <button class="danger" id="detCancelarBtn" style="display:none" onclick="cancelarNota()">Cancelar nota</button>
+  </div>
+</div>
+</div>
+
+<script>
+const session=requireAuth();
+let notas=[];
+let fiscalAtivo=false;
+let nfseSimulacao=false;
+let notaAtual=null;
+
+async function init(){
+  if(!session)return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+  }
+  await loadData();
+  const abrirId=new URLSearchParams(location.search).get('abrir');
+  if(abrirId&&notas.some(n=>n.id===abrirId))verDetalhe(abrirId);
+  $('pageLoader')?.classList.add('hide');
+}
+
+async function loadData(){
+  if(!session?.empresa_id)return;
+  try{
+    const emp=await db.get('empresas',`?select=fiscal_ativo,nfse_simulacao&id=eq.${session.empresa_id}&limit=1`);
+    fiscalAtivo=!!emp[0]?.fiscal_ativo;
+    nfseSimulacao=!!emp[0]?.nfse_simulacao;
+  }catch(e){fiscalAtivo=false;nfseSimulacao=false;}
+  $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
+  try{
+    notas=await db.get('notas_fiscais',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
+  }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
+  renderStrip();
+  renderLista();
+}
+
+const STATUS_LABEL={nao_emitida:['Não emitida','off'],processando:['Processando','warn'],autorizada:['Autorizada','ok'],erro:['Erro','bad'],cancelada:['Cancelada','off']};
+
+function renderStrip(){
+  const porStatus=s=>notas.filter(n=>n.status===s).length;
+  const valorAutorizado=notas.filter(n=>n.status==='autorizada').reduce((a,n)=>a+Number(n.valor||0),0);
+  setHTML('nfStrip',[
+    {lbl:'Autorizadas',val:porStatus('autorizada'),cor:'var(--green)'},
+    {lbl:'Processando',val:porStatus('processando'),cor:'var(--amber)'},
+    {lbl:'Com erro',val:porStatus('erro'),cor:'var(--red)'},
+    {lbl:'Valor autorizado',val:money(valorAutorizado),cor:'var(--txt)'},
+  ].map(c=>`<div class="nf-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div></div>`).join(''));
+}
+
+function renderLista(){
+  const status=val('filtStatus');
+  const busca=val('filtBusca').toLowerCase();
+  let lista=notas;
+  if(status)lista=lista.filter(n=>n.status===status);
+  if(busca)lista=lista.filter(n=>(n.cliente_nome||'').toLowerCase().includes(busca)||(n.descricao_servico||'').toLowerCase().includes(busca)||(n.numero_nfse||'').toLowerCase().includes(busca));
+  setHTML('nfTable',lista.map(n=>{
+    const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
+    return`<tr style="cursor:pointer" onclick="verDetalhe('${n.id}')">
+      <td>${n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at)}</td>
+      <td><b>${esc(n.cliente_nome||'—')}</b></td>
+      <td style="font-size:12px">${esc(n.descricao_servico||'')}</td>
+      <td style="font-weight:700">${money(n.valor)}</td>
+      <td style="font-size:12px">${esc(n.numero_nfse||'—')}</td>
+      <td><span class="badge ${cor}">${label}</span></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota fiscal ainda. Emita a partir de um lançamento de Receita, no Financeiro.</td></tr>');
+}
+
+function verDetalhe(id){
+  const n=notas.find(x=>x.id===id);if(!n)return;
+  notaAtual=n;
+  $('detId').value=n.id;
+  const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
+  setHTML('detConteudo',`
+    <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor do serviço</div>
+        <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor)}</div>
+      </div>
+      <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
+    </div>
+    <div class="det-section">Tomador (cliente)</div>
+    <div class="det-row"><span class="det-lbl">Nome / Razão social</span><span class="det-val">${esc(n.cliente_nome||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
+    <div class="det-section">Serviço</div>
+    <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(n.descricao_servico||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Competência</span><span class="det-val">${fmtData(n.data_competencia)}</span></div>
+    <div class="det-section">Nota</div>
+    <div class="det-row"><span class="det-lbl">Número NFS-e</span><span class="det-val">${esc(n.numero_nfse||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Código de verificação</span><span class="det-val">${esc(n.codigo_verificacao||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+    ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
+    ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
+  `);
+  ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn'].forEach(id=>$(id).style.display='none');
+  if(n.status==='nao_emitida'||n.status==='erro'){$('detEmitirBtn').style.display='block';}
+  if(n.status==='processando'){$('detConsultarBtn').style.display='block';}
+  if(n.status==='autorizada'){
+    $('detVerBtn').style.display='block';
+    $('detXmlBtn').style.display='block';
+    $('detCancelarBtn').style.display='block';
+  }
+  abrirModal('modalDetalhe');
+}
+
+async function emitirNota(){
+  if(!notaAtual)return;
+  if(!fiscalAtivo){msg('detMsg','Emissão de nota fiscal ainda não configurada.','err');return;}
+  $('detEmitirBtn').disabled=true;
+  try{
+    if(nfseSimulacao){
+      await simularEmissaoTeste(notaAtual);
+      msg('detMsg','Simulação de teste — nenhuma nota real foi emitida.','ok');
+    } else {
+      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:notaAtual.id})});
+      const resp=await r.json().catch(()=>null);
+      if(!r.ok||!resp?.ok){msg('detMsg',resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');}
+      else{msg('detMsg','Nota enviada para processamento.','ok');}
+    }
+  }catch(e){msg('detMsg','Emissão de nota fiscal ainda não está disponível neste ambiente.','err');}
+  $('detEmitirBtn').disabled=false;
+  await loadData();
+  const atualizada=notas.find(x=>x.id===notaAtual.id);
+  if(atualizada)verDetalhe(atualizada.id);
+}
+
+async function consultarStatus(){
+  if(!notaAtual)return;
+  $('detConsultarBtn').disabled=true;
+  try{
+    if(nfseSimulacao){
+      await simularEmissaoTeste(notaAtual);
+      msg('detMsg','Simulação de teste — nenhuma nota real foi emitida.','ok');
+    } else {
+      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_id:notaAtual.id})});
+      if(!r.ok)throw new Error();
+      msg('detMsg','Status atualizado.','ok');
+    }
+  }catch(e){msg('detMsg','Não foi possível consultar o status agora.','err');}
+  $('detConsultarBtn').disabled=false;
+  await loadData();
+  const atualizada=notas.find(x=>x.id===notaAtual.id);
+  if(atualizada)verDetalhe(atualizada.id);
+}
+
+async function cancelarNota(){
+  if(!notaAtual)return;
+  const justificativa=await promptAcao('Por que essa nota está sendo cancelada? (mínimo 15 caracteres)',{placeholder:'Ex: Erro no valor lançado, serviço não realizado...',labelOk:'Cancelar nota'});
+  if(!justificativa)return;
+  if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
+  $('detCancelarBtn').disabled=true;
+  try{
+    if(nfseSimulacao){
+      await db.patch('notas_fiscais',notaAtual.id,{status:'cancelada',motivo_cancelamento:justificativa,data_cancelamento:new Date().toISOString(),updated_at:new Date().toISOString()});
+      msg('detMsg','Simulação de teste — cancelamento simulado.','ok');
+    } else {
+      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_id:notaAtual.id,justificativa})});
+      const resp=await r.json().catch(()=>null);
+      if(!r.ok||!resp?.ok){msg('detMsg','Não foi possível cancelar a nota agora.','err');}
+      else{msg('detMsg','Nota cancelada.','ok');}
+    }
+  }catch(e){msg('detMsg','Não foi possível cancelar a nota agora.','err');}
+  $('detCancelarBtn').disabled=false;
+  await loadData();
+  const atualizada=notas.find(x=>x.id===notaAtual.id);
+  if(atualizada)verDetalhe(atualizada.id);
+}
+
+async function simularEmissaoTeste(nota){
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await new Promise(res=>setTimeout(res,1000));
+  await db.patch('notas_fiscais',nota.id,{
+    status:'autorizada',
+    numero_nfse:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
+    codigo_verificacao:'TESTE-'+Date.now().toString(36).toUpperCase(),
+    data_emissao:new Date().toISOString(),
+    updated_at:new Date().toISOString(),
+  });
+}
+
+function verImprimir(){
+  if(!notaAtual)return;
+  if(notaAtual.link_pdf){window.open(notaAtual.link_pdf,'_blank');return;}
+  const emp=session.empresa||{};
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  </head><body>
+  <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
+  <h1>Nota Fiscal de Serviço (simulada)</h1>
+  <table>
+    <tr><td>Prestador</td><td>${esc(emp.razao||emp.fantasia||'—')} — ${esc(emp.cnpj||'—')}</td></tr>
+    <tr><td>Tomador</td><td>${esc(notaAtual.cliente_nome||'—')}</td></tr>
+    <tr><td>Descrição do serviço</td><td>${esc(notaAtual.descricao_servico||'—')}</td></tr>
+    <tr><td>Valor</td><td>${money(notaAtual.valor)}</td></tr>
+    <tr><td>Número da nota</td><td>${esc(notaAtual.numero_nfse||'—')}</td></tr>
+    <tr><td>Código de verificação</td><td>${esc(notaAtual.codigo_verificacao||'—')}</td></tr>
+    <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
+  </table>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
+
+function baixarXml(){
+  if(!notaAtual)return;
+  if(notaAtual.link_xml){window.open(notaAtual.link_xml,'_blank');return;}
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<NFSeSimulada observacao="Documento de teste — sem validade fiscal">
+  <numero>${esc(notaAtual.numero_nfse||'')}</numero>
+  <codigoVerificacao>${esc(notaAtual.codigo_verificacao||'')}</codigoVerificacao>
+  <tomador>${esc(notaAtual.cliente_nome||'')}</tomador>
+  <descricaoServico>${esc(notaAtual.descricao_servico||'')}</descricaoServico>
+  <valor>${notaAtual.valor}</valor>
+  <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
+</NFSeSimulada>`;
+  const blob=new Blob([xml],{type:'application/xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`nota-simulada-${notaAtual.numero_nfse||notaAtual.id}.xml`;
+  a.click();
+}
+
+init();
+</script>
+<script>
+// ── Sidebar dinâmica por segmento ──
+(function(){
+  try{
+    const raw = sessionStorage.getItem('nuvix_v2_session');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    const seg = (d.empresa?.segmento || d.empresa?.tipo || '').toLowerCase();
+    const nav = document.getElementById('sidebar');
+    if(!nav) return;
+
+    const logo = nav.querySelector('.sidebar-logo');
+
+    const isTransporte = seg.includes('transporte');
+    const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
+    const isMista = seg.includes('mista') || (!isTransporte && !isServico);
+
+    nav.querySelectorAll('.sb-group').forEach(g => {
+      if(!g.style.marginTop) g.style.display = 'none';
+    });
+
+    let html = '';
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Principal</div>
+      <a class="sb-btn" href="dashboard.html" data-tip="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
+      <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="CRM / Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>CRM</span></a>
+    </div>`;
+
+    if(isServico || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Serviços</div>
+        <a class="sb-btn" href="os.html" data-tip="Ordens de Serviço"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span>Ordens de Serviço</span></a>
+        <a class="sb-btn" href="servicos.html" data-tip="Serviços e Orçamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Serviços</span></a>
+        <a class="sb-btn" href="materiais.html" data-tip="Materiais e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Materiais</span></a>
+      </div>`;
+    }
+
+    if(isTransporte || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Transporte</div>
+        <a class="sb-btn" href="transporte.html" data-tip="Operações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Transporte</span></a>
+        <a class="sb-btn" href="cotacao.html" data-tip="Cotação de Frete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Cotação</span></a>
+      </div>`;
+    }
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Pessoas</div>
+      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
+    </div>`;
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Análise</div>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+    </div>`;
+
+    logo.insertAdjacentHTML('afterend', html);
+
+    const current = window.location.pathname.split('/').pop();
+    nav.querySelectorAll('.sb-btn').forEach(btn => {
+      if(btn.getAttribute('href') === current){
+        btn.classList.add('active');
+      }
+    });
+
+  }catch(e){ console.warn('Sidebar error:', e); }
+})();
+</script>
+<script src="../js/alerta-sidebar.js"></script>
+</body>
+</html>

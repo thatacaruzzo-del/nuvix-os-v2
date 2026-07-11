@@ -185,7 +185,7 @@ function toast(text,type='ok'){
 }
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 function msgEl(id,text,type='ok'){
-  const e=$(id);if(!e)return;e.textContent=text;e.className=`msg show ${type}`;
+  const e=$(id);if(!e)return;e.innerHTML=text;e.className=`msg show ${type}`;
   setTimeout(()=>e.classList.remove('show'),5000);
 }
 
@@ -836,6 +836,9 @@ async function fazerLoginAdmin(){
     if(!data?.length){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';return;}
     const user=data[0];
     // Verificar se é admin Nuvix
+    // TODO antes de ter cliente real: travar isso só por is_admin_nuvix —
+    // hoje qualquer perfil "Administrador" de QUALQUER empresa cliente
+    // consegue entrar aqui. Ver conversa de 2026-07-11.
     if(user.perfil!=='SuperAdmin'&&user.perfil!=='Administrador'&&!user.is_admin_nuvix){
       errEl.textContent='Acesso negado. Apenas administradores Nuvix.';errEl.style.display='block';return;
     }

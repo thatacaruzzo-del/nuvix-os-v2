@@ -13,6 +13,9 @@
 // Corpo esperado (POST, JSON):
 //   { "acao": "emitir",    "nota_fiscal_id": "<uuid>" }
 //   { "acao": "consultar", "nota_fiscal_id": "<uuid>" }
+//   { "acao": "cancelar",  "nota_fiscal_id": "<uuid>", "justificativa": "..." }
+//     (justificativa precisa ter entre 15 e 255 caracteres — exigência da
+//     própria Focus NFe, ver doc.focusnfe.com.br)
 //
 // Pré-requisitos pra isso funcionar de verdade — ver NFSE-ATIVACAO.md:
 //   1. Empresa contratou um plano na Focus NFe.
@@ -85,6 +88,17 @@ async function aplicarRespostaFocus(notaFiscalId: string, focusData: any) {
   });
 }
 
+async function aplicarCancelamentoFocus(notaFiscalId: string, focusData: any, justificativa: string) {
+  const cancelou = focusData?.status === 'cancelado';
+  return await sbPatch('notas_fiscais', notaFiscalId, {
+    status: cancelou ? 'cancelada' : 'erro',
+    mensagem_erro: cancelou ? null : focusData?.mensagem_sefaz || 'Erro ao cancelar a nota.',
+    motivo_cancelamento: cancelou ? justificativa : null,
+    data_cancelamento: cancelou ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -101,7 +115,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { acao, nota_fiscal_id } = await req.json();
+    const { acao, nota_fiscal_id, justificativa } = await req.json();
     if (!nota_fiscal_id) throw new Error('nota_fiscal_id é obrigatório.');
 
     const [nota] = await sbGet(`notas_fiscais?id=eq.${nota_fiscal_id}&select=*`);
@@ -135,6 +149,20 @@ Deno.serve(async (req) => {
       const focusData = await r.json();
       const atualizado = await aplicarRespostaFocus(nota_fiscal_id, focusData);
       return json({ ok: true, nota: atualizado });
+    }
+
+    if (acao === 'cancelar') {
+      if (!nota.focus_nfe_ref) return json({ ok: false, erro: 'nota_ainda_nao_enviada' }, 422);
+      if (!justificativa || justificativa.length < 15 || justificativa.length > 255) {
+        return json({ ok: false, erro: 'justificativa_invalida' }, 422);
+      }
+      const r = await fetch(
+        `${base}/v2/nfse/${nota.focus_nfe_ref}?justificativa=${encodeURIComponent(justificativa)}`,
+        { method: 'DELETE', headers: { Authorization: auth } }
+      );
+      const focusData = await r.json();
+      const atualizado = await aplicarCancelamentoFocus(nota_fiscal_id, focusData, justificativa);
+      return json({ ok: r.ok, nota: atualizado });
     }
 
     // acao === 'emitir' (padrão)
