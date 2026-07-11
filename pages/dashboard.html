@@ -95,6 +95,17 @@
 .kpi-trend.up{background:var(--green-bg);color:var(--green)}
 .kpi-trend.down{background:var(--red-bg);color:var(--red)}
 .kpi-trend svg{width:11px;height:11px;stroke-width:2}
+/* Badge de tendência do caixa no Hero — mesmo componente do resto da página, só com peso 700
+   pra bater exatamente com a prévia aprovada (os demais .kpi-trend ficam como já estavam) */
+#heroCaixaTrend .kpi-trend{font-weight:700}
+
+/* ── Selo de estado geral — veredito único cruzando os 5 setores + Inteligência Nuvix,
+   sempre mostrando o pior caso primeiro (evita o selo antigo, que só refletia o caixa) ── */
+.estado-geral{display:flex;align-items:center;gap:10px;padding:11px 18px;border-radius:12px;margin-bottom:16px;font-size:13.5px;font-weight:700}
+.estado-geral.prioridade{background:var(--red-bg);color:var(--red)}
+.estado-geral.atencao{background:var(--amber-bg);color:var(--amber)}
+.estado-geral.ok{background:var(--green-bg);color:var(--green)}
+.estado-geral-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
 
 /* ── Hero consolidado — caixa + tira de status dos 5 setores + top insight, tudo em 1 lugar ── */
 .hero-status-strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
@@ -114,9 +125,13 @@
 
 /* ── Navegação por abas — cada setor vira uma aba, sem scroll infinito ── */
 .tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px;margin:20px 0;overflow-x:auto}
-.tab{padding:9px 16px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);background:transparent;border:none;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.tab{padding:9px 16px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);background:transparent;border:none;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
 .tab.active{background:var(--p);color:#fff}
 .tab:hover:not(.active){background:var(--p-light);color:var(--p)}
+.tab-alert{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tab-alert.prioridade{background:var(--red)}
+.tab-alert.atencao{background:var(--amber)}
+.tab.active .tab-alert{background:#fff}
 .pane{display:none}
 .pane.active{display:block}
 
@@ -158,6 +173,11 @@
 .ia-vertodos{margin-top:14px;background:none;border:none;color:var(--p);font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
 .ia-extra{display:none;flex-direction:column}
 .ia-extra.open{display:flex}
+/* "Ver mais" por insight — mantém os 4 blocos sempre distintos, só adia "por que importa" e
+   "impacto provável" pra quem clicar, reduzindo a leitura padrão pra 30s */
+.ia-vermais{margin:0 0 10px;background:none;border:none;color:var(--p);font-size:12px;font-weight:700;cursor:pointer;padding:0}
+.ia-detalhes{display:none}
+.ia-detalhes.open{display:block}
 
 /* ── Alertas (estilo CFO, compacto) — separadores quase invisíveis, hover suave ── */
 .atencao-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--bg);font-size:14px;font-weight:500;color:var(--txt);transition:background-color .15s ease}
@@ -320,6 +340,11 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
         </div>
       </div>
 
+      <!-- SELO DE ESTADO GERAL — veredito único, cruzando os 5 setores + Inteligência Nuvix,
+           mostrando sempre o pior caso primeiro. Reaproveita o mesmo resumo executivo já
+           calculado em renderInteligenciaNuvix(), sem duplicar lógica de classificação. -->
+      <div id="estadoGeralWrap"></div>
+
       <!-- HERO CONSOLIDADO — caixa, tira de status dos 5 setores e o insight mais importante,
            tudo em 1 único bloco de abertura (substitui os antigos Saúde Geral + Inteligência
            Nuvix + Hero do Financeiro empilhados) -->
@@ -328,7 +353,10 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
         <span class="hero-badge-corner" id="heroStatusBadge"></span>
         <div class="hero-left">
           <div class="hero-caixa-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Caixa disponível</div>
-          <div class="hero-caixa-val" id="heroCaixaVal">—</div>
+          <div class="hero-val-row" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+            <div class="hero-caixa-val" id="heroCaixaVal">—</div>
+            <span id="heroCaixaTrend"></span>
+          </div>
           <div class="veredito-sub" id="veredictoSub"></div>
           <div class="hero-health-track"><div class="hero-health-fill" id="heroHealthFill"></div></div>
           <div class="hero-caption" id="heroCaption"></div>
@@ -350,11 +378,11 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
       <!-- ABAS — cada setor vira uma aba, sem scroll infinito -->
       <div class="tabs">
         <button class="tab active" onclick="abrirAba('geral',this)">Visão geral</button>
-        <button class="tab" onclick="abrirAba('financeiro',this)">Financeiro</button>
-        <button class="tab" onclick="abrirAba('comercial',this)">Comercial</button>
-        <button class="tab" onclick="abrirAba('operacao',this)">Operação</button>
-        <button class="tab" onclick="abrirAba('materiais',this)">Materiais</button>
-        <button class="tab" onclick="abrirAba('rh',this)">RH</button>
+        <button class="tab" onclick="abrirAba('financeiro',this)"><span class="tab-alert" id="tabAlert-financeiro" style="display:none"></span>Financeiro</button>
+        <button class="tab" onclick="abrirAba('comercial',this)"><span class="tab-alert" id="tabAlert-comercial" style="display:none"></span>Comercial</button>
+        <button class="tab" onclick="abrirAba('operacao',this)"><span class="tab-alert" id="tabAlert-operacao" style="display:none"></span>Operação</button>
+        <button class="tab" onclick="abrirAba('materiais',this)"><span class="tab-alert" id="tabAlert-materiais" style="display:none"></span>Materiais</button>
+        <button class="tab" onclick="abrirAba('rh',this)"><span class="tab-alert" id="tabAlert-rh" style="display:none"></span>RH</button>
         <button class="tab" onclick="abrirAba('atividade',this)">Atividade</button>
       </div>
 
@@ -1128,19 +1156,49 @@ function renderInteligenciaNuvix(){
   const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
   const overflow = todos.length - principais.length;
 
+  // Selo de estado geral: reaproveita o mesmo veredito (principais[0] + resumo) já usado no
+  // card de Inteligência Nuvix, em vez de calcular um status paralelo que poderia divergir.
+  const piorCategoria = principais[0]?.categoria;
+  const estadoCls = piorCategoria==='prioridade' ? 'prioridade' : piorCategoria==='atencao' ? 'atencao' : 'ok';
+  setHTML('estadoGeralWrap', `<div class="estado-geral ${estadoCls}"><span class="estado-geral-dot"></span>${esc(resumo)}</div>`);
+
+  // Ponto de alerta nas abas: pior categoria de CADA área entre todos os insights (não só os
+  // 4 principais), pra uma área com problema real nunca ficar "silenciosa" só porque outra
+  // área ficou na frente na priorização.
+  const piorPorArea = {};
+  todos.forEach(ins=>{
+    const atualCat = piorPorArea[ins.area];
+    if(!atualCat || ORDEM_CATEGORIA[ins.categoria] < ORDEM_CATEGORIA[atualCat]) piorPorArea[ins.area] = ins.categoria;
+  });
+  ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{
+    const el = $('tabAlert-'+area);
+    if(!el) return;
+    const cat = piorPorArea[area];
+    if(cat==='prioridade' || cat==='atencao'){
+      el.className = 'tab-alert '+cat;
+      el.style.display = '';
+    }else{
+      el.style.display = 'none';
+    }
+  });
+
   const linha = ins=>{
     const oQueAconteceu = gerarNarrativaTemplate(ins);
     const porque = PORQUE_IMPORTA[idBase(ins)] || '';
     const impactoHTML = renderImpacto(ins);
     const bloco = (lbl,conteudoHTML)=>conteudoHTML ? `<div class="ia-block"><span class="ia-block-lbl">${lbl}</span><div class="ia-block-txt">${conteudoHTML}</div></div>` : '';
+    // "Por que importa" e "Impacto provável" continuam 2 blocos distintos (nunca misturados),
+    // só ficam ocultos até o clique — reduz a leitura padrão de 4 blocos pra 2 por insight.
+    const temDetalhes = !!(porque || impactoHTML);
+    const detalhes = temDetalhes ? `<button type="button" class="ia-vermais" onclick="const d=this.nextElementSibling;d.classList.toggle('open');this.textContent=d.classList.contains('open')?'Ver menos ↑':'Ver por que importa e o impacto provável →'">Ver por que importa e o impacto provável →</button>
+        <div class="ia-detalhes">${bloco('Por que importa', esc(porque))}${bloco('Impacto provável', impactoHTML)}</div>` : '';
     return `<div class="ia-row">
       <span class="ia-dot ${ins.categoria}"></span>
       <div class="ia-row-body">
         <div class="ia-row-hd"><span class="ia-badge">${CATEGORIA_LBL[ins.categoria]}</span></div>
         <div class="ia-row-titulo">${esc(ins.titulo)}</div>
         ${bloco('O que está acontecendo', esc(oQueAconteceu))}
-        ${bloco('Por que importa', esc(porque))}
-        ${bloco('Impacto provável', impactoHTML)}
+        ${detalhes}
         ${bloco('O que eu faço', esc(ins.recomendacao))}
         <div class="ia-row-footer"><span>Confiança: ${ins.confianca} · ${periodoFmt}</span><a href="${ins.href}">Ver em ${ins.href.replace('.html','')} →</a></div>
       </div>
@@ -1260,6 +1318,11 @@ function renderHeroDiagnostico(){
 
   setHTML('heroStatusBadge',`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`);
   setHTML('heroCaixaVal',money(caixa));
+
+  // Tendência do caixa: mesma janela de 21 dias já usada na sparkline ao lado, só que
+  // exposta em número — reaproveita calcSparklineCaixa e o trendBadge já usado nos KPIs.
+  const caixaAntes = calcSparklineCaixa(21)[0];
+  setHTML('heroCaixaTrend', trendBadge(caixa, caixaAntes, false));
 
   // Barra de saúde financeira: 0 se negativo, senão proporcional ao fôlego de caixa (45 dias = 100%)
   const healthPct = caixa<0 ? 4 : Math.max(6, Math.min(100, Math.round((runway||20)/45*100)));
