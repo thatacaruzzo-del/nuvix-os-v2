@@ -731,10 +731,23 @@ async function salvarMaterial(){
   }catch(e){msg('matMsg','Erro: '+e.message,'err');}
 }
 
+// Material em uso (movimentação, OS, orçamento ou reserva) não pode ser excluído — o banco tem
+// FOREIGN KEY nessas 4 tabelas apontando pra materiais. Checa antes de tentar, em vez de deixar
+// o Supabase recusar com um erro técnico cru.
+async function materialEstaEmUso(id){
+  const tabelas=['material_movimentacoes','os_materiais','orcamento_materiais','material_reservas','servico_materiais'];
+  const resultados=await Promise.all(tabelas.map(t=>dbGet(t,`?material_id=eq.${id}&select=id&limit=1`).catch(()=>[])));
+  return resultados.some(r=>Array.isArray(r)&&r.length>0);
+}
 async function excluirMaterial(id){
-  if(!await confirmarAcao('Excluir este material? Histórico de movimentações será mantido.'))return;
-  try{await dbDelete('materiais',id);toast('Material excluído.');await carregarTudo();}
-  catch(e){toast('Erro: '+e.message,'err');}
+  if(!await confirmarAcao('Excluir este material?'))return;
+  try{
+    if(await materialEstaEmUso(id)){
+      toast('Esse material já foi usado (movimentação, OS ou orçamento) e não pode ser excluído. Marque como "Inativo" para deixar de usá-lo sem perder o histórico.','err');
+      return;
+    }
+    await dbDelete('materiais',id);toast('Material excluído.');await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 function previewFoto(input){
@@ -949,10 +962,20 @@ function editarFornecedor(id){
   $('fornContato').value=f.contato||'';$('fornObs').value=f.observacao||'';
   $('fornTitulo').textContent='Editar fornecedor';window.scrollTo({top:0,behavior:'smooth'});
 }
+async function toggleFornecedor(id,ativar){
+  try{await dbPatch('material_fornecedores',id,{ativo:ativar});toast(ativar?'Fornecedor ativado.':'Fornecedor inativado.');await carregarTudo();}
+  catch(e){toast('Erro: '+e.message,'err');}
+}
 async function excluirFornecedor(id){
   if(!await confirmarAcao('Excluir fornecedor?'))return;
-  try{await dbDelete('material_fornecedores',id);toast('Excluído.');await carregarTudo();}
-  catch(e){toast('Erro: '+e.message,'err');}
+  try{
+    const emUso=await dbGet('materiais',`?fornecedor_id=eq.${id}&select=id&limit=1`).catch(()=>[]);
+    if(Array.isArray(emUso)&&emUso.length>0){
+      toast('Esse fornecedor está vinculado a algum material e não pode ser excluído. Marque como "Inativo" em vez de excluir.','err');
+      return;
+    }
+    await dbDelete('material_fornecedores',id);toast('Excluído.');await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 function limparFornecedor(){['fornId','fornNome','fornCnpj','fornTel','fornEmail','fornContato','fornObs'].forEach(id=>{if($(id))$(id).value='';});$('fornTitulo').textContent='Novo fornecedor';}
 function renderFornecedores(){
@@ -962,8 +985,9 @@ function renderFornecedores(){
     <td style="font-size:12px">${esc(f.telefone||'—')}</td>
     <td style="font-size:12px">${esc(f.contato||'—')}</td>
     <td><span class="badge ${f.ativo!==false?'ok':'bad'}">${f.ativo!==false?'Ativo':'Inativo'}</span></td>
-    <td><div style="display:flex;gap:4px">
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn2" onclick="editarFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+      <button class="btn2" onclick="toggleFornecedor('${f.id}',${f.ativo===false})" style="font-size:11px;padding:5px 8px">${f.ativo!==false?'Inativar':'Ativar'}</button>
       <button class="danger" onclick="excluirFornecedor('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
     </div></td>
   </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum fornecedor ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');

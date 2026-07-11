@@ -1141,6 +1141,9 @@ async function salvarUsuario(){
   if(!nome||!email){msgEl('usuMsg','Nome e e-mail são obrigatórios.','err');return;}
   if(!id&&(!senha||senha.length<4)){msgEl('usuMsg','Senha mínima: 4 caracteres.','err');return;}
   try{
+    const q=id?`?email=eq.${encodeURIComponent(email)}&id=neq.${id}&select=id&limit=1`:`?email=eq.${encodeURIComponent(email)}&select=id&limit=1`;
+    const existente=await dbGet('usuarios',q).catch(()=>[]);
+    if(Array.isArray(existente)&&existente.length>0){msgEl('usuMsg','Já existe outro usuário cadastrado com esse e-mail.','err');return;}
     const payload={nome,email,perfil:val('usuPerfil'),cargo:val('usuCargo').trim(),telefone:val('usuTel').trim(),empresa_id:val('usuEmpresa')||null,ativo:val('usuAtivo')!=='false'};
     if(senha)payload.senha=senha;
     if(id)await dbPatch('usuarios',id,payload);
@@ -1158,8 +1161,12 @@ async function toggleUsuario(id,ativar){
 
 async function excluirUsuario(id,nome){
   if(!await confirmarAcao(`Excluir usuário "${nome}"?`))return;
-  try{await dbDelete('usuarios',id);toast('Usuário excluído.');await carregarTudo();}
-  catch(e){toast('Erro: '+e.message,'err');}
+  try{
+    const tabelas=['access_logs','colaboradores','material_movimentacoes','usuario_permissoes'];
+    const resultados=await Promise.all(tabelas.map(t=>dbGet(t,`?usuario_id=eq.${id}&select=id&limit=1`).catch(()=>[])));
+    if(resultados.some(r=>Array.isArray(r)&&r.length>0)){toast('Esse usuário já tem atividade registrada e não pode ser excluído. Use "Inativar" em vez de excluir.','err');return;}
+    await dbDelete('usuarios',id);toast('Usuário excluído.');await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 function abrirSenha(id,nome){

@@ -73,7 +73,22 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
 function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
 function delBtn(table,id,area){return`<button class="danger" style="font-size:11px;padding:5px 8px" onclick="deleteRow('${table}','${id}','${area}')">Excluir</button>`}
-async function deleteRow(table,id,area){if(!can(area)){toast('Sem permissão.','err');return}if(!await confirmarAcao('Excluir este registro?'))return;try{await db.delete(table,id);toast('Excluído.','ok');await loadData()}catch(e){toast('Erro: '+e.message,'err')}}
+async function deleteRow(table,id,area){
+  if(!can(area)){toast('Sem permissão.','err');return}
+  if(!await confirmarAcao('Excluir este registro?'))return;
+  try{
+    if(table==='clientes'){
+      const emUso=await db.get('ordens_servico',`?cliente_id=eq.${id}&select=id&limit=1`).catch(()=>[]);
+      if(Array.isArray(emUso)&&emUso.length>0){toast('Esse cliente tem ordem de serviço vinculada e não pode ser excluído.','err');return;}
+    }
+    if(table==='usuarios'){
+      const tabelas=['access_logs','colaboradores','material_movimentacoes','usuario_permissoes'];
+      const resultados=await Promise.all(tabelas.map(t=>db.get(t,`?usuario_id=eq.${id}&select=id&limit=1`).catch(()=>[])));
+      if(resultados.some(r=>Array.isArray(r)&&r.length>0)){toast('Esse usuário já tem atividade registrada e não pode ser excluído. Use "Inativar" em vez de excluir.','err');return;}
+    }
+    await db.delete(table,id);toast('Excluído.','ok');await loadData()
+  }catch(e){toast('Erro: '+e.message,'err')}
+}
 </script>
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
@@ -334,7 +349,11 @@ async function salvarUsuario(){
   const nome=val('usrNome').trim();const email=val('usrEmail').trim().toLowerCase();const senha=val('usrSenha').trim();
   if(!nome||!email||!senha){msg('usrMsg','Preencha todos os campos.','err');return;}
   if(senha.length<4){msg('usrMsg','Senha muito curta.','err');return;}
-  try{await db.post('usuarios',{nome,email,senha,perfil:val('usrPerfil'),empresa_id:session.empresa_id,ativo:true});msg('usrMsg','Usuário criado!','ok');['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});await loadData();}catch(e){msg('usrMsg','Erro: '+e.message,'err');}
+  try{
+    const existente=await db.get('usuarios',`?email=eq.${encodeURIComponent(email)}&select=id&limit=1`).catch(()=>[]);
+    if(Array.isArray(existente)&&existente.length>0){msg('usrMsg','Já existe um usuário cadastrado com esse e-mail.','err');return;}
+    await db.post('usuarios',{nome,email,senha,perfil:val('usrPerfil'),empresa_id:session.empresa_id,ativo:true});msg('usrMsg','Usuário criado!','ok');['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});await loadData();
+  }catch(e){msg('usrMsg','Erro: '+e.message,'err');}
 }
 async function resetSenhaUsuario(id,nome){const nova=prompt(`Nova senha para ${nome}:`);if(!nova||nova.length<4){toast('Senha muito curta.','err');return;}try{await db.patch('usuarios',id,{senha:nova});toast('Senha redefinida!','ok');}catch(e){toast('Erro: '+e.message,'err');}}
 async function toggleUsuario(id,ativar){try{await db.patch('usuarios',id,{ativo:ativar});toast(ativar?'Ativado.':'Inativado.','ok');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
