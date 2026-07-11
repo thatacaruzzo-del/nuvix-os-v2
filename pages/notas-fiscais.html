@@ -43,6 +43,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
 function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('textarea');input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';input.rows=3;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);input.focus();function onKey(e){if(e.key==='Escape')finish(null)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value.trim());document.addEventListener('keydown',onKey);})}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 
 const SB='https://quullcxptbiqycyakzlc.supabase.co';
 const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
@@ -162,6 +163,7 @@ const session=requireAuth();
 let notas=[];
 let fiscalAtivo=false;
 let nfseSimulacao=false;
+let prazoCancelamentoDias=5;
 let notaAtual=null;
 
 async function init(){
@@ -182,10 +184,11 @@ async function init(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
-    const emp=await db.get('empresas',`?select=fiscal_ativo,nfse_simulacao&id=eq.${session.empresa_id}&limit=1`);
+    const emp=await db.get('empresas',`?select=fiscal_ativo,nfse_simulacao,prazo_cancelamento_dias&id=eq.${session.empresa_id}&limit=1`);
     fiscalAtivo=!!emp[0]?.fiscal_ativo;
     nfseSimulacao=!!emp[0]?.nfse_simulacao;
-  }catch(e){fiscalAtivo=false;nfseSimulacao=false;}
+    prazoCancelamentoDias=Number(emp[0]?.prazo_cancelamento_dias)||5;
+  }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=5;}
   $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
   try{
     notas=await db.get('notas_fiscais',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
@@ -266,11 +269,28 @@ function verDetalhe(id){
 async function emitirNota(){
   if(!notaAtual)return;
   if(!fiscalAtivo){msg('detMsg','Emissão de nota fiscal ainda não configurada.','err');return;}
+  if(!notaAtual.cliente_documento){
+    const digitado=await promptAcao(`CPF ou CNPJ de ${notaAtual.cliente_nome||'cliente'} — a maioria das prefeituras exige esse dado pra autorizar a nota:`,{placeholder:'Ex: 000.000.000-00',labelOk:'Continuar'});
+    if(digitado===null)return;
+    if(digitado){
+      await db.patch('notas_fiscais',notaAtual.id,{cliente_documento:digitado,updated_at:new Date().toISOString()});
+      notaAtual.cliente_documento=digitado;
+    } else {
+      const seguir=await confirmarAcao('Emitir sem CPF/CNPJ do tomador? A prefeitura pode rejeitar a nota sem esse dado.',{labelOk:'Emitir mesmo assim',variante:'aviso'});
+      if(!seguir)return;
+    }
+  }
   $('detEmitirBtn').disabled=true;
   try{
     if(nfseSimulacao){
-      await simularEmissaoTeste(notaAtual);
-      msg('detMsg','Simulação de teste — nenhuma nota real foi emitida.','ok');
+      const simularSucesso=await confirmarAcao('Modo simulação: simular essa emissão como sucesso ou como erro?',{labelOk:'Simular sucesso',labelCancelar:'Simular erro',variante:'neutro'});
+      if(simularSucesso){
+        await simularEmissaoTeste(notaAtual);
+        msg('detMsg','Simulação de teste — nenhuma nota real foi emitida.','ok');
+      } else {
+        await simularErroTeste(notaAtual);
+        msg('detMsg','Simulação de erro — nenhuma nota real foi emitida.','err');
+      }
     } else {
       const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:notaAtual.id})});
       const resp=await r.json().catch(()=>null);
@@ -305,6 +325,13 @@ async function consultarStatus(){
 
 async function cancelarNota(){
   if(!notaAtual)return;
+  if(notaAtual.data_emissao){
+    const diasDesdeEmissao=(Date.now()-new Date(notaAtual.data_emissao).getTime())/864e5;
+    if(diasDesdeEmissao>prazoCancelamentoDias){
+      msg('detMsg',`Prazo de cancelamento (${prazoCancelamentoDias} dias após a emissão) já passou. Consulte a prefeitura sobre carta de correção.`,'err');
+      return;
+    }
+  }
   const justificativa=await promptAcao('Por que essa nota está sendo cancelada? (mínimo 15 caracteres)',{placeholder:'Ex: Erro no valor lançado, serviço não realizado...',labelOk:'Cancelar nota'});
   if(!justificativa)return;
   if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
@@ -316,8 +343,9 @@ async function cancelarNota(){
     } else {
       const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_id:notaAtual.id,justificativa})});
       const resp=await r.json().catch(()=>null);
-      if(!r.ok||!resp?.ok){msg('detMsg','Não foi possível cancelar a nota agora.','err');}
-      else{msg('detMsg','Nota cancelada.','ok');}
+      if(!r.ok||!resp?.ok){
+        msg('detMsg',resp?.erro==='prazo_cancelamento_expirado'?`Prazo de cancelamento (${prazoCancelamentoDias} dias após a emissão) já passou. Consulte a prefeitura sobre carta de correção.`:'Não foi possível cancelar a nota agora.','err');
+      } else {msg('detMsg','Nota cancelada.','ok');}
     }
   }catch(e){msg('detMsg','Não foi possível cancelar a nota agora.','err');}
   $('detCancelarBtn').disabled=false;
@@ -327,13 +355,29 @@ async function cancelarNota(){
 }
 
 async function simularEmissaoTeste(nota){
-  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,mensagem_erro:null,updated_at:new Date().toISOString()});
   await new Promise(res=>setTimeout(res,1000));
   await db.patch('notas_fiscais',nota.id,{
     status:'autorizada',
     numero_nfse:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
     codigo_verificacao:'TESTE-'+Date.now().toString(36).toUpperCase(),
     data_emissao:new Date().toISOString(),
+    updated_at:new Date().toISOString(),
+  });
+}
+
+async function simularErroTeste(nota){
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await new Promise(res=>setTimeout(res,1000));
+  const erros=[
+    'CPF/CNPJ do tomador inválido.',
+    'Código de tributação do ISS não reconhecido pelo município.',
+    'Inscrição municipal do prestador não homologada.',
+    'Município temporariamente indisponível — tente novamente mais tarde.',
+  ];
+  await db.patch('notas_fiscais',nota.id,{
+    status:'erro',
+    mensagem_erro:'[Simulação] '+erros[Math.floor(Math.random()*erros.length)],
     updated_at:new Date().toISOString(),
   });
 }

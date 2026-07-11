@@ -123,6 +123,7 @@ function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('input');input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);input.focus();function onKey(e){if(e.key==='Escape')finish(null);if(e.key==='Enter')finish(input.value)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value);document.addEventListener('keydown',onKey);})}
 function exportCSV(data,fn){if(!data?.length){toast('Nada para exportar.','err');return}const cols=Object.keys(data[0]);const csv=[cols.join(','),...data.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=fn+'_'+hoje()+'.csv';a.click()}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 
@@ -875,16 +876,34 @@ async function carregarStatusNota(f){
   }
 }
 
+async function buscarDocumentoCliente(nome){
+  if(!nome)return null;
+  try{
+    const match=await db.get('clientes',`?select=documento&empresa_id=eq.${session.empresa_id}&nome=ilike.${encodeURIComponent(nome)}&limit=1`);
+    return match[0]?.documento||null;
+  }catch(e){return null;}
+}
+
 async function emitirNotaFiscal(f){
   if(!fiscalAtivo){toast('Emissão de nota fiscal ainda não configurada.','err');return;}
   $('detNotaBtn').disabled=true;
   try{
     let nota=notaAtual;
     if(!nota){
+      let documento=await buscarDocumentoCliente(f.favorecido);
+      if(!documento){
+        const digitado=await promptAcao(`CPF ou CNPJ de ${f.favorecido||'cliente'} — a maioria das prefeituras exige esse dado pra autorizar a nota:`,{placeholder:'Ex: 000.000.000-00',labelOk:'Continuar'});
+        if(digitado===null){$('detNotaBtn').disabled=false;return;}
+        documento=digitado.trim();
+        if(!documento){
+          const seguir=await confirmarAcao('Emitir sem CPF/CNPJ do tomador? A prefeitura pode rejeitar a nota sem esse dado.',{labelOk:'Emitir mesmo assim',variante:'aviso'});
+          if(!seguir){$('detNotaBtn').disabled=false;return;}
+        }
+      }
       const criada=await db.post('notas_fiscais',withEmpresa({
         financeiro_id:f.id,
         cliente_nome:f.favorecido||null,
-        cliente_documento:null,
+        cliente_documento:documento||null,
         descricao_servico:f.descricao,
         valor:f.valor,
         data_competencia:f.data_lancamento||hoje(),
@@ -896,8 +915,14 @@ async function emitirNotaFiscal(f){
       // Modo simulação — NÃO chama a Focus NFe de verdade. Só existe pra
       // testar a interface antes da API real estar plugada. Nunca roda em
       // empresa sem nfse_simulacao=true (ver checkbox em admin.html).
-      await simularEmissaoTeste(nota);
-      toast('Simulação de teste — nenhuma nota real foi emitida.','ok');
+      const simularSucesso=await confirmarAcao('Modo simulação: simular essa emissão como sucesso ou como erro?',{labelOk:'Simular sucesso',labelCancelar:'Simular erro',variante:'neutro'});
+      if(simularSucesso){
+        await simularEmissaoTeste(nota);
+        toast('Simulação de teste — nenhuma nota real foi emitida.','ok');
+      } else {
+        await simularErroTeste(nota);
+        toast('Simulação de erro — nenhuma nota real foi emitida.','err');
+      }
     } else {
       const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:nota.id})});
       const resp=await r.json().catch(()=>null);
@@ -914,13 +939,29 @@ async function emitirNotaFiscal(f){
 }
 
 async function simularEmissaoTeste(nota){
-  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,mensagem_erro:null,updated_at:new Date().toISOString()});
   await new Promise(res=>setTimeout(res,1000));
   await db.patch('notas_fiscais',nota.id,{
     status:'autorizada',
     numero_nfse:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
     codigo_verificacao:'TESTE-'+Date.now().toString(36).toUpperCase(),
     data_emissao:new Date().toISOString(),
+    updated_at:new Date().toISOString(),
+  });
+}
+
+async function simularErroTeste(nota){
+  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  await new Promise(res=>setTimeout(res,1000));
+  const erros=[
+    'CPF/CNPJ do tomador inválido.',
+    'Código de tributação do ISS não reconhecido pelo município.',
+    'Inscrição municipal do prestador não homologada.',
+    'Município temporariamente indisponível — tente novamente mais tarde.',
+  ];
+  await db.patch('notas_fiscais',nota.id,{
+    status:'erro',
+    mensagem_erro:'[Simulação] '+erros[Math.floor(Math.random()*erros.length)],
     updated_at:new Date().toISOString(),
   });
 }

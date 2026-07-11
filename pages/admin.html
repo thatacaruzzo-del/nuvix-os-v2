@@ -689,6 +689,7 @@ const MODULOS_PLANO={
       <div class="field"><label>Código IBGE do município</label><input id="editEmpCodMun"></div>
       <div class="field"><label>Código de tributação ISS</label><input id="editEmpCodIss"></div>
       <div class="field"><label>Alíquota ISS (%)</label><input type="number" step="0.01" id="editEmpAliqIss"></div>
+      <div class="field"><label>Prazo de cancelamento (dias)</label><input type="number" step="1" min="0" id="editEmpPrazoCancel" placeholder="5"></div>
       <div class="field"><label>CEP</label><input id="editEmpCep"></div>
       <div class="field"><label>Logradouro</label><input id="editEmpLogradouro"></div>
       <div class="field"><label>Número</label><input id="editEmpNumero"></div>
@@ -1030,6 +1031,7 @@ function editarEmpresa(id){
   $('editEmpCodMun').value=e.codigo_municipio_ibge||'';
   $('editEmpCodIss').value=e.codigo_tributacao_nacional_iss||'';
   $('editEmpAliqIss').value=e.aliquota_iss||'';
+  $('editEmpPrazoCancel').value=e.prazo_cancelamento_dias??5;
   $('editEmpCep').value=e.endereco_cep||'';
   $('editEmpLogradouro').value=e.endereco_logradouro||'';
   $('editEmpNumero').value=e.endereco_numero||'';
@@ -1059,6 +1061,7 @@ async function salvarEdicaoEmpresa(){
       codigo_municipio_ibge:val('editEmpCodMun').trim()||null,
       codigo_tributacao_nacional_iss:val('editEmpCodIss').trim()||null,
       aliquota_iss:val('editEmpAliqIss')?Number(val('editEmpAliqIss')):null,
+      prazo_cancelamento_dias:val('editEmpPrazoCancel')?Number(val('editEmpPrazoCancel')):5,
       endereco_cep:val('editEmpCep').trim()||null,
       endereco_logradouro:val('editEmpLogradouro').trim()||null,
       endereco_numero:val('editEmpNumero').trim()||null,

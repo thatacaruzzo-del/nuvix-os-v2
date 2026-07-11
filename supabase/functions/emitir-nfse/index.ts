@@ -72,13 +72,60 @@ const FOCUS_STATUS_MAP: Record<string, string> = {
   cancelado: 'cancelada',
 };
 
-async function aplicarRespostaFocus(notaFiscalId: string, focusData: any) {
-  return await sbPatch('notas_fiscais', notaFiscalId, {
+// ── Arquivamento local do XML/PDF ──
+// O link que a Focus NFe devolve é hospedado por ELES. Nota fiscal
+// geralmente precisa ficar guardada por anos — se um dia a retenção deles
+// expirar (ou a conta for encerrada), o documento se perde. Por isso, assim
+// que uma nota é autorizada, baixamos uma cópia e guardamos no Storage do
+// próprio Supabase, substituindo o link pelo nosso.
+const ARQUIVOS_BUCKET = 'notas-fiscais-arquivos';
+
+async function baixarBytes(url: string, authHeader?: string) {
+  const r = await fetch(url, authHeader ? { headers: { Authorization: authHeader } } : undefined);
+  if (!r.ok) return null;
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
+  const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${ARQUIVOS_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': contentType, 'x-upsert': 'true' },
+    body: bytes,
+  });
+  if (!r.ok) throw new Error(`Storage upload falhou: ${await r.text()}`);
+  return `${SUPABASE_URL}/storage/v1/object/public/${ARQUIVOS_BUCKET}/${path}`;
+}
+
+async function arquivarDocumentos(notaFiscalId: string, empresaId: string, focusData: any, base: string, auth: string) {
+  try {
+    const updates: Record<string, unknown> = {};
+    if (focusData?.url) {
+      const pdfBytes = await baixarBytes(focusData.url);
+      if (pdfBytes) updates.link_pdf = await sbUpload(`${empresaId}/${notaFiscalId}.pdf`, pdfBytes, 'application/pdf');
+    }
+    if (focusData?.caminho_xml_nota_fiscal) {
+      const xmlBytes = await baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth);
+      if (xmlBytes) updates.link_xml = await sbUpload(`${empresaId}/${notaFiscalId}.xml`, xmlBytes, 'application/xml');
+    }
+    if (Object.keys(updates).length) {
+      updates.arquivos_arquivados = true;
+      await sbPatch('notas_fiscais', notaFiscalId, updates);
+    }
+  } catch (e) {
+    // Não deixa o arquivamento falho derrubar a emissão — a nota já foi
+    // autorizada de verdade; o link da própria Focus NFe continua valendo
+    // como retaguarda enquanto isso não for resolvido.
+    console.warn('Falha ao arquivar XML/PDF localmente:', e);
+  }
+}
+
+async function aplicarRespostaFocus(notaFiscalId: string, empresaId: string, focusData: any, base: string, auth: string) {
+  const atualizado = await sbPatch('notas_fiscais', notaFiscalId, {
     status: FOCUS_STATUS_MAP[focusData?.status] || 'processando',
     numero_nfse: focusData?.numero || null,
     codigo_verificacao: focusData?.codigo_verificacao || null,
     link_pdf: focusData?.url || null,
-    link_xml: focusData?.caminho_xml_nota_fiscal || null,
+    link_xml: focusData?.caminho_xml_nota_fiscal ? `${base}${focusData.caminho_xml_nota_fiscal}` : null,
     mensagem_erro:
       focusData?.status === 'erro_autorizacao'
         ? focusData?.erros?.[0]?.mensagem || 'Erro na autorização da nota.'
@@ -86,6 +133,12 @@ async function aplicarRespostaFocus(notaFiscalId: string, focusData: any) {
     data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   });
+  if (focusData?.status === 'autorizado') {
+    await arquivarDocumentos(notaFiscalId, empresaId, focusData, base, auth);
+    const [fresco] = await sbGet(`notas_fiscais?id=eq.${notaFiscalId}&select=*`);
+    return fresco || atualizado;
+  }
+  return atualizado;
 }
 
 async function aplicarCancelamentoFocus(notaFiscalId: string, focusData: any, justificativa: string) {
@@ -147,7 +200,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: auth },
       });
       const focusData = await r.json();
-      const atualizado = await aplicarRespostaFocus(nota_fiscal_id, focusData);
+      const atualizado = await aplicarRespostaFocus(nota_fiscal_id, nota.empresa_id, focusData, base, auth);
       return json({ ok: true, nota: atualizado });
     }
 
@@ -155,6 +208,13 @@ Deno.serve(async (req) => {
       if (!nota.focus_nfe_ref) return json({ ok: false, erro: 'nota_ainda_nao_enviada' }, 422);
       if (!justificativa || justificativa.length < 15 || justificativa.length > 255) {
         return json({ ok: false, erro: 'justificativa_invalida' }, 422);
+      }
+      const prazoDias = Number(params.prazo_cancelamento_dias) || 5;
+      if (nota.data_emissao) {
+        const diasDesdeEmissao = (Date.now() - new Date(nota.data_emissao).getTime()) / 864e5;
+        if (diasDesdeEmissao > prazoDias) {
+          return json({ ok: false, erro: 'prazo_cancelamento_expirado' }, 422);
+        }
       }
       const r = await fetch(
         `${base}/v2/nfse/${nota.focus_nfe_ref}?justificativa=${encodeURIComponent(justificativa)}`,

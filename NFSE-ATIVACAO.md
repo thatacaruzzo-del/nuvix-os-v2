@@ -8,19 +8,27 @@ pro cliente até você seguir os passos abaixo. Enquanto isso, o botão
 
 - `sql/notas_fiscais.sql` — schema (rodar uma vez no SQL Editor do Supabase).
 - `supabase/functions/emitir-nfse/index.ts` — a função que fala com a Focus NFe.
+  Emite, consulta status, cancela (com justificativa e checagem de prazo), e
+  arquiva uma cópia do XML/PDF no Storage do Supabase assim que a nota é
+  autorizada (pra não depender do link da Focus NFe existir pra sempre).
 - `pages/financeiro.html` — botão "Emitir Nota Fiscal" em cada lançamento de Receita.
-- `pages/admin.html` — seção "Nota Fiscal (NFS-e)" na edição de cada empresa.
+- `pages/notas-fiscais.html` — central de notas fiscais: lista, filtros, e
+  todas as ações (emitir, consultar status, ver/imprimir, baixar XML, cancelar).
+- `pages/admin.html` — seção "Nota Fiscal (NFS-e)" na edição de cada empresa,
+  incluindo o prazo de cancelamento em dias (padrão 5 — ajuste se souber o
+  prazo real do município do cliente).
 
 ## Testar a interface agora, sem Focus NFe nenhuma
 
 Em Admin → Editar empresa (numa empresa de TESTE, nunca num cliente real),
 marque as duas caixas: "Emissão de nota fiscal ativa" e "Modo simulação".
-Com isso o botão no Financeiro funciona de ponta a ponta (processando →
-autorizada, com número de nota fake "SIMULADA-xxxxx") sem chamar a Focus
-NFe de verdade — dá pra ver a tela toda funcionando antes de contratar
-qualquer coisa. **Nunca marcar "Modo simulação" numa empresa cliente real**
-— se marcar, toda nota vai aparecer como "autorizada" mesmo sem ter sido
-emitida de verdade.
+Com isso a central de Notas Fiscais funciona de ponta a ponta — emitir
+(escolhendo simular sucesso ou erro), consultar status, ver/imprimir
+(gera uma página marcada "SIMULAÇÃO"), baixar XML (arquivo de teste) e
+cancelar (respeitando o prazo configurado) — sem chamar a Focus NFe de
+verdade. **Nunca marcar "Modo simulação" numa empresa cliente real** — se
+marcar, toda nota vai aparecer como "autorizada" mesmo sem ter sido emitida
+de verdade.
 
 ## Passo a passo pra ativar
 
@@ -98,5 +106,7 @@ dele especificamente em focusnfe.com.br/guides/nfse/municipios-integrados/.
 | Dados fiscais novos (inscrição municipal, ISS, endereço, `fiscal_ativo`) | tabela `empresas`, editados em `admin.html` |
 | Token da Focus NFe (secreto) | tabela `nfse_credenciais`, só por SQL direto — nunca por UI |
 | Notas emitidas/tentadas | tabela `notas_fiscais` |
-| Lógica de emissão | `supabase/functions/emitir-nfse/index.ts` |
-| Botão do cliente | `pages/financeiro.html`, dentro do modal de detalhe de um lançamento de Receita |
+| Cópia arquivada do XML/PDF | Storage bucket `notas-fiscais-arquivos` (criado pelo SQL) |
+| Lógica de emissão/consulta/cancelamento | `supabase/functions/emitir-nfse/index.ts` |
+| Botão de emitir a partir do lançamento | `pages/financeiro.html`, no modal de detalhe de um lançamento de Receita |
+| Central de notas (ver/imprimir/baixar XML/cancelar) | `pages/notas-fiscais.html` |

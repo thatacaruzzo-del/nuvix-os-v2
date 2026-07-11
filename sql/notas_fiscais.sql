@@ -22,7 +22,14 @@ alter table empresas
   add column if not exists endereco_numero text,
   add column if not exists endereco_bairro text,
   add column if not exists fiscal_ativo boolean not null default false,
-  add column if not exists nfse_simulacao boolean not null default false;
+  add column if not exists nfse_simulacao boolean not null default false,
+  add column if not exists prazo_cancelamento_dias integer not null default 5;
+
+-- prazo_cancelamento_dias: depois de quantos dias da emissão a nota não
+-- pode mais ser cancelada por aqui (varia por município na vida real — 5 é
+-- só um padrão conservador de partida, ajuste por empresa se souber o
+-- prazo real do município dela). Passado o prazo, a prefeitura normalmente
+-- exige carta de correção em vez de cancelamento simples.
 
 -- nfse_simulacao é só pra teste: quando true (e fiscal_ativo também true),
 -- o botão "Emitir Nota Fiscal" no Financeiro NÃO chama a Focus NFe de
@@ -52,6 +59,7 @@ create table if not exists notas_fiscais (
   codigo_verificacao text,
   link_pdf text,
   link_xml text,
+  arquivos_arquivados boolean not null default false,
   focus_nfe_ref text,
   mensagem_erro text,
   motivo_cancelamento text,
@@ -93,3 +101,16 @@ alter table nfse_credenciais enable row level security;
 -- publishable key (ou seja, pro navegador do cliente). Só a service_role
 -- key — usada dentro da Edge Function, nunca exposta ao navegador —
 -- ignora RLS e consegue ler/escrever aqui.
+
+-- 4) Bucket de arquivamento do XML/PDF de cada nota autorizada.
+--    Motivo: o link que a Focus NFe devolve é hospedado por ELES — se um
+--    dia a retenção deles expirar ou a conta for cancelada, perdemos o
+--    documento. Nota fiscal geralmente precisa ficar guardada por anos,
+--    então a Edge Function baixa uma cópia e guarda aqui assim que a nota
+--    é autorizada, substituindo o link por um nosso.
+--    Público porque é um documento que a própria empresa entrega ao
+--    cliente dela de qualquer forma (igual o link da Focus NFe já é
+--    público hoje) — não é dado sigiloso como senha ou token.
+insert into storage.buckets (id, name, public)
+values ('notas-fiscais-arquivos', 'notas-fiscais-arquivos', true)
+on conflict (id) do nothing;
