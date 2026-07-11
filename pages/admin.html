@@ -675,6 +675,30 @@ const MODULOS_PLANO={
     <div class="field"><label>Venc. mensalidade</label><input type="date" id="editEmpVenc"></div>
     <div class="field" style="grid-column:1/-1"><label>Observação interna</label><input id="editEmpObs"></div>
   </div>
+  <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+    <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">Nota Fiscal (NFS-e)</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Preencha só depois de cadastrar o CNPJ desta empresa na Focus NFe. O token em si NÃO é preenchido aqui — veja NFSE-ATIVACAO.md.</div>
+    <div class="form-grid">
+      <div class="field"><label>Inscrição municipal</label><input id="editEmpInscMun"></div>
+      <div class="field"><label>Regime tributário</label>
+        <select id="editEmpRegime">
+          <option value="">—</option><option>Simples Nacional</option>
+          <option>Lucro Presumido</option><option>Lucro Real</option><option>MEI</option>
+        </select>
+      </div>
+      <div class="field"><label>Código IBGE do município</label><input id="editEmpCodMun"></div>
+      <div class="field"><label>Código de tributação ISS</label><input id="editEmpCodIss"></div>
+      <div class="field"><label>Alíquota ISS (%)</label><input type="number" step="0.01" id="editEmpAliqIss"></div>
+      <div class="field"><label>CEP</label><input id="editEmpCep"></div>
+      <div class="field"><label>Logradouro</label><input id="editEmpLogradouro"></div>
+      <div class="field"><label>Número</label><input id="editEmpNumero"></div>
+      <div class="field"><label>Bairro</label><input id="editEmpBairro"></div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpFiscalAtivo" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpFiscalAtivo">Emissão de nota fiscal ativa pra esta empresa</label>
+      </div>
+    </div>
+  </div>
   <div id="editEmpMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalEditEmp')">Cancelar</button>
@@ -994,6 +1018,16 @@ function editarEmpresa(id){
   $('editEmpTrial').value=e.trial_fim?String(e.trial_fim).slice(0,10):'';
   $('editEmpVenc').value=(e.vencimento_mensalidade||e.vencimento)?String(e.vencimento_mensalidade||e.vencimento).slice(0,10):'';
   $('editEmpObs').value=e.observacao_interna||'';
+  $('editEmpInscMun').value=e.inscricao_municipal||'';
+  $('editEmpRegime').value=e.regime_tributario||'';
+  $('editEmpCodMun').value=e.codigo_municipio_ibge||'';
+  $('editEmpCodIss').value=e.codigo_tributacao_nacional_iss||'';
+  $('editEmpAliqIss').value=e.aliquota_iss||'';
+  $('editEmpCep').value=e.endereco_cep||'';
+  $('editEmpLogradouro').value=e.endereco_logradouro||'';
+  $('editEmpNumero').value=e.endereco_numero||'';
+  $('editEmpBairro').value=e.endereco_bairro||'';
+  $('editEmpFiscalAtivo').checked=!!e.fiscal_ativo;
   abrirModal('modalEditEmp');
 }
 
@@ -1012,6 +1046,16 @@ async function salvarEdicaoEmpresa(){
       trial_fim:val('editEmpTrial')||null,
       vencimento:val('editEmpVenc')||null, vencimento_mensalidade:val('editEmpVenc')||null,
       observacao_interna:val('editEmpObs').trim(),
+      inscricao_municipal:val('editEmpInscMun').trim()||null,
+      regime_tributario:val('editEmpRegime')||null,
+      codigo_municipio_ibge:val('editEmpCodMun').trim()||null,
+      codigo_tributacao_nacional_iss:val('editEmpCodIss').trim()||null,
+      aliquota_iss:val('editEmpAliqIss')?Number(val('editEmpAliqIss')):null,
+      endereco_cep:val('editEmpCep').trim()||null,
+      endereco_logradouro:val('editEmpLogradouro').trim()||null,
+      endereco_numero:val('editEmpNumero').trim()||null,
+      endereco_bairro:val('editEmpBairro').trim()||null,
+      fiscal_ativo:$('editEmpFiscalAtivo').checked,
     });
     msgEl('editEmpMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvo! O cliente precisa fazer logout e login novamente.','ok');
     setTimeout(()=>fecharModal('modalEditEmp'),1800);

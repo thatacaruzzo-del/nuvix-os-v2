@@ -406,6 +406,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
     <button class="btn2" id="detEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+    <button class="btn2" id="detNotaBtn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg> Emitir Nota Fiscal</button>
     <button class="btn" id="detBaixarBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>
   </div>
 </div>
@@ -451,6 +452,8 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 const session = requireAuth();
 let financeiro = [];
 let fluxoFiltro = 'todos';
+let fiscalAtivo = false; // true só depois que a Focus NFe for contratada e ativada em Configurações
+let notaAtual = null; // nota fiscal (se existir) do lançamento aberto no modal de detalhes
 let filtroDiaURL = ''; // vencimento único vindo de um link externo (ex: alerta do Dashboard), sobrepõe o filtro de mês
 
 // Filtro Período + Base da consulta — mesmo estado e mesma lógica do Dashboard,
@@ -584,6 +587,10 @@ async function loadData(){
     financeiro=await db.get('financeiro',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
     renderHero();renderStrip();renderLancamentos();renderFluxo();renderReceber();renderPagar();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
+  try{
+    const emp=await db.get('empresas',`?select=fiscal_ativo&id=eq.${session.empresa_id}&limit=1`);
+    fiscalAtivo=!!emp[0]?.fiscal_ativo;
+  }catch(e){fiscalAtivo=false;}
 }
 
 // ── HERO ──
@@ -787,6 +794,7 @@ function verDetalhe(id){
       </div>
       <span class="badge ${pago?'ok':atrasado?'bad':''}" style="font-size:13px;padding:6px 14px">${f.status||'Pendente'}</span>
     </div>
+    ${f.tipo==='Receita'?`<div class="det-section">Nota Fiscal</div><div class="det-row"><span class="det-lbl">Status</span><span class="det-val" id="detNotaStatus">Verificando…</span></div>`:''}
     <div class="det-section">Identificação</div>
     <div class="det-row"><span class="det-lbl">Categoria</span><span class="det-val">${esc(f.categoria||'—')}</span></div>
     <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(f.descricao||'—')}</span></div>
@@ -817,7 +825,95 @@ function verDetalhe(id){
   } else {
     $('detBaixarBtn').style.display='none';
   }
+  if(f.tipo==='Receita'){
+    $('detNotaBtn').style.display='block';
+    carregarStatusNota(f);
+  } else {
+    $('detNotaBtn').style.display='none';
+    notaAtual=null;
+  }
   abrirModal('modalDetalhe');
+}
+
+// ── NOTA FISCAL (NFS-e) ──
+// Emissão real depende da Focus NFe estar contratada e ativa (fiscalAtivo).
+// Até lá, esta seção só mostra o estado "indisponível" — não é um bug.
+const NOTA_STATUS_LABEL={nao_emitida:['Ainda não emitida','off'],processando:['Processando na prefeitura','warn'],autorizada:['Autorizada','ok'],erro:['Erro na emissão','bad'],cancelada:['Cancelada','off']};
+async function carregarStatusNota(f){
+  notaAtual=null;
+  if(!fiscalAtivo){
+    setHTML('detNotaStatus','<span class="badge off">Emissão fiscal não configurada</span>');
+    $('detNotaBtn').textContent='Nota Fiscal indisponível';
+    $('detNotaBtn').disabled=true;
+    return;
+  }
+  $('detNotaBtn').disabled=false;
+  try{
+    const lista=await db.get('notas_fiscais',`?select=*&financeiro_id=eq.${f.id}&order=created_at.desc&limit=1`);
+    notaAtual=lista[0]||null;
+    if(!notaAtual){
+      setHTML('detNotaStatus','<span class="badge off">Ainda não emitida</span>');
+      $('detNotaBtn').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg> Emitir Nota Fiscal';
+      $('detNotaBtn').onclick=()=>emitirNotaFiscal(f);
+    } else {
+      const[label,cor]=NOTA_STATUS_LABEL[notaAtual.status]||['—','off'];
+      setHTML('detNotaStatus',`<span class="badge ${cor}">${label}</span>${notaAtual.link_pdf?` <a href="${esc(notaAtual.link_pdf)}" target="_blank" rel="noopener" style="margin-left:8px;font-size:12px">Ver PDF</a>`:''}`);
+      if(notaAtual.status==='processando'){
+        $('detNotaBtn').textContent='Consultar status';
+        $('detNotaBtn').onclick=()=>consultarNotaFiscal(f);
+      } else if(notaAtual.status==='erro'||notaAtual.status==='nao_emitida'){
+        $('detNotaBtn').innerHTML='Tentar emitir novamente';
+        $('detNotaBtn').onclick=()=>emitirNotaFiscal(f);
+      } else {
+        $('detNotaBtn').style.display='none';
+      }
+    }
+  }catch(e){
+    setHTML('detNotaStatus','<span class="badge bad">Erro ao consultar</span>');
+  }
+}
+
+async function emitirNotaFiscal(f){
+  if(!fiscalAtivo){toast('Emissão de nota fiscal ainda não configurada.','err');return;}
+  $('detNotaBtn').disabled=true;
+  try{
+    let nota=notaAtual;
+    if(!nota){
+      const criada=await db.post('notas_fiscais',withEmpresa({
+        financeiro_id:f.id,
+        cliente_nome:f.favorecido||null,
+        cliente_documento:null,
+        descricao_servico:f.descricao,
+        valor:f.valor,
+        data_competencia:f.data_lancamento||hoje(),
+      }));
+      nota=criada[0];
+      notaAtual=nota;
+    }
+    const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:nota.id})});
+    const resp=await r.json().catch(()=>null);
+    if(!r.ok||!resp?.ok){
+      toast(resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');
+    } else {
+      toast('Nota enviada para processamento.','ok');
+    }
+  }catch(e){
+    toast('Emissão de nota fiscal ainda não está disponível neste ambiente.','err');
+  }
+  carregarStatusNota(f);
+}
+
+async function consultarNotaFiscal(f){
+  if(!notaAtual)return;
+  $('detNotaBtn').disabled=true;
+  try{
+    const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_id:notaAtual.id})});
+    if(!r.ok)throw new Error();
+    toast('Status atualizado.','ok');
+  }catch(e){
+    toast('Não foi possível consultar o status agora.','err');
+  }
+  carregarStatusNota(f);
 }
 
 // ── BAIXAR MODAL ──
