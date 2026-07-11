@@ -250,7 +250,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 const SB='https://quullcxptbiqycyakzlc.supabase.co';
 const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-const db={get:async(t,q)=>{const r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()}};
+function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
+const db={get:async(t,q)=>{_verificarSessao();const r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()}};
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
