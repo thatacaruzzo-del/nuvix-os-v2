@@ -79,7 +79,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
               <option value="materiais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Materiais</option>
               <option value="ordens_servico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Ordens de Serviço</option>
               <option value="servicos_orcamentos">Orçamentos</option>
-              <option value="crm_oportunidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> CRM</option>
+              <option value="crm_oportunidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Comercial</option>
             </select>
           </div>
           <div class="field" style="margin:0">
@@ -201,7 +201,7 @@ function init(){
   const emp=session.empresa;
   if(emp){
     $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · Relatórios';
-    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Teste grátis: '+d+' dias';$('trialBadge').style.display='inline-block';}}
   }
   // Set default dates (last 30 days)
   const ate=hoje();
@@ -258,10 +258,10 @@ init();
     // PRINCIPAL - always
     html += `<div class="sb-group">
       <div class="sb-group-label">Principal</div>
-      <a class="sb-btn" href="dashboard.html" data-tip="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
       <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
       <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
-      <a class="sb-btn" href="crm.html" data-tip="CRM / Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>CRM</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
     </div>`;
 
     // SERVIÇOS

@@ -183,7 +183,7 @@ async function deleteRow(table,id,area){
               <option value="colaboradores">Colaboradores</option>
               <option value="transporte">Transporte</option>
               <option value="servicos_orcamentos">Orçamentos</option>
-              <option value="crm_oportunidades">CRM</option>
+              <option value="crm_oportunidades">Comercial</option>
               <option value="ponto">Ponto</option>
             </select>
           </div>
@@ -277,7 +277,7 @@ async function init() {
   const emp = session.empresa;
   if (emp) {
     $('topbarSub').textContent = (emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
-    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Trial: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
     const seg=emp.segmento||emp.tipo||'';
     if($('empFantasia'))$('empFantasia').value=emp.fantasia||'';
     if($('empRazao'))$('empRazao').value=emp.razao||'';
@@ -345,7 +345,7 @@ function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCid
 // "Veio do CRM": compara por nome com as oportunidades já Fechadas, mesmo criterio de
 // duplicidade que converterCliente() (crm.html) ja usa - sem precisar de coluna nova no banco.
 function veioDoCrm(nome){return(dados.oportunidadesFechadas||[]).some(o=>(o.empresa_nome||o.nome||'').toLowerCase()===(nome||'').toLowerCase());}
-function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));setHTML('cliTable',lista.map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do CRM →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
+function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));setHTML('cliTable',lista.map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do Comercial →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
 
 const COLS_MODULO={financeiro:['tipo','categoria','descricao','valor','data_lancamento','vencimento','status','forma_pagamento','favorecido','centro_custo'],clientes:['nome','email','telefone','documento','cidade','segmento'],colaboradores:['nome','cargo','departamento','salario','data_admissao','tipo_contrato','cpf','telefone','email'],transporte:['data_lancamento','ppe','cliente_nome','motorista_nome','origem','destino','receita','custo','status'],servicos_orcamentos:['cliente_nome','servico_nome','quantidade','valor_unitario','valor_total','status','validade'],crm_oportunidades:['nome','empresa_nome','valor_previsto','status','proximo_contato','responsavel'],ponto:['colaborador_nome','data','entrada','saida','horas_trabalhadas','horas_extras','tipo']};
 async function gerarRelatorio(){
@@ -420,10 +420,10 @@ init();
     // PRINCIPAL - always
     html += `<div class="sb-group">
       <div class="sb-group-label">Principal</div>
-      <a class="sb-btn" href="dashboard.html" data-tip="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
       <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
       <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
-      <a class="sb-btn" href="crm.html" data-tip="CRM / Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>CRM</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
     </div>`;
 
     // SERVIÇOS

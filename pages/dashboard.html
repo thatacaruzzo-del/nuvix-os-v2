@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nuvix — Dashboard</title>
+<title>Nuvix — Painel</title>
 <link rel="stylesheet" href="../css/nuvix.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -285,7 +285,7 @@ function requireAuth(){const s=getSession();if(!s){window.location.href='../inde
       <div class="topbar-left">
         <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
-          <div class="topbar-title">Dashboard Executivo</div>
+          <div class="topbar-title">Painel Executivo</div>
           <div class="topbar-breadcrumb" id="topbarSub">Bom dia 👋</div>
         </div>
       </div>
@@ -506,7 +506,7 @@ async function init(){
   const emp = session.empresa;
   if(emp){
     $('topbarSub').textContent = saudacao+' · '+(emp.fantasia||emp.razao||'');
-    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Trial: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Teste grátis: '+d+' dias';$('trialBadge').style.display='inline-block';}}
     const seg=emp.segmento||emp.tipo||'';
     if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='flex');
     if(seg==='Transporte'||seg==='Mista') document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');
@@ -1649,10 +1649,10 @@ init();
     // PRINCIPAL - always
     html += `<div class="sb-group">
       <div class="sb-group-label">Principal</div>
-      <a class="sb-btn" href="dashboard.html" data-tip="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
       <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
       <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
-      <a class="sb-btn" href="crm.html" data-tip="CRM / Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>CRM</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
     </div>`;
 
     // SERVIÇOS
