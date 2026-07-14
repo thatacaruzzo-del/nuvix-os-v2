@@ -548,6 +548,7 @@ const MODULOS_PLANO={
         <select id="filtroEmpresaUsu" onchange="filtrarUsuarios()" style="max-width:200px">
           <option value="">Todas as empresas</option>
         </select>
+        <button class="btn2" onclick="abrirModalConvidarAdmin()">+ Convidar admin Nuvix</button>
         <button class="btn" onclick="abrirModalNovoUsuario()">+ Novo usuário</button>
       </div>
     </div>
@@ -830,6 +831,21 @@ const MODULOS_PLANO={
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalEditEmp')">Cancelar</button>
     <button class="btn" onclick="salvarEdicaoEmpresa()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Convidar admin Nuvix -->
+<div class="modal-overlay" id="modalConvidarAdmin">
+<div class="modal" style="max-width:420px">
+  <h3>Convidar admin Nuvix</h3>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Ela recebe um e-mail com link pra criar a própria senha — acesso completo, igual você e o Thiago.</p>
+  <div class="field"><label>Nome</label><input id="convNome" placeholder="Giovanna"></div>
+  <div class="field" style="margin-top:12px"><label>E-mail</label><input type="email" id="convEmail" placeholder="nome@email.com"></div>
+  <div id="convMsg" class="msg" style="margin-top:12px"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalConvidarAdmin')">Cancelar</button>
+    <button class="btn" id="btnEnviarConvite" onclick="enviarConviteAdmin()">Enviar convite</button>
   </div>
 </div>
 </div>
@@ -1707,6 +1723,38 @@ function renderUsuarios(){
   }).join('')||`<tr><td colspan="7" class="table-empty">Nenhum usuário encontrado.</td></tr>`);
 }
 
+// Convite de novo admin Nuvix — chama a Edge Function usando o token real da sessão logada
+// (adminSession.access_token), pra função confirmar do lado do servidor que quem pediu é
+// admin de verdade, não confiar só no que a tela alega.
+function abrirModalConvidarAdmin(){
+  $('convNome').value='';$('convEmail').value='';
+  setHTML('convMsg','');$('convMsg').className='msg';
+  abrirModal('modalConvidarAdmin');
+}
+async function enviarConviteAdmin(){
+  const nome=val('convNome').trim();
+  const email=val('convEmail').trim().toLowerCase();
+  const msgEl=$('convMsg');
+  if(!nome||!email){msgEl.className='msg err';msgEl.textContent='Preencha nome e e-mail.';return;}
+  const btn=$('btnEnviarConvite');
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/convidar-admin`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminSession.access_token},
+      body:JSON.stringify({nome,email}),
+    });
+    const data=await r.json();
+    if(!r.ok||data.error){msgEl.className='msg err';msgEl.textContent=data.error||'Erro ao enviar convite.';}
+    else{
+      msgEl.className='msg ok';msgEl.textContent='Convite enviado! Ela já aparece na lista de usuários.';
+      toast('Convite enviado.');
+      await carregarTudo();
+      setTimeout(()=>fecharModal('modalConvidarAdmin'),1800);
+    }
+  }catch(e){msgEl.className='msg err';msgEl.textContent='Erro de conexão: '+e.message;}
+  finally{btn.disabled=false;btn.textContent='Enviar convite';}
+}
 function abrirModalNovoUsuario(){
   ['usuId','usuNome','usuEmail','usuSenha','usuCargo','usuTel'].forEach(id=>{if($(id))$(id).value=''});
   if($('usuPerfil'))$('usuPerfil').value='Colaborador';
