@@ -306,6 +306,7 @@ function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function hoje(){return dataLocal(new Date())}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtHora(h){return h?String(h).slice(0,5):'—'}
+function parseJwt(token){try{const payload=token.split('.')[1];const json=atob(payload.replace(/-/g,'+').replace(/_/g,'/'));return JSON.parse(decodeURIComponent(escape(json)));}catch(e){return null;}}
 function toast(txt,tipo){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=txt;if(tipo==='err')t.style.background='var(--red)';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},2500);setTimeout(()=>t.remove(),2800)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 
@@ -321,11 +322,14 @@ async function fazerLogin(){
   const senha=$('loginSenha').value||'';
   if(!email||!senha){mostrarErr('Preencha e-mail e senha.');return;}
   try{
-    const r=await fetch(`${SB}/rest/v1/rpc/verificar_login`,{method:'POST',headers:{apikey:KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_senha:senha})});
-    const user=await r.json();
-    if(!r.ok||!user){mostrarErr('E-mail ou senha incorretos.');return;}
-    const empresa=user.empresas;
-    tSession={id:user.id,nome:user.nome,email:user.email,perfil:user.perfil,empresa_id:empresa?.id,empresa};
+    const r=await fetch(`${SB}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const auth=await r.json();
+    if(!r.ok||!auth.access_token){mostrarErr('E-mail ou senha incorretos.');return;}
+    const claims=parseJwt(auth.access_token);
+    if(!claims?.empresa_id){mostrarErr('Conta sem empresa vinculada.');return;}
+    const rEmp=await fetch(`${SB}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:{apikey:KEY,'Authorization':'Bearer '+auth.access_token}});
+    const empresa=(await rEmp.json())?.[0];
+    tSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,empresa_id:empresa?.id,empresa};
     sessionStorage.setItem(TKEY,JSON.stringify(tSession));
     iniciarPortal();
   }catch(e){mostrarErr('Erro ao fazer login: '+e.message);}

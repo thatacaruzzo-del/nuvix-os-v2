@@ -189,6 +189,17 @@ function msgEl(id,text,type='ok'){
   setTimeout(()=>e.classList.remove('show'),5000);
 }
 
+// Lê os claims (empresa_id, perfil, is_admin_nuvix, nome) que o Auth Hook
+// injeta no token — o token é só assinado, não é secreto, decodificar no
+// navegador é seguro.
+function parseJwt(token){
+  try{
+    const payload=token.split('.')[1];
+    const json=atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  }catch(e){return null;}
+}
+
 // DB helpers
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
@@ -837,17 +848,17 @@ async function fazerLoginAdmin(){
   const btn=$('adminLoginBtn');
   btn.textContent='Entrando...';btn.disabled=true;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/rpc/verificar_login`,{method:'POST',headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_senha:senha})});
-    const user=await r.json();
-    if(!r.ok||!user){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';return;}
-    // Verificar se é admin Nuvix
-    // TODO antes de ter cliente real: travar isso só por is_admin_nuvix —
-    // hoje qualquer perfil "Administrador" de QUALQUER empresa cliente
-    // consegue entrar aqui. Ver conversa de 2026-07-11.
-    if(user.perfil!=='SuperAdmin'&&user.perfil!=='Administrador'&&!user.is_admin_nuvix){
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const auth=await r.json();
+    if(!r.ok||!auth.access_token){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';return;}
+    const claims=parseJwt(auth.access_token);
+    // Trava por is_admin_nuvix — não é mais possível entrar aqui só por ter
+    // perfil "Administrador" de alguma empresa cliente. is_admin_nuvix vem
+    // do Auth Hook (lido no banco, não pode ser falsificado pelo cliente).
+    if(!claims?.is_admin_nuvix){
       errEl.textContent='Acesso negado. Apenas administradores Nuvix.';errEl.style.display='block';return;
     }
-    adminSession={id:user.id,nome:user.nome,email:user.email,perfil:user.perfil,loginAt:Date.now()};
+    adminSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,loginAt:Date.now()};
     sessionStorage.setItem('nuvix_admin_session',JSON.stringify(adminSession));
     mostrarPainel();
     await carregarTudo();

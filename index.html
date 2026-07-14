@@ -288,6 +288,18 @@ const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 const SESSION_KEY='nuvix_v2_session';
 try{const s=sessionStorage.getItem(SESSION_KEY);if(s){const d=JSON.parse(s);if(d.loginAt&&Date.now()-d.loginAt<8*60*60*1000)window.location.href='pages/dashboard.html';}}catch(e){}
 
+// Lê os claims (empresa_id, perfil, is_admin_nuvix, nome) que o Auth Hook
+// injeta no token — sem isso, cada tela teria que buscar esses dados de
+// novo. O token é só assinado, não é secreto: decodificar no navegador é
+// seguro, é exatamente pra isso que ele existe.
+function parseJwt(token){
+  try{
+    const payload=token.split('.')[1];
+    const json=atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  }catch(e){return null;}
+}
+
 async function entrar(){
   const email=document.getElementById('email').value.trim().toLowerCase();
   const senha=document.getElementById('senha').value;
@@ -297,13 +309,17 @@ async function entrar(){
   if(!email||!senha){showErr('Preencha e-mail e senha.');return;}
   btn.textContent='Entrando...';btn.style.opacity='.7';btn.disabled=true;
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/verificar_login`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_senha:senha})});
-    const user=await r.json();
-    if(!r.ok||!user){showErr('E-mail ou senha incorretos.');return;}
-    const empresa=user.empresas;
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const auth=await r.json();
+    if(!r.ok||!auth.access_token){showErr('E-mail ou senha incorretos.');return;}
+    const claims=parseJwt(auth.access_token);
+    if(!claims?.empresa_id){showErr('Conta sem empresa vinculada. Contate o suporte.');return;}
+    const rEmp=await fetch(`${SUPABASE_URL}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
+    const empresa=(await rEmp.json())?.[0];
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
-    sessionStorage.setItem(SESSION_KEY,JSON.stringify({user:{id:user.id,nome:user.nome,email:user.email,perfil:user.perfil},empresa,loginAt:Date.now()}));
-    fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
+    const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix};
+    sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
+    fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
     window.location.href='pages/dashboard.html';
   }catch(e){showErr('Erro de conexão. Tente novamente.');}
   finally{btn.textContent='Entrar na Plataforma';btn.style.opacity='1';btn.disabled=false;}
