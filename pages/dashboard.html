@@ -1166,6 +1166,44 @@ const MIN_LANCAMENTOS_DIAGNOSTICO = 5;
 function contarLancamentosConfirmados(){
   return dados.fin.filter(f=>isReceitaConfirmada(f)||isDespesaConfirmada(f)).length;
 }
+// Blindagem de confiança pra qualquer "↑X% vs período anterior" exibido na tela: um percentual
+// calculado sobre 1-2 lançamentos é matemática real, mas estatisticamente vazio — e mostrado com
+// seta e cor ele passa confiança que não tem. Reaproveita o MESMO limiar já usado pra decidir se
+// a conta está em onboarding, em vez de criar um segundo critério de confiança correndo em
+// paralelo (dois critérios diferentes foi exatamente o que causou a contradição original: o Hero
+// mostrando "↑32%" ao mesmo tempo que o texto ao lado dizia "ainda reunindo histórico").
+function dadosSuficientesParaTendencia(){
+  return contarLancamentosConfirmados() >= MIN_LANCAMENTOS_DIAGNOSTICO;
+}
+// Autocheck manual da blindagem de confiança — não é um teste automatizado de verdade (este
+// projeto não tem Node/CI pra rodar isso sozinho), é uma função pra rodar à mão no Console do
+// navegador (F12 → Console → autocheckConfiancaTendencia()) sempre que trendBadge() for tocado
+// de novo. Salva e restaura dados.fin, não deixa rastro.
+function autocheckConfiancaTendencia(){
+  const original = dados.fin;
+  const resultados = [];
+  const checar = (nome, condicao) => resultados.push({nome, ok: !!condicao});
+  try{
+    // 1. Sem período anterior (anterior=0) — nunca pode virar Infinity%
+    checar('anterior=0 não vira Infinity%', trendBadge(100, 0, false, true) === '');
+    // 2. Amostra pequena — mesmo com pct real e anterior válido, confiavel=false esconde o badge
+    checar('confiavel=false esconde o badge mesmo com pct real', trendBadge(7130, 5400, false, false) === '');
+    // 3. Amostra suficiente — o badge aparece normalmente
+    checar('confiavel=true mostra o badge quando pct != 0', trendBadge(7130, 5400, false, true) !== '');
+    // 4. dadosSuficientesParaTendencia com poucos lançamentos confirmados
+    dados = {...dados, fin: [{tipo:'Receita', status:'Recebido', valor:100}]};
+    checar('1 lançamento confirmado → dados insuficientes', dadosSuficientesParaTendencia() === false);
+    // 5. dadosSuficientesParaTendencia com lançamentos suficientes
+    dados = {...dados, fin: Array.from({length:MIN_LANCAMENTOS_DIAGNOSTICO}, ()=>({tipo:'Receita', status:'Recebido', valor:100}))};
+    checar(`${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados → dados suficientes`, dadosSuficientesParaTendencia() === true);
+  } finally {
+    dados = {...dados, fin: original};
+  }
+  const falhas = resultados.filter(r=>!r.ok);
+  console.log(`Autocheck confiança de tendência: ${resultados.length-falhas.length}/${resultados.length} passaram.`);
+  resultados.forEach(r=>console.log(`${r.ok?'✓':'✗'} ${r.nome}`));
+  return falhas.length===0;
+}
 // Checklist de primeiros passos: só aparece durante o onboarding, reaproveita dados que o
 // Dashboard já carrega (nenhuma busca nova) — cada item reflete um fato real, nunca um contador
 // inventado. É o roteiro que faltava entre "conta criada" e "primeiro diagnóstico confiável".
@@ -1291,8 +1329,11 @@ const icoClock=icoSVG('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12
 const setaUp='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
 const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 // invertido=true pra métricas onde "subir" não é uma boa notícia (ex: despesa)
-function trendBadge(atual, anterior, invertido){
-  if(!anterior) return '';
+// confiavel=false (conta nova, pouco histórico) nunca mostra percentual — regra dura: nenhum
+// "%" aparece na tela sem confiavel===true, pra nunca contradizer o texto de onboarding.
+function trendBadge(atual, anterior, invertido, confiavel){
+  if(!anterior) return ''; // também cobre o caso "período anterior zerado" — nunca vira Infinity%
+  if(!confiavel) return '';
   const pct = Math.round(((atual-anterior)/Math.abs(anterior))*100);
   if(pct===0) return '';
   const bom = invertido ? pct<0 : pct>0;
@@ -1375,7 +1416,7 @@ function renderHeroDiagnostico(){
   // Tendência do caixa: mesma janela de 21 dias já usada na sparkline ao lado, só que
   // exposta em número — reaproveita calcSparklineCaixa e o trendBadge já usado nos KPIs.
   const caixaAntes = calcSparklineCaixa(21)[0];
-  setHTML('heroCaixaTrend', trendBadge(caixa, caixaAntes, false));
+  setHTML('heroCaixaTrend', trendBadge(caixa, caixaAntes, false, dadosSuficientesParaTendencia()));
 
   // Barra de saúde financeira: 0 se negativo, senão proporcional ao fôlego de caixa (45 dias = 100%)
   const healthPct = caixa<0 ? 4 : Math.max(6, Math.min(100, Math.round((runway||20)/45*100)));
@@ -1446,11 +1487,12 @@ function renderIndicadores(){
   const nRec = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).length;
   const nDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).length;
   const rotuloResultado = RESULTADO_LBL[periodo.dias] || 'Resultado do período';
+  const confiavel = dadosSuficientesParaTendencia();
 
   setHTML('indicadores', kpiCardsHTML([
-    {ico:icoWallet,cls:'g',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false)},
-    {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true)},
-    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false)},
+    {ico:icoWallet,cls:'g',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
+    {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true,confiavel)},
+    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel)},
     {ico:icoClock,cls:'a',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
     {ico:icoClock,cls:'r',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
   ]));
