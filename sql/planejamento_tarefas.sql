@@ -12,7 +12,9 @@ create table if not exists planejamento_tarefas (
   prazo date,
   created_by uuid references usuarios(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  updated_by uuid references usuarios(id),
+  concluido_em timestamptz
 );
 
 alter table planejamento_tarefas enable row level security;
@@ -23,12 +25,24 @@ create policy "planejamento_tarefas_admin_only"
   using (is_nuvix_admin())
   with check (is_nuvix_admin());
 
+-- updated_by vem de auth.uid() (quem está autenticado na requisição real via PostgREST),
+-- não do que o cliente manda no PATCH — evita que a tela minta sobre quem editou.
+-- concluido_em marca a transição pra "concluido" (e some se a tarefa voltar de status),
+-- é a base do lead time mostrado no kanban.
 create or replace function public.planejamento_tarefas_set_updated_at()
 returns trigger
 language plpgsql
+security definer
+set search_path to 'public'
 as $$
 begin
   new.updated_at = now();
+  new.updated_by = auth.uid();
+  if new.status = 'concluido' and old.status is distinct from 'concluido' then
+    new.concluido_em = now();
+  elsif new.status <> 'concluido' then
+    new.concluido_em = null;
+  end if;
   return new;
 end;
 $$;

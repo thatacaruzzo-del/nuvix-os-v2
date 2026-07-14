@@ -1981,6 +1981,7 @@ function renderMarketing(){
 
 // ═══ PLANEJAMENTO (planner interno da equipe Nuvix) ═══
 let tarefasPlanejamento=[];
+let filtroPlanEspecial=null; // null | 'a_fazer' | 'em_andamento' | 'concluido' | 'atrasadas' — setado clicando num KPI
 const PLAN_STATUS_COLS=[{id:'a_fazer',lbl:'A Fazer'},{id:'em_andamento',lbl:'Em Andamento'},{id:'bloqueado',lbl:'Bloqueado'},{id:'concluido',lbl:'Concluído'}];
 const PLAN_CATEGORIA_LBL={produto:'Produto',marketing:'Marketing',vendas:'Vendas',financeiro:'Financeiro',infra:'Infra'};
 const PLAN_PRIORIDADE_COR={alta:'var(--red)',media:'var(--amber)',baixa:'var(--muted2)'};
@@ -2006,18 +2007,42 @@ function renderKpisPlanejamento(){
   const hoje=new Date().toISOString().slice(0,10);
   const porStatus=s=>tarefasPlanejamento.filter(t=>t.status===s).length;
   const atrasadas=tarefasPlanejamento.filter(t=>t.prazo&&t.prazo<hoje&&t.status!=='concluido').length;
-  setHTML('kpisPlanejamento',[
-    {lbl:'A fazer',val:porStatus('a_fazer'),cor:'var(--txt)'},
-    {lbl:'Em andamento',val:porStatus('em_andamento'),cor:'var(--amber)'},
-    {lbl:'Concluídas',val:porStatus('concluido'),cor:'var(--green)'},
-    {lbl:'Atrasadas',val:atrasadas,cor:'var(--red)'},
-  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="color:${k.cor}">${k.val}</div></div>`).join(''));
+  const kpis=[
+    {id:'a_fazer',lbl:'A fazer',val:porStatus('a_fazer'),cor:'var(--txt)'},
+    {id:'em_andamento',lbl:'Em andamento',val:porStatus('em_andamento'),cor:'var(--amber)'},
+    {id:'concluido',lbl:'Concluídas',val:porStatus('concluido'),cor:'var(--green)'},
+    {id:'atrasadas',lbl:'Atrasadas',val:atrasadas,cor:'var(--red)'},
+  ];
+  setHTML('kpisPlanejamento',kpis.map(k=>{
+    const ativo=filtroPlanEspecial===k.id;
+    return`<div class="kpi" onclick="toggleFiltroPlanEspecial('${k.id}')" style="cursor:pointer;${ativo?`border-color:${k.cor};box-shadow:0 0 0 2px ${k.cor}55`:''}">
+      <div class="kpi-label">${k.lbl}${ativo?' · filtrando':''}</div>
+      <div class="kpi-value" style="color:${k.cor}">${k.val}</div>
+    </div>`;
+  }).join(''));
+}
+// Clique num KPI filtra o kanban (clicar de novo no mesmo tira o filtro). "Atrasadas" corta
+// por prazo vencido em vez de status, então é tratado à parte na hora de filtrar as tarefas.
+function toggleFiltroPlanEspecial(id){
+  filtroPlanEspecial=filtroPlanEspecial===id?null:id;
+  renderKpisPlanejamento();
+  renderPlanejamento();
+}
+function leadTimeTexto(t){
+  const dias=(a,b)=>Math.max(0,Math.floor((new Date(b)-new Date(a))/864e5));
+  return t.concluido_em?`Levou ${dias(t.created_at,t.concluido_em)}d`:`Aberta há ${dias(t.created_at,new Date())}d`;
 }
 function renderPlanejamento(){
   const resp=val('filtroResponsavelPlan'),cat=val('filtroCategoriaPlan');
   const hoje=new Date().toISOString().slice(0,10);
   const usuPorId={};usuarios.forEach(u=>usuPorId[u.id]=u.nome);
-  const filtradas=tarefasPlanejamento.filter(t=>(!resp||t.responsavel_id===resp)&&(!cat||t.categoria===cat));
+  const filtradas=tarefasPlanejamento.filter(t=>{
+    if(resp&&t.responsavel_id!==resp)return false;
+    if(cat&&t.categoria!==cat)return false;
+    if(filtroPlanEspecial==='atrasadas')return t.prazo&&t.prazo<hoje&&t.status!=='concluido';
+    if(filtroPlanEspecial&&t.status!==filtroPlanEspecial)return false;
+    return true;
+  });
   setHTML('kanbanPlanejamento',PLAN_STATUS_COLS.map(col=>{
     const tarefas=filtradas.filter(t=>t.status===col.id);
     const cards=tarefas.map(t=>{
@@ -2028,6 +2053,10 @@ function renderPlanejamento(){
         <div class="kanban-card-meta">
           <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;color:#fff;background:${PLAN_PRIORIDADE_COR[t.prioridade]}">${PLAN_CATEGORIA_LBL[t.categoria]||t.categoria}</span>
           <span style="font-size:10px;color:${atrasada?'var(--red)':'var(--muted2)'}">${t.responsavel_id&&usuPorId[t.responsavel_id]?esc(usuPorId[t.responsavel_id])+' · ':''}${t.prazo?fmtData(t.prazo):''}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:9px;color:var(--muted2)">
+          <span>${leadTimeTexto(t)}</span>
+          ${t.updated_by&&usuPorId[t.updated_by]?`<span>Últ. edição: ${esc(usuPorId[t.updated_by])}</span>`:''}
         </div>
       </div>`;
     }).join('')||'<p style="font-size:11px;color:var(--muted2)">Vazio</p>';
