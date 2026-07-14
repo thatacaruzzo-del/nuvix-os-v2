@@ -31,10 +31,12 @@ h1{font-size:clamp(36px,4.2vw,58px);font-weight:800;line-height:1.08;letter-spac
 h1 .grad{color:var(--c4)}
 .subtitle{font-size:16px;line-height:1.7;color:var(--muted);max-width:480px;margin-bottom:28px}
 /* Prévia real do produto — mostra em vez de só descrever. Dado ilustrativo, deixado claro no rótulo. */
-.produto-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px rgba(16,24,40,.08);margin-bottom:28px;max-width:420px}
+.produto-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px rgba(16,24,40,.08);margin-bottom:10px;max-width:420px}
+.produto-preview.ultimo{margin-bottom:28px}
 .pp-eyebrow{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--c3);margin-bottom:8px}
 .pp-row{display:flex;align-items:flex-start;gap:9px}
 .pp-dot{width:7px;height:7px;border-radius:50%;background:#D97706;margin-top:5px;flex-shrink:0}
+.pp-dot.muted{background:#98A2B3}
 .pp-txt{font-size:12.5px;color:var(--text);line-height:1.5}
 .pp-txt b{font-weight:700}
 .pp-footer{font-size:10.5px;color:#98A2B3;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
@@ -218,6 +220,18 @@ h1 .grad{color:var(--c4)}
           <div class="pp-txt"><b>Despesas em Combustível subiram 18% este mês.</b> Foi a categoria que mais cresceu em relação ao mês anterior.</div>
         </div>
         <div class="pp-footer">Confiança: alta · calculado com dados confirmados</div>
+      </div>
+      <!-- Segundo exemplo: mostra o outro lado da mesma promessa do subtítulo — quando não
+           há dado suficiente, o sistema avisa em vez de arriscar um número. Sem selo de
+           confiança nenhum aqui, de propósito: não é possível calibrar confiança sobre dado
+           que ainda não existe. -->
+      <div class="produto-preview ultimo">
+        <div class="pp-eyebrow">Inteligência Nuvix</div>
+        <div class="pp-row">
+          <span class="pp-dot muted"></span>
+          <div class="pp-txt"><b>Ainda reunindo dados sobre Folha de Pagamento.</b> Faltam lançamentos confirmados pra um diagnóstico confiável.</div>
+        </div>
+        <div class="pp-footer">Sem confiança suficiente pra opinar ainda</div>
       </div>
       <div class="pills">
         <div class="pill"><div class="pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>Diagnóstico honesto, sem inventar números</div>
