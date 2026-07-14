@@ -192,9 +192,13 @@ function msgEl(id,text,type='ok'){
 // DB helpers
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
-async function dbPost(t,d){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
-async function dbPatch(t,id,d){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
-async function dbDelete(t,id){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
+// usuarios usa return=minimal: a coluna senha fica travada pra leitura via
+// API (ver sql/seguranca_senhas.sql), então um "RETURNING *" implícito do
+// return=representation quebraria em QUALQUER escrita em usuarios, não só
+// nas que mexem em senha — nenhuma tela hoje usa o retorno dessas chamadas.
+async function dbPost(t,d){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.status===204?null:r.json()}
+async function dbPatch(t,id,d){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.status===204?null:r.json()}
+async function dbDelete(t,id){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json()}
 
 // AUTH
@@ -833,9 +837,9 @@ async function fazerLoginAdmin(){
   const btn=$('adminLoginBtn');
   btn.textContent='Entrando...';btn.disabled=true;
   try{
-    const data=await dbGet('usuarios',`?email=eq.${encodeURIComponent(email)}&senha=eq.${encodeURIComponent(senha)}&ativo=eq.true&limit=1`);
-    if(!data?.length){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';return;}
-    const user=data[0];
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/verificar_login`,{method:'POST',headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_senha:senha})});
+    const user=await r.json();
+    if(!r.ok||!user){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';return;}
     // Verificar se é admin Nuvix
     // TODO antes de ter cliente real: travar isso só por is_admin_nuvix —
     // hoje qualquer perfil "Administrador" de QUALQUER empresa cliente
@@ -865,7 +869,7 @@ async function carregarTudo(){
   try{
     [empresas,usuarios,assinaturas]=await Promise.all([
       dbGet('empresas','?select=*&order=created_at.desc'),
-      dbGet('usuarios','?select=*&order=created_at.desc'),
+      dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
     ]);
     empFiltradas=[...empresas];

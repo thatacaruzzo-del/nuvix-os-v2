@@ -353,15 +353,15 @@ async function entrar(){
   if(!email||!senha){showMsg('Preencha e-mail e senha.');return;}
   btn.textContent='Entrando...';btn.style.opacity='.7';btn.disabled=true;
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*,empresas(*)&email=eq.${encodeURIComponent(email)}&senha=eq.${encodeURIComponent(senha)}&ativo=eq.true&limit=1`,
-      {headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
-    const data=await r.json();
-    if(!data?.length){showMsg('E-mail ou senha incorretos.');return;}
-    const user=data[0],empresa=user.empresas;
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/verificar_login`,
+      {method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_senha:senha})});
+    const user=await r.json();
+    if(!r.ok||!user){showMsg('E-mail ou senha incorretos.');return;}
+    const empresa=user.empresas;
     if(!empresa||empresa.ativo===false){showMsg('Empresa inativa. Contate o suporte.');return;}
     sessionStorage.setItem(SESSION_KEY,JSON.stringify({user:{id:user.id,nome:user.nome,email:user.email,perfil:user.perfil},empresa,loginAt:Date.now()}));
-    
-    // Registrar log de acesso
+
+    // Registrar log de acesso (ultimo_acesso já é atualizado dentro de verificar_login)
     const logPayload = {
       usuario_id: user.id,
       empresa_id: empresa.id,
@@ -378,9 +378,6 @@ async function entrar(){
       body:JSON.stringify(logPayload)
     }).catch(()=>{});
 
-    // Atualizar ultimo_acesso do usuário
-    fetch(`${SUPABASE_URL}/rest/v1/usuarios?id=eq.${user.id}`,{method:'PATCH',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({ultimo_acesso:new Date().toISOString()})}).catch(()=>{});
-    
     window.location.href='pages/dashboard.html';
   }catch(e){showMsg('Erro de conexão. Tente novamente.');}
   finally{btn.textContent='Entrar na Plataforma';btn.style.opacity='1';btn.disabled=false;}
