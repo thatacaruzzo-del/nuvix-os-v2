@@ -447,8 +447,15 @@ const MODULOS_PLANO={
 
   <!-- Radar de atenção (Fase 4 — camada de priorização, portfólio inteiro) -->
   <div class="card" id="radarCard" style="margin-bottom:20px;display:none">
-    <h2 style="margin:0 0 4px">Radar de atenção</h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+      <h2 style="margin:0">Radar de atenção</h2>
+      <button class="btn2" id="btnResumoIA" onclick="gerarResumoSemanal()" style="font-size:12px">✨ Gerar resumo semanal (IA)</button>
+    </div>
     <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Contas que mais precisam de atenção agora, ordenadas por gravidade pelo motor de regras.</p>
+    <div id="resumoIACard" style="display:none;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:6px">Resumo executivo semanal (gerado por IA a partir dos sinais abaixo)</div>
+      <div id="resumoIATexto" style="font-size:13px;line-height:1.5"></div>
+    </div>
     <div id="radarLista"></div>
   </div>
 
@@ -1251,6 +1258,42 @@ function renderRadarPortfolio(){
       </div>
       <button class="btn2" style="font-size:11px;padding:5px 9px;flex-shrink:0" onclick="abrirSinais('${empresa.id}')">Ver detalhes</button>
     </div>`).join(''));
+}
+
+// FASE 5 — camada de IA generativa: resumo executivo semanal. A função só envia os sinais
+// JÁ decididos pelas camadas 3-4 (nunca dados brutos) pra uma Edge Function, que pede pra
+// IA reescrever em prosa — a IA não recebe acesso ao banco nem pode inventar número novo.
+async function gerarResumoSemanal(){
+  const btn=$('btnResumoIA');
+  const ranking=priorizarPortfolio();
+  const sinais=ranking.slice(0,15).map(({empresa,sinal})=>({
+    empresa:empresa.fantasia||empresa.razao||'—',categoria:sinal.categoria,titulo:sinal.titulo,
+    detalhe:sinal.detalhe,recomendacao:sinal.recomendacao,
+  }));
+  const totais={
+    total_empresas:empresas.length,
+    prioridade:ranking.filter(r=>r.sinal.categoria==='prioridade').length,
+    atencao:ranking.filter(r=>r.sinal.categoria==='atencao').length,
+    oportunidade:ranking.filter(r=>r.sinal.categoria==='oportunidade').length,
+  };
+  btn.disabled=true;btn.textContent='Gerando...';
+  const card=$('resumoIACard'),texto=$('resumoIATexto');
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/resumo-semanal-admin`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminSession.access_token},
+      body:JSON.stringify({sinais,totais}),
+    });
+    const data=await r.json();
+    if(!r.ok||data.error){texto.textContent=data.error||'Erro ao gerar o resumo. Tente novamente.';}
+    else{texto.textContent=data.resumo;}
+    card.style.display='';
+  }catch(e){
+    texto.textContent='Sem conexão com a IA no momento. Tente novamente em instantes.';
+    card.style.display='';
+  }finally{
+    btn.disabled=false;btn.textContent='✨ Gerar resumo semanal (IA)';
+  }
 }
 
 // Badge compacto pra célula "Sinais": bolinha colorida pela categoria mais séria + contagem.
