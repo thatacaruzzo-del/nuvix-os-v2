@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { nome },
+      redirectTo: "https://nuvix-os-v2.vercel.app/definir-senha.html",
     });
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {

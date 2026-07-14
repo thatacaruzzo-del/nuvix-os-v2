@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix Hub | Definir senha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--c3:#5B4CF0;--c4:#6D5EF5;--bg:#F8F9FC;--line:#EAECF0;--text:#101828;--muted:#667085}
+html,body{min-height:100vh;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:100%;max-width:400px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:36px;box-shadow:0 4px 16px rgba(16,24,40,.06)}
+.logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px}
+.logo-mark{width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 4px 14px rgba(109,94,245,.2)}
+.logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
+.logo-name{font-size:19px;font-weight:800;letter-spacing:-.03em;color:#2A145D}
+h1{font-size:18px;font-weight:800;color:#2A145D;margin-bottom:8px}
+.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;color:#5935C8;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.field input{width:100%;height:48px;padding:0 16px;background:#fff;border:1.5px solid #DDD6FF;border-radius:14px;color:#2A145D;font-size:15px;font-family:inherit;outline:none;transition:all 150ms ease}
+.field input:focus{border-color:#6D5EF5;box-shadow:0 0 0 4px rgba(109,94,245,.15)}
+.btn{width:100%;height:48px;background:var(--c4);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background 150ms ease}
+.btn:hover{background:var(--c3)}
+.btn:disabled{opacity:.6;cursor:default}
+.msg{margin-top:16px;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;text-align:center;display:none}
+.msg.err{background:#FEF2F2;color:#B42318;display:block}
+.msg.ok{background:#ECFDF5;color:#067647;display:block}
+.center{text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-mark"><img src="assets/logo.png" alt="Nuvix"></div>
+    <div class="logo-name">Nuvix Hub</div>
+  </div>
+  <div id="formArea">
+    <h1>Defina sua senha</h1>
+    <p class="sub">Isso conclui seu convite de acesso — sua senha nunca passa por mais ninguém além de você.</p>
+    <div class="field">
+      <label>Nova senha</label>
+      <input type="password" id="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>Confirmar senha</label>
+      <input type="password" id="senha2" placeholder="Repita a senha" autocomplete="new-password" onkeydown="if(event.key==='Enter')definirSenha()">
+    </div>
+    <button class="btn" id="btnSalvar" onclick="definirSenha()">Salvar e continuar</button>
+    <div id="msg" class="msg"></div>
+  </div>
+  <div id="erroArea" class="center" style="display:none">
+    <h1>Link inválido ou expirado</h1>
+    <p class="sub">Peça pra quem te convidou enviar um novo link — o anterior só funciona uma vez.</p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+
+// O Supabase redireciona pra cá com os tokens na âncora da URL (depois do #), nunca na
+// query string — isso evita que o token vaze em log de servidor. Cada par vem separado por &.
+function lerHash(){
+  const h=window.location.hash.replace(/^#/,'');
+  const params=new URLSearchParams(h);
+  return {access_token:params.get('access_token'), type:params.get('type')};
+}
+const {access_token}=lerHash();
+if(!access_token){
+  document.getElementById('formArea').style.display='none';
+  document.getElementById('erroArea').style.display='block';
+}
+
+async function definirSenha(){
+  const senha=document.getElementById('senha').value;
+  const senha2=document.getElementById('senha2').value;
+  const msg=document.getElementById('msg');
+  const btn=document.getElementById('btnSalvar');
+  msg.style.display='none';
+  if(senha.length<8){msg.className='msg err';msg.textContent='A senha precisa ter pelo menos 8 caracteres.';msg.style.display='block';return;}
+  if(senha!==senha2){msg.className='msg err';msg.textContent='As senhas não são iguais.';msg.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
+      method:'PUT',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+access_token,'Content-Type':'application/json'},
+      body:JSON.stringify({password:senha}),
+    });
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.msg||e.error_description||'Não foi possível salvar a senha.');}
+    msg.className='msg ok';msg.textContent='Senha criada! Redirecionando pro login...';msg.style.display='block';
+    setTimeout(()=>{window.location.href='pages/admin.html';},1800);
+  }catch(e){
+    msg.className='msg err';msg.textContent=e.message;msg.style.display='block';
+    btn.disabled=false;btn.textContent='Salvar e continuar';
+  }
+}
+</script>
+</body>
+</html>
