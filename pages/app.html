@@ -66,7 +66,8 @@ function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{co
 function exportCSV(data,filename){if(!data?.length){toast('Nada para exportar.','err');return}const cols=Object.keys(data[0]);const csv=[cols.join(','),...data.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`${filename}_${hoje()}.csv`;a.click()}
 const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
-const _h={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const _h={'apikey':SUPABASE_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SUPABASE_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 // usuarios usa return=minimal: a coluna senha fica travada pra leitura via
 // API (ver sql/seguranca_senhas.sql), então "RETURNING *" implícito do

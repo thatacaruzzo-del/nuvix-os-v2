@@ -164,7 +164,8 @@ tr:hover td{background:#FAFAFF}
 // ═══ UTILS ═══
 const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
-const H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_admin_session')||'null')?.access_token||null;}catch(e){return null;}}
+const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}

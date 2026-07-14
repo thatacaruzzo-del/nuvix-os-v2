@@ -116,7 +116,8 @@ function money2(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDi
 
 const SB='https://quullcxptbiqycyakzlc.supabase.co';
 const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const H={'apikey':KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 const db={
