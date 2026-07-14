@@ -437,6 +437,7 @@ const MODULOS_PLANO={
   <button class="admin-tab" onclick="showTab('modulos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
   <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Assinaturas</button>
   <button class="admin-tab" onclick="showTab('logs',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Logs de Acesso</button>
+  <button class="admin-tab" onclick="showTab('marketing',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Marketing</button>
 </div>
 
 <!-- ═══ PANE: CLIENTES ═══ -->
@@ -618,6 +619,28 @@ const MODULOS_PLANO={
         <tbody id="tabelaLogs"></tbody>
       </table>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PANE: MARKETING ═══ -->
+<div id="pane-marketing" class="admin-pane">
+<div class="content">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Monitoramento de marketing e posicionamento</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="filtroTipoMkt" onchange="renderMarketing()" style="max-width:180px">
+          <option value="">Todos os tipos</option>
+          <option value="concorrencia">Concorrência</option>
+          <option value="mencao">Menções</option>
+          <option value="geo">GEO (assistentes de IA)</option>
+        </select>
+        <button class="btn2" onclick="carregarMarketing()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar</button>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Registro manual — pesquisado e estruturado sob demanda no chat, sempre com fonte e data. Nenhum item aqui foi gerado por IA sem verificação.</p>
+    <div id="listaMarketing"></div>
   </div>
 </div>
 </div>
@@ -1841,6 +1864,34 @@ function showTab(id,btn){
   const pane=$('pane-'+id);if(pane)pane.classList.add('active');
   if(btn)btn.classList.add('active');
   if(id==='logs')carregarLogs();
+  if(id==='marketing')carregarMarketing();
+}
+
+// ═══ MARKETING (monitoramento manual — spec nuvix-admin-marketing-ia-spec.md, seções 1-3) ═══
+let marketingRegistros=[];
+const MKT_TIPO_LBL={concorrencia:'Concorrência',mencao:'Menção',geo:'GEO (IA)'};
+const MKT_TIPO_COR={concorrencia:'var(--amber)',mencao:'var(--green)',geo:'var(--muted2)'};
+async function carregarMarketing(){
+  try{
+    marketingRegistros=await dbGet('marketing_monitoramento','?select=*&order=data_verificacao.desc,created_at.desc&limit=200');
+    renderMarketing();
+  }catch(e){
+    setHTML('listaMarketing',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function renderMarketing(){
+  const tipo=val('filtroTipoMkt');
+  const lista=tipo?marketingRegistros.filter(r=>r.tipo===tipo):marketingRegistros;
+  setHTML('listaMarketing',lista.map(r=>`
+    <div class="card" style="margin-bottom:10px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:${MKT_TIPO_COR[r.tipo]||'var(--muted2)'}">${MKT_TIPO_LBL[r.tipo]||r.tipo}</span>
+        <span style="font-size:11px;color:var(--muted2)">${fmtData(r.data_verificacao)}</span>
+      </div>
+      <div style="font-size:13px;margin-bottom:6px">${esc(r.resumo)}</div>
+      ${r.detalhes&&Object.keys(r.detalhes).length?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${Object.entries(r.detalhes).map(([k,v])=>`<b>${esc(k)}:</b> ${esc(String(v))}`).join(' · ')}</div>`:''}
+      ${r.fonte_url?`<a href="${esc(r.fonte_url)}" target="_blank" rel="noopener" style="font-size:11px">Ver fonte →</a>`:''}
+    </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum registro ainda. Peça pra pesquisar um concorrente, menção ou pergunta de GEO no chat.</p>');
 }
 
 // ═══ MODAIS ═══
