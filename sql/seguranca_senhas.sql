@@ -36,6 +36,7 @@ create extension if not exists pgcrypto;
 create or replace function hash_senha_trigger()
 returns trigger
 language plpgsql
+set search_path = public, extensions
 as $$
 begin
   if new.senha is not null and new.senha <> '' and new.senha !~ '^\$2[aby]\$' then
@@ -65,7 +66,7 @@ create or replace function verificar_login(p_email text, p_senha text)
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_user usuarios%rowtype;
