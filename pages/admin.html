@@ -445,6 +445,13 @@ const MODULOS_PLANO={
   <!-- KPIs -->
   <div class="grid-5" id="kpisClientes" style="margin-bottom:20px"></div>
 
+  <!-- Radar de atenção (Fase 4 — camada de priorização, portfólio inteiro) -->
+  <div class="card" id="radarCard" style="margin-bottom:20px;display:none">
+    <h2 style="margin:0 0 4px">Radar de atenção</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Contas que mais precisam de atenção agora, ordenadas por gravidade pelo motor de regras.</p>
+    <div id="radarLista"></div>
+  </div>
+
   <!-- Lista -->
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -909,6 +916,7 @@ async function carregarTudo(){
     empFiltradas=[...empresas];
     usuFiltrados=[...usuarios];
     renderKpisClientes();
+    renderRadarPortfolio();
     renderEmpresas();
     renderUsuarios();
     renderAssinaturas();
@@ -1162,8 +1170,91 @@ function avaliarRegrasPortfolio(empresa,metrica,ctx){
 const CATEGORIA_LBL_ADMIN={prioridade:'Prioridade',atencao:'Atenção',oportunidade:'Oportunidade',informacao:'Informação'};
 const CATEGORIA_COR_ADMIN={prioridade:'var(--red)',atencao:'var(--amber)',oportunidade:'var(--green)',informacao:'var(--muted2)'};
 const ORDEM_CATEGORIA_ADMIN={prioridade:0,atencao:1,oportunidade:2,informacao:3};
+
+// CAMADA 5 (portfólio) — narrativa: cada sinal da camada 3 já nasce com "o que está
+// acontecendo" (detalhe) e "o que fazer" (recomendacao); aqui completamos as outras 2 etapas
+// do mesmo padrão de 4 passos usado no dashboard do cliente — por que importa e qual o impacto
+// provável. Sinal sem entrada aqui (caso do fallback "conta saudável") simplesmente pula a etapa.
+const PORQUE_IMPORTA_ADMIN={
+  'trial-sem-uso':'Sem nenhum acesso, o risco de o trial expirar sem conversão é alto.',
+  'trial-nunca-lancou':'Cadastrar o primeiro registro é o passo que mais costuma antecipar a conversão de trial em cliente pagante.',
+  'trial-vencendo-em-breve':'Depois que o trial vence sem conversão, reengajar a conta fica bem mais difícil.',
+  'trial-expirado-nao-convertido':'Uma conta "trial" que já passou do prazo é um estado que deveria ter virado ativa, cancelada ou bloqueada.',
+  'anomalia-queda-uso':'Queda de uso costuma ser o primeiro sinal visível antes de um cancelamento.',
+  'modulos-subutilizados':'Contas que usam só um módulo enxergam menos valor no produto e têm mais risco de trocar por uma ferramenta mais específica.',
+  'usuario-unico-sem-equipe':'Uma conta com 1 usuário só é mais frágil: se essa pessoa parar de usar, a conta inteira para.',
+  'inadimplencia-nova':'Inadimplência não resolvida cedo tende a virar cancelamento.',
+  'upgrade-elegivel':'Uso consistente acima do esperado pro plano é sinal de que a conta já está no limite do plano atual.',
+};
+const IMPACTO_ADMIN={
+  'trial-sem-uso':'Se continuar sem acesso, o trial deve terminar sem conversão.',
+  'trial-nunca-lancou':'Sem um primeiro lançamento, a conta dificilmente percebe valor real antes do trial acabar.',
+  'trial-vencendo-em-breve':'Sem contato agora, a janela para conversão fecha em poucos dias.',
+  'trial-expirado-nao-convertido':'A conta pode estar com acesso indevido ou, ao contrário, já deveria ter sido bloqueada.',
+  'anomalia-queda-uso':'Se a queda continuar, a tendência é a conta parar de usar por completo.',
+  'modulos-subutilizados':'Baixa adoção de módulos é um dos fatores que mais antecedem um cancelamento.',
+  'usuario-unico-sem-equipe':'A renovação da conta acaba dependendo inteiramente de uma pessoa só continuar engajada.',
+  'inadimplencia-nova':'Sem regularização, o próximo passo natural é bloqueio ou cancelamento da conta.',
+  'upgrade-elegivel':'Deixar de oferecer o upgrade é receita que fica na mesa.',
+};
+// Renderiza 1 sinal no padrão de 4 passos. completo=true mostra todas as etapas (usado no
+// modal); completo=false mostra uma versão resumida (usada no Radar, onde o espaço é curto).
+function renderSinalHTML(s,completo){
+  const porque=PORQUE_IMPORTA_ADMIN[s.id];
+  const impacto=IMPACTO_ADMIN[s.id];
+  const extras=completo?`
+      ${porque?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px"><b>Por que importa:</b> ${esc(porque)}</div>`:''}
+      ${impacto?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px"><b>Impacto provável:</b> ${esc(impacto)}</div>`:''}`:'';
+  return`<div class="card" style="margin-bottom:10px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:13px">${esc(s.titulo)}</b>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:${CATEGORIA_COR_ADMIN[s.categoria]};flex-shrink:0">${CATEGORIA_LBL_ADMIN[s.categoria]}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${esc(s.detalhe)}</div>
+      ${extras}
+      <div style="font-size:11px;color:var(--txt)"><b>Recomendação:</b> ${esc(s.recomendacao)}</div>
+    </div>`;
+}
+
+// CAMADA 4 (portfólio) — priorização entre TODAS as empresas: pega o sinal mais grave de cada
+// uma, ordena por categoria (prioridade > atenção > oportunidade) e descarta quem só tem sinal
+// "informação" (conta saudável ou fato neutro não compete por atenção no Radar).
+function priorizarPortfolio(){
+  const ctxTodos=construirContextoRegras();
+  const metricasTodas={};
+  coletarMetricasPortfolio().forEach(m=>metricasTodas[m.empresa_id]=m);
+  return empresas
+    .map(e=>{
+      const ctx=ctxTodos[e.id]||{usuariosAtivos:0,modulosDistintos30d:0};
+      const sinais=avaliarRegrasPortfolio(e,metricasTodas[e.id],ctx);
+      const top=[...sinais].sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.categoria]-ORDEM_CATEGORIA_ADMIN[b.categoria])[0];
+      return top?{empresa:e,sinal:top,totalSinais:sinais.length}:null;
+    })
+    .filter(x=>x&&x.sinal.categoria!=='informacao')
+    .sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.sinal.categoria]-ORDEM_CATEGORIA_ADMIN[b.sinal.categoria]);
+}
+const RADAR_MAX=5;
+function renderRadarPortfolio(){
+  const ranking=priorizarPortfolio();
+  const card=$('radarCard');
+  if(!ranking.length){card.style.display='none';return;}
+  card.style.display='';
+  setHTML('radarLista',ranking.slice(0,RADAR_MAX).map(({empresa,sinal,totalSinais})=>`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${CATEGORIA_COR_ADMIN[sinal.categoria]};flex-shrink:0"></span>
+          <b style="font-size:13px">${esc(empresa.fantasia||empresa.razao||'—')}</b>
+          ${totalSinais>1?`<span style="font-size:10px;color:var(--muted2)">+${totalSinais-1} outro${totalSinais-1!==1?'s':''}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--muted)">${esc(sinal.titulo)} — ${esc(sinal.detalhe)}</div>
+      </div>
+      <button class="btn2" style="font-size:11px;padding:5px 9px;flex-shrink:0" onclick="abrirSinais('${empresa.id}')">Ver detalhes</button>
+    </div>`).join(''));
+}
+
 // Badge compacto pra célula "Sinais": bolinha colorida pela categoria mais séria + contagem.
-// Clique abre o modal com o detalhe cru de cada sinal (a narrativa formatada é Fase 4).
+// Clique abre o modal com a narrativa completa de cada sinal.
 function sinaisBadge(empresa,sinais){
   if(!sinais.length)return`<span style="font-size:11px;color:var(--muted2)">—</span>`;
   const top=[...sinais].sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.categoria]-ORDEM_CATEGORIA_ADMIN[b.categoria])[0];
@@ -1179,15 +1270,7 @@ function abrirSinais(empresaId){
   const metrica=coletarMetricasPortfolio().find(m=>m.empresa_id===empresaId);
   const sinais=avaliarRegrasPortfolio(empresa,metrica,ctx).sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.categoria]-ORDEM_CATEGORIA_ADMIN[b.categoria]);
   $('sinaisEmpresaNome').textContent=empresa.fantasia||empresa.razao||'—';
-  setHTML('sinaisLista',sinais.map(s=>`
-    <div class="card" style="margin-bottom:10px;padding:14px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <b style="font-size:13px">${esc(s.titulo)}</b>
-        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:${CATEGORIA_COR_ADMIN[s.categoria]}">${CATEGORIA_LBL_ADMIN[s.categoria]}</span>
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${esc(s.detalhe)}</div>
-      <div style="font-size:11px;color:var(--txt)"><b>Recomendação:</b> ${esc(s.recomendacao)}</div>
-    </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum sinal encontrado.</p>');
+  setHTML('sinaisLista',sinais.map(s=>renderSinalHTML(s,true)).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum sinal encontrado.</p>');
   abrirModal('modalSinais');
 }
 
