@@ -473,7 +473,7 @@ const MODULOS_PLANO={
         <thead><tr>
           <th>Empresa</th><th>CNPJ</th><th>Segmento</th>
           <th>Plano</th><th>Status</th><th>Trial / Venc.</th>
-          <th>Usuários</th><th>Último acesso</th><th>Atividade</th><th>Ações</th>
+          <th>Usuários</th><th>Último acesso</th><th>Atividade</th><th>Sinais</th><th>Ações</th>
         </tr></thead>
         <tbody id="tabelaEmpresas"></tbody>
       </table>
@@ -800,9 +800,22 @@ const MODULOS_PLANO={
 </div>
 </div>
 
+<!-- Sinais (Fase 3 — motor de regras da Inteligência Nuvix Portfólio). Lista crua, sem
+     priorização nem narrativa formatada — isso é a Fase 4, ainda não construída. -->
+<div class="modal-overlay" id="modalSinais">
+<div class="modal" style="max-width:560px">
+  <h3>Sinais — <span id="sinaisEmpresaNome"></span></h3>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Gerados pelo motor de regras a partir dos eventos reais desta conta.</p>
+  <div id="sinaisLista"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalSinais')">Fechar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ═══ ESTADO ═══
-let empresas=[], usuarios=[], assinaturas=[], empresa_modulos=[], logs=[], eventosConta=[];
+let empresas=[], usuarios=[], assinaturas=[], empresa_modulos=[], logs=[], eventosConta=[], accessLogsPortfolio=[];
 let empFiltradas=[], usuFiltrados=[];
 let modulosEmpresaAtual={}, empAtualId='', empAtualPlano='';
 let permAtual=[];
@@ -883,11 +896,15 @@ async function init(){
 
 async function carregarTudo(){
   try{
-    [empresas,usuarios,assinaturas,eventosConta]=await Promise.all([
+    // access_logs cresce a cada página vista — a regra de módulos subutilizados só olha
+    // 30 dias pra trás, então 60 dias de margem já cobre com folga sem buscar a tabela inteira.
+    const desde60d=new Date();desde60d.setDate(desde60d.getDate()-60);
+    [empresas,usuarios,assinaturas,eventosConta,accessLogsPortfolio]=await Promise.all([
       dbGet('empresas','?select=*&order=created_at.desc'),
       dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
       dbGet('eventos_conta','?select=empresa_id,tipo_evento,created_at').catch(()=>[]),
+      dbGet('access_logs',`?select=empresa_id,modulo,created_at&created_at=gte.${desde60d.toISOString()}`).catch(()=>[]),
     ]);
     empFiltradas=[...empresas];
     usuFiltrados=[...usuarios];
@@ -967,7 +984,8 @@ function coletarMetricasPortfolio(){
     const evs=(porEmpresa[e.id]||[]).slice().sort((a,b)=>a.created_at<b.created_at?1:-1);
     const diasDesdeCriacao=e.created_at?Math.floor((hoje-new Date(e.created_at))/864e5):null;
     const diasDesdeUltimoEvento=evs.length?Math.floor((hoje-new Date(evs[0].created_at))/864e5):null;
-    return{empresa_id:e.id,eventos:evs,total_eventos_historico:evs.length,dias_desde_criacao:diasDesdeCriacao,dias_desde_ultimo_evento:diasDesdeUltimoEvento};
+    const diasRestantesTrial=e.trial_fim?Math.ceil((new Date(e.trial_fim)-hoje)/864e5):null;
+    return{empresa_id:e.id,eventos:evs,total_eventos_historico:evs.length,dias_desde_criacao:diasDesdeCriacao,dias_desde_ultimo_evento:diasDesdeUltimoEvento,dias_restantes_trial:diasRestantesTrial};
   });
 }
 
@@ -1018,9 +1036,165 @@ function atividadeBadge(metrica){
   return linha1+linha2;
 }
 
+// CAMADA 3 (portfólio) — motor de regras: cada função é pura e determinística, olha só pra
+// uma empresa (empresa + métrica da camada 1 + comparação da camada 2 + contexto auxiliar) e
+// devolve no máximo 1 sinal (ou nada). Nunca inventa número — só repassa o que já veio das
+// camadas 1-2 ou de contagens diretas do contexto. Ainda sem priorização/narrativa (Fase 4).
+const DIAS_MIN_TRIAL_SEM_USO=3;        // tempo mínimo de trial antes de cobrar "zero uso" (dá tempo do primeiro acesso).
+const DIAS_MIN_TRIAL_NUNCA_LANCOU=5;
+const DIAS_TRIAL_VENCENDO=3;
+const QUEDA_USO_ANOMALA_PCT=-50;       // queda de 50%+ no volume de eventos em 30d vs os 30d anteriores.
+const DIAS_MIN_CONTA_MODULOS=30;
+const DIAS_MIN_CONTA_USUARIO_UNICO=30;
+const EVENTOS_MIN_UPGRADE_ELEGIVEL=40; // eventos em 30d — limiar de julgamento de negócio, não fato medido; documentado de propósito.
+
+// Contexto auxiliar por empresa que as regras precisam e não vem pronto da camada 1 (que é só
+// sobre eventos_conta): usuários realmente ativos e diversidade de módulos navegados em 30d
+// (via access_logs, que cobre navegação de página — eventos_conta só registra login/lançamento).
+function construirContextoRegras(){
+  const hoje=new Date();
+  const inicio30=new Date(hoje);inicio30.setDate(hoje.getDate()-30);
+  const usuariosAtivosPorEmp={};
+  usuarios.forEach(u=>{if(u.empresa_id&&u.ativo)usuariosAtivosPorEmp[u.empresa_id]=(usuariosAtivosPorEmp[u.empresa_id]||0)+1});
+  const modulosPorEmp={};
+  accessLogsPortfolio.forEach(l=>{
+    if(!l.empresa_id||!l.modulo||l.modulo==='login')return;
+    if(new Date(l.created_at)<inicio30)return;
+    (modulosPorEmp[l.empresa_id]=modulosPorEmp[l.empresa_id]||new Set()).add(l.modulo);
+  });
+  const ctx={};
+  empresas.forEach(e=>{
+    ctx[e.id]={usuariosAtivos:usuariosAtivosPorEmp[e.id]||0,modulosDistintos30d:modulosPorEmp[e.id]?modulosPorEmp[e.id].size:0};
+  });
+  return ctx;
+}
+
+const REGRAS_PORTFOLIO=[
+  (empresa,metrica)=>{
+    if(empresa.status_conta!=='trial')return;
+    if(metrica.dias_desde_criacao===null||metrica.dias_desde_criacao<DIAS_MIN_TRIAL_SEM_USO)return;
+    if(metrica.total_eventos_historico>0)return;
+    return{id:'trial-sem-uso',categoria:'atencao',titulo:'Trial sem nenhum acesso registrado',
+      detalhe:`A conta está em trial há ${metrica.dias_desde_criacao} dia${metrica.dias_desde_criacao!==1?'s':''} e nunca teve um login registrado.`,
+      recomendacao:'Vale um contato direto pra entender se houve dificuldade no primeiro acesso.',confianca:'alta'};
+  },
+  (empresa,metrica)=>{
+    if(empresa.status_conta!=='trial')return;
+    if(empresa.data_primeiro_lancamento)return;
+    if(metrica.dias_desde_criacao===null||metrica.dias_desde_criacao<DIAS_MIN_TRIAL_NUNCA_LANCOU)return;
+    if(metrica.total_eventos_historico===0)return; // já coberto por trial-sem-uso, evita duplicar sinal
+    return{id:'trial-nunca-lancou',categoria:'atencao',titulo:'Trial ativo mas sem nenhum lançamento',
+      detalhe:`A conta acessa o sistema (${metrica.total_eventos_historico} evento${metrica.total_eventos_historico!==1?'s':''} registrados) mas ainda não criou nenhum cliente, OS ou lançamento financeiro em ${metrica.dias_desde_criacao} dias de trial.`,
+      recomendacao:'Oferecer ajuda no primeiro cadastro costuma destravar a adoção.',confianca:'alta'};
+  },
+  (empresa,metrica)=>{
+    if(empresa.status_conta!=='trial')return;
+    const d=metrica.dias_restantes_trial;
+    if(d===null||d<0||d>DIAS_TRIAL_VENCENDO)return;
+    return{id:'trial-vencendo-em-breve',categoria:d<=1?'prioridade':'atencao',titulo:`Trial vence em ${d} dia${d!==1?'s':''}`,
+      detalhe:`O período de trial termina em ${d} dia${d!==1?'s':''} e a conta ainda não foi convertida.`,
+      recomendacao:'Bom momento para uma conversa sobre a conversão para plano pago.',confianca:'alta'};
+  },
+  (empresa,metrica)=>{
+    if(empresa.status_conta!=='trial')return;
+    const d=metrica.dias_restantes_trial;
+    if(d===null||d>=0)return;
+    return{id:'trial-expirado-nao-convertido',categoria:'prioridade',titulo:'Trial expirado sem conversão',
+      detalhe:`O trial acabou há ${Math.abs(d)} dia${Math.abs(d)!==1?'s':''} e a conta continua marcada como trial, sem ter migrado para um plano pago.`,
+      recomendacao:'Verificar se é caso de bloqueio, extensão de prazo ou conversão pendente.',confianca:'alta'};
+  },
+  (empresa,metrica,comp)=>{
+    if(empresa.status_conta!=='ativo')return;
+    if(!usoConfiavel(metrica))return;
+    if(comp.variacaoPct===null||comp.variacaoPct>QUEDA_USO_ANOMALA_PCT)return;
+    return{id:'anomalia-queda-uso',categoria:'atencao',titulo:'Queda forte de uso em conta ativa',
+      detalhe:`O uso caiu ${Math.abs(comp.variacaoPct)}% nos últimos 30 dias (de ${comp.anterior} para ${comp.atual} eventos) numa conta paga.`,
+      recomendacao:'Vale entender se houve alguma mudança operacional ou insatisfação recente.',confianca:'media'};
+  },
+  (empresa,metrica,comp,ctx)=>{
+    if(empresa.status_conta!=='ativo')return;
+    if(metrica.dias_desde_criacao===null||metrica.dias_desde_criacao<DIAS_MIN_CONTA_MODULOS)return;
+    if(accessLogsPortfolio.length===0)return; // sem dado de navegação carregado, não dá pra avaliar
+    if(ctx.modulosDistintos30d>1)return;
+    if(comp.atual===0)return; // conta parada é a regra de queda de uso, não subutilização de módulos
+    return{id:'modulos-subutilizados',categoria:'oportunidade',titulo:'Uso concentrado em um único módulo',
+      detalhe:`Nos últimos 30 dias, a navegação ficou restrita a ${ctx.modulosDistintos30d===1?'apenas 1 módulo':'nenhum módulo além do login'}, mesmo com a conta ativa há ${metrica.dias_desde_criacao} dias.`,
+      recomendacao:'Pode ser oportunidade de mostrar outras áreas do sistema que ainda não foram exploradas.',confianca:'baixa'};
+  },
+  (empresa,metrica,comp,ctx)=>{
+    if(empresa.status_conta!=='ativo')return;
+    if(metrica.dias_desde_criacao===null||metrica.dias_desde_criacao<DIAS_MIN_CONTA_USUARIO_UNICO)return;
+    if(ctx.usuariosAtivos!==1)return;
+    return{id:'usuario-unico-sem-equipe',categoria:'informacao',titulo:'Conta operada por um único usuário',
+      detalhe:`Só existe 1 usuário ativo nesta conta, ${metrica.dias_desde_criacao} dias depois da criação.`,
+      recomendacao:'Convidar mais pessoas da equipe pode reduzir o risco de dependência de uma única pessoa.',confianca:'alta'};
+  },
+  (empresa)=>{
+    if(empresa.status_conta!=='inadimplente')return;
+    return{id:'inadimplencia-nova',categoria:'prioridade',titulo:'Conta inadimplente',
+      detalhe:'A conta está marcada como inadimplente no cadastro.',
+      recomendacao:'Confirmar o motivo do atraso e alinhar prazo de regularização.',confianca:'alta'};
+  },
+  (empresa,metrica,comp)=>{
+    if((empresa.plano||'Start')!=='Start')return;
+    if(empresa.status_conta!=='ativo')return;
+    if(!usoConfiavel(metrica))return;
+    if(comp.atual<EVENTOS_MIN_UPGRADE_ELEGIVEL)return;
+    return{id:'upgrade-elegivel',categoria:'oportunidade',titulo:'Uso alto para o plano atual',
+      detalhe:`${comp.atual} eventos nos últimos 30 dias num plano Start — volume consistente com uma conta que pode se beneficiar de um plano maior.`,
+      recomendacao:'Bom momento para uma conversa comercial sobre upgrade de plano.',confianca:'media'};
+  },
+];
+
+// avalia todas as regras pra 1 empresa; se nenhuma disparar numa conta ativa e com histórico
+// confiável, cai no fallback "saudável" — igual ao dashboard do cliente, nunca fica em silêncio.
+function avaliarRegrasPortfolio(empresa,metrica,ctx){
+  const comp=compararUsoPortfolio(metrica);
+  const sinais=REGRAS_PORTFOLIO.map(r=>r(empresa,metrica,comp,ctx)).filter(Boolean);
+  if(sinais.length===0&&empresa.status_conta==='ativo'&&usoConfiavel(metrica)){
+    sinais.push({id:'conta-saudavel-sem-alerta',categoria:'informacao',titulo:'Conta saudável, sem sinais de atenção',
+      detalhe:'Nenhuma das regras de acompanhamento encontrou um ponto que precise de ação agora.',
+      recomendacao:'Nenhuma ação necessária no momento.',confianca:'media'});
+  }
+  return sinais;
+}
+
+const CATEGORIA_LBL_ADMIN={prioridade:'Prioridade',atencao:'Atenção',oportunidade:'Oportunidade',informacao:'Informação'};
+const CATEGORIA_COR_ADMIN={prioridade:'var(--red)',atencao:'var(--amber)',oportunidade:'var(--green)',informacao:'var(--muted2)'};
+const ORDEM_CATEGORIA_ADMIN={prioridade:0,atencao:1,oportunidade:2,informacao:3};
+// Badge compacto pra célula "Sinais": bolinha colorida pela categoria mais séria + contagem.
+// Clique abre o modal com o detalhe cru de cada sinal (a narrativa formatada é Fase 4).
+function sinaisBadge(empresa,sinais){
+  if(!sinais.length)return`<span style="font-size:11px;color:var(--muted2)">—</span>`;
+  const top=[...sinais].sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.categoria]-ORDEM_CATEGORIA_ADMIN[b.categoria])[0];
+  return`<button type="button" class="btn2" style="font-size:11px;padding:5px 9px;display:inline-flex;align-items:center;gap:6px" onclick="abrirSinais('${empresa.id}')">
+    <span style="width:8px;height:8px;border-radius:50%;background:${CATEGORIA_COR_ADMIN[top.categoria]};flex-shrink:0"></span>
+    ${sinais.length} ${sinais.length!==1?'sinais':'sinal'}
+  </button>`;
+}
+function abrirSinais(empresaId){
+  const empresa=empresas.find(e=>e.id===empresaId);
+  if(!empresa)return;
+  const ctx=construirContextoRegras()[empresaId]||{usuariosAtivos:0,modulosDistintos30d:0};
+  const metrica=coletarMetricasPortfolio().find(m=>m.empresa_id===empresaId);
+  const sinais=avaliarRegrasPortfolio(empresa,metrica,ctx).sort((a,b)=>ORDEM_CATEGORIA_ADMIN[a.categoria]-ORDEM_CATEGORIA_ADMIN[b.categoria]);
+  $('sinaisEmpresaNome').textContent=empresa.fantasia||empresa.razao||'—';
+  setHTML('sinaisLista',sinais.map(s=>`
+    <div class="card" style="margin-bottom:10px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:13px">${esc(s.titulo)}</b>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:${CATEGORIA_COR_ADMIN[s.categoria]}">${CATEGORIA_LBL_ADMIN[s.categoria]}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${esc(s.detalhe)}</div>
+      <div style="font-size:11px;color:var(--txt)"><b>Recomendação:</b> ${esc(s.recomendacao)}</div>
+    </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum sinal encontrado.</p>');
+  abrirModal('modalSinais');
+}
+
 function renderEmpresas(){
   const metricasPortfolio={};
   coletarMetricasPortfolio().forEach(m=>metricasPortfolio[m.empresa_id]=m);
+  const ctxRegras=construirContextoRegras();
   const usuPorEmp={};
   usuarios.forEach(u=>{if(u.empresa_id)usuPorEmp[u.empresa_id]=(usuPorEmp[u.empresa_id]||0)+1});
   const ultimoAcesso={};
@@ -1047,6 +1221,7 @@ function renderEmpresas(){
       <td style="text-align:center">${nUsu}</td>
       <td style="font-size:11px;color:var(--muted)">${ult?fmtData(ult):'—'}</td>
       <td>${atividadeBadge(metricasPortfolio[e.id]||{dias_desde_ultimo_evento:null})}</td>
+      <td>${sinaisBadge(e,avaliarRegrasPortfolio(e,metricasPortfolio[e.id],ctxRegras[e.id]||{usuariosAtivos:0,modulosDistintos30d:0}))}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn2" onclick="editarEmpresa('${e.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
@@ -1056,7 +1231,7 @@ function renderEmpresas(){
         </div>
       </td>
     </tr>`;
-  }).join('')||`<tr><td colspan="10" class="table-empty">Nenhuma empresa encontrada.</td></tr>`);
+  }).join('')||`<tr><td colspan="11" class="table-empty">Nenhuma empresa encontrada.</td></tr>`);
 }
 
 // Nova empresa
