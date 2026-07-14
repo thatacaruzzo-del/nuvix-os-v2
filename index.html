@@ -319,7 +319,7 @@ async function entrar(){
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
     const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix};
     sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
-    fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
+    await fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
     window.location.href='pages/dashboard.html';
   }catch(e){showErr('Erro de conexão. Tente novamente.');}
   finally{btn.textContent='Entrar na Plataforma';btn.style.opacity='1';btn.disabled=false;}
