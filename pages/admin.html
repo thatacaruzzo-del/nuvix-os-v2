@@ -258,6 +258,19 @@ const MODULOS_PLANO={
 </script>
 
 <!-- ═══ ADMIN LOGIN SCREEN PREMIUM ═══ -->
+<style>
+/* Tela travada no celular: layout de 2 colunas fixas (1fr 460px) dentro de position:fixed
+   com overflow:hidden nunca dava pra rolar nem encolher numa tela estreita — o conteúdo
+   ficava maior que a viewport e sem nenhuma saída. Precisa de !important pra vencer o
+   style inline (é tudo estilo inline nessa tela, não tem classe pra sobrescrever direto). */
+@media(max-width:900px){
+  #adminLoginScreen{overflow-y:auto !important;overflow-x:hidden !important;height:auto !important;-webkit-overflow-scrolling:touch}
+  #adminLoginGrid{grid-template-columns:1fr !important;min-height:auto !important}
+  #adminLoginLeft{padding:36px 24px 24px !important}
+  #adminLoginRight{padding:24px !important;border-left:none !important;border-top:1px solid rgba(139,92,246,.12) !important}
+  #adminLoginH1{font-size:34px !important}
+}
+</style>
 <div id="adminLoginScreen" style="display:none;position:fixed;inset:0;z-index:9999;font-family:'Inter',system-ui,sans-serif;overflow:hidden">
 
   <!-- Canvas 3D background -->
@@ -274,10 +287,10 @@ const MODULOS_PLANO={
   <div id="adminStars" style="position:absolute;inset:0;z-index:1;pointer-events:none"></div>
 
   <!-- Content -->
-  <div style="position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:1fr 460px">
+  <div id="adminLoginGrid" style="position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:1fr 460px">
 
     <!-- LEFT -->
-    <div style="display:flex;flex-direction:column;justify-content:center;padding:60px">
+    <div id="adminLoginLeft" style="display:flex;flex-direction:column;justify-content:center;padding:60px">
       <!-- Brand -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:60px">
         <div style="width:48px;height:48px;background:linear-gradient(135deg,#6D5EF5,#B4ABF9);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(109,94,245,.6)">
@@ -294,7 +307,7 @@ const MODULOS_PLANO={
         <span style="width:6px;height:6px;background:#A855F7;border-radius:50%;display:inline-block"></span>
         Painel Administrativo
       </div>
-      <h1 style="font-size:52px;font-weight:900;line-height:1.06;letter-spacing:-.03em;color:#fff;margin-bottom:20px">
+      <h1 id="adminLoginH1" style="font-size:52px;font-weight:900;line-height:1.06;letter-spacing:-.03em;color:#fff;margin-bottom:20px">
         Controle total<br>da <span style="background:linear-gradient(135deg,#B4ABF9,#6D5EF5);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
       </h1>
       <p style="font-size:16px;color:rgba(200,185,255,.6);line-height:1.7;max-width:440px;margin-bottom:40px">
@@ -318,7 +331,7 @@ const MODULOS_PLANO={
     </div>
 
     <!-- RIGHT — Login card -->
-    <div style="display:flex;align-items:center;justify-content:center;padding:32px 44px;background:rgba(255,255,255,.02);border-left:1px solid rgba(139,92,246,.12);backdrop-filter:blur(10px)">
+    <div id="adminLoginRight" style="display:flex;align-items:center;justify-content:center;padding:32px 44px;background:rgba(255,255,255,.02);border-left:1px solid rgba(139,92,246,.12);backdrop-filter:blur(10px)">
       <div style="width:100%;max-width:340px">
 
         <!-- Card logo -->
