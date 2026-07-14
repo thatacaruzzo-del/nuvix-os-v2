@@ -752,11 +752,28 @@ async function excluirMaterial(id){
   }catch(e){toast('Erro: '+e.message,'err');}
 }
 
-function previewFoto(input){
+// Sobe pro Storage (bucket materiais-fotos) em vez de gravar a imagem em base64 dentro da
+// linha do banco — base64 direto na tabela já inflou o banco desnecessariamente antes (2
+// fotos sozinhas chegaram a somar 4,4MB, contra um limite de 500MB no plano grátis).
+async function previewFoto(input){
   const file=input.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{setHTML('fotoPreview',`<img src="${e.target.result}" alt="foto">`);$('matFotoUrl').value=e.target.result;};
-  reader.readAsDataURL(file);
+  setHTML('fotoPreview','<span>Enviando foto...</span>');
+  try{
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const path=`${crypto.randomUUID()}.${ext}`;
+    const r=await fetch(`${SB_URL}/storage/v1/object/materiais-fotos/${path}`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+(tokenAtual()||SB_KEY),'Content-Type':file.type||'application/octet-stream'},
+      body:file,
+    });
+    if(!r.ok)throw new Error(await r.text());
+    const url=`${SB_URL}/storage/v1/object/public/materiais-fotos/${path}`;
+    $('matFotoUrl').value=url;
+    setHTML('fotoPreview',`<img src="${url}" alt="foto">`);
+  }catch(e){
+    setHTML('fotoPreview','<span>Clique para adicionar foto</span>');
+    toast('Erro ao enviar foto: '+e.message,'err');
+  }
 }
 function atualizarFotoUrl(url){
   $('matFotoUrl').value=url;
