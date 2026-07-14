@@ -93,6 +93,17 @@ body{background:#F0EEF8}
 .field{margin-bottom:0}
 .actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 
+/* ── KANBAN (Planejamento) ── */
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+@media(max-width:900px){.kanban{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.kanban{grid-template-columns:1fr}}
+.kanban-col{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:80px}
+.kanban-col-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between}
+.kanban-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.kanban-card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.kanban-card-desc{font-size:11px;color:var(--muted);margin-bottom:8px}
+.kanban-card-meta{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+
 /* ── KPI CARD ── */
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
 .kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
@@ -438,6 +449,7 @@ const MODULOS_PLANO={
   <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Assinaturas</button>
   <button class="admin-tab" onclick="showTab('logs',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Logs de Acesso</button>
   <button class="admin-tab" onclick="showTab('marketing',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Marketing</button>
+  <button class="admin-tab" onclick="showTab('planejamento',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Planejamento</button>
 </div>
 
 <!-- ═══ PANE: CLIENTES ═══ -->
@@ -645,6 +657,31 @@ const MODULOS_PLANO={
 </div>
 </div>
 
+<!-- ═══ PANE: PLANEJAMENTO ═══ -->
+<div id="pane-planejamento" class="admin-pane">
+<div class="content">
+  <div class="grid-4" id="kpisPlanejamento" style="margin-bottom:20px"></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Planejamento</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="filtroResponsavelPlan" onchange="renderPlanejamento()" style="max-width:170px"><option value="">Todos os responsáveis</option></select>
+        <select id="filtroCategoriaPlan" onchange="renderPlanejamento()" style="max-width:150px">
+          <option value="">Todas as categorias</option>
+          <option value="produto">Produto</option>
+          <option value="marketing">Marketing</option>
+          <option value="vendas">Vendas</option>
+          <option value="financeiro">Financeiro</option>
+          <option value="infra">Infra</option>
+        </select>
+        <button class="btn" onclick="abrirModalTarefa()">+ Nova tarefa</button>
+      </div>
+    </div>
+    <div class="kanban" id="kanbanPlanejamento"></div>
+  </div>
+</div>
+</div>
+
 <!-- ═══ MODAIS ═══ -->
 
 <!-- Modal Nova Empresa -->
@@ -846,6 +883,53 @@ const MODULOS_PLANO={
   <div id="sinaisLista"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalSinais')">Fechar</button>
+  </div>
+</div>
+</div>
+
+<!-- Nova/editar tarefa (Planejamento) -->
+<div class="modal-overlay" id="modalTarefa">
+<div class="modal" style="max-width:480px">
+  <h3 id="tituloModalTarefa">Nova tarefa</h3>
+  <input type="hidden" id="tarefaId">
+  <div class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>Título *</label><input id="tarefaTitulo" placeholder="Ex: Ligar pra empresa X sobre o trial"></div>
+    <div class="field"><label>Descrição</label><textarea id="tarefaDescricao" rows="3" placeholder="Contexto, links, o que precisa ser feito..."></textarea></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Categoria</label>
+      <select id="tarefaCategoria">
+        <option value="produto">Produto</option>
+        <option value="marketing">Marketing</option>
+        <option value="vendas">Vendas</option>
+        <option value="financeiro">Financeiro</option>
+        <option value="infra">Infra</option>
+      </select>
+    </div>
+    <div class="field"><label>Prioridade</label>
+      <select id="tarefaPrioridade">
+        <option value="alta">Alta</option>
+        <option value="media" selected>Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+    </div>
+    <div class="field"><label>Prazo</label><input type="date" id="tarefaPrazo"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Responsável</label><select id="tarefaResponsavel"><option value="">Sem responsável</option></select></div>
+    <div class="field"><label>Status</label>
+      <select id="tarefaStatus">
+        <option value="a_fazer">A Fazer</option>
+        <option value="em_andamento">Em Andamento</option>
+        <option value="bloqueado">Bloqueado</option>
+        <option value="concluido">Concluído</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalTarefa')">Cancelar</button>
+    <button class="danger" id="btnExcluirTarefa" style="display:none" onclick="excluirTarefa()">Excluir</button>
+    <button class="btn" onclick="salvarTarefa()">Salvar</button>
   </div>
 </div>
 </div>
@@ -1865,6 +1949,7 @@ function showTab(id,btn){
   if(btn)btn.classList.add('active');
   if(id==='logs')carregarLogs();
   if(id==='marketing')carregarMarketing();
+  if(id==='planejamento')carregarPlanejamento();
 }
 
 // ═══ MARKETING (monitoramento manual — spec nuvix-admin-marketing-ia-spec.md, seções 1-3) ═══
@@ -1892,6 +1977,103 @@ function renderMarketing(){
       ${r.detalhes&&Object.keys(r.detalhes).length?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${Object.entries(r.detalhes).map(([k,v])=>`<b>${esc(k)}:</b> ${esc(String(v))}`).join(' · ')}</div>`:''}
       ${r.fonte_url?`<a href="${esc(r.fonte_url)}" target="_blank" rel="noopener" style="font-size:11px">Ver fonte →</a>`:''}
     </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum registro ainda. Peça pra pesquisar um concorrente, menção ou pergunta de GEO no chat.</p>');
+}
+
+// ═══ PLANEJAMENTO (planner interno da equipe Nuvix) ═══
+let tarefasPlanejamento=[];
+const PLAN_STATUS_COLS=[{id:'a_fazer',lbl:'A Fazer'},{id:'em_andamento',lbl:'Em Andamento'},{id:'bloqueado',lbl:'Bloqueado'},{id:'concluido',lbl:'Concluído'}];
+const PLAN_CATEGORIA_LBL={produto:'Produto',marketing:'Marketing',vendas:'Vendas',financeiro:'Financeiro',infra:'Infra'};
+const PLAN_PRIORIDADE_COR={alta:'var(--red)',media:'var(--amber)',baixa:'var(--muted2)'};
+async function carregarPlanejamento(){
+  try{
+    tarefasPlanejamento=await dbGet('planejamento_tarefas','?select=*&order=prazo.asc.nullslast,created_at.desc');
+    popularResponsaveisPlanejamento();
+    renderKpisPlanejamento();
+    renderPlanejamento();
+  }catch(e){
+    setHTML('kanbanPlanejamento',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function popularResponsaveisPlanejamento(){
+  const admins=usuarios.filter(u=>u.is_admin_nuvix);
+  const opts=['<option value="">Todos os responsáveis</option>',...admins.map(a=>`<option value="${a.id}">${esc(a.nome)}</option>`)].join('');
+  const optsModal=['<option value="">Sem responsável</option>',...admins.map(a=>`<option value="${a.id}">${esc(a.nome)}</option>`)].join('');
+  const selFiltro=$('filtroResponsavelPlan'),selModal=$('tarefaResponsavel');
+  if(selFiltro)selFiltro.innerHTML=opts;
+  if(selModal)selModal.innerHTML=optsModal;
+}
+function renderKpisPlanejamento(){
+  const hoje=new Date().toISOString().slice(0,10);
+  const porStatus=s=>tarefasPlanejamento.filter(t=>t.status===s).length;
+  const atrasadas=tarefasPlanejamento.filter(t=>t.prazo&&t.prazo<hoje&&t.status!=='concluido').length;
+  setHTML('kpisPlanejamento',[
+    {lbl:'A fazer',val:porStatus('a_fazer'),cor:'var(--txt)'},
+    {lbl:'Em andamento',val:porStatus('em_andamento'),cor:'var(--amber)'},
+    {lbl:'Concluídas',val:porStatus('concluido'),cor:'var(--green)'},
+    {lbl:'Atrasadas',val:atrasadas,cor:'var(--red)'},
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="color:${k.cor}">${k.val}</div></div>`).join(''));
+}
+function renderPlanejamento(){
+  const resp=val('filtroResponsavelPlan'),cat=val('filtroCategoriaPlan');
+  const hoje=new Date().toISOString().slice(0,10);
+  const usuPorId={};usuarios.forEach(u=>usuPorId[u.id]=u.nome);
+  const filtradas=tarefasPlanejamento.filter(t=>(!resp||t.responsavel_id===resp)&&(!cat||t.categoria===cat));
+  setHTML('kanbanPlanejamento',PLAN_STATUS_COLS.map(col=>{
+    const tarefas=filtradas.filter(t=>t.status===col.id);
+    const cards=tarefas.map(t=>{
+      const atrasada=t.prazo&&t.prazo<hoje&&t.status!=='concluido';
+      return`<div class="kanban-card" onclick="abrirModalTarefa('${t.id}')" style="cursor:pointer">
+        <div class="kanban-card-title">${esc(t.titulo)}</div>
+        ${t.descricao?`<div class="kanban-card-desc">${esc(t.descricao)}</div>`:''}
+        <div class="kanban-card-meta">
+          <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;color:#fff;background:${PLAN_PRIORIDADE_COR[t.prioridade]}">${PLAN_CATEGORIA_LBL[t.categoria]||t.categoria}</span>
+          <span style="font-size:10px;color:${atrasada?'var(--red)':'var(--muted2)'}">${t.responsavel_id&&usuPorId[t.responsavel_id]?esc(usuPorId[t.responsavel_id])+' · ':''}${t.prazo?fmtData(t.prazo):''}</span>
+        </div>
+      </div>`;
+    }).join('')||'<p style="font-size:11px;color:var(--muted2)">Vazio</p>';
+    return`<div class="kanban-col"><div class="kanban-col-title">${col.lbl}<span>${tarefas.length}</span></div>${cards}</div>`;
+  }).join(''));
+}
+function abrirModalTarefa(id){
+  const t=id?tarefasPlanejamento.find(x=>x.id===id):null;
+  $('tituloModalTarefa').textContent=t?'Editar tarefa':'Nova tarefa';
+  $('tarefaId').value=t?.id||'';
+  $('tarefaTitulo').value=t?.titulo||'';
+  $('tarefaDescricao').value=t?.descricao||'';
+  $('tarefaCategoria').value=t?.categoria||'produto';
+  $('tarefaPrioridade').value=t?.prioridade||'media';
+  $('tarefaPrazo').value=t?.prazo||'';
+  $('tarefaResponsavel').value=t?.responsavel_id||'';
+  $('tarefaStatus').value=t?.status||'a_fazer';
+  $('btnExcluirTarefa').style.display=t?'':'none';
+  abrirModal('modalTarefa');
+}
+async function salvarTarefa(){
+  const titulo=val('tarefaTitulo').trim();
+  if(!titulo){toast('Preencha o título.','err');return;}
+  const id=val('tarefaId');
+  const dados={
+    titulo,descricao:val('tarefaDescricao').trim()||null,
+    categoria:val('tarefaCategoria'),prioridade:val('tarefaPrioridade'),
+    status:val('tarefaStatus'),prazo:val('tarefaPrazo')||null,
+    responsavel_id:val('tarefaResponsavel')||null,
+  };
+  try{
+    if(id)await dbPatch('planejamento_tarefas',id,dados);
+    else await dbPost('planejamento_tarefas',{...dados,created_by:adminSession.id});
+    fecharModal('modalTarefa');toast('Tarefa salva.');
+    await carregarPlanejamento();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+async function excluirTarefa(){
+  const id=val('tarefaId');
+  if(!id)return;
+  if(!await confirmarAcao('Excluir esta tarefa?'))return;
+  try{
+    await dbDelete('planejamento_tarefas',id);
+    fecharModal('modalTarefa');toast('Tarefa excluída.');
+    await carregarPlanejamento();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 // ═══ MODAIS ═══
