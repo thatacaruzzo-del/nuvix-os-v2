@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix Hub | Confirmar acesso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--c3:#5B4CF0;--c4:#6D5EF5;--bg:#F8F9FC;--line:#EAECF0;--text:#101828;--muted:#667085}
+html,body{min-height:100vh;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:100%;max-width:400px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:36px;box-shadow:0 4px 16px rgba(16,24,40,.06);text-align:center}
+.logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px}
+.logo-mark{width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 4px 14px rgba(109,94,245,.2)}
+.logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
+.logo-name{font-size:19px;font-weight:800;letter-spacing:-.03em;color:#2A145D}
+h1{font-size:18px;font-weight:800;color:#2A145D;margin-bottom:8px}
+.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:24px}
+.btn{width:100%;height:48px;background:var(--c4);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background 150ms ease;text-decoration:none;display:flex;align-items:center;justify-content:center}
+.btn:hover{background:var(--c3)}
+.msg{margin-top:16px;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;text-align:center;display:none}
+.msg.err{background:#FEF2F2;color:#B42318;display:block}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-mark"><img src="assets/logo.png" alt="Nuvix"></div>
+    <div class="logo-name">Nuvix Hub</div>
+  </div>
+  <div id="okArea">
+    <h1>Confirmar acesso</h1>
+    <p class="sub">Por segurança, o link só é ativado quando você clica no botão abaixo — isso evita que scanners de e-mail o consumam antes de você.</p>
+    <a class="btn" id="btnConfirmar" href="#">Continuar</a>
+  </div>
+  <div id="erroArea" style="display:none">
+    <h1>Link inválido</h1>
+    <p class="sub">Peça pra quem te convidou enviar um novo link.</p>
+  </div>
+</div>
+
+<script>
+// Página intermediária pra proteger contra prefetch de scanner de e-mail (Gmail, Microsoft
+// Safe Links etc): eles fazem GET nesta página estática, o que não consome nada. Só um clique
+// humano de verdade navega pro link real de verificação do Supabase, que aí sim é de uso único.
+const params = new URLSearchParams(window.location.search);
+const destino = params.get('confirmation_url') || '';
+const permitido = destino.startsWith('https://quullcxptbiqycyakzlc.supabase.co/auth/v1/verify');
+
+if(!permitido){
+  document.getElementById('okArea').style.display='none';
+  document.getElementById('erroArea').style.display='block';
+}else{
+  document.getElementById('btnConfirmar').href = destino;
+}
+</script>
+</body>
+</html>

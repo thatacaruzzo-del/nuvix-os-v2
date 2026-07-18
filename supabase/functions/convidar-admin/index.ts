@@ -47,36 +47,69 @@ Deno.serve(async (req) => {
     const SECRET_KEYS = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")!);
     const supabaseAdmin = createClient(SUPABASE_URL, SECRET_KEYS["default"]);
 
+    const REDIRECT_TO = "https://nuvix-os-v2.vercel.app/definir-senha.html";
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { nome },
-      redirectTo: "https://nuvix-os-v2.vercel.app/definir-senha.html",
+      redirectTo: REDIRECT_TO,
     });
+
+    let userId: string;
+
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...CORS, "Content-Type": "application/json" },
+      // E-mail já tem conta (ex: convite anterior expirou antes de definir senha).
+      // Nesse caso reenviamos um link de definição de senha em vez de um convite novo.
+      const jaExiste = /already registered|already exists|email_exists/i.test(error.message || "");
+      if (!jaExiste) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: existente } = await supabaseAdmin
+        .from("usuarios")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      if (!existente) {
+        return new Response(
+          JSON.stringify({ error: "E-mail já tem conta de autenticação, mas não achei o registro em usuarios." }),
+          { status: 500, headers: { ...CORS, "Content-Type": "application/json" } },
+        );
+      }
+      userId = existente.id;
+
+      const { error: recoveryError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+        redirectTo: REDIRECT_TO,
       });
+      if (recoveryError) {
+        return new Response(JSON.stringify({ error: recoveryError.message }), {
+          status: 500,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      userId = data.user.id;
+      const { error: insertError } = await supabaseAdmin.from("usuarios").insert({
+        id: userId,
+        nome,
+        email,
+        is_admin_nuvix: true,
+        perfil: "SuperAdmin",
+        tipo_usuario: "cliente",
+        ativo: true,
+      });
+      if (insertError) {
+        return new Response(
+          JSON.stringify({
+            error: `Convite enviado, mas houve erro ao registrar em usuarios: ${insertError.message}`,
+          }),
+          { status: 500, headers: { ...CORS, "Content-Type": "application/json" } },
+        );
+      }
     }
 
-    const { error: insertError } = await supabaseAdmin.from("usuarios").insert({
-      id: data.user.id,
-      nome,
-      email,
-      is_admin_nuvix: true,
-      perfil: "SuperAdmin",
-      tipo_usuario: "cliente",
-      ativo: true,
-    });
-    if (insertError) {
-      return new Response(
-        JSON.stringify({
-          error: `Convite enviado, mas houve erro ao registrar em usuarios: ${insertError.message}`,
-        }),
-        { status: 500, headers: { ...CORS, "Content-Type": "application/json" } },
-      );
-    }
-
-    return new Response(JSON.stringify({ ok: true, id: data.user.id }), {
+    return new Response(JSON.stringify({ ok: true, id: userId }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {
