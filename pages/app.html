@@ -44,6 +44,18 @@
   .page-content{padding:16px}
   .form-row{grid-template-columns:1fr!important}
 }
+
+/* ── Modal Permissões do funcionário ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:700px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.modal-actions button{flex:1;min-width:130px}
+.perm-table{width:100%;border-collapse:collapse}
+.perm-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:6px 8px;border-bottom:1.5px solid var(--line)}
+.perm-table td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.perm-table td:not(:first-child){text-align:center}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 </head>
@@ -78,6 +90,7 @@ const db={
   post:async(t,d)=>{let r;try{const headers=t==='usuarios'?{..._h,Prefer:'return=minimal'}:_h;r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.status===204?null:r.json()},
   patch:async(t,id,d)=>{let r;try{const headers=t==='usuarios'?{..._h,Prefer:'return=minimal'}:_h;r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.status===204?null:r.json()},
   delete:async(t,id)=>{let r;try{const headers=t==='usuarios'?{..._h,Prefer:'return=minimal'}:_h;r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true},
+  upsert:async(t,d,conflict)=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{..._h,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
 };
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
@@ -85,6 +98,10 @@ function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='.
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
 function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+// Permissão granular por módulo (tabela usuario_permissoes) — Administrador/SuperAdmin
+// sempre passa; módulo sem linha salva ainda libera (não trava quem nunca foi configurado).
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 function delBtn(table,id,area){return`<button class="danger" style="font-size:11px;padding:5px 8px" onclick="deleteRow('${table}','${id}','${area}')">Excluir</button>`}
 async function deleteRow(table,id,area){
   if(!can(area)){toast('Sem permissão.','err');return}
@@ -236,7 +253,7 @@ async function deleteRow(table,id,area){
           <div class="field"><label>E-mail</label><input id="usrEmail" type="email"></div>
           <div class="field"><label>Senha inicial</label><input id="usrSenha" type="password"></div>
           <div class="field"><label>Perfil</label>
-            <select id="usrPerfil"><option>Administrador</option><option>Financeiro</option><option>Comercial</option><option>Operacional</option><option>RH</option><option>Colaborador</option></select>
+            <select id="usrPerfil"><option>Administrador</option><option>Gestor</option><option>Financeiro</option><option>Comercial</option><option>Operacional</option><option>RH</option><option>Técnico</option><option>Colaborador</option></select>
           </div>
         </div>
         <div class="actions"><button class="btn" onclick="salvarUsuario()">Criar usuário</button></div>
@@ -251,6 +268,26 @@ async function deleteRow(table,id,area){
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- Modal Permissões do funcionário -->
+    <div class="modal-overlay" id="modalPermissoesFunc">
+    <div class="modal">
+      <h3>Permissões — <span id="permFuncNome"></span></h3>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Perfil: <b id="permFuncPerfil"></b> · Administrador tem acesso completo por padrão</p>
+      <input type="hidden" id="permFuncUsuId">
+      <div class="tablewrap">
+        <table class="perm-table">
+          <thead><tr><th>Módulo</th><th>Ver</th><th>Criar</th><th>Editar</th><th>Excluir</th><th>Exportar</th></tr></thead>
+          <tbody id="permFuncTable"></tbody>
+        </table>
+      </div>
+      <div id="permFuncMsg" class="msg" style="margin-top:12px"></div>
+      <div class="modal-actions">
+        <button class="btn2" onclick="fecharModal('modalPermissoesFunc')">Fechar</button>
+        <button class="btn" onclick="salvarPermissoesFuncionario()">Salvar permissões</button>
+      </div>
+    </div>
     </div>
 
   </div><!-- /main-content -->
@@ -268,6 +305,9 @@ async function deleteRow(table,id,area){
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function abrirModal(id){$(id)?.classList.add('open')}
+function fecharModal(id){$(id)?.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
 </script>
 
 <script>
@@ -295,6 +335,9 @@ async function init() {
   if(session.perfil!=='Administrador'&&session.perfil!=='SuperAdmin'){
     $('tabUsuarios')?.remove();
   }
+  if(!temPermissao('relatorios','ver')){
+    document.querySelector('.app-tab[data-pagina="relatorios"]')?.remove();
+  }
   navegar('clientes', null);
   const buscaParam=new URLSearchParams(location.search).get('busca');
   if(buscaParam&&$('cliBusca'))$('cliBusca').value=buscaParam;
@@ -303,6 +346,7 @@ async function init() {
 
 function irPara(pagina){ window.location.href=pagina; }
 function navegar(pagina, btn) {
+  if(pagina==='relatorios'&&!temPermissao('relatorios','ver')){toast('Sem permissão para acessar este módulo.','err');pagina='clientes';}
   document.querySelectorAll('.nx-page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sidebar-icon-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.app-tab').forEach(b=>b.classList.remove('active'));
@@ -370,7 +414,7 @@ async function gerarRelatorio(){
     setHTML('relConteudo',`<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr>${colsFiltradas.map(k=>`<th style="text-align:left;padding:8px;color:var(--muted);font-size:10px;text-transform:uppercase;border-bottom:2px solid var(--line);white-space:nowrap">${nomeCol[k]||k.replace(/_/g,' ')}</th>`).join('')}</tr></thead><tbody>${_relDados.map(r=>`<tr>${colsFiltradas.map(c=>{let v=r[c]??'';if(typeof v==='number')v=c.includes('valor')||c==='salario'||c==='receita'||c==='custo'?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):v;if(String(v).match(/^\d{4}-\d{2}-\d{2}/))v=new Date(v).toLocaleDateString('pt-BR');return`<td style="padding:8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc(String(v))}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`);
   }catch(e){setHTML('relConteudo',`<p class="muted">Erro: ${e.message}</p>`);}
 }
-function exportarRelatorio(){if(!_relDados.length){toast('Gere o relatório primeiro.','err');return;}exportCSV(_relDados,val('relModulo')||'relatorio');}
+function exportarRelatorio(){if(!temPermissao('relatorios','exportar')){toast('Sem permissão para exportar.','err');return;}if(!_relDados.length){toast('Gere o relatório primeiro.','err');return;}exportCSV(_relDados,val('relModulo')||'relatorio');}
 
 async function salvarEmpresa(){
   if(!can('admin')){toast('Sem permissão.','err');return;}
@@ -392,7 +436,80 @@ async function salvarUsuario(){
 }
 async function resetSenhaUsuario(id,nome){const nova=await promptAcao(`Nova senha para ${nome}:`,{placeholder:'Mínimo 4 caracteres',labelOk:'Redefinir'});if(!nova||nova.length<4){toast('Senha muito curta.','err');return;}try{await db.patch('usuarios',id,{senha:nova});toast('Senha redefinida!','ok');}catch(e){toast('Erro: '+e.message,'err');}}
 async function toggleUsuario(id,ativar){try{await db.patch('usuarios',id,{ativo:ativar});toast(ativar?'Ativado.':'Inativado.','ok');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
-function renderUsuarios(){setHTML('usrTable',(dados.usuarios||[]).map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
+// Lista de módulos existentes no sistema, mesma referência usada em admin.html —
+// mantém os dois lados (admin Nuvix e cliente) falando dos mesmos ids de módulo.
+const MODULOS_TODOS=[
+  {id:'dashboard',nome:'Dashboard'},
+  {id:'financeiro',nome:'Financeiro'},
+  {id:'contas_pagar',nome:'Contas a Pagar'},
+  {id:'contas_receber',nome:'Contas a Receber'},
+  {id:'transporte',nome:'Transporte'},
+  {id:'cotacao',nome:'Cotação de Frete'},
+  {id:'crm',nome:'CRM / Pipeline'},
+  {id:'rh',nome:'RH / People'},
+  {id:'folha_ponto',nome:'Folha de Ponto'},
+  {id:'folha_pagamento',nome:'Folha de Pagamento'},
+  {id:'ordens_servico',nome:'Ordens de Serviço'},
+  {id:'servicos',nome:'Serviços e Orçamentos'},
+  {id:'materiais',nome:'Materiais e Estoque'},
+  {id:'notas_fiscais',nome:'Notas Fiscais'},
+  {id:'usuarios',nome:'Usuários'},
+  {id:'relatorios',nome:'Relatórios'},
+  {id:'configuracoes',nome:'Configurações'},
+  {id:'integracoes',nome:'Integrações'},
+];
+
+function renderUsuarios(){setHTML('usrTable',(dados.usuarios||[]).map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="abrirPermissoesFuncionario('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Permissões</button><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
+
+async function abrirPermissoesFuncionario(usuId){
+  if(!can('admin')){toast('Sem permissão.','err');return;}
+  const u=(dados.usuarios||[]).find(x=>x.id===usuId);if(!u)return;
+  $('permFuncUsuId').value=usuId;
+  $('permFuncNome').textContent=u.nome||u.email||'';
+  $('permFuncPerfil').textContent=u.perfil||'Colaborador';
+  // Módulos que a própria empresa tem liberados no plano — não dá pra dar acesso
+  // a um módulo que a empresa não contratou, então esses ficam bloqueados na tela.
+  let modsEmp=[];
+  try{modsEmp=await db.get('empresa_modulos',`?empresa_id=eq.${session.empresa_id}&liberado=eq.true`);}catch(e){}
+  const modsLiberados=modsEmp.map(m=>m.modulo);
+  let permsExist=[];
+  try{permsExist=await db.get('usuario_permissoes',`?usuario_id=eq.${usuId}`);}catch(e){}
+  const rows=MODULOS_TODOS.filter(m=>modsLiberados.includes(m.id)||modsLiberados.length===0).map(m=>{
+    const p=permsExist.find(x=>x.modulo===m.id)||{};
+    const disabled=modsLiberados.length>0&&!modsLiberados.includes(m.id);
+    const ehAdmin=u.perfil==='Administrador';
+    return`<tr style="${disabled?'opacity:.4':''}">
+      <td>${esc(m.nome)}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}</td>
+      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="ver" ${p.pode_ver||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="criar" ${p.pode_criar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="editar" ${p.pode_editar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="excluir" ${p.pode_excluir||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="exportar" ${p.pode_exportar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+    </tr>`;
+  });
+  setHTML('permFuncTable',rows.join(''));
+  abrirModal('modalPermissoesFunc');
+}
+
+async function salvarPermissoesFuncionario(){
+  if(!can('admin')){toast('Sem permissão.','err');return;}
+  const usuId=val('permFuncUsuId');
+  if(!usuId){toast('Erro: usuário não identificado.','err');return;}
+  const checks=document.querySelectorAll('#modalPermissoesFunc .perm-check');
+  const modsMap={};
+  checks.forEach(c=>{
+    const mod=c.dataset.mod,type=c.dataset.type;
+    if(!modsMap[mod])modsMap[mod]={modulo:mod,usuario_id:usuId,empresa_id:session.empresa_id,pode_ver:false,pode_criar:false,pode_editar:false,pode_excluir:false,pode_exportar:false};
+    modsMap[mod][`pode_${type}`]=c.checked;
+  });
+  try{
+    for(const m of Object.values(modsMap)){
+      await db.upsert('usuario_permissoes',m,'usuario_id,modulo');
+    }
+    msg('permFuncMsg','Permissões salvas!','ok');
+    setTimeout(()=>fecharModal('modalPermissoesFunc'),1500);
+  }catch(e){msg('permFuncMsg','Erro: '+e.message,'err');}
+}
 
 init();
 </script>
@@ -466,6 +583,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();

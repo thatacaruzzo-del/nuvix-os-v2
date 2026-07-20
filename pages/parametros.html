@@ -157,7 +157,9 @@ function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
-function can(area){return true;}
+function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 const session = requireAuth();
 let params = {salario_minimo:1518,teto_inss:7786.02,fgts:8,fap:1,rat:2,patronal_inss:20,patronal_senai:1,patronal_sesi:1.5,patronal_sebrae:0.6,patronal_incra:0.2,vt_desconto:6,vr_valor:25,va_valor:0,horas_mes:220,dias_ferias:30,aviso_previo_base:30,multa_fgts_demissao:40};
 let tabelaINSS=[{de:0,ate:1518,aliquota:7.5},{de:1518.01,ate:2793.88,aliquota:9},{de:2793.89,ate:4190.83,aliquota:12},{de:4190.84,ate:7786.02,aliquota:14}];
@@ -187,6 +189,7 @@ async function loadParams(){
 function preencherFormulario(){const p=params;$('parVigencia').value=p.vigencia||hoje();$('parSalMin').value=p.salario_minimo;$('parTetoINSS').value=p.teto_inss;$('parHorasMes').value=p.horas_mes;$('parFGTS').value=p.fgts;$('parMultaFGTS').value=p.multa_fgts_demissao;$('parFAP').value=p.fap;$('parRAT').value=p.rat;$('parPatrINSS').value=p.patronal_inss;$('parSENAI').value=p.patronal_senai;$('parSESI').value=p.patronal_sesi;$('parSEBRAE').value=p.patronal_sebrae;$('parINCRA').value=p.patronal_incra;$('parFerias').value=p.dias_ferias;$('parAvisoPrevio').value=p.aviso_previo_base;$('parVTDesc').value=p.vt_desconto;$('parVRValor').value=p.vr_valor;$('parVAValor').value=p.va_valor;if($('vigenciaAtual'))$('vigenciaAtual').textContent=p.vigencia?new Date(p.vigencia).toLocaleDateString('pt-BR'):'Padrão 2025';calcularTotalEncargos();}
 function calcularTotalEncargos(){const t=num('parPatrINSS')+num('parSENAI')+num('parSESI')+num('parSEBRAE')+num('parINCRA')+num('parFGTS')+(num('parFAP')*num('parRAT'));if($('totalEncargos'))$('totalEncargos').textContent=t.toFixed(2)+'% sobre o salário bruto';}
 async function salvarParametros(){
+  if(!temPermissao('configuracoes','editar')){toast('Sem permissão para editar configurações.','err');return;}
   const s=getSession();if(!s?.empresa_id)return;
   const payload=withEmpresa({vigencia:val('parVigencia')||hoje(),salario_minimo:num('parSalMin'),teto_inss:num('parTetoINSS'),horas_mes:num('parHorasMes'),fgts:num('parFGTS'),multa_fgts_demissao:num('parMultaFGTS'),fap:num('parFAP'),rat:num('parRAT'),patronal_inss:num('parPatrINSS'),patronal_senai:num('parSENAI'),patronal_sesi:num('parSESI'),patronal_sebrae:num('parSEBRAE'),patronal_incra:num('parINCRA'),dias_ferias:num('parFerias'),aviso_previo_base:num('parAvisoPrevio'),vt_desconto:num('parVTDesc'),vr_valor:num('parVRValor'),va_valor:num('parVAValor'),tabela_inss:JSON.stringify(tabelaINSS),tabela_irrf:JSON.stringify(tabelaIRRF),feriados:JSON.stringify(feriados)});
   try{const lista=await db.get('parametros_empresa',`?select=id&empresa_id=eq.${s.empresa_id}&limit=1`);if(lista.length){
@@ -214,6 +217,7 @@ function abrirSidebar(){document.getElementById('sidebar').classList.add('open')
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 async function init(){
   if(!session)return;
+  if(!guardModulo('configuracoes'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -302,6 +306,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();

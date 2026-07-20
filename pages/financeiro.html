@@ -145,7 +145,9 @@ function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
-function can(area){const s=getSession();if(!s)return false;return true;}
+function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 </script>
 
 <!-- SIDEBAR -->
@@ -322,7 +324,7 @@ function can(area){const s=getSession();if(!s)return false;return true;}
           <div class="actions">
             <button class="btn" onclick="salvarLancamento()">Salvar lançamento</button>
             <button class="btn2" onclick="limparLancamento()">Limpar</button>
-            <button class="btn2" onclick="exportCSV(financeiro,'financeiro')">Exportar CSV</button>
+            <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
           </div>
           <div id="lanMsg" class="msg"></div>
         </div>
@@ -567,6 +569,7 @@ function filtrarPorPeriodo(lista){
 
 async function init(){
   if(!session)return;
+  if(!guardModulo('financeiro'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -660,11 +663,12 @@ function renderStrip(){
 // ── SALVAR (nunca substitui — sempre insere novo ou atualiza pelo ID) ──
 async function salvarLancamento(){
   if(!can('financeiro')){toast('Sem permissão.','err');return;}
+  const id=val('lanId');
+  if(!temPermissao('financeiro',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' lançamentos.','err');return;}
   const desc=val('lanDesc').trim();
   if(!desc){msg('lanMsg','Informe a descrição.','err');return;}
   const valor=num('lanValor');
   if(!valor){msg('lanMsg','Informe o valor.','err');return;}
-  const id=val('lanId');
   const status=val('lanStatus');
   const pagamento=val('lanPagamento')||null;
   const parcelado=$('lanParcelado')?.checked&&!id;
@@ -1028,7 +1032,12 @@ async function confirmarBaixa(){
 }
 
 // ── EXCLUIR ──
+function exportarFinanceiroCSV(){
+  if(!temPermissao('financeiro','exportar')){toast('Sem permissão para exportar.','err');return;}
+  exportCSV(financeiro,'financeiro');
+}
 async function excluirLancamento(id){
+  if(!temPermissao('financeiro','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir este lançamento?'))return;
   try{await db.delete('financeiro',id);toast('Excluído.');await loadData();}
   catch(e){toast('Erro: '+e.message,'err');}
@@ -1281,6 +1290,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();

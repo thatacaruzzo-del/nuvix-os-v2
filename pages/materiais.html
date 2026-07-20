@@ -141,6 +141,8 @@ const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
 
 const CATEGORIAS=['Elétrica','Hidráulica','Climatização','Energia Solar','Ferramentas','EPIs','Consumíveis','Cabos','Conectores','Disjuntores','Parafusos','Tubulações','Equipamentos','Outros'];
@@ -455,6 +457,7 @@ let charts = {};
 // ══ INIT ══
 async function init(){
   if(!session)return;
+  if(!guardModulo('materiais'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -691,8 +694,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 async function salvarMaterial(){
-  const nome=val('matNome').trim();if(!nome){msg('matMsg','Informe o nome.','err');return;}
   const id=val('matId');
+  if(!temPermissao('materiais',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' materiais.','err');return;}
+  const nome=val('matNome').trim();if(!nome){msg('matMsg','Informe o nome.','err');return;}
   const fornId=val('matFornecedor');
   const forn=dados.fornecedores.find(f=>f.id===fornId);
   const payload=withEmpresa({
@@ -742,6 +746,7 @@ async function materialEstaEmUso(id){
   return resultados.some(r=>Array.isArray(r)&&r.length>0);
 }
 async function excluirMaterial(id){
+  if(!temPermissao('materiais','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir este material?'))return;
   try{
     if(await materialEstaEmUso(id)){
@@ -860,6 +865,7 @@ async function registrarMovimentacao(data){
 }
 
 async function salvarMovimentacao(){
+  if(!temPermissao('materiais','criar')){toast('Sem permissão para registrar movimentação.','err');return;}
   const matId=val('movMaterial');if(!matId){msg('movMsg','Selecione o material.','err');return;}
   const qtd=num('movQtd');if(!qtd||qtd<=0){msg('movMsg','Informe a quantidade.','err');return;}
   const tipo=val('movTipo');
@@ -965,8 +971,9 @@ function renderEstoqueCritico(){
 
 // ══ FORNECEDORES ══
 async function salvarFornecedor(){
-  const nome=val('fornNome').trim();if(!nome){msg('fornMsg','Informe o nome.','err');return;}
   const id=val('fornId');
+  if(!temPermissao('materiais',id?'editar':'criar')){toast('Sem permissão.','err');return;}
+  const nome=val('fornNome').trim();if(!nome){msg('fornMsg','Informe o nome.','err');return;}
   const payload=withEmpresa({nome,cnpj:val('fornCnpj').trim()||null,telefone:val('fornTel').trim()||null,email:val('fornEmail').trim()||null,contato:val('fornContato').trim()||null,observacao:val('fornObs').trim()||null,ativo:true});
   try{
     if(id)await dbPatch('material_fornecedores',id,payload);
@@ -986,6 +993,7 @@ async function toggleFornecedor(id,ativar){
   catch(e){toast('Erro: '+e.message,'err');}
 }
 async function excluirFornecedor(id){
+  if(!temPermissao('materiais','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir fornecedor?'))return;
   try{
     const emUso=await dbGet('materiais',`?fornecedor_id=eq.${id}&select=id&limit=1`).catch(()=>[]);
@@ -1109,6 +1117,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();

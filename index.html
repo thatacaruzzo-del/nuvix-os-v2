@@ -332,7 +332,15 @@ async function entrar(){
     const rEmp=await fetch(`${SUPABASE_URL}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
     const empresa=(await rEmp.json())?.[0];
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
-    const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix};
+    // Permissões por módulo do usuário — carregadas uma vez aqui pra não precisar
+    // buscar de novo em cada tela. Administrador/SuperAdmin não depende disso (tem
+    // acesso completo por padrão), então o erro de rede aqui não trava o login.
+    let usuario_permissoes=[];
+    try{
+      const rPerm=await fetch(`${SUPABASE_URL}/rest/v1/usuario_permissoes?usuario_id=eq.${claims.sub}&select=modulo,pode_ver,pode_criar,pode_editar,pode_excluir,pode_exportar`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
+      if(rPerm.ok)usuario_permissoes=await rPerm.json();
+    }catch(e){}
+    const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix,usuario_permissoes};
     sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
     await fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
     window.location.href='pages/dashboard.html';

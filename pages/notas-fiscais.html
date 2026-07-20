@@ -60,6 +60,8 @@ const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 function abrirModal(id){$(id)?.classList.add('open')}
@@ -169,6 +171,7 @@ let notaAtual=null;
 
 async function init(){
   if(!session)return;
+  if(!guardModulo('notas_fiscais'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -268,6 +271,7 @@ function verDetalhe(id){
 }
 
 async function emitirNota(){
+  if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
   if(!notaAtual)return;
   if(!fiscalAtivo){msg('detMsg','Emissão de nota fiscal ainda não configurada.','err');return;}
   if(!notaAtual.cliente_documento){
@@ -325,6 +329,7 @@ async function consultarStatus(){
 }
 
 async function cancelarNota(){
+  if(!temPermissao('notas_fiscais','excluir')){toast('Sem permissão para cancelar notas fiscais.','err');return;}
   if(!notaAtual)return;
   if(notaAtual.data_emissao){
     const diasDesdeEmissao=(Date.now()-new Date(notaAtual.data_emissao).getTime())/864e5;
@@ -487,6 +492,27 @@ init();
     </div>`;
 
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     const current = window.location.pathname.split('/').pop();
     nav.querySelectorAll('.sb-btn').forEach(btn => {

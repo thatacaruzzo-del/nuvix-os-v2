@@ -130,6 +130,8 @@ const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
 </script>
 
@@ -394,6 +396,7 @@ let osAtualId = null;
 // ── INIT ──
 async function init(){
   if(!session)return;
+  if(!guardModulo('ordens_servico'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -674,6 +677,7 @@ async function reabrirOS(){
 
 // ── EXCLUIR OS (do modal) ──
 async function excluirOSModal(){
+  if(!temPermissao('ordens_servico','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!osAtualId)return;
   const o=dados.os.find(x=>x.id===osAtualId);
   if(!await confirmarAcao(`ATENÇÃO!\n\nExcluir permanentemente a ${o?.numero}?\n\nIsso NÃO pode ser desfeito.\nTodos os dados desta OS serão perdidos.`,{labelOk:'Continuar'}))return;
@@ -884,10 +888,11 @@ function calcularTotalOS(){
 
 // ── SALVAR OS ──
 async function salvarOS(){
+  const id=val('osId');
+  if(!temPermissao('ordens_servico',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' ordens de serviço.','err');return;}
   const cliente=val('osCliente'), servico=val('osServico').trim();
   if(!cliente&&!val('osContato').trim()){toast('Informe o cliente.','err');return;}
   if(!servico){toast('Informe o serviço.','err');return;}
-  const id=val('osId');
   const totalMat=osMatItens.reduce((a,m)=>a+Number(m.valor_total||0),0);
   const totalMO=osMaoObraItens.reduce((a,m)=>a+Number(m.total||0),0);
   const valorServico=num('osValorServico');
@@ -1116,6 +1121,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();

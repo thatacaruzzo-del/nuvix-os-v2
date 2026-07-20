@@ -57,6 +57,8 @@ function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='.
 function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
 function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
 function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return['comercial'].includes(area)||s.perfil?.toLowerCase()===area}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
 </script>
 <script>
 (function(){
@@ -234,6 +236,7 @@ let itensServico = {};   // { orcamento_id: [itens] }
 let orcFiltro = '';
 async function init(){
   if(!session)return;
+  if(!guardModulo('servicos'))return;
   $('userName').textContent=session.nome||'';if($('userAvatar'))$('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
   if(emp){if($('topbarSub'))$('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0&&$('trialBadge')){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}}
@@ -243,15 +246,15 @@ async function init(){
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{const[cat,orc,cli,mats]=await Promise.all([db.get('servicos_catalogo',q),db.get('servicos_orcamentos',q),db.get('clientes',q),db.get('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&order=nome.asc`)]);dados={catalogo:cat,orcamentos:orc,clientes:cli,materiais:mats};popularSelectMateriais();renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
 function renderTudo(){renderIndicadores();renderCatalogo();renderOrcamentos();renderExecucao();renderHistorico();popularSelects();}
 function renderIndicadores(){const orc=dados.orcamentos||[];const abertos=orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length,emExec=orc.filter(o=>o.status==='Em execução').length,total=orc.length,txConv=total>0?Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100):0,hj=hoje(),vencidos=orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;setHTML('svcIndicadores',[{lbl:'Orçamentos abertos',val:abertos,cor:'var(--txt)',sub:'rascunho + enviado'},{lbl:'Em execução',val:emExec,cor:'var(--txt)',sub:'em andamento'},{lbl:'SLA vencido',val:vencidos,cor:vencidos>0?'var(--red)':'var(--green)',sub:'fora do prazo'},{lbl:'Taxa de conversão',val:txConv+'%',cor:'var(--txt)',sub:'aprovados'}].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));}
-async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const id=val('catId');const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
+async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const id=val('catId');if(!temPermissao('servicos',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
 function editarCatalogo(id){const s=dados.catalogo.find(x=>x.id===id);if(!s)return;$('catId').value=s.id;$('catNome').value=s.nome||'';$('catCategoria').value=s.categoria||'';$('catDesc').value=s.descricao||'';$('catValor').value=s.valor_base||'';$('catCusto').value=s.custo_estimado||'';$('catTempo').value=s.tempo_estimado||'';$('catRecorrente').value=s.recorrente?'true':'false';$('catAtivo').value=s.ativo===false?'false':'true';$('catTitulo').textContent='Editar serviço';svcTab('catalogo');window.scrollTo({top:0,behavior:'smooth'});}
-async function excluirCatalogo(id){if(!await confirmarAcao('Excluir este serviço do catálogo?'))return;try{await db.delete('servicos_catalogo',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
+async function excluirCatalogo(id){if(!temPermissao('servicos','excluir')){toast('Sem permissão para excluir.','err');return;}if(!await confirmarAcao('Excluir este serviço do catálogo?'))return;try{await db.delete('servicos_catalogo',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 function limparCatalogo(){['catId','catNome','catCategoria','catDesc','catValor','catCusto','catTempo'].forEach(id=>{if($(id))$(id).value=''});$('catRecorrente').value='false';$('catAtivo').value='true';$('catTitulo').textContent='Novo serviço';}
 function renderCatalogo(){const q=val('catBusca').toLowerCase();const lista=(dados.catalogo||[]).filter(s=>(s.nome||'').toLowerCase().includes(q)||(s.categoria||'').toLowerCase().includes(q));setHTML('catTable',lista.map(s=>`<tr><td><b>${esc(s.nome||'')}</b>${s.descricao?`<div class="muted" style="font-size:11px">${esc(s.descricao.slice(0,60))}</div>`:''}</td><td>${esc(s.categoria||'—')}</td><td style="font-weight:700;color:var(--p)">${money(s.valor_base)}</td><td>${money(s.custo_estimado)}</td><td>${esc(s.tempo_estimado||'—')}</td><td>${s.recorrente?'<span class="badge ok">Sim</span>':'Não'}</td><td><span class="badge ${s.ativo===false?'bad':'ok'}">${s.ativo===false?'Inativo':'Ativo'}</span></td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCatalogo('${s.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirCatalogo('${s.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum serviço. Adicione acima!</td></tr>');}
 function popularSelects(){const selCli=$('orcCliente');if(selCli)selCli.innerHTML='<option value="">Selecione o cliente...</option>'+(dados.clientes||[]).map(c=>`<option value="${c.id}">${esc(c.nome||c.razao||'')}</option>`).join('');const selSvc=$('orcServico');if(selSvc)selSvc.innerHTML='<option value="">Selecione o serviço...</option>'+(dados.catalogo||[]).filter(s=>s.ativo!==false).map(s=>`<option value="${s.id}" data-valor="${s.valor_base||0}">${esc(s.nome)} — ${money(s.valor_base)}</option>`).join('');}
 function aplicarServico(){const sel=$('orcServico');if(!sel?.value)return;const opt=sel.options[sel.selectedIndex];$('orcValor').value=opt.dataset.valor||0;calcularOrc();}
 function calcularOrc(){const qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),sub=qtd*valor,total=Math.max(0,sub-desc);if($('orcTotal'))$('orcTotal').style.display=valor>0?'block':'none';if($('orcSubtotal'))$('orcSubtotal').textContent=money(sub);if($('orcDescontoVal'))$('orcDescontoVal').textContent='- '+money(desc);if($('orcTotalVal'))$('orcTotalVal').textContent=money(total);}
-async function salvarOrcamento(){if(!can('comercial')){toast('Sem permissão.','err');return;}const cliId=val('orcCliente');if(!cliId){msg('orcMsg','Selecione um cliente.','err');return;}const cli=dados.clientes.find(x=>x.id===cliId),svcId=val('orcServico'),svc=dados.catalogo.find(x=>x.id===svcId),qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),total=Math.max(0,qtd*valor-desc),status=val('orcStatus'),id=val('orcId');const payload=withEmpresa({cliente_id:cliId,cliente_nome:cli?.nome||'',servico_id:svcId||null,servico_nome:svc?.nome||'',quantidade:qtd,valor_unitario:valor,desconto:desc,valor_total:total,validade:val('orcValidade')||null,data_execucao:val('orcExecucao')||null,status,observacao:val('orcObs').trim()});try{if(id){await db.patch('servicos_orcamentos',id,payload);}else{await db.post('servicos_orcamentos',payload);}// Receita só é lançada no financeiro quando o serviço é Finalizado (ver mudarStatus) — aprovar um orçamento não é uma venda concluída.
+async function salvarOrcamento(){if(!can('comercial')){toast('Sem permissão.','err');return;}const id=val('orcId');if(!temPermissao('servicos',id?'editar':'criar')){toast('Sem permissão.','err');return;}const cliId=val('orcCliente');if(!cliId){msg('orcMsg','Selecione um cliente.','err');return;}const cli=dados.clientes.find(x=>x.id===cliId),svcId=val('orcServico'),svc=dados.catalogo.find(x=>x.id===svcId),qtd=num('orcQtd')||1,valor=num('orcValor'),desc=num('orcDesconto'),total=Math.max(0,qtd*valor-desc),status=val('orcStatus');const payload=withEmpresa({cliente_id:cliId,cliente_nome:cli?.nome||'',servico_id:svcId||null,servico_nome:svc?.nome||'',quantidade:qtd,valor_unitario:valor,desconto:desc,valor_total:total,validade:val('orcValidade')||null,data_execucao:val('orcExecucao')||null,status,observacao:val('orcObs').trim()});try{if(id){await db.patch('servicos_orcamentos',id,payload);}else{await db.post('servicos_orcamentos',payload);}// Receita só é lançada no financeiro quando o serviço é Finalizado (ver mudarStatus) — aprovar um orçamento não é uma venda concluída.
 // Salvar materiais do orçamento
 const orcRes=await db.get('servicos_orcamentos',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=1`);
 const orcId=id||orcRes[0]?.id;
@@ -365,6 +368,7 @@ async function darBaixaEstoque(servicoId){
 }
 function editarOrcamento(id){const o=dados.orcamentos.find(x=>x.id===id);if(!o)return;$('orcId').value=o.id;$('orcCliente').value=o.cliente_id||'';$('orcServico').value=o.servico_id||'';$('orcQtd').value=o.quantidade||1;$('orcValor').value=o.valor_unitario||'';$('orcDesconto').value=o.desconto||0;$('orcValidade').value=o.validade?String(o.validade).slice(0,10):'';$('orcExecucao').value=o.data_execucao?String(o.data_execucao).slice(0,10):'';$('orcStatus').value=o.status||'Rascunho';$('orcObs').value=o.observacao||'';$('orcTitulo').textContent='Editar orçamento';calcularOrc();svcTab('orcamentos');carregarMateriaisOrcamento(o.id);window.scrollTo({top:0,behavior:'smooth'});}
 async function excluirOrcamento(id){
+  if(!temPermissao('servicos','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir este orçamento?'))return;
   try{
     const tabelas=['orcamento_materiais','material_reservas','servico_materiais'];
@@ -577,6 +581,27 @@ init();
 
     // Insert after logo
     logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const p = permsUser.find(x=>x.modulo===modId);
+      return p ? !!p.pode_ver : true;
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
 
     // Mark active page
     const current = window.location.pathname.split('/').pop();
