@@ -696,6 +696,12 @@ const MODULOS_PLANO={
 <!-- ═══ PANE: MARKETING ═══ -->
 <div id="pane-marketing" class="admin-pane">
 <div class="content">
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    <button class="admin-tab active" id="mktSubTabBtn-monitoramento" onclick="showMktSubTab('monitoramento',this)">Monitoramento</button>
+    <button class="admin-tab" id="mktSubTabBtn-conteudo" onclick="showMktSubTab('conteudo',this)">Conteúdo</button>
+  </div>
+
+  <div id="mktSub-monitoramento" class="mkt-subpane">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Monitoramento de marketing e posicionamento</h2>
@@ -711,6 +717,40 @@ const MODULOS_PLANO={
     </div>
     <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Registro manual — pesquisado e estruturado sob demanda no chat, sempre com fonte e data. Nenhum item aqui foi gerado por IA sem verificação.</p>
     <div id="listaMarketing"></div>
+  </div>
+  </div>
+
+  <div id="mktSub-conteudo" class="mkt-subpane" style="display:none">
+    <div class="grid-3" id="kpisConteudo" style="margin-bottom:20px"></div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Posts por semana (últimas 8 semanas)</div>
+      <div class="trend" id="trendConteudo"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">Conteúdo</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="filtroPlataformaConteudo" onchange="renderConteudo()" style="max-width:170px">
+            <option value="">Todas as plataformas</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="instagram">Instagram</option>
+            <option value="twitter">Twitter/X</option>
+            <option value="blog">Blog</option>
+          </select>
+          <select id="filtroAutorConteudo" onchange="renderConteudo()" style="max-width:150px">
+            <option value="">Todos os autores</option>
+            <option value="Thata">Thata</option>
+            <option value="Thiago">Thiago</option>
+            <option value="Giovanna">Giovanna</option>
+          </select>
+          <button class="btn" onclick="abrirModalPost()">+ Novo post</button>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">100% manual — rascunho gerado no claude.ai (ou escrito à mão) e colado aqui. Sem chamada a nenhuma API de IA.</p>
+      <div class="kanban" id="kanbanConteudo"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -1031,6 +1071,79 @@ const MODULOS_PLANO={
     <button class="btn2" onclick="fecharModal('modalTarefa')">Cancelar</button>
     <button class="danger" id="btnExcluirTarefa" style="display:none" onclick="excluirTarefa()">Excluir</button>
     <button class="btn" onclick="salvarTarefa()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Post (Conteúdo) -->
+<div class="modal-overlay" id="modalPost">
+<div class="modal" style="max-width:520px">
+  <h3 id="tituloModalPost">Novo post</h3>
+  <input type="hidden" id="postId">
+  <div class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>Tema *</label><input id="postTema" placeholder="Ex: Por que copiloto, não piloto automático"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Plataforma</label>
+      <select id="postPlataforma">
+        <option value="linkedin">LinkedIn</option>
+        <option value="instagram">Instagram</option>
+        <option value="twitter">Twitter/X</option>
+        <option value="blog">Blog</option>
+      </select>
+    </div>
+    <div class="field"><label>Autor</label>
+      <select id="postAutor">
+        <option value="Thata">Thata</option>
+        <option value="Thiago">Thiago</option>
+        <option value="Giovanna">Giovanna</option>
+      </select>
+    </div>
+    <div class="field"><label>Status</label>
+      <select id="postStatus">
+        <option value="ideia">Ideia</option>
+        <option value="rascunho">Rascunho</option>
+        <option value="revisao">Revisão</option>
+        <option value="agendado">Agendado</option>
+        <option value="publicado">Publicado</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-grid" style="grid-template-columns:1fr;margin-top:14px">
+    <div class="field"><label>Data agendada</label><input type="datetime-local" id="postDataAgendada"></div>
+    <div class="field"><label>Rascunho</label><textarea id="postRascunho" rows="5" placeholder="Cole aqui o rascunho do post (gerado no claude.ai ou escrito à mão)..."></textarea></div>
+    <div class="field"><label>Versão final</label><textarea id="postVersaoFinal" rows="5" placeholder="Texto final, já revisado e com a sua voz..."></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalPost')">Cancelar</button>
+    <button class="danger" id="btnExcluirPost" style="display:none" onclick="excluirPost()">Excluir</button>
+    <button class="btn" onclick="salvarPost()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Métricas do post publicado -->
+<div class="modal-overlay" id="modalMetricasPost">
+<div class="modal" style="max-width:480px">
+  <h3>Métricas — <span id="metricasPostTema"></span></h3>
+  <input type="hidden" id="metricasPostId">
+  <div class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>Link do post</label><input id="metricasLinkPost" placeholder="https://..."></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Impressões</label><input type="number" id="metricasImpressoes" min="0"></div>
+    <div class="field"><label>Curtidas</label><input type="number" id="metricasCurtidas" min="0"></div>
+    <div class="field"><label>Comentários</label><input type="number" id="metricasComentarios" min="0"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Compartilhamentos</label><input type="number" id="metricasCompartilhamentos" min="0"></div>
+    <div class="field"><label>Cliques</label><input type="number" id="metricasCliques" min="0"></div>
+    <div class="field"><label>Leads gerados</label><input type="number" id="metricasLeadsGerados" min="0"></div>
+  </div>
+  <p style="color:var(--muted);font-size:12px;margin-top:14px">O LinkedIn estabiliza os números depois de 48–72h — volte aqui e atualize na semana seguinte.</p>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalMetricasPost')">Fechar</button>
+    <button class="btn" onclick="salvarMetricasPost()">Salvar métricas</button>
   </div>
 </div>
 </div>
@@ -2082,9 +2195,16 @@ function showTab(id,btn){
   const pane=$('pane-'+id);if(pane)pane.classList.add('active');
   if(btn)btn.classList.add('active');
   if(id==='logs')carregarLogs();
-  if(id==='marketing')carregarMarketing();
+  if(id==='marketing'){carregarMarketing();carregarConteudo();}
   if(id==='planejamento')carregarPlanejamento();
   if(id==='inicio')carregarInicio();
+}
+
+function showMktSubTab(id,btn){
+  document.querySelectorAll('.mkt-subpane').forEach(p=>p.style.display='none');
+  document.querySelectorAll('#mktSubTabBtn-monitoramento,#mktSubTabBtn-conteudo').forEach(b=>b.classList.remove('active'));
+  const pane=$('mktSub-'+id);if(pane)pane.style.display='';
+  if(btn)btn.classList.add('active');
 }
 
 // ═══ MARKETING (monitoramento manual — spec nuvix-admin-marketing-ia-spec.md, seções 1-3) ═══
@@ -2114,6 +2234,162 @@ function renderMarketing(){
   const tipo=val('filtroTipoMkt');
   const lista=tipo?marketingRegistros.filter(r=>r.tipo===tipo):marketingRegistros;
   setHTML('listaMarketing',lista.map(marketingCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum registro ainda. Peça pra pesquisar um concorrente, menção ou pergunta de GEO no chat.</p>');
+}
+
+// ═══ CONTEÚDO (kanban de posts — 100% manual, sem chamada a API de IA) ═══
+let posts=[];
+let postStatusAntesDoSave=null; // guarda o status atual antes de salvar, pra saber se a transição pra "publicado" acabou de acontecer
+const CONTEUDO_STATUS_COLS=[{id:'ideia',lbl:'Ideia'},{id:'rascunho',lbl:'Rascunho'},{id:'revisao',lbl:'Revisão'},{id:'agendado',lbl:'Agendado'},{id:'publicado',lbl:'Publicado'}];
+const PLATAFORMA_LBL={linkedin:'LinkedIn',instagram:'Instagram',twitter:'Twitter/X',blog:'Blog'};
+const PLATAFORMA_COR={linkedin:'#0A66C2',instagram:'#C13584',twitter:'#111827',blog:'var(--muted2)'};
+async function carregarConteudo(){
+  try{
+    posts=await dbGet('content_posts','?select=*&order=created_at.desc');
+    renderKpisConteudo();
+    renderTrendConteudo();
+    renderConteudo();
+  }catch(e){
+    setHTML('kanbanConteudo',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function engajamento(p){return Number(p.curtidas||0)+Number(p.comentarios||0)+Number(p.compartilhamentos||0);}
+function renderKpisConteudo(){
+  const hoje=new Date();
+  const publicados30d=posts.filter(p=>p.status==='publicado'&&p.data_publicacao&&(hoje-new Date(p.data_publicacao))/864e5<=30);
+  const publicados=posts.filter(p=>p.status==='publicado');
+  const engMedio=publicados.length?Math.round(publicados.reduce((a,p)=>a+engajamento(p),0)/publicados.length):0;
+  const melhor=publicados.slice().sort((a,b)=>engajamento(b)-engajamento(a))[0];
+  setHTML('kpisConteudo',[
+    {lbl:'Publicados (30 dias)',val:publicados30d.length,sub:`${publicados.length} publicados no total`,cor:'var(--txt)'},
+    {lbl:'Engajamento médio',val:engMedio,sub:'curtidas + comentários + compart. / post',cor:'var(--p)'},
+    {lbl:'Melhor post do mês',val:melhor?engajamento(melhor):'—',sub:melhor?esc(melhor.tema).slice(0,40):'nenhum post publicado ainda',cor:'var(--green)'},
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="color:${k.cor}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join(''));
+}
+function renderTrendConteudo(){
+  // 8 semanas, contadas a partir da data de publicação real (data_publicacao) — mesma
+  // disciplina do Planejamento: só conta o que de fato tem data registrada.
+  const semanas=[];
+  const hoje=new Date();
+  for(let i=7;i>=0;i--){
+    const fim=new Date(hoje);fim.setDate(fim.getDate()-i*7);
+    const inicio=new Date(fim);inicio.setDate(inicio.getDate()-6);
+    semanas.push({inicio,fim});
+  }
+  const publicados=posts.filter(p=>p.status==='publicado'&&p.data_publicacao);
+  const contagens=semanas.map(s=>publicados.filter(p=>{const d=new Date(p.data_publicacao);return d>=s.inicio&&d<=s.fim;}).length);
+  const max=Math.max(1,...contagens);
+  setHTML('trendConteudo',semanas.map((s,i)=>{
+    const n=contagens[i];
+    return`<div class="trend-col">
+      <div class="trend-count">${n}</div>
+      <div class="trend-bar" style="height:${Math.max(4,Math.round(n/max*90))}px${n?'':';opacity:.25'}"></div>
+      <div class="trend-day">${String(s.inicio.getDate()).padStart(2,'0')}/${String(s.inicio.getMonth()+1).padStart(2,'0')}</div>
+    </div>`;
+  }).join(''));
+}
+function renderConteudo(){
+  const plataforma=val('filtroPlataformaConteudo'),autor=val('filtroAutorConteudo');
+  const filtrados=posts.filter(p=>{
+    if(plataforma&&p.plataforma!==plataforma)return false;
+    if(autor&&p.autor!==autor)return false;
+    return true;
+  });
+  setHTML('kanbanConteudo',CONTEUDO_STATUS_COLS.map(col=>{
+    const itens=filtrados.filter(p=>p.status===col.id);
+    const cards=itens.map(p=>`<div class="kanban-card" onclick="abrirModalPost('${p.id}')" style="cursor:pointer">
+        <div class="kanban-card-title">${esc(p.tema)}</div>
+        <div class="kanban-card-meta">
+          <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;color:#fff;background:${PLATAFORMA_COR[p.plataforma]||'var(--muted2)'}">${PLATAFORMA_LBL[p.plataforma]||p.plataforma}</span>
+          <span style="font-size:10px;color:var(--muted2)">${esc(p.autor)} · ${p.data_publicacao?fmtData(p.data_publicacao):p.data_agendada?fmtData(p.data_agendada):fmtData(p.created_at)}</span>
+        </div>
+        ${p.status==='publicado'?`<div style="margin-top:6px"><button class="btn2" style="font-size:10px;padding:4px 8px" onclick="event.stopPropagation();abrirModalMetricas('${p.id}')">Métricas · ${engajamento(p)} eng.</button></div>`:''}
+      </div>`).join('')||'<p style="font-size:11px;color:var(--muted2)">Vazio</p>';
+    return`<div class="kanban-col"><div class="kanban-col-title">${col.lbl}<span>${itens.length}</span></div>${cards}</div>`;
+  }).join(''));
+}
+function dataParaInputLocal(iso){
+  if(!iso)return'';
+  const d=new Date(iso);
+  const pad=n=>String(n).padStart(2,'0');
+  return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function abrirModalPost(id){
+  const p=id?posts.find(x=>x.id===id):null;
+  postStatusAntesDoSave=p?.status||null;
+  $('tituloModalPost').textContent=p?'Editar post':'Novo post';
+  $('postId').value=p?.id||'';
+  $('postTema').value=p?.tema||'';
+  $('postPlataforma').value=p?.plataforma||'linkedin';
+  $('postAutor').value=p?.autor||'Thata';
+  $('postStatus').value=p?.status||'ideia';
+  $('postDataAgendada').value=dataParaInputLocal(p?.data_agendada);
+  $('postRascunho').value=p?.rascunho_texto||'';
+  $('postVersaoFinal').value=p?.versao_final||'';
+  $('btnExcluirPost').style.display=p?'':'none';
+  abrirModal('modalPost');
+}
+async function salvarPost(){
+  const tema=val('postTema').trim();
+  if(!tema){toast('Preencha o tema.','err');return;}
+  const id=val('postId');
+  const novoStatus=val('postStatus');
+  const dados={
+    tema,plataforma:val('postPlataforma'),autor:val('postAutor'),
+    status:novoStatus,
+    data_agendada:val('postDataAgendada')?new Date(val('postDataAgendada')).toISOString():null,
+    rascunho_texto:val('postRascunho').trim()||null,
+    versao_final:val('postVersaoFinal').trim()||null,
+  };
+  try{
+    let idSalvo=id;
+    if(id){await dbPatch('content_posts',id,dados);}
+    else{const r=await dbPost('content_posts',dados);idSalvo=Array.isArray(r)?r[0]?.id:r?.id;}
+    fecharModal('modalPost');toast('Post salvo.');
+    const acabouDePublicar=novoStatus==='publicado'&&postStatusAntesDoSave!=='publicado';
+    await carregarConteudo();
+    if(acabouDePublicar&&idSalvo)abrirModalMetricas(idSalvo);
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+async function excluirPost(){
+  const id=val('postId');
+  if(!id)return;
+  if(!await confirmarAcao('Excluir este post?'))return;
+  try{
+    await dbDelete('content_posts',id);
+    fecharModal('modalPost');toast('Post excluído.');
+    await carregarConteudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+function abrirModalMetricas(id){
+  const p=posts.find(x=>x.id===id);if(!p)return;
+  $('metricasPostId').value=p.id;
+  $('metricasPostTema').textContent=p.tema;
+  $('metricasLinkPost').value=p.link_post||'';
+  $('metricasImpressoes').value=p.impressoes||0;
+  $('metricasCurtidas').value=p.curtidas||0;
+  $('metricasComentarios').value=p.comentarios||0;
+  $('metricasCompartilhamentos').value=p.compartilhamentos||0;
+  $('metricasCliques').value=p.cliques||0;
+  $('metricasLeadsGerados').value=p.leads_gerados||0;
+  abrirModal('modalMetricasPost');
+}
+async function salvarMetricasPost(){
+  const id=val('metricasPostId');
+  if(!id)return;
+  const dados={
+    link_post:val('metricasLinkPost').trim()||null,
+    impressoes:Number(val('metricasImpressoes'))||0,
+    curtidas:Number(val('metricasCurtidas'))||0,
+    comentarios:Number(val('metricasComentarios'))||0,
+    compartilhamentos:Number(val('metricasCompartilhamentos'))||0,
+    cliques:Number(val('metricasCliques'))||0,
+    leads_gerados:Number(val('metricasLeadsGerados'))||0,
+  };
+  try{
+    await dbPatch('content_posts',id,dados);
+    fecharModal('modalMetricasPost');toast('Métricas salvas.');
+    await carregarConteudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 // ═══ INÍCIO (mural interno — frase-guia + feed de pesquisa) ═══
