@@ -13,6 +13,15 @@
 .mat-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
 .mat-tab:hover{color:var(--p)}
 .mat-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.bento-alertas{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:8px}
+@media(max-width:900px){.bento-alertas{grid-template-columns:1fr}}
+.hero-estoque{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:0 10px 26px rgba(99,67,164,.28)}
+.hero-estoque-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
+.hero-estoque-val{font-size:32px;font-weight:800;margin-top:4px}
+.hero-estoque-ic{background:rgba(255,255,255,.2);border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-estoque-bar-track{height:7px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden}
+.hero-estoque-bar-track>div{height:100%;background:#fff;border-radius:99px;transition:width .5s ease}
+.hero-estoque-desc{font-size:12px;opacity:.9;line-height:1.5}
 .mat-pane{display:none}.mat-pane.active{display:block}
 
 /* ── KPI CARDS ── */
@@ -207,7 +216,17 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
           <div class="chart-card"><h3>📂 Estoque por categoria</h3><canvas id="chartCat" height="200"></canvas></div>
           <div class="chart-card"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Entradas x Saídas (valor)</h3><canvas id="chartFluxo" height="200"></canvas></div>
         </div>
-        <div id="alertasCriticos"></div>
+        <div class="bento-alertas">
+          <div id="alertasCriticos"></div>
+          <div class="hero-estoque">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="hero-estoque-lbl">Estoque saudável</div><div class="hero-estoque-val" id="estoqueSaudavelVal">—</div></div>
+              <div class="hero-estoque-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+            </div>
+            <div class="hero-estoque-bar-track"><div id="estoqueSaudavelBar" style="width:0%"></div></div>
+            <p class="hero-estoque-desc" id="estoqueSaudavelDesc">—</p>
+          </div>
+        </div>
       </div>
 
       <!-- ══ MATERIAIS ══ -->
@@ -510,6 +529,16 @@ function renderDashboard(){
   const baixo=mats.filter(m=>disp(m)<Number(m.estoque_minimo||0)&&Number(m.estoque_minimo||0)>0).length;
   const zero=mats.filter(m=>disp(m)===0).length;
   const valorTotal=mats.reduce((a,m)=>a+Number(m.estoque_atual||0)*Number(m.custo_compra||0),0);
+
+  // % de estoque saudável — mesma classificação mutuamente exclusiva de estoqueStatus() (zero > baixo > ok),
+  // pra não contar duas vezes um item que já está zerado.
+  let criticoCount=0, baixoCount=0;
+  mats.forEach(m=>{const d=disp(m),min=Number(m.estoque_minimo||0);if(d===0)criticoCount++;else if(min>0&&d<min)baixoCount++;});
+  const saudavelCount=Math.max(0,total-criticoCount-baixoCount);
+  const pctSaudavel=total?Math.round(saudavelCount/total*100):0;
+  const valEst=$('estoqueSaudavelVal');if(valEst)valEst.textContent=pctSaudavel+'%';
+  const barEst=$('estoqueSaudavelBar');if(barEst)barEst.style.width=pctSaudavel+'%';
+  const descEst=$('estoqueSaudavelDesc');if(descEst)descEst.textContent=total?`${saudavelCount} de ${total} materiais com estoque OK · ${money(valorTotal)} em estoque no total.`:'Cadastre materiais pra ver essa métrica.';
 
   setHTML('dashKpis',[
     {lbl:'Total de Materiais',val:total,sub:`${ativos} ativos`,cor:'purple',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'},
