@@ -128,15 +128,15 @@
 .hstat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:flex;align-items:center;gap:5px}
 .hstat-lbl .atencao-dot{width:6px;height:6px}
 .hstat-val{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hero-insight{border-top:1px solid var(--line);margin-top:16px;padding-top:16px;display:flex;align-items:flex-start;gap:12px}
-.hero-insight-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
-.hero-insight-dot.prioridade{background:var(--red)}
-.hero-insight-dot.atencao{background:var(--amber)}
-.hero-insight-dot.oportunidade{background:var(--green)}
-.hero-insight-dot.informacao{background:var(--blue)}
-.hero-insight-txt{flex:1;font-size:13.5px;color:var(--muted);line-height:1.5}
-.hero-insight-txt b{color:var(--txt);font-weight:700}
-.hero-insight-link{font-size:12.5px;color:var(--p);font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;background:none;border:none;cursor:pointer;font-family:inherit}
+.hero-insight{margin-top:20px;border-radius:18px;padding:22px 26px;background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(99,67,164,.28)}
+.hero-insight:empty{display:none}
+.hero-insight::after{content:'';position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+.hero-insight-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.2);padding:5px 12px;border-radius:999px;align-self:flex-start;position:relative;z-index:1}
+.hero-insight-title{font-size:19px;font-weight:800;line-height:1.3;position:relative;z-index:1}
+.hero-insight-txt{flex:1;font-size:13.5px;line-height:1.55;opacity:.92;max-width:640px;position:relative;z-index:1}
+.hero-insight-txt b{font-weight:700}
+.hero-insight-link{font-size:12.5px;color:var(--p);font-weight:700;background:#fff;border:none;border-radius:9px;padding:9px 16px;cursor:pointer;font-family:inherit;align-self:flex-start;position:relative;z-index:1}
+.hero-insight-link:hover{filter:brightness(.97)}
 
 /* ── Navegação por abas — cada setor vira uma aba, sem scroll infinito ── */
 .tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px;margin:20px 0;overflow-x:auto}
@@ -1168,6 +1168,7 @@ function gerarResumoExecutivo(atual, diff, principais){
 // categoria), "ver todos" só quando existirem mais insights do que os 4 mostrados.
 const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
 const CONFIANCA_LBL = {alta:'Alta', media:'Média', baixa:'Baixa'};
+const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
 const CONFIANCA_TOOLTIP = '<b>Alta</b> — fato direto nos dados.<br><b>Média</b> — leitura de tendência, com alguma interpretação.<br><b>Baixa</b> — correlação entre métricas que pode ter outras causas; vale investigar antes de agir.';
 // Onboarding: com poucos lançamentos confirmados, qualquer veredito (mesmo "empresa saudável")
 // é pouco confiável — a régua é contar dado real (nunca proxy), então usamos o próprio total de
@@ -1322,8 +1323,9 @@ function renderInteligenciaNuvix(){
   if(top){
     const oQueAconteceu = gerarNarrativaTemplate(top);
     setHTML('heroInsight', `
-      <span class="hero-insight-dot ${top.categoria}"></span>
-      <span class="hero-insight-txt"><b>${esc(top.titulo)}.</b> ${esc(oQueAconteceu)}</span>
+      <span class="hero-insight-badge">✦ Inteligência Nuvix · ${CATEGORIA_LBL[top.categoria]||top.categoria}</span>
+      <div class="hero-insight-title">${esc(top.titulo)}</div>
+      <span class="hero-insight-txt">${esc(oQueAconteceu)}</span>
       <button type="button" class="hero-insight-link" onclick="abrirAba('geral')">Ver Inteligência Nuvix →</button>`);
   }else{
     setHTML('heroInsight', '');
