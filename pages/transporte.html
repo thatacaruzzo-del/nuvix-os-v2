@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
 .tr-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
-.tr-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15smin-height:42px;display:inline-flex;align-items:center;}
+.tr-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;}
 .tr-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
 .tr-pane{display:none}
 .tr-pane.active{display:block}
@@ -368,8 +368,11 @@ function renderKpis(){
     {lbl:'Entregues',val:entregues,cor:'var(--txt)',sub:'no total'},
     {lbl:'Atrasados',val:atrasados,cor:atrasados>0?'var(--red)':'var(--green)',sub:'PPE vencido'},
     {lbl:'Ocorrências',val:ocorrencias,cor:ocorrencias>0?'var(--amber)':'var(--green)',sub:'em aberto'},
-    {lbl:'Receita mês',val:money(recMes),cor:'var(--txt)',sub:'fretes do mês'},
-  ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));
+    {lbl:'Receita mês',val:money(recMes),cor:'var(--txt)',sub:'fretes do mês',destaque:true},
+  ].map(c=>c.destaque
+    ?`<div class="card" style="margin:0;border-left:none;background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff"><div class="metric-label" style="color:rgba(255,255,255,.85)">${c.lbl}</div><div class="metric-value" style="color:#fff;font-size:20px">${c.val}</div><div style="color:rgba(255,255,255,.85);font-size:13px">${c.sub}</div></div>`
+    :`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div><div class="muted">${c.sub}</div></div>`
+  ).join(''));
 }
 
 function popularSelects(){
@@ -492,7 +495,10 @@ function renderPerformance(){
   const motMap={};op.forEach(o=>{const m=o.motorista_nome||'Sem motorista';if(!motMap[m])motMap[m]={total:0,prazo:0,receita:0};motMap[m].total++;motMap[m].receita+=Number(o.receita||0);const ppe2=String(o.ppe||'').slice(0,10);const dtReal2=String(o.data_entrega_real||o.data_lancamento||'').slice(0,10);if(o.status==='Entregue'&&(!ppe2||dtReal2<=ppe2))motMap[m].prazo++;});
   setHTML('perfMotorista',Object.entries(motMap).sort((a,b)=>b[1].total-a[1].total).slice(0,6).map(([nome,v])=>{const pct=v.total>0?Math.round(v.prazo/v.total*100):0;return`<div class="perf-card"><div style="display:flex;justify-content:space-between"><b style="font-size:13px">${esc(nome)}</b><span style="font-size:12px;color:var(--muted)">${v.total} viagem(s)</span></div><div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'};font-weight:700">${pct}% no prazo</span><span style="color:var(--muted)">${money(v.receita)}</span></div><div class="perf-bar-wrap"><div class="perf-bar" style="width:${pct}%;background:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}"></div></div></div>`;}).join('')||'<p class="muted">Nenhuma operação.</p>');
   const totalRec=op.reduce((a,o)=>a+Number(o.receita||0),0),totalCust=op.reduce((a,o)=>a+Number(o.custo||0),0),totalLuc=totalRec-totalCust,pagPend=(dados.pagamentos||[]).filter(p=>p.status==='A pagar').reduce((a,p)=>a+Number(p.valor||0),0);
-  setHTML('perfFinanceiro',[{lbl:'Receita total',val:money(totalRec),cor:'var(--txt)'},{lbl:'Custo total',val:money(totalCust),cor:'var(--txt)'},{lbl:'Lucro total',val:money(totalLuc),cor:totalLuc>=0?'var(--green)':'var(--red)'},{lbl:'Pagar motoristas',val:money(pagPend),cor:'var(--txt)'}].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
+  setHTML('perfFinanceiro',[{lbl:'Receita total',val:money(totalRec),cor:'var(--txt)'},{lbl:'Custo total',val:money(totalCust),cor:'var(--txt)'},{lbl:'Lucro total',val:money(totalLuc),cor:totalLuc>=0?'var(--green)':'var(--red)',destaque:true},{lbl:'Pagar motoristas',val:money(pagPend),cor:'var(--txt)'}].map(c=>c.destaque
+    ?`<div class="card" style="margin:0;border-left:none;background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff"><div class="metric-label" style="color:rgba(255,255,255,.85)">${c.lbl}</div><div class="metric-value" style="color:#fff;font-size:20px">${c.val}</div></div>`
+    :`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`
+  ).join(''));
 }
 
 function trTab(id,btn){document.querySelectorAll('.tr-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tr-tab').forEach(b=>b.classList.remove('active'));const pane=$('pane-'+id);if(pane)pane.classList.add('active');if(btn)btn.classList.add('active');}
