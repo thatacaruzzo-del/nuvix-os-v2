@@ -586,13 +586,13 @@ init();
     // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
     // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
     // (não trava ninguém por permissão que nunca foi definida).
-    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':'rh','relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais'};
     const permsUser = d.user?.usuario_permissoes || [];
     const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
     function podeVerModulo(modId){
       if(isAdminUser) return true;
-      const p = permsUser.find(x=>x.modulo===modId);
-      return p ? !!p.pode_ver : true;
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const p=permsUser.find(x=>x.modulo===id);return p?!!p.pode_ver:true;});
     }
     nav.querySelectorAll('.sb-btn').forEach(btn=>{
       const modId = HREF_MODULO[btn.getAttribute('href')];
