@@ -873,7 +873,7 @@ const MODULOS_PLANO={
   <div id="empMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalNovaEmp')">Cancelar</button>
-    <button class="btn" onclick="salvarEmpresa()">Salvar empresa</button>
+    <button class="btn" id="btnSalvarEmpresa" onclick="salvarEmpresa()">Salvar empresa</button>
   </div>
 </div>
 </div>
@@ -1717,33 +1717,60 @@ async function salvarEmpresa(){
   const adminNome=val('empAdminNome').trim();
   if(adminEmail&&(!adminSenha||adminSenha.length<4)){msgEl('empMsg','Senha do admin deve ter mínimo 4 caracteres.','err');return;}
   const plano=val('empPlano')||'Start';
+
+  // Trava contra clique duplo — sem isso, cada clique enquanto salva vira uma empresa
+  // repetida (foi exatamente assim que as duplicatas "CZ" apareceram).
+  const btn=$('btnSalvarEmpresa');
+  if(btn){ if(btn.disabled) return; btn.disabled=true; btn.textContent='Salvando...'; }
+
   try{
-    // Criar empresa
-    const [emp]=await dbPost('empresas',{
-      fantasia,razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),
-      email:val('empEmail').trim(),telefone:val('empTel').trim(),
-      cidade:val('empCidade').trim(),segmento:val('empSegmento'),
-      tipo:val('empSegmento'),plano,
-      status_conta:val('empStatusConta'),
-      status_assinatura:val('empStatusConta'),
-      trial_fim:val('empTrialFim')||null,
-      vencimento:val('empVencMens')||null, vencimento_mensalidade:val('empVencMens')||null,
-      observacao_interna:val('empObs').trim(),
-      ativo:true,
-    });
-    // Criar módulos padrão do plano
-    const modsPadrao=MODULOS_PLANO[plano]||MODULOS_PLANO['Start'];
-    for(const m of MODULOS_TODOS){
-      await dbUpsert('empresa_modulos',{empresa_id:emp.id,modulo:m.id,liberado:modsPadrao.includes(m.id),liberado_por:'Admin Nuvix'},'empresa_id,modulo');
+    // Passo 1 (crítico): criar a empresa. Se isto falhar, nada foi criado — erro de verdade.
+    let emp;
+    try{
+      [emp]=await dbPost('empresas',{
+        fantasia,razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),
+        email:val('empEmail').trim(),telefone:val('empTel').trim(),
+        cidade:val('empCidade').trim(),segmento:val('empSegmento'),
+        tipo:val('empSegmento'),plano,
+        status_conta:val('empStatusConta'),
+        status_assinatura:val('empStatusConta'),
+        trial_fim:val('empTrialFim')||null,
+        vencimento:val('empVencMens')||null, vencimento_mensalidade:val('empVencMens')||null,
+        observacao_interna:val('empObs').trim(),
+        ativo:true,
+      });
+    }catch(e){
+      msgEl('empMsg','Erro ao criar empresa: '+e.message,'err');
+      return;
     }
-    // Criar admin da empresa se informado
+
+    // Passos 2 e 3 (auxiliares): a empresa JÁ EXISTE a partir daqui — se algo falhar
+    // daqui pra baixo, isso não pode aparecer como "deu tudo errado", senão o admin
+    // clica de novo achando que não salvou e cria outra empresa duplicada.
+    const avisos=[];
+    try{
+      const modsPadrao=MODULOS_PLANO[plano]||MODULOS_PLANO['Start'];
+      for(const m of MODULOS_TODOS){
+        await dbUpsert('empresa_modulos',{empresa_id:emp.id,modulo:m.id,liberado:modsPadrao.includes(m.id),liberado_por:'Admin Nuvix'},'empresa_id,modulo');
+      }
+    }catch(e){ avisos.push('módulos padrão não foram liberados ('+e.message+') — libere manualmente na aba Módulos'); }
+
     if(adminEmail){
-      await dbPost('usuarios',{nome:adminNome||adminEmail,email:adminEmail,senha:adminSenha,perfil:'Administrador',empresa_id:emp.id,ativo:true});
+      try{
+        await dbPost('usuarios',{nome:adminNome||adminEmail,email:adminEmail,senha:adminSenha,perfil:'Administrador',empresa_id:emp.id,ativo:true});
+      }catch(e){ avisos.push('usuário admin não foi criado ('+e.message+') — crie manualmente na aba Usuários'); }
     }
-    msgEl('empMsg','Empresa criada com sucesso!','ok');
-    setTimeout(()=>fecharModal('modalNovaEmp'),1500);
+
+    if(avisos.length){
+      msgEl('empMsg','Empresa "'+fantasia+'" criada com sucesso! Porém: '+avisos.join('; ')+'.','err');
+    }else{
+      msgEl('empMsg','Empresa criada com sucesso!','ok');
+      setTimeout(()=>fecharModal('modalNovaEmp'),1500);
+    }
     await carregarTudo();
-  }catch(e){msgEl('empMsg','Erro: '+e.message,'err');}
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Salvar empresa'; }
+  }
 }
 
 // Editar empresa
