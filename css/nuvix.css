@@ -107,7 +107,7 @@ button:active { transform: scale(.98); }
 
 /* ── Cards — radius 18px, border 1px, sombra discreta, muito espaço interno ── */
 .card {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border: 1px solid var(--line);
+  background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius); padding: 28px;
   box-shadow: var(--shadow); margin-bottom: 18px;
   transition: box-shadow .2s ease, transform .2s ease;
@@ -129,7 +129,7 @@ button:active { transform: scale(.98); }
 /* ── Catálogo em grid — cards de item (Serviços, Materiais) ── */
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 16px; }
 .item-card {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border: 1px solid var(--line);
+  background: #fff; border: 1px solid var(--line);
   border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;
   transition: box-shadow .2s ease, transform .2s ease;
 }
@@ -484,7 +484,7 @@ tr:hover td { background: #FAF9FE; }
 /* Financial strip — neutro sempre, hierarquia vem do tamanho do número, não da cor do card */
 .fin-strip { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; margin-bottom: 24px; }
 .fin-card {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border-radius: var(--radius);
+  background: #fff; border-radius: var(--radius);
   padding: 20px 22px; border: 1px solid var(--line); box-shadow: var(--shadow);
   transition: box-shadow .2s ease, transform .2s ease;
 }
@@ -496,7 +496,7 @@ tr:hover td { background: #FAF9FE; }
 /* KPI cards — mesmo princípio */
 .dash-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; margin-bottom: 24px; }
 .dash-card {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border-radius: var(--radius);
+  background: #fff; border-radius: var(--radius);
   padding: 28px; border: 1px solid var(--line);
   box-shadow: var(--shadow); transition: box-shadow .2s ease, transform .2s ease;
 }
@@ -511,14 +511,14 @@ tr:hover td { background: #FAF9FE; }
 .charts-grid,  .dash-charts { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-bottom: 24px; }
 .charts-grid-2,.dash-tables  { display: grid; grid-template-columns: 1fr 1fr;       gap: 18px; margin-bottom: 24px; }
 .chart-card {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border: 1px solid var(--line);
+  background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow);
 }
 .chart-card h3 { font-size: 13px; font-weight: 700; color: var(--txt); margin-bottom: 18px; }
 
 /* PPE Filter */
 .ppe-wrap, .ppe-strip {
-  background: linear-gradient(135deg,#fff 0%,#fff 45%,var(--p-light) 100%); border: 1px solid var(--line);
+  background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius-lg); padding: 22px; margin-bottom: 20px;
   box-shadow: var(--shadow);
 }
