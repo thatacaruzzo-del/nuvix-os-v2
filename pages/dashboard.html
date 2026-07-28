@@ -8,9 +8,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ── Hero rico: caixa + barra de saúde à esquerda, sparkline + próximo compromisso à direita ── */
-.dash-hero{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px 32px;margin-bottom:20px;display:flex;align-items:stretch;gap:36px;box-shadow:var(--shadow)}
-.hero-badge-corner{position:absolute;top:26px;right:32px}
-.hero-left{flex:1.3;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.dash-hero-grid{display:grid;grid-template-columns:1.3fr 1fr .85fr;gap:20px;margin-bottom:20px;align-items:stretch}
+.dash-hero-grid .card{margin:0;padding:26px 28px;position:relative;display:flex;flex-direction:column;justify-content:center;border-left:4px solid var(--p)}
+.hero-card-trend{justify-content:flex-start!important;gap:10px}
+.hero-card-proximo{border-left-color:var(--amber)!important}
+.hero-badge-corner{position:absolute;top:24px;right:26px}
 .hero-caixa-lbl{font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .hero-caixa-lbl svg{width:17px;height:17px;color:var(--p);flex-shrink:0}
 .hero-caixa-val{font-size:38px;font-weight:700;color:var(--txt);letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
@@ -23,11 +25,8 @@
 .hero-health-track{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:16px;max-width:320px}
 .hero-health-fill{height:100%;border-radius:99px;background:var(--green);transition:width .5s ease}
 .hero-caption{font-size:11px;color:var(--muted2);margin-top:9px}
-.hero-divider{width:1px;background:var(--line);align-self:stretch;flex-shrink:0}
-.hero-right{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:14px}
 .hero-spark-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
 #heroSparkline{max-height:46px}
-.hero-proximo-box{padding-top:14px;border-top:1px solid var(--line)}
 .hero-proximo-lbl{font-size:11.5px;color:var(--muted2);margin-bottom:3px}
 .hero-proximo-val{font-size:15px;font-weight:600;color:var(--txt)}
 .hero-proximo-dias{font-size:12px;color:var(--muted);margin-top:2px}
@@ -243,7 +242,7 @@
 .top-name{font-size:14px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
 .top-val{font-size:13px;color:var(--muted);font-weight:600;flex-shrink:0;white-space:nowrap}
 
-@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}.dash-hero{flex-direction:column}.hero-divider{width:auto;height:1px;align-self:stretch}}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}.dash-hero-grid{grid-template-columns:1fr}}
 @media(max-width:768px){#hambBtn{display:block!important}.kpi-grid{grid-template-columns:1fr 1fr}.kpi-grid-4{grid-template-columns:1fr 1fr}.hero-status-strip{flex-direction:column}.recent-grid{grid-template-columns:1fr}}
 </style>
 <script src="../js/nuvix-logs.js"></script>
@@ -372,9 +371,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- HERO CONSOLIDADO — caixa, tira de status dos 5 setores e o insight mais importante,
            tudo em 1 único bloco de abertura (substitui os antigos Saúde Geral + Inteligência
            Nuvix + Hero do Financeiro empilhados) -->
-      <div class="dash-hero">
-        <span class="hero-badge-corner" id="heroStatusBadge"></span>
-        <div class="hero-left">
+      <div class="dash-hero-grid">
+        <div class="card hero-card-caixa">
+          <span class="hero-badge-corner" id="heroStatusBadge"></span>
           <div class="hero-caixa-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Caixa disponível</div>
           <div class="hero-val-row" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
             <div class="hero-caixa-val" id="heroCaixaVal">—</div>
@@ -384,15 +383,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div class="hero-health-track"><div class="hero-health-fill" id="heroHealthFill"></div></div>
           <div class="hero-caption" id="heroCaption"></div>
         </div>
-        <div class="hero-divider"></div>
-        <div class="hero-right">
+        <div class="card hero-card-trend">
           <div class="hero-spark-lbl">Tendência do caixa · 21 dias</div>
           <canvas id="heroSparkline" height="46"></canvas>
-          <div class="hero-proximo-box">
-            <div class="hero-proximo-lbl">Próximo compromisso</div>
-            <div class="hero-proximo-val" id="heroProximoVal">—</div>
-            <div class="hero-proximo-dias" id="heroProximoDias"></div>
-          </div>
+        </div>
+        <div class="card hero-card-proximo">
+          <div class="hero-proximo-lbl">Próximo compromisso</div>
+          <div class="hero-proximo-val" id="heroProximoVal">—</div>
+          <div class="hero-proximo-dias" id="heroProximoDias"></div>
         </div>
       </div>
       <div class="hero-status-strip" id="heroStatusStrip"></div>
