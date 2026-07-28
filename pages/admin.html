@@ -146,6 +146,22 @@ tr:hover td{background:#FAFAFF}
 .modal h3{font-size:18px;font-weight:800;margin-bottom:20px;color:var(--txt)}
 .modal-actions{display:flex;gap:10px;margin-top:24px}
 .modal-actions button{flex:1}
+
+/* ── Confirmação em modal (usada por confirmarAcao) — faltava aqui, por isso
+   renderizava sem estilo nenhum, só texto e botões nativos do navegador ── */
+.nx-confirm-overlay{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
+.nx-confirm-box{background:#fff;border-radius:18px;box-shadow:0 20px 48px rgba(16,24,40,.25);max-width:380px;width:100%;padding:24px}
+.nx-confirm-msg{font-size:14px;color:var(--txt);line-height:1.55;white-space:pre-line;margin-bottom:20px}
+.nx-confirm-actions{display:flex;justify-content:flex-end;gap:10px}
+.nx-confirm-cancel{height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
+.nx-confirm-cancel:hover{background:var(--bg)}
+.nx-confirm-ok{height:40px;padding:0 16px;border-radius:10px;border:none;font-weight:700;font-size:13px;cursor:pointer;color:#fff}
+.nx-confirm-ok.perigo{background:var(--red)}
+.nx-confirm-ok.perigo:hover{filter:brightness(.88)}
+.nx-confirm-ok.aviso{background:var(--amber)}
+.nx-confirm-ok.aviso:hover{filter:brightness(.92)}
+.nx-confirm-ok.neutro{background:var(--p)}
+.nx-confirm-ok.neutro:hover{background:var(--p2)}
 .modal-close{position:absolute;top:16px;right:16px;background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
 
 /* ── MÓDULOS GRID ── */
