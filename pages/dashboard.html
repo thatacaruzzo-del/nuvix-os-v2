@@ -91,6 +91,12 @@
 .kpi-card.kc-m{border-left:4px solid var(--muted2)}
 .kpi-card.kc-b{border-left:4px solid var(--p2)}
 .kpi-card.kc-r{border-left:4px solid var(--red)}
+/* Destaque sólido — no máximo 1 por grid, só na métrica que fecha o grupo (ver renderAll) */
+.kpi-card.kc-solid{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);border-left:none;color:#fff}
+.kpi-card.kc-solid .kpi-ico{color:#fff}
+.kpi-card.kc-solid .kpi-lbl{color:rgba(255,255,255,.85)}
+.kpi-card.kc-solid .kpi-val{color:#fff}
+.kpi-card.kc-solid .kpi-sub{color:rgba(255,255,255,.85)}
 .kpi-lbl{font-size:13px;font-weight:600;color:var(--muted);line-height:1.3}
 .kpi-val{font-size:clamp(17px,1.6vw,24px);font-weight:700;line-height:1.15;margin-bottom:8px;color:var(--txt);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .kpi-sub{font-size:12.5px;color:var(--muted2)}
@@ -1516,7 +1522,7 @@ function renderHeroSparkline(){
 // Template compartilhado por todos os grids de KPI (Financeiro/Comercial/Operação/Materiais/RH) —
 // mesma linguagem visual em toda a tela, sem repetir markup por seção.
 function kpiCardsHTML(items){
-  return items.map(k=>`<div class="kpi-card kc-${k.cls}">
+  return items.map(k=>`<div class="kpi-card kc-${k.cls}${k.destaque?' kc-solid':''}">
     <div class="kpi-hd"><div class="kpi-ico">${k.ico}</div><div class="kpi-lbl">${k.lbl}</div></div>
     <div class="kpi-val">${k.val}</div>
     ${k.trend || (k.sub?`<div class="kpi-sub">${k.sub}</div>`:'')}
@@ -1538,7 +1544,7 @@ function renderIndicadores(){
   setHTML('indicadores', kpiCardsHTML([
     {ico:icoWallet,cls:'g',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
     {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true,confiavel)},
-    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel)},
+    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel),destaque:true},
     {ico:icoClock,cls:'a',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
     {ico:icoClock,cls:'r',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
   ]));
@@ -1548,7 +1554,7 @@ function renderIndicadores(){
 function renderComercial(){
   const c = calcComercial(periodo.de, periodo.ate);
   setHTML('comercialKpis', kpiCardsHTML([
-    {ico:icoSVG(pathComercial),cls:'p',lbl:'Novos clientes',val:c.fechados,sub:'no período'},
+    {ico:icoSVG(pathComercial),cls:'p',lbl:'Novos clientes',val:c.fechados,sub:'no período',destaque:true},
     {ico:icoClock,cls:'b',lbl:'Receita prevista',val:money(c.pipelineAberto),sub:'pipeline em aberto · agora'},
     {ico:icoScale,cls:'g',lbl:'Conversão',val:c.txConv!==null?c.txConv+'%':'—',sub:'no período'},
     {ico:icoWallet,cls:'a',lbl:'Ticket médio',val:c.ticketMedio?money(c.ticketMedio):'—',sub:'estimado · fechados no período'},
@@ -1561,7 +1567,7 @@ function renderOperacao(){
   const o = calcOperacao(periodo.de, periodo.ate);
   setHTML('operacaoKpis', kpiCardsHTML([
     {ico:icoSVG(pathOperacao),cls:'p',lbl:'OS abertas',val:o.abertasPeriodo,sub:'no período'},
-    {ico:icoScale,cls:'g',lbl:'OS concluídas',val:o.concluidasPeriodo,sub:'no período'},
+    {ico:icoScale,cls:'g',lbl:'OS concluídas',val:o.concluidasPeriodo,sub:'no período',destaque:true},
     {ico:icoClock,cls:o.atrasadasAgora>0?'r':'m',lbl:'OS atrasadas',val:o.atrasadasAgora,sub:'agora'},
     {ico:icoDown,cls:'b',lbl:'Tempo médio',val:o.tempoMedio!==null?o.tempoMedio+' dia'+(o.tempoMedio!==1?'s':''):'—',sub:'abertura → conclusão'},
   ]));
