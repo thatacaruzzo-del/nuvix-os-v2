@@ -2,20 +2,20 @@
    NUVIX 2.0 — Design System Global
    ===================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Design System Nuvix — paleta oficial (v3) */
-  --p:       #6D5EF5;
-  --p2:      #5B4CF0;  /* hover / acentos escuros */
-  --p3:      #B4ABF9;
-  --p-light: #EFEEFE;
-  --p-deep:  #241463;  /* ponta escura de gradientes (login, marca) */
-  --bg:      #F8F9FC;
-  --line:    #EAECF0;
-  --txt:     #101828;
-  --muted:   #667085;
-  --muted2:  #98A2B3;
+  /* Design System Nuvix — paleta Kinetic Violet (v4) */
+  --p:       #6343A4;
+  --p2:      #533294;  /* hover / acentos escuros */
+  --p3:      #D2BCFF;
+  --p-light: #F3EAFF;
+  --p-deep:  #25005A;  /* ponta escura de gradientes (login, marca) */
+  --bg:      #FCF8FB;
+  --line:    #E4E1EB;
+  --txt:     #1B1B1D;
+  --muted:   #494551;
+  --muted2:  #7B7583;
   /* Estado em badges usa cor semântica clara — é informação real de negócio, não decoração. */
   --red:     #DC2626;
   --red-bg:  #FEF2F2;
@@ -32,12 +32,18 @@
   --radius-sm: 12px;
   --radius-lg: 20px;
   --sidebar-w: 68px;
+  /* Sidebar sólida (Kinetic Violet) — tons próprios porque o fundo deixa de ser branco */
+  --sidebar-bg:        #5E4D86;
+  --sidebar-active-bg: #7765A0;
+  --sidebar-text:      rgba(255,255,255,.78);
+  --sidebar-text-muted:rgba(255,255,255,.5);
+  --sidebar-hover-bg:  rgba(255,255,255,.08);
 }
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
   background: var(--bg); color: var(--txt);
   line-height: 1.5; font-size: 14px;
   -webkit-font-smoothing: antialiased;
@@ -171,8 +177,8 @@ tr:hover td { background: #FAF9FE; }
 .sidebar {
   position: fixed; inset: 0 auto 0 0;
   width: var(--sidebar-w);
-  background: #FFFFFF;
-  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  border-right: none;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -181,28 +187,29 @@ tr:hover td { background: #FAF9FE; }
   overflow-x: hidden;
   overflow-y: auto;
   height: 100vh;
-  box-shadow: 1px 0 0 rgba(31,41,55,.02), 6px 0 28px rgba(31,41,55,.025);
+  box-shadow: 1px 0 0 rgba(31,41,55,.04), 6px 0 28px rgba(37,0,90,.12);
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
-.sidebar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
-.sidebar::-webkit-scrollbar-thumb:hover { background: var(--p3); }
-.sidebar { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 99px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.35); }
+.sidebar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
 
 .sidebar-logo {
   width: 42px; height: 42px;
-  background: linear-gradient(135deg, var(--p), var(--p3));
+  background: #fff;
   border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
   margin: 18px auto 14px;
   cursor: pointer;
   flex-shrink: 0;
   align-self: center;
-  box-shadow: 0 6px 16px rgba(109,94,245,.3);
+  box-shadow: 0 6px 16px rgba(37,0,90,.25);
   transition: all .2s;
 }
 .sidebar-logo:hover { transform: scale(1.05); }
 .sidebar-logo svg { width: 26px; height: 20px; }
+.sidebar-logo svg path { fill: var(--p); }
 
 /* Groups */
 .sb-group {
@@ -217,7 +224,7 @@ tr:hover td { background: #FAF9FE; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: var(--muted2);
+  color: var(--sidebar-text-muted);
   padding: 4px 10px 8px;
   white-space: nowrap;
   overflow: hidden;
@@ -231,7 +238,7 @@ tr:hover td { background: #FAF9FE; }
   width: 100%;
   padding: 10px 13px;
   margin: 3px 0;
-  color: var(--muted);
+  color: var(--sidebar-text);
   text-decoration: none;
   border-radius: 11px;
   transition: all .15s;
@@ -259,18 +266,19 @@ tr:hover td { background: #FAF9FE; }
   max-width: 130px;
 }
 .sb-btn:hover {
-  color: var(--p);
-  background: var(--p-light);
+  color: #fff;
+  background: var(--sidebar-hover-bg);
 }
-.sb-btn:hover svg { color: var(--p); }
+.sb-btn:hover svg { color: #fff; }
 .sb-btn.active, .sb-btn[data-active] {
-  color: var(--p);
-  background: transparent;
+  color: #fff;
+  background: var(--sidebar-active-bg);
   font-weight: 700;
-  border-left: 2.5px solid var(--p);
+  border-left: 2.5px solid var(--p3);
   padding-left: 10.5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
-.sb-btn.active svg { color: var(--p); }
+.sb-btn.active svg { color: #fff; }
 .sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; cursor: pointer; z-index: 2; }
 .sb-alert-dot:hover { transform: scale(1.2); }
 
