@@ -36,7 +36,7 @@
 .period-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .period-btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
-.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(109,94,245,.3)}
+.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(99,67,164,.3)}
 .period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
 .period-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .adv-toggle{background:none;border:1px dashed var(--muted2);color:var(--muted2);font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
@@ -56,7 +56,7 @@
 .adv-lbl{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2);display:flex;align-items:center;gap:6px}
 .info-btn{width:15px;height:15px;border-radius:50%;background:var(--bg);color:var(--muted2);font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:help;position:relative;border:none}
 .info-btn:hover,.info-btn:focus{background:var(--p);color:#fff;outline:none}
-.info-tooltip{position:absolute;top:20px;left:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(91,76,240,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
+.info-tooltip{position:absolute;top:20px;left:-6px;width:230px;background:var(--p2);color:#fff;font-size:11px;font-weight:500;line-height:1.6;padding:12px 13px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 12px 28px rgba(83,50,148,.35);text-transform:none;letter-spacing:0;z-index:5;text-align:left}
 .info-tooltip b{font-weight:800}
 .info-btn:hover .info-tooltip,.info-btn:focus .info-tooltip{opacity:1}
 .competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -1587,16 +1587,16 @@ function renderFluxoChart(){
   if(charts.fluxo)charts.fluxo.destroy();
   const c=$('chartFluxo');
   if(c)charts.fluxo=new Chart(c,{type:'bar',data:{labels:lblBuckets,datasets:[
-    {label:'Recebido',data:recConf,backgroundColor:'#6D5EF5',borderRadius:4,maxBarThickness:14},
+    {label:'Recebido',data:recConf,backgroundColor:'#6343A4',borderRadius:4,maxBarThickness:14},
     {label:'Pago',data:despConf,backgroundColor:'#98A2B3',borderRadius:4,maxBarThickness:14},
-    {label:'Previsto',data:recPrev,backgroundColor:'transparent',borderColor:'#B4ABF9',borderWidth:1.5,borderDash:[3,2],borderRadius:4,maxBarThickness:14}
+    {label:'Previsto',data:recPrev,backgroundColor:'transparent',borderColor:'#D2BCFF',borderWidth:1.5,borderDash:[3,2],borderRadius:4,maxBarThickness:14}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14,color:'#667085',font:{size:12}}}},scales:{x:{grid:{display:false},ticks:{color:'#98A2B3',maxRotation:0,autoSkip:true,maxTicksLimit:12}},y:{beginAtZero:true,grid:{color:'rgba(16,24,40,.03)'},border:{display:false},ticks:{color:'#98A2B3',maxTicksLimit:5,callback:moneyTick}}}}});
   setHTML('subFluxo', `${passado} dias passados + ${futuro} dias à frente`);
 }
 
 // PRÓXIMOS COMPROMISSOS — as próximas contas a receber/pagar (não misturado com caixa nem resultado)
 // Avatar com iniciais, cor derivada do nome — mesma pessoa/empresa sempre cai na mesma cor.
-const AVATAR_CORES=['#6D5EF5','#0EA5E9','#F59E0B','#EF4444','#10B981','#EC4899'];
+const AVATAR_CORES=['#6343A4','#0EA5E9','#F59E0B','#EF4444','#10B981','#EC4899'];
 function avatarHTML(nome){
   const n=nome||'?';
   const letra=n.trim()[0]?.toUpperCase()||'?';

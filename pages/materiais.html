@@ -57,7 +57,7 @@
 .mov-entrada{background:#ECFDF5;color:#059669}
 .mov-saida{background:#FEF2F2;color:#DC2626}
 .mov-ajuste{background:#DBEAFE;color:#1E40AF}
-.mov-inventario{background:#EFEEFE;color:#5B4CF0}
+.mov-inventario{background:#EFEEFE;color:#533294}
 
 /* ── CHART CARDS ── */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
@@ -537,7 +537,7 @@ function renderCharts(){
   if(charts.consumo)charts.consumo.destroy();
   const c1=$('chartConsumo');
   if(c1)charts.consumo=new Chart(c1,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D5EF5',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#6343A4',backgroundColor:'rgba(99,67,164,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6343A4',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 
@@ -547,21 +547,21 @@ function renderCharts(){
   const top=Object.entries(matMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.top)charts.top.destroy();
   const c2=$('chartTop');
-  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(109,94,245,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
+  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(99,67,164,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
 
   // Por categoria
   const catMap={};dados.materiais.forEach(m=>{const c=m.categoria||'Outros';if(!catMap[c])catMap[c]=0;catMap[c]+=Number(m.estoque_atual||0)*Number(m.custo_compra||0);});
   const catEntries=Object.entries(catMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.cat)charts.cat.destroy();
   const c3=$('chartCat');
-  const colors=['#6D5EF5','#8B5CF6','#B4ABF9','#C4B5FD','#DDD6FE','#9CA3AF','#6D5EF5','#A855F7'];
+  const colors=['#6343A4','#8B5CF6','#D2BCFF','#C4B5FD','#DDD6FE','#9CA3AF','#6343A4','#A855F7'];
   if(c3)charts.cat=new Chart(c3,{type:'doughnut',data:{labels:catEntries.map(x=>x[0]),datasets:[{data:catEntries.map(x=>x[1]),backgroundColor:colors,borderWidth:0,borderRadius:8,spacing:2}]},options:{responsive:true,cutout:'68%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}}}}});
 
   // Fluxo valor
   if(charts.fluxo)charts.fluxo.destroy();
   const c4=$('chartFluxo');
   if(c4)charts.fluxo=new Chart(c4,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6D5EF5',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#6343A4',backgroundColor:'rgba(99,67,164,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6343A4',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 }
