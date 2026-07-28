@@ -76,8 +76,9 @@ button {
   transition: background-color .15s ease, box-shadow .15s ease, transform .1s ease;
 }
 button:active { transform: scale(.98); }
+.btn, .btn2, .danger { border-radius: 999px; }
 .btn, .btn2 { height: 42px; padding: 0 16px; }
-.btn  { background: var(--p); color: #fff; }
+.btn  { background: var(--p); color: #fff; box-shadow: 0 6px 16px rgba(99,67,164,.25); }
 .btn:hover { background: var(--p2); }
 .btn2 { background: var(--p-light); color: var(--p); border: 1px solid var(--line); }
 .btn2:hover { background: #E3E0FD; }
