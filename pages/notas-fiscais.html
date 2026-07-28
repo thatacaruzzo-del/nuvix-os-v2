@@ -211,7 +211,7 @@ function renderStrip(){
     {lbl:'Processando',val:porStatus('processando'),cor:'var(--amber)'},
     {lbl:'Com erro',val:porStatus('erro'),cor:'var(--red)'},
     {lbl:'Valor autorizado',val:money(valorAutorizado),cor:'var(--txt)'},
-  ].map(c=>`<div class="nf-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div></div>`).join(''));
+  ].map(c=>`<div class="nf-card" style="border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div></div>`).join(''));
 }
 
 function renderLista(){

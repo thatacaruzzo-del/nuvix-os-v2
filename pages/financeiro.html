@@ -657,7 +657,7 @@ function renderStrip(){
     {lbl:'A pagar hoje',val:money(aPagHoje),cor:aPagHoje>0?'var(--red)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar amanhã',val:money(aPagAm),cor:aPagAm>0?'var(--amber)':'var(--muted)',sub:'próximo dia'},
     {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)',sub:'segue o filtro acima'},
-  ].map(c=>`<div class="fin-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
+  ].map(c=>`<div class="fin-card" style="border-left:4px solid ${c.cor==='var(--txt)'||c.cor==='var(--muted)'?'var(--p)':c.cor}"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
 }
 
 // ── SALVAR (nunca substitui — sempre insere novo ou atualiza pelo ID) ──
@@ -1090,7 +1090,7 @@ function renderLancamentos(){
     {lbl:'Total receitas',val:money(totalRec),cor:'var(--txt)'},
     {lbl:'Total despesas',val:money(totalDesp),cor:'var(--txt)'},
     {lbl:'Saldo',val:money(saldo),cor:saldo>=0?'var(--green)':'var(--red)'},
-  ].map(c=>`<div class="card" style="margin:0;padding:14px"><div class="metric-label">${c.lbl}</div><div style="font-size:20px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
+  ].map(c=>`<div class="card" style="margin:0;padding:14px;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div style="font-size:20px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
   setHTML('lanTable',lista.map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
@@ -1131,7 +1131,7 @@ function renderFluxo(){
     {lbl:'Despesa confirmada (período)',val:money(despPeriodo),cor:'var(--txt)'},
     {lbl:'Total a receber',val:money(aRec),cor:'var(--txt)'},
     {lbl:'Total a pagar',val:money(aPag),cor:'var(--txt)'},
-  ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
+  ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   let lista=[...financeiro].sort((a,b)=>String(a.vencimento||a.data_lancamento||'').localeCompare(String(b.vencimento||b.data_lancamento||'')));
   if(fluxoFiltro==='hoje')lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,10)===hj);
   if(fluxoFiltro==='semana')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v>=hj&&v<=semStr});
@@ -1165,7 +1165,7 @@ function renderReceber(){
     {lbl:'Total a receber',val:money(total),cor:'var(--txt)'},
     {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
-  ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
+  ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   setHTML('receberTable',lista.map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
@@ -1191,7 +1191,7 @@ function renderPagar(){
     {lbl:'Total a pagar',val:money(total),cor:'var(--txt)'},
     {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
-  ].map(c=>`<div class="card" style="margin:0"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
+  ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   setHTML('pagarTable',lista.map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
