@@ -27,6 +27,15 @@
 .btn-finalizar{background:var(--p-light);color:var(--p2);border:1px solid #C4B5FD;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .indicadores-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 @media(max-width:768px){#hambBtn{display:block!important}.indicadores-grid{grid-template-columns:1fr 1fr}}
+.bento-servicos{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.bento-servicos{grid-template-columns:1fr}}
+.hero-recorrencia{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:0 10px 26px rgba(99,67,164,.28)}
+.hero-recorrencia-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
+.hero-recorrencia-val{font-size:32px;font-weight:800;margin-top:4px}
+.hero-recorrencia-ic{background:rgba(255,255,255,.2);border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-recorrencia-bar-track{height:7px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden}
+.hero-recorrencia-bar-track>div{height:100%;background:#fff;border-radius:99px;transition:width .5s ease}
+.hero-recorrencia-desc{font-size:12px;opacity:.9;line-height:1.5}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 </head>
@@ -111,6 +120,24 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       </div>
       <!-- CATÁLOGO -->
       <div id="pane-catalogo" class="svc-pane active">
+        <div class="bento-servicos">
+          <div class="card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <h2 style="margin:0">Orçamentos em aberto</h2>
+              <span class="badge" id="orcAbertosBadge">—</span>
+            </div>
+            <div id="orcamentosPreview"></div>
+            <a href="#" onclick="svcTab('orcamentos');window.scrollTo({top:0,behavior:'smooth'});return false" style="display:inline-block;margin-top:6px;font-size:12.5px;font-weight:700;color:var(--p);text-decoration:none">Ver todos os orçamentos →</a>
+          </div>
+          <div class="hero-recorrencia">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="hero-recorrencia-lbl">Recorrência mensal</div><div class="hero-recorrencia-val" id="recorrenciaVal">—</div></div>
+              <div class="hero-recorrencia-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+            </div>
+            <div class="hero-recorrencia-bar-track"><div id="recorrenciaBar" style="width:0%"></div></div>
+            <p class="hero-recorrencia-desc" id="recorrenciaDesc">—</p>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="card">
             <h2 id="catTitulo">Novo serviço</h2>
@@ -243,7 +270,37 @@ async function init(){
   $('pageLoader')?.classList.add('hide');
 }
 async function loadData(){if(!session?.empresa_id)return;const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;try{const[cat,orc,cli,mats]=await Promise.all([db.get('servicos_catalogo',q),db.get('servicos_orcamentos',q),db.get('clientes',q),db.get('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&order=nome.asc`)]);dados={catalogo:cat,orcamentos:orc,clientes:cli,materiais:mats};popularSelectMateriais();renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
-function renderTudo(){renderIndicadores();renderCatalogo();renderOrcamentos();renderExecucao();renderHistorico();popularSelects();}
+function renderTudo(){renderIndicadores();renderCatalogo();renderOrcamentos();renderExecucao();renderHistorico();popularSelects();renderOrcamentosPreview();renderRecorrenciaMensal();}
+
+// BENTO DO CATÁLOGO — prévia dos orçamentos em aberto + % de recorrência, sem duplicar dado:
+// reaproveita dados.orcamentos/dados.catalogo já carregados e o mesmo cartão .orc-card real.
+function renderOrcamentosPreview(){
+  const pendentes=(dados.orcamentos||[]).filter(o=>['Rascunho','Enviado'].includes(o.status||''));
+  const hj=hoje();
+  const topPendentes=[...pendentes].sort((a,b)=>String(a.validade||'9999-99-99').localeCompare(String(b.validade||'9999-99-99'))).slice(0,3);
+  const cardHTML=o=>{
+    const v=String(o.validade||'').slice(0,10),diff=v?Math.ceil((new Date(v)-new Date(hj))/864e5):null;
+    let slaBadge='';
+    if(v){if(diff<0)slaBadge=`<span class="sla-bad">${Math.abs(diff)}d atrasado</span>`;else if(diff===0)slaBadge='<span class="sla-warn">Vence hoje</span>';else if(diff<=3)slaBadge=`<span class="sla-warn">${diff}d restantes</span>`;else slaBadge=`<span class="sla-ok">${diff}d restantes</span>`;}
+    return `<div class="orc-card" style="margin-bottom:8px;cursor:pointer" onclick="svcTab('orcamentos');window.scrollTo({top:0,behavior:'smooth'})">
+      <div class="orc-card-header">
+        <div><div class="orc-card-title">${esc(o.servico_nome||'Serviço')} — ${esc(o.cliente_nome||'')}</div>
+        <div class="orc-card-sub"><span class="badge">${o.status||''}</span>${slaBadge?' &nbsp;'+slaBadge:''}</div></div>
+        <div class="orc-card-valor">${money(o.valor_total)}</div>
+      </div>
+    </div>`;
+  };
+  setHTML('orcamentosPreview', topPendentes.length?topPendentes.map(cardHTML).join(''):'<p class="muted" style="padding:6px 0">Nenhum orçamento em aberto.</p>');
+  const badge=$('orcAbertosBadge'); if(badge)badge.textContent=pendentes.length+' pendente'+(pendentes.length!==1?'s':'');
+}
+function renderRecorrenciaMensal(){
+  const ativos=(dados.catalogo||[]).filter(s=>s.ativo!==false);
+  const recorrentes=ativos.filter(s=>s.recorrente).length;
+  const pct=ativos.length?Math.round(recorrentes/ativos.length*100):0;
+  const val=$('recorrenciaVal'); if(val)val.textContent=pct+'%';
+  const bar=$('recorrenciaBar'); if(bar)bar.style.width=pct+'%';
+  const desc=$('recorrenciaDesc'); if(desc)desc.textContent=ativos.length?`${recorrentes} de ${ativos.length} serviços ativos são recorrentes (assinatura ou contrato).`:'Cadastre serviços no catálogo pra ver essa métrica.';
+}
 function renderIndicadores(){const orc=dados.orcamentos||[];const abertos=orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length,emExec=orc.filter(o=>o.status==='Em execução').length,total=orc.length,txConv=total>0?Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100):0,hj=hoje(),vencidos=orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;setHTML('svcIndicadores',[{lbl:'Orçamentos abertos',val:abertos,cor:'var(--txt)',sub:'rascunho + enviado'},{lbl:'Em execução',val:emExec,cor:'var(--txt)',sub:'em andamento'},{lbl:'SLA vencido',val:vencidos,cor:vencidos>0?'var(--red)':'var(--green)',sub:'fora do prazo'},{lbl:'Taxa de conversão',val:txConv+'%',cor:'var(--txt)',sub:'aprovados'}].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));}
 async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const id=val('catId');if(!temPermissao('servicos',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
 function editarCatalogo(id){const s=dados.catalogo.find(x=>x.id===id);if(!s)return;$('catId').value=s.id;$('catNome').value=s.nome||'';$('catCategoria').value=s.categoria||'';$('catDesc').value=s.descricao||'';$('catValor').value=s.valor_base||'';$('catCusto').value=s.custo_estimado||'';$('catTempo').value=s.tempo_estimado||'';$('catRecorrente').value=s.recorrente?'true':'false';$('catAtivo').value=s.ativo===false?'false':'true';$('catTitulo').textContent='Editar serviço';svcTab('catalogo');window.scrollTo({top:0,behavior:'smooth'});}
