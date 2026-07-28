@@ -260,6 +260,26 @@ async function dbPatch(t,id,d){let r;try{const headers=t==='usuarios'?{...H,Pref
 async function dbDelete(t,id){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 
+// Cria usuário de verdade: conta de autenticação real no Supabase Auth + registro em
+// usuarios, com o mesmo id nos dois (ver edge function criar-usuario). Só inserir direto
+// em `usuarios` (como antes) nunca dava acesso ao sistema pro cliente — dbPost ficava só
+// no dado de negócio, sem existir em auth.users, que é o que o login de verdade verifica.
+async function criarUsuarioComLogin({nome,email,senha,perfil,empresa_id,ativo}){
+  const token=tokenAtual();
+  if(!token) throw new Error('Sessão inválida — saia e entre de novo.');
+  let r;
+  try{
+    r=await fetch(`${SB_URL}/functions/v1/criar-usuario`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({nome,email,senha,perfil,empresa_id,ativo}),
+    });
+  }catch(e){ throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.'); }
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data?.error||'Erro ao criar usuário.');
+  return data;
+}
+
 // AUTH
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -1757,7 +1777,7 @@ async function salvarEmpresa(){
 
     if(adminEmail){
       try{
-        await dbPost('usuarios',{nome:adminNome||adminEmail,email:adminEmail,senha:adminSenha,perfil:'Administrador',empresa_id:emp.id,ativo:true});
+        await criarUsuarioComLogin({nome:adminNome||adminEmail,email:adminEmail,senha:adminSenha,perfil:'Administrador',empresa_id:emp.id,ativo:true});
       }catch(e){ avisos.push('usuário admin não foi criado ('+e.message+') — crie manualmente na aba Usuários'); }
     }
 
@@ -2032,7 +2052,7 @@ async function salvarUsuario(){
     const payload={nome,email,perfil:val('usuPerfil'),cargo:val('usuCargo').trim(),telefone:val('usuTel').trim(),empresa_id:val('usuEmpresa')||null,ativo:val('usuAtivo')!=='false'};
     if(senha)payload.senha=senha;
     if(id)await dbPatch('usuarios',id,payload);
-    else await dbPost('usuarios',payload);
+    else await criarUsuarioComLogin(payload);
     msgEl('usuMsg',id?'Usuário atualizado!':'Usuário criado!','ok');
     setTimeout(()=>fecharModal('modalNovoUsu'),1500);
     await carregarTudo();
