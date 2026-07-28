@@ -55,6 +55,9 @@
 .est-ok{background:#ECFDF5;color:#059669}
 .est-low{background:#FEF3C7;color:#92400E}
 .est-zero{background:#FEF2F2;color:#DC2626}
+.mat-card.est-ok{border-left:4px solid var(--green)}
+.mat-card.est-low{border-left:4px solid var(--amber)}
+.mat-card.est-zero{border-left:4px solid var(--red)}
 
 /* ── MOVIMENTAÇÃO ── */
 .mov-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
@@ -222,15 +225,15 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="view-toggle">
-              <button class="view-btn active" id="viewTabela" onclick="setView('tabela')" title="Tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-              <button class="view-btn" id="viewGrid" onclick="setView('grid')" title="Grade">⊞</button>
+              <button class="view-btn" id="viewTabela" onclick="setView('tabela')" title="Tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+              <button class="view-btn active" id="viewGrid" onclick="setView('grid')" title="Grade">⊞</button>
             </div>
             <button class="btn" onclick="abrirModalMaterial()">+ Novo material</button>
           </div>
         </div>
 
         <!-- Tabela view -->
-        <div id="viewTabelaWrap">
+        <div id="viewTabelaWrap" style="display:none">
           <div class="card" style="padding:0;overflow:hidden">
             <div class="tablewrap">
               <table>
@@ -246,7 +249,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
         </div>
 
         <!-- Grid view -->
-        <div id="viewGridWrap" style="display:none">
+        <div id="viewGridWrap">
           <div class="mat-grid" id="matGridView"></div>
         </div>
       </div>
@@ -455,7 +458,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
 // ══ ESTADO ══
 const session = requireAuth();
 let dados = { materiais:[], movimentacoes:[], fornecedores:[] };
-let viewAtual = 'tabela';
+let viewAtual = 'grid';
 let matDetalheId = '';
 let charts = {};
 
@@ -637,7 +640,7 @@ function renderMateriais(){
   setHTML('matGridView',lista.map(m=>{
     const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo,m.estoque_reservado);
     const icon=CAT_ICONS[m.categoria]||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
-    return`<div class="mat-card" onclick="verDetalhe('${m.id}')">
+    return`<div class="mat-card ${cls}" onclick="verDetalhe('${m.id}')">
       <div class="mat-card-img">${m.foto_url?`<img src="${esc(m.foto_url)}" alt="${esc(m.nome)}">`:icon}</div>
       <div class="mat-card-nome">${esc(m.nome)}</div>
       <div class="mat-card-cat">${icon} ${esc(m.categoria||'')} ${m.marca?'· '+esc(m.marca):''}</div>
