@@ -109,6 +109,7 @@
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
+<script src="../js/csv-import.js"></script>
 </head>
 <body>
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
@@ -327,6 +328,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <button class="btn" onclick="salvarLancamento()">Salvar lançamento</button>
             <button class="btn2" onclick="limparLancamento()">Limpar</button>
             <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
+            <button class="btn2" onclick="abrirModalImportar()">Importar planilha</button>
           </div>
           <div id="lanMsg" class="msg"></div>
         </div>
@@ -444,6 +446,33 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalBaixar')">Cancelar</button>
     <button class="btn" onclick="confirmarBaixa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Confirmar baixa</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL IMPORTAR PLANILHA -->
+<div class="modal-overlay" id="modalImportar">
+<div class="modal" style="max-width:760px">
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importar planilha</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Baixe o modelo, preencha no Excel/Google Sheets e suba de volta. Nada é gravado antes de você conferir a prévia e confirmar.</p>
+  <div class="actions" style="margin-bottom:14px">
+    <button class="btn2" onclick="baixarModeloFinanceiro()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar modelo (.csv)</button>
+  </div>
+  <div class="field">
+    <label>Arquivo (.csv)</label>
+    <input type="file" id="importArquivo" accept=".csv" onchange="lerArquivoImportacao(this)">
+  </div>
+  <div id="importResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
+  <div id="importPreviewWrap" style="display:none;max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <table style="font-size:12px">
+      <thead><tr><th></th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Data</th><th>Motivo</th></tr></thead>
+      <tbody id="importPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="importMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModalImportar()">Cancelar</button>
+    <button class="btn" id="importConfirmarBtn" onclick="confirmarImportacao()" disabled>Confirmar e importar</button>
   </div>
 </div>
 </div>
@@ -1037,6 +1066,144 @@ async function confirmarBaixa(){
 function exportarFinanceiroCSV(){
   if(!temPermissao('financeiro','exportar')){toast('Sem permissão para exportar.','err');return;}
   exportCSV(financeiro,'financeiro');
+}
+
+// ══ IMPORTAR PLANILHA ══
+// Mesmas listas de opção já usadas no formulário manual (#lanCat, #lanStatus,
+// #lanForma) — reaproveitadas aqui pra validar em vez de duplicar uma lista nova.
+const IMPORT_CATEGORIAS=['Serviços','Vendas de Produtos','Transporte / Frete','Aluguel','Salários','Combustível','Manutenção','Impostos','Marketing','Equipamentos','Materiais','Fornecedores','Outros'];
+const IMPORT_STATUS=['Pendente','Pago','Recebido','Vencido','Cancelado'];
+const IMPORT_FORMAS=['Dinheiro','Pix','Boleto','Cartão débito','Cartão crédito','Transferência','Cheque'];
+const IMPORT_CABECALHO=['tipo','categoria','descricao','valor','data_lancamento','vencimento','forma_pagamento','status','favorecido'];
+let importLinhasValidas=[];
+let importArquivoNome='';
+
+function abrirModalImportar(){
+  if(!temPermissao('financeiro','criar')){toast('Sem permissão para importar lançamentos.','err');return;}
+  $('importArquivo').value='';
+  $('importResumo').style.display='none';
+  $('importPreviewWrap').style.display='none';
+  $('importPreviewTable').innerHTML='';
+  $('importMsg').textContent='';$('importMsg').className='msg';
+  $('importConfirmarBtn').disabled=true;
+  importLinhasValidas=[];
+  abrirModal('modalImportar');
+}
+function fecharModalImportar(){ fecharModal('modalImportar'); }
+
+function baixarModeloFinanceiro(){
+  baixarModeloCSV(
+    IMPORT_CABECALHO,
+    ['Receita','Serviços','Exemplo de descrição','150,00','01/08/2026','','Pix','Recebido','Nome do cliente'],
+    'modelo_financeiro.csv',
+  );
+}
+
+function lerArquivoImportacao(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const linhas=parseCSV(String(reader.result||''));
+      processarImportacao(linhas, arquivo.name);
+    }catch(e){
+      $('importMsg').textContent='Não foi possível ler o arquivo: '+e.message;
+      $('importMsg').className='msg show err';
+    }
+  };
+  reader.onerror=()=>{ $('importMsg').textContent='Erro ao ler o arquivo.'; $('importMsg').className='msg show err'; };
+  reader.readAsText(arquivo, 'UTF-8');
+}
+
+// Valida cada linha e classifica — uma linha ruim não derruba as outras.
+function validarLinhaImportacao(linha){
+  const erros=[];
+  const tipoIn=(linha.tipo||'').trim().toLowerCase();
+  const tipo=tipoIn==='receita'?'Receita':tipoIn==='despesa'?'Despesa':null;
+  if(!tipo)erros.push('tipo deve ser Receita ou Despesa');
+
+  const descricao=(linha.descricao||'').trim();
+  if(!descricao)erros.push('descrição obrigatória');
+
+  const valor=parseNumeroBR(linha.valor);
+  if(!valor||isNaN(valor)||valor<=0)erros.push('valor inválido');
+
+  const dataLancamento=parseDataBR(linha.data_lancamento);
+  if(!dataLancamento)erros.push('data inválida (use DD/MM/AAAA)');
+
+  const vencimento=linha.vencimento?parseDataBR(linha.vencimento):null;
+  if(linha.vencimento&&!vencimento)erros.push('vencimento inválido');
+
+  const categoriaIn=(linha.categoria||'').trim();
+  const categoria=IMPORT_CATEGORIAS.find(c=>c.toLowerCase()===categoriaIn.toLowerCase())||'Outros';
+
+  const statusIn=(linha.status||'').trim();
+  const status=IMPORT_STATUS.find(s=>s.toLowerCase()===statusIn.toLowerCase())||'Pendente';
+
+  const formaIn=(linha.forma_pagamento||'').trim();
+  const forma=IMPORT_FORMAS.find(f=>f.toLowerCase()===formaIn.toLowerCase())||'Dinheiro';
+
+  const favorecido=(linha.favorecido||'').trim()||null;
+
+  return {
+    ok: erros.length===0,
+    erro: erros.join('; '),
+    payload: erros.length===0?{tipo,categoria,descricao,valor,data_lancamento:dataLancamento,vencimento,forma_pagamento:forma,status,favorecido}:null,
+  };
+}
+
+function processarImportacao(linhas, nomeArquivo){
+  if(!linhas.length){
+    $('importMsg').textContent='Planilha vazia ou sem linhas de dados.';
+    $('importMsg').className='msg show err';
+    $('importPreviewWrap').style.display='none';
+    $('importConfirmarBtn').disabled=true;
+    return;
+  }
+  const resultados=linhas.map(l=>({linha:l,...validarLinhaImportacao(l)}));
+  importLinhasValidas=resultados.filter(r=>r.ok).map(r=>r.payload);
+  importArquivoNome=nomeArquivo;
+
+  $('importResumo').style.display='block';
+  $('importResumo').textContent=`${importLinhasValidas.length} de ${resultados.length} linhas prontas pra importar.`;
+  $('importResumo').style.color=importLinhasValidas.length?'var(--green)':'var(--red)';
+
+  $('importPreviewTable').innerHTML=resultados.map(r=>`
+    <tr style="${r.ok?'':'background:var(--red-bg,#FEF2F2)'}">
+      <td>${r.ok?'✓':'✕'}</td>
+      <td>${esc(r.linha.tipo||'')}</td>
+      <td>${esc(r.linha.categoria||'')}</td>
+      <td>${esc(r.linha.descricao||'')}</td>
+      <td>${esc(r.linha.valor||'')}</td>
+      <td>${esc(r.linha.data_lancamento||'')}</td>
+      <td style="color:var(--red)">${esc(r.erro||'')}</td>
+    </tr>`).join('');
+  $('importPreviewWrap').style.display='block';
+  $('importConfirmarBtn').disabled=importLinhasValidas.length===0;
+  $('importMsg').textContent='';$('importMsg').className='msg';
+}
+
+async function confirmarImportacao(){
+  if(!importLinhasValidas.length)return;
+  if(!temPermissao('financeiro','criar')){toast('Sem permissão para importar lançamentos.','err');return;}
+  const btn=$('importConfirmarBtn');
+  btn.disabled=true;btn.textContent='Importando...';
+  try{
+    const payloads=importLinhasValidas.map(p=>withEmpresa({...p,data_pagamento:['Pago','Recebido'].includes(p.status)?p.data_lancamento:null}));
+    await db.post('financeiro',payloads);
+    try{
+      await db.post('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'financeiro',nome_arquivo:importArquivoNome,total_linhas:importLinhasValidas.length,status:'concluido'}));
+    }catch(e){ /* log de auditoria não deve travar a importação em si */ }
+    toast(`${importLinhasValidas.length} lançamento(s) importado(s)!`,'ok');
+    fecharModalImportar();
+    await loadData();
+  }catch(e){
+    $('importMsg').textContent='Erro ao importar: '+e.message;
+    $('importMsg').className='msg show err';
+  }finally{
+    btn.disabled=false;btn.textContent='Confirmar e importar';
+  }
 }
 async function excluirLancamento(id){
   if(!temPermissao('financeiro','excluir')){toast('Sem permissão para excluir.','err');return;}
