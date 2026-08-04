@@ -255,6 +255,7 @@ h1 .grad{color:var(--c4)}
         <div class="card-hierarchy-title">Acesse sua conta</div>
         <div class="card-hierarchy-sub">Entre com seu e-mail corporativo.</div>
       </div>
+      <div id="loginFields">
       <div class="field">
         <label>E-mail corporativo</label>
         <div class="field-wrap">
@@ -282,11 +283,26 @@ h1 .grad{color:var(--c4)}
           <div class="remember-box"></div>
           <span>Lembrar acesso</span>
         </label>
-        <a href="#" class="forgot">Esqueci a senha</a>
+        <a href="#" class="forgot" onclick="abrirRecuperarSenha();return false">Esqueci a senha</a>
       </div>
       <button class="btn-primary" onclick="entrar()" id="btnLogin">Entrar na Plataforma</button>
       <button class="btn-secondary" onclick="demo()">Solicitar Demonstração</button>
       <div id="loginErr"></div>
+      </div>
+      <div id="recuperarFields" style="display:none">
+        <div class="field">
+          <label>E-mail corporativo</label>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <input type="email" id="recEmail" placeholder="seu@empresa.com.br" autocomplete="email" onkeydown="if(event.key==='Enter')enviarRecuperacaoSenha()">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="enviarRecuperacaoSenha()" id="btnRecuperar">Enviar link de redefinição</button>
+        <button class="btn-secondary" onclick="fecharRecuperarSenha()">Voltar pro login</button>
+        <div id="recuperarMsg"></div>
+      </div>
       <div class="powered">Powered by <span>Nuvix Hub</span></div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(139,92,246,.4)">
         <a href="privacidade.html" style="color:#6D5EF5;text-decoration:none;font-weight:500">Política de Privacidade</a>
@@ -357,6 +373,42 @@ async function entrar(){
 }
 function showErr(m){const e=document.getElementById('loginErr');e.textContent=m;e.style.display='block';}
 function demo(){window.open('mailto:contato@nuvixhub.com.br?subject=Solicitar Demonstração Nuvix Hub');}
+
+// ── RECUPERAR SENHA ──
+// Dispara o e-mail nativo do Supabase Auth (link de redefinição, mesmo mecanismo já
+// usado no convite de admin) — nunca revela se o e-mail existe ou não na base, pra não
+// virar um jeito de descobrir quais contas estão cadastradas.
+function abrirRecuperarSenha(){
+  document.getElementById('loginFields').style.display='none';
+  document.getElementById('recuperarFields').style.display='block';
+  const emailAtual=document.getElementById('email').value.trim();
+  if(emailAtual)document.getElementById('recEmail').value=emailAtual;
+  document.getElementById('recEmail').focus();
+}
+function fecharRecuperarSenha(){
+  document.getElementById('recuperarFields').style.display='none';
+  document.getElementById('loginFields').style.display='block';
+  const m=document.getElementById('recuperarMsg');m.textContent='';m.style.display='none';
+}
+async function enviarRecuperacaoSenha(){
+  const email=document.getElementById('recEmail').value.trim().toLowerCase();
+  const msg=document.getElementById('recuperarMsg');
+  const btn=document.getElementById('btnRecuperar');
+  if(!email){msg.textContent='Informe seu e-mail.';msg.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(window.location.origin+'/definir-senha.html')}`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email}),
+    });
+  }catch(e){}
+  // Mesma mensagem sempre — sucesso ou falha, não dá pra diferenciar de propósito.
+  msg.textContent='Se esse e-mail estiver cadastrado, você vai receber um link pra redefinir a senha em instantes.';
+  msg.style.display='block';
+  msg.style.color='#065F46';
+  btn.disabled=false;btn.textContent='Enviar link de redefinição';
+}
 function toggleSenha(){
   const inp=document.getElementById('senha');
   const icon=document.getElementById('eyeIcon');

@@ -937,7 +937,7 @@ const MODULOS_PLANO={
     <div class="form-grid">
       <div class="field"><label>Nome do admin</label><input id="empAdminNome" placeholder="Nome completo"></div>
       <div class="field"><label>E-mail do admin *</label><input type="email" id="empAdminEmail"></div>
-      <div class="field"><label>Senha inicial *</label><input type="text" id="empAdminSenha" placeholder="mínimo 4 caracteres"></div>
+      <div class="field"><label>Senha inicial *</label><input type="text" id="empAdminSenha" placeholder="mínimo 8 caracteres"></div>
     </div>
   </div>
 
@@ -1044,7 +1044,8 @@ const MODULOS_PLANO={
   <div class="form-grid">
     <div class="field"><label>Nome *</label><input id="usuNome"></div>
     <div class="field"><label>E-mail *</label><input type="email" id="usuEmail"></div>
-    <div class="field"><label>Senha *</label><input type="text" id="usuSenha" placeholder="mínimo 4 caracteres"></div>
+    <div class="field" id="usuSenhaWrap"><label>Senha *</label><input type="text" id="usuSenha" placeholder="mínimo 8 caracteres"></div>
+    <div class="field" id="usuSenhaEditHint" style="display:none;font-size:12px;color:var(--muted)">Pra trocar a senha, use "Redefinir senha" na lista de usuários.</div>
     <div class="field"><label>Empresa *</label><select id="usuEmpresa"></select></div>
     <div class="field"><label>Perfil</label>
       <select id="usuPerfil">
@@ -1073,7 +1074,7 @@ const MODULOS_PLANO={
   <h3>Redefinir senha</h3>
   <p style="color:var(--muted);margin-bottom:16px;font-size:13px">Usuário: <b id="senhaUsuNome"></b></p>
   <input type="hidden" id="senhaUsuId">
-  <div class="field"><label>Nova senha</label><input type="text" id="novaSenha" placeholder="mínimo 4 caracteres"></div>
+  <div class="field"><label>Nova senha</label><input type="text" id="novaSenha" placeholder="mínimo 8 caracteres"></div>
   <div id="senhaMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalSenha')">Cancelar</button>
@@ -1791,7 +1792,7 @@ async function salvarEmpresa(){
   const adminEmail=val('empAdminEmail').trim().toLowerCase();
   const adminSenha=val('empAdminSenha').trim();
   const adminNome=val('empAdminNome').trim();
-  if(adminEmail&&(!adminSenha||adminSenha.length<4)){msgEl('empMsg','Senha do admin deve ter mínimo 4 caracteres.','err');return;}
+  if(adminEmail&&(!adminSenha||adminSenha.length<8)){msgEl('empMsg','Senha do admin deve ter mínimo 8 caracteres.','err');return;}
   const plano=val('empPlano')||'Start';
 
   // Trava contra clique duplo — sem isso, cada clique enquanto salva vira uma empresa
@@ -2082,6 +2083,8 @@ function abrirModalNovoUsuario(){
   if($('usuPerfil'))$('usuPerfil').value='Colaborador';
   if($('usuAtivo'))$('usuAtivo').value='true';
   if($('usuEmpresa'))$('usuEmpresa').value='';
+  $('usuSenhaWrap').style.display='block';
+  $('usuSenhaEditHint').style.display='none';
   $('tituloModalUsu').textContent='Novo usuário';
   abrirModal('modalNovoUsu');
 }
@@ -2092,15 +2095,23 @@ function editarUsuario(id){
   $('usuSenha').value='';$('usuCargo').value=u.cargo||'';$('usuTel').value=u.telefone||'';
   $('usuPerfil').value=u.perfil||'Colaborador';$('usuEmpresa').value=u.empresa_id||'';
   $('usuAtivo').value=u.ativo!==false?'true':'false';
+  $('usuSenhaWrap').style.display='none';
+  $('usuSenhaEditHint').style.display='block';
   $('tituloModalUsu').textContent='Editar usuário';
   abrirModal('modalNovoUsu');
 }
 
 async function salvarUsuario(){
-  const nome=val('usuNome').trim(),email=val('usuEmail').trim().toLowerCase(),senha=val('usuSenha').trim();
+  const nome=val('usuNome').trim(),email=val('usuEmail').trim().toLowerCase();
   const id=val('usuId');
+  // Senha só é lida (e enviada) na criação — editar um usuário existente nunca manda
+  // senha nenhuma pro payload, pra não repetir o bug de gravar na coluna legada
+  // usuarios.senha sem trocar a senha de acesso real (ver confirmarSenha/edge function
+  // redefinir-senha-usuario, que é o único caminho certo pra trocar senha de alguém
+  // que já existe).
+  const senha=id?'':val('usuSenha').trim();
   if(!nome||!email){msgEl('usuMsg','Nome e e-mail são obrigatórios.','err');return;}
-  if(!id&&(!senha||senha.length<4)){msgEl('usuMsg','Senha mínima: 4 caracteres.','err');return;}
+  if(!id&&(!senha||senha.length<8)){msgEl('usuMsg','Senha mínima: 8 caracteres.','err');return;}
   try{
     const q=id?`?email=eq.${encodeURIComponent(email)}&id=neq.${id}&select=id&limit=1`:`?email=eq.${encodeURIComponent(email)}&select=id&limit=1`;
     const existente=await dbGet('usuarios',q).catch(()=>[]);
@@ -2138,9 +2149,20 @@ function abrirSenha(id,nome){
 }
 async function confirmarSenha(){
   const id=val('senhaUsuId'),senha=val('novaSenha').trim();
-  if(!senha||senha.length<4){msgEl('senhaMsg','Senha mínima: 4 caracteres.','err');return;}
-  try{await dbPatch('usuarios',id,{senha});msgEl('senhaMsg','Senha redefinida!','ok');setTimeout(()=>fecharModal('modalSenha'),1500);}
-  catch(e){msgEl('senhaMsg','Erro: '+e.message,'err');}
+  if(!senha||senha.length<8){msgEl('senhaMsg','Senha mínima: 8 caracteres.','err');return;}
+  const token=tokenAtual();
+  if(!token){msgEl('senhaMsg','Sessão inválida — saia e entre de novo.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/redefinir-senha-usuario`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({id,senha}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao redefinir senha.');
+    msgEl('senhaMsg','Senha redefinida! Já vale pro próximo login.','ok');
+    setTimeout(()=>fecharModal('modalSenha'),1500);
+  }catch(e){msgEl('senhaMsg','Erro: '+e.message,'err');}
 }
 
 // ═══ PERMISSÕES ═══

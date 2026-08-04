@@ -425,18 +425,49 @@ async function salvarEmpresa(){
   try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
 }
 
+// Cria usuário de verdade: conta de autenticação real no Supabase Auth + registro em
+// usuarios, com o mesmo id nos dois — mesma edge function que admin.html usa (criar-
+// usuario já aceita Administrador/SuperAdmin da própria empresa, não só Admin Nuvix).
+// Um db.post('usuarios', {senha,...}) direto (como era antes) cria só o dado de
+// negócio, sem existir em auth.users — a pessoa nunca conseguiria logar.
 async function salvarUsuario(){
   if(!can('admin')){toast('Sem permissão.','err');return;}
   const nome=val('usrNome').trim();const email=val('usrEmail').trim().toLowerCase();const senha=val('usrSenha').trim();
   if(!nome||!email||!senha){msg('usrMsg','Preencha todos os campos.','err');return;}
-  if(senha.length<4){msg('usrMsg','Senha muito curta.','err');return;}
+  if(senha.length<8){msg('usrMsg','Senha deve ter no mínimo 8 caracteres.','err');return;}
+  const token=tokenAtual();
+  if(!token){msg('usrMsg','Sessão inválida — saia e entre de novo.','err');return;}
   try{
-    const existente=await db.get('usuarios',`?email=eq.${encodeURIComponent(email)}&select=id&limit=1`).catch(()=>[]);
-    if(Array.isArray(existente)&&existente.length>0){msg('usrMsg','Já existe um usuário cadastrado com esse e-mail.','err');return;}
-    await db.post('usuarios',{nome,email,senha,perfil:val('usrPerfil'),empresa_id:session.empresa_id,ativo:true});msg('usrMsg','Usuário criado!','ok');['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});await loadData();
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/criar-usuario`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({nome,email,senha,perfil:val('usrPerfil'),empresa_id:session.empresa_id,ativo:true}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao criar usuário.');
+    msg('usrMsg','Usuário criado!','ok');['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});await loadData();
   }catch(e){msg('usrMsg','Erro: '+e.message,'err');}
 }
-async function resetSenhaUsuario(id,nome){const nova=await promptAcao(`Nova senha para ${nome}:`,{placeholder:'Mínimo 4 caracteres',labelOk:'Redefinir'});if(!nova||nova.length<4){toast('Senha muito curta.','err');return;}try{await db.patch('usuarios',id,{senha:nova});toast('Senha redefinida!','ok');}catch(e){toast('Erro: '+e.message,'err');}}
+// Redefine a senha real (Supabase Auth) via edge function — db.patch('usuarios',{senha})
+// só grava numa coluna legada de um sistema de login antigo que não é mais usado pra
+// autenticar ninguém (ver sql/seguranca_senhas.sql), então nunca trocava a senha de
+// acesso de verdade.
+async function resetSenhaUsuario(id,nome){
+  const nova=await promptAcao(`Nova senha para ${nome}:`,{placeholder:'Mínimo 8 caracteres',labelOk:'Redefinir'});
+  if(!nova||nova.length<8){toast('Senha deve ter no mínimo 8 caracteres.','err');return;}
+  const token=tokenAtual();
+  if(!token){toast('Sessão inválida — saia e entre de novo.','err');return;}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/redefinir-senha-usuario`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({id,senha:nova}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao redefinir senha.');
+    toast('Senha redefinida!','ok');
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
 async function toggleUsuario(id,ativar){try{await db.patch('usuarios',id,{ativo:ativar});toast(ativar?'Ativado.':'Inativado.','ok');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 // Lista de módulos existentes no sistema, mesma referência usada em admin.html —
 // mantém os dois lados (admin Nuvix e cliente) falando dos mesmos ids de módulo.

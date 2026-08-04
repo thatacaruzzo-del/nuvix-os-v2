@@ -168,16 +168,32 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     </div>
     <div class="login-title">Portal do Técnico</div>
     <div class="login-sub">Nuvix Hub — Acesso exclusivo técnicos</div>
-    <div class="login-field">
-      <label>E-mail</label>
-      <input type="email" id="loginEmail" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()">
+    <div id="loginFieldsTec">
+      <div class="login-field">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()">
+      </div>
+      <div class="login-field">
+        <label>Senha</label>
+        <input type="password" id="loginSenha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <button class="login-btn" onclick="fazerLogin()">Entrar</button>
+      <div class="login-err" id="loginErr"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px">
+        <a href="#" style="color:var(--p);font-weight:600" onclick="abrirRecuperarSenhaTec();return false">Esqueci a senha</a>
+      </div>
     </div>
-    <div class="login-field">
-      <label>Senha</label>
-      <input type="password" id="loginSenha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+    <div id="recFieldsTec" style="display:none">
+      <div class="login-field">
+        <label>E-mail</label>
+        <input type="email" id="recEmailTec" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')enviarRecuperacaoSenhaTec()">
+      </div>
+      <button class="login-btn" onclick="enviarRecuperacaoSenhaTec()" id="btnRecuperarTec">Enviar link de redefinição</button>
+      <div class="login-err" id="recMsgTec"></div>
+      <div style="text-align:center;margin-top:12px;font-size:12px">
+        <a href="#" style="color:var(--p);font-weight:600" onclick="fecharRecuperarSenhaTec();return false">Voltar pro login</a>
+      </div>
     </div>
-    <button class="login-btn" onclick="fazerLogin()">Entrar</button>
-    <div class="login-err" id="loginErr"></div>
     <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted)">
       <a href="dashboard.html" style="color:var(--p);font-weight:600">← Acesso administrativo</a>
     </div>
@@ -370,6 +386,37 @@ async function fazerLogin(){
 }
 
 function mostrarErr(txt){const e=$('loginErr');e.textContent=txt;e.style.display='block';setTimeout(()=>e.style.display='none',4000)}
+
+// ── RECUPERAR SENHA ──
+function abrirRecuperarSenhaTec(){
+  $('loginFieldsTec').style.display='none';
+  $('recFieldsTec').style.display='block';
+  const emailAtual=$('loginEmail').value.trim();
+  if(emailAtual)$('recEmailTec').value=emailAtual;
+  $('recEmailTec').focus();
+}
+function fecharRecuperarSenhaTec(){
+  $('recFieldsTec').style.display='none';
+  $('loginFieldsTec').style.display='block';
+  $('recMsgTec').style.display='none';
+}
+async function enviarRecuperacaoSenhaTec(){
+  const email=$('recEmailTec').value.trim().toLowerCase();
+  const msg=$('recMsgTec');
+  const btn=$('btnRecuperarTec');
+  if(!email){msg.textContent='Informe seu e-mail.';msg.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    await fetch(`${SB}/auth/v1/recover?redirect_to=${encodeURIComponent(window.location.origin+'/definir-senha.html')}`,{
+      method:'POST',
+      headers:{apikey:KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email}),
+    });
+  }catch(e){}
+  msg.textContent='Se esse e-mail estiver cadastrado, você vai receber um link pra redefinir a senha em instantes.';
+  msg.style.display='block';
+  btn.disabled=false;btn.textContent='Enviar link de redefinição';
+}
 
 function fazerLogout(){sessionStorage.removeItem(TKEY);tSession=null;if(renovacaoTokenTecnicoTimer){clearInterval(renovacaoTokenTecnicoTimer);renovacaoTokenTecnicoTimer=null;}$('loginScreen').style.display='flex';$('portalScreen').style.display='none';}
 

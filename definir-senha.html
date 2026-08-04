@@ -65,9 +65,16 @@ const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function lerHash(){
   const h=window.location.hash.replace(/^#/,'');
   const params=new URLSearchParams(h);
-  return {access_token:params.get('access_token'), type:params.get('type')};
+  return {access_token:params.get('access_token'), refresh_token:params.get('refresh_token'), type:params.get('type')};
 }
-const {access_token}=lerHash();
+function parseJwt(token){
+  try{
+    const payload=token.split('.')[1];
+    const json=atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  }catch(e){return null;}
+}
+const {access_token,refresh_token}=lerHash();
 if(!access_token){
   document.getElementById('formArea').style.display='none';
   document.getElementById('erroArea').style.display='block';
@@ -89,8 +96,17 @@ async function definirSenha(){
       body:JSON.stringify({password:senha}),
     });
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.msg||e.error_description||'Não foi possível salvar a senha.');}
-    msg.className='msg ok';msg.textContent='Senha criada! Redirecionando pro login...';msg.style.display='block';
-    setTimeout(()=>{window.location.href='pages/admin.html';},1800);
+    // Admin Nuvix (convidado via convidar-admin) já cai logado no painel certo — não
+    // tem empresa_id, então mandar pro login comum (index.html) sempre pediria pra
+    // essa conta "contate o suporte". Usuário comum de empresa volta pro login normal.
+    const claims=parseJwt(access_token);
+    msg.className='msg ok';msg.textContent='Senha criada! Redirecionando...';msg.style.display='block';
+    if(claims?.is_admin_nuvix){
+      sessionStorage.setItem('nuvix_admin_session',JSON.stringify({id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token,refresh_token,loginAt:Date.now()}));
+      setTimeout(()=>{window.location.href='pages/admin.html';},1800);
+    }else{
+      setTimeout(()=>{window.location.href='index.html';},1800);
+    }
   }catch(e){
     msg.className='msg err';msg.textContent=e.message;msg.style.display='block';
     btn.disabled=false;btn.textContent='Salvar e continuar';
