@@ -53,15 +53,31 @@
 .kpi-trend.up{background:var(--green-bg);color:var(--green)}
 .kpi-trend.down{background:var(--red-bg);color:var(--red)}
 .kpi-trend svg{width:11px;height:11px;stroke-width:2}
+
+/* ── MODAL (importação) — vendas.html nunca teve modal antes (só painéis/abas) ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:700px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.modal-actions button{flex:1}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
+<script src="../js/csv-import.js"></script>
 </head>
 <body>
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.modal-overlay').forEach(m=>{
+    m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open');});
+  });
+});
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
@@ -126,10 +142,13 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     </div>
 
     <div class="main-scroll">
-      <div class="pdv-tabs">
-        <button class="pdv-tab active" onclick="pdvTab('venda',this)">Venda</button>
-        <button class="pdv-tab" onclick="pdvTab('historico',this)">Histórico</button>
-        <button class="pdv-tab" onclick="pdvTab('painel',this)">Painel Executivo</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+        <div class="pdv-tabs" style="margin-bottom:0">
+          <button class="pdv-tab active" onclick="pdvTab('venda',this)">Venda</button>
+          <button class="pdv-tab" onclick="pdvTab('historico',this)">Histórico</button>
+          <button class="pdv-tab" onclick="pdvTab('painel',this)">Painel Executivo</button>
+        </div>
+        <button class="btn2" onclick="abrirModalImportarVendas()">Importar planilha de vendas</button>
       </div>
 
       <!-- ══ VENDA ══ -->
@@ -249,6 +268,33 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   </div>
 </div>
 
+<!-- MODAL IMPORTAR PLANILHA DE VENDAS -->
+<div class="modal-overlay" id="modalImportarVendas">
+<div class="modal" style="max-width:820px">
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importar planilha de vendas</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Pra vendas já feitas fora do sistema (histórico). Cada linha vira uma venda de verdade: dá baixa no estoque atual e lança receita no Financeiro, igual uma venda pelo PDV. Baixe o modelo, preencha e suba de volta — nada é gravado antes de você conferir a prévia e confirmar.</p>
+  <div class="actions" style="margin-bottom:14px">
+    <button class="btn2" onclick="baixarModeloVendas()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar modelo (.csv)</button>
+  </div>
+  <div class="field">
+    <label>Arquivo (.csv)</label>
+    <input type="file" id="importVendasArquivo" accept=".csv" onchange="lerArquivoImportacaoVendas(this)">
+  </div>
+  <div id="importVendasResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
+  <div id="importVendasPreviewWrap" style="display:none;max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <table style="font-size:12px">
+      <thead><tr><th></th><th>Produto</th><th>Qtd.</th><th>Vlr. unit.</th><th>Data</th><th>Cliente</th><th>Motivo</th></tr></thead>
+      <tbody id="importVendasPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="importVendasMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalImportarVendas')">Cancelar</button>
+    <button class="btn" id="importVendasConfirmarBtn" onclick="confirmarImportacaoVendas()" disabled>Confirmar e importar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
@@ -281,6 +327,158 @@ async function carregarMateriais(){
   try{
     dados.materiais=await dbGet('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&select=id,codigo,codigo_barras,nome,unidade,valor_venda,custo_compra,estoque_atual,estoque_reservado`);
   }catch(e){toast('Erro ao carregar produtos: '+e.message,'err');}
+}
+
+// ══ IMPORTAR PLANILHA DE VENDAS (histórico) ══
+const IMPORT_VENDAS_CABECALHO=['produto_codigo_barras','produto_nome','quantidade','valor_unitario','data_lancamento','forma_pagamento','cliente_nome'];
+const IMPORT_VENDAS_FORMAS=['Dinheiro','Pix','Boleto','Cartão débito','Cartão crédito','Transferência'];
+let importVendasLinhasValidas=[];
+let importVendasArquivoNome='';
+
+function abrirModalImportarVendas(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para importar vendas.','err');return;}
+  $('importVendasArquivo').value='';
+  $('importVendasResumo').style.display='none';
+  $('importVendasPreviewWrap').style.display='none';
+  $('importVendasPreviewTable').innerHTML='';
+  $('importVendasMsg').textContent='';$('importVendasMsg').className='msg';
+  $('importVendasConfirmarBtn').disabled=true;
+  importVendasLinhasValidas=[];
+  abrirModal('modalImportarVendas');
+}
+
+function baixarModeloVendas(){
+  baixarModeloCSV(
+    IMPORT_VENDAS_CABECALHO,
+    ['7891000000001','','2','25.00','04/08/2026','Pix','Cliente Exemplo'],
+    'modelo_vendas.csv',
+  );
+}
+
+function lerArquivoImportacaoVendas(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{ processarImportacaoVendas(parseCSV(String(reader.result||'')), arquivo.name); }
+    catch(e){ $('importVendasMsg').textContent='Não foi possível ler o arquivo: '+e.message; $('importVendasMsg').className='msg show err'; }
+  };
+  reader.onerror=()=>{ $('importVendasMsg').textContent='Erro ao ler o arquivo.'; $('importVendasMsg').className='msg show err'; };
+  reader.readAsText(arquivo, 'UTF-8');
+}
+
+// Acha o produto por código de barras (prioridade) ou nome exato — e desconta do
+// "estoque simulado" a cada linha válida, pra planilha com várias linhas do mesmo
+// produto não deixar "vender" mais do que existe (soma linha a linha, não só contra
+// o estoque atual isolado de cada linha).
+function validarLinhaImportacaoVenda(linha, estoqueSimulado){
+  const erros=[];
+  const codigo=(linha.produto_codigo_barras||'').trim();
+  const nomeIn=(linha.produto_nome||'').trim();
+  let produto=null;
+  if(codigo)produto=dados.materiais.find(m=>m.codigo_barras===codigo);
+  if(!produto&&nomeIn)produto=dados.materiais.find(m=>(m.nome||'').toLowerCase()===nomeIn.toLowerCase());
+  if(!produto){erros.push(codigo||nomeIn?'produto não encontrado':'informe código de barras ou nome do produto');}
+
+  const quantidade=parseNumeroBR(linha.quantidade);
+  if(!quantidade||isNaN(quantidade)||quantidade<=0)erros.push('quantidade inválida');
+
+  let valorUnitario=linha.valor_unitario?parseNumeroBR(linha.valor_unitario):(produto?Number(produto.valor_venda||0):NaN);
+  if(linha.valor_unitario&&isNaN(valorUnitario))erros.push('valor unitário inválido');
+  if(!linha.valor_unitario&&produto&&!produto.valor_venda)erros.push('produto sem preço cadastrado — informe valor_unitario');
+
+  const dataLancamento=linha.data_lancamento?parseDataBR(linha.data_lancamento):hoje();
+  if(linha.data_lancamento&&!dataLancamento)erros.push('data inválida (use DD/MM/AAAA)');
+
+  const formaIn=(linha.forma_pagamento||'').trim();
+  const forma=IMPORT_VENDAS_FORMAS.find(f=>f.toLowerCase()===formaIn.toLowerCase())||'Dinheiro';
+  const clienteNome=(linha.cliente_nome||'').trim()||null;
+
+  if(produto&&erros.length===0){
+    const disponivelAtual=estoqueSimulado.has(produto.id)?estoqueSimulado.get(produto.id):disponivel(produto);
+    if(quantidade>disponivelAtual){
+      erros.push(`estoque insuficiente (disponível: ${disponivelAtual})`);
+    }else{
+      estoqueSimulado.set(produto.id, disponivelAtual-quantidade);
+    }
+  }
+
+  return {
+    ok: erros.length===0,
+    erro: erros.join('; '),
+    payload: erros.length===0?{
+      material_id:produto.id, nome:produto.nome, quantidade,
+      valor_unitario:valorUnitario, custo_unitario:Number(produto.custo_compra||0),
+      dataLancamento, forma, clienteNome,
+    }:null,
+  };
+}
+
+function processarImportacaoVendas(linhas, nomeArquivo){
+  if(!linhas.length){
+    $('importVendasMsg').textContent='Planilha vazia ou sem linhas de dados.';
+    $('importVendasMsg').className='msg show err';
+    $('importVendasPreviewWrap').style.display='none';
+    $('importVendasConfirmarBtn').disabled=true;
+    return;
+  }
+  const estoqueSimulado=new Map();
+  const resultados=linhas.map(l=>({linha:l,...validarLinhaImportacaoVenda(l,estoqueSimulado)}));
+  importVendasLinhasValidas=resultados.filter(r=>r.ok).map(r=>r.payload);
+  importVendasArquivoNome=nomeArquivo;
+
+  $('importVendasResumo').style.display='block';
+  $('importVendasResumo').textContent=`${importVendasLinhasValidas.length} de ${resultados.length} linhas prontas pra importar.`;
+  $('importVendasResumo').style.color=importVendasLinhasValidas.length?'var(--green)':'var(--red)';
+
+  $('importVendasPreviewTable').innerHTML=resultados.map(r=>`
+    <tr style="${r.ok?'':'background:var(--red-bg,#FEF2F2)'}">
+      <td>${r.ok?'✓':'✕'}</td>
+      <td>${esc(r.linha.produto_nome||r.linha.produto_codigo_barras||'')}</td>
+      <td>${esc(r.linha.quantidade||'')}</td>
+      <td>${esc(r.linha.valor_unitario||'')}</td>
+      <td>${esc(r.linha.data_lancamento||'')}</td>
+      <td>${esc(r.linha.cliente_nome||'')}</td>
+      <td style="color:var(--red)">${esc(r.erro||'')}</td>
+    </tr>`).join('');
+  $('importVendasPreviewWrap').style.display='block';
+  $('importVendasConfirmarBtn').disabled=importVendasLinhasValidas.length===0;
+  $('importVendasMsg').textContent='';$('importVendasMsg').className='msg';
+}
+
+// Cada linha da planilha é uma venda avulsa (1 item) — processa uma de cada vez,
+// reaproveitando registrarVendaCompleta() (mesmos 3 passos do PDV: Financeiro,
+// vendas, baixa de estoque). Uma linha falhar não derruba as que já foram feitas.
+async function confirmarImportacaoVendas(){
+  if(!importVendasLinhasValidas.length)return;
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para importar vendas.','err');return;}
+  const btn=$('importVendasConfirmarBtn');
+  btn.disabled=true;
+  let ok=0, falhas=0;
+  for(const l of importVendasLinhasValidas){
+    btn.textContent=`Importando ${ok+falhas+1}/${importVendasLinhasValidas.length}...`;
+    try{
+      await registrarVendaCompleta([{material_id:l.material_id,nome:l.nome,quantidade:l.quantidade,valor_unitario:l.valor_unitario,custo_unitario:l.custo_unitario}],{
+        clienteNome:l.clienteNome, forma:l.forma, dataLancamento:l.dataLancamento,
+        descricao:`Venda importada — ${l.nome}${l.clienteNome?' — '+l.clienteNome:''}`,
+        motivoMovimentacao:'Venda importada',
+      });
+      ok++;
+    }catch(e){ falhas++; }
+  }
+  try{
+    await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'vendas',nome_arquivo:importVendasArquivoNome,total_linhas:ok,status:falhas?'com_erros':'concluido'}));
+  }catch(e){ /* log de auditoria não deve travar a importação em si */ }
+
+  if(falhas){
+    $('importVendasMsg').textContent=`${ok} venda(s) importada(s), ${falhas} falharam no meio do processo.`;
+    $('importVendasMsg').className='msg show err';
+  }else{
+    toast(`${ok} venda(s) importada(s)!`,'ok');
+    fecharModal('modalImportarVendas');
+  }
+  await carregarMateriais();
+  btn.disabled=false;btn.textContent='Confirmar e importar';
 }
 
 function pdvTab(id,btn){
@@ -410,6 +608,52 @@ function atualizarTroco(){
 }
 
 // ══ FECHAMENTO DA VENDA ══
+// Registra uma venda completa (1 ou mais itens de um mesmo "carrinho"): cria o
+// lançamento de Receita no Financeiro, as linhas em `vendas` (mesmo venda_id) e a
+// baixa de estoque em material_movimentacoes — a mesma sequência de 3 passos que já
+// era feita só dentro de finalizarVenda(), agora reaproveitada também pela
+// importação de planilha (cada linha da planilha vira uma venda de 1 item).
+async function registrarVendaCompleta(itens, opts){
+  const {clienteNome=null, forma='Dinheiro', dataLancamento=hoje(), recebido=null, descricao=null, motivoMovimentacao='Venda'}=opts||{};
+  const total=itens.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0);
+  const valorRecebido=recebido!=null?recebido:total;
+  const vendaId=crypto.randomUUID();
+  const n=itens.length;
+
+  const finLancamento=await dbPost('financeiro',withEmpresa({
+    tipo:'Receita',categoria:'Vendas de Produtos',
+    descricao:descricao||`Venda — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
+    valor:total,data_lancamento:dataLancamento,data_pagamento:dataLancamento,
+    status:'Recebido',forma_pagamento:forma,favorecido:clienteNome,
+    updated_at:new Date().toISOString(),
+  }));
+  const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
+
+  const linhasVenda=itens.map(i=>withEmpresa({
+    venda_id:vendaId,cliente_nome:clienteNome,produto_id:i.material_id,produto_nome:i.nome,
+    quantidade:i.quantidade,valor_unitario:i.valor_unitario,custo_unitario:i.custo_unitario,
+    pagamento:forma,valor_recebido:valorRecebido,troco:Math.max(0,valorRecebido-total),recebido:total,
+    status:'Concluída',financeiro_id:financeiroId,data_lancamento:dataLancamento,
+  }));
+  await dbPost('vendas',linhasVenda);
+
+  for(const item of itens){
+    const mat=dados.materiais.find(m=>m.id===item.material_id);
+    if(!mat)continue;
+    const estAnt=Number(mat.estoque_atual||0);
+    const estPost=estAnt-item.quantidade;
+    await dbPost('material_movimentacoes',withEmpresa({
+      material_id:item.material_id,material_nome:item.nome,tipo:'saida',
+      quantidade:item.quantidade,estoque_anterior:estAnt,estoque_posterior:estPost,
+      motivo:motivoMovimentacao,usuario_nome:session?.nome||null,usuario_id:session?.id||null,
+      created_at:new Date().toISOString(),
+    }));
+    await dbPatch('materiais',item.material_id,{estoque_atual:estPost,updated_at:new Date().toISOString()});
+    mat.estoque_atual=estPost;
+  }
+  return total;
+}
+
 async function finalizarVenda(){
   if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
   if(!carrinho.length){msg('pdvMsg','Adicione ao menos um produto ao carrinho.','err');return;}
@@ -428,48 +672,15 @@ async function finalizarVenda(){
     }
   }
   const clienteNome=val('pdvCliente').trim()||null;
-  const vendaId=crypto.randomUUID();
   const btn=document.querySelector('#pane-venda .btn');
   if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
   try{
-    // 1) Lançamento financeiro único da venda (Receita) — mesma lógica que compra de
-    // material (entrada) já lança Despesa automaticamente em Financeiro.
-    const itens=carrinho.length;
-    const finLancamento=await dbPost('financeiro',withEmpresa({
-      tipo:'Receita',categoria:'Vendas de Produtos',
-      descricao:`Venda PDV — ${itens} ${itens===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
-      valor:total,data_lancamento:hoje(),data_pagamento:hoje(),
-      status:'Recebido',forma_pagamento:forma,favorecido:clienteNome,
-      updated_at:new Date().toISOString(),
-    }));
-    const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
-
-    // 2) Uma linha em `vendas` por item do carrinho, todas com o mesmo venda_id.
-    const linhasVenda=carrinho.map(i=>withEmpresa({
-      venda_id:vendaId,cliente_nome:clienteNome,produto_id:i.material_id,produto_nome:i.nome,
-      quantidade:i.quantidade,valor_unitario:i.valor_unitario,custo_unitario:i.custo_unitario,
-      pagamento:forma,valor_recebido:forma==='Dinheiro'?recebido:total,
-      troco:forma==='Dinheiro'?Math.max(0,recebido-total):0,recebido:total,
-      status:'Concluída',financeiro_id:financeiroId,data_lancamento:hoje(),
-    }));
-    await dbPost('vendas',linhasVenda);
-
-    // 3) Baixa de estoque — mesmo padrão de material_movimentacoes usado em Materiais.
-    for(const item of carrinho){
-      const mat=dados.materiais.find(m=>m.id===item.material_id);
-      if(!mat)continue;
-      const estAnt=Number(mat.estoque_atual||0);
-      const estPost=estAnt-item.quantidade;
-      await dbPost('material_movimentacoes',withEmpresa({
-        material_id:item.material_id,material_nome:item.nome,tipo:'saida',
-        quantidade:item.quantidade,estoque_anterior:estAnt,estoque_posterior:estPost,
-        motivo:'Venda PDV',usuario_nome:session?.nome||null,usuario_id:session?.id||null,
-        created_at:new Date().toISOString(),
-      }));
-      await dbPatch('materiais',item.material_id,{estoque_atual:estPost,updated_at:new Date().toISOString()});
-      mat.estoque_atual=estPost;
-    }
-
+    const n=carrinho.length;
+    await registrarVendaCompleta(carrinho,{
+      clienteNome,forma,recebido,
+      descricao:`Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
+      motivoMovimentacao:'Venda PDV',
+    });
     toast(`Venda finalizada — ${money(total)}`,'ok');
     limparCarrinho();
     await carregarMateriais();

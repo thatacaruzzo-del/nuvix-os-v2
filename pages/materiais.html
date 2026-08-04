@@ -123,6 +123,7 @@
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
+<script src="../js/csv-import.js"></script>
 </head>
 <body>
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
@@ -248,6 +249,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
               <button class="view-btn" id="viewTabela" onclick="setView('tabela')" title="Tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
               <button class="view-btn active" id="viewGrid" onclick="setView('grid')" title="Grade">⊞</button>
             </div>
+            <button class="btn2" onclick="abrirModalImportarMateriais()">Importar planilha</button>
             <button class="btn" onclick="abrirModalMaterial()">+ Novo material</button>
           </div>
         </div>
@@ -474,6 +476,33 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
 </div>
 </div>
 
+<!-- MODAL IMPORTAR PLANILHA DE PRODUTOS -->
+<div class="modal-overlay" id="modalImportarMateriais">
+<div class="modal" style="max-width:800px">
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importar planilha de produtos</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Baixe o modelo, preencha no Excel/Google Sheets e suba de volta. Nada é gravado antes de você conferir a prévia e confirmar.</p>
+  <div class="actions" style="margin-bottom:14px">
+    <button class="btn2" onclick="baixarModeloMateriais()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar modelo (.csv)</button>
+  </div>
+  <div class="field">
+    <label>Arquivo (.csv)</label>
+    <input type="file" id="importMatArquivo" accept=".csv" onchange="lerArquivoImportacaoMateriais(this)">
+  </div>
+  <div id="importMatResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
+  <div id="importMatPreviewWrap" style="display:none;max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <table style="font-size:12px">
+      <thead><tr><th></th><th>Nome</th><th>Categoria</th><th>Cód. barras</th><th>Estoque</th><th>Custo</th><th>Venda</th><th>Motivo</th></tr></thead>
+      <tbody id="importMatPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="importMatMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalImportarMateriais')">Cancelar</button>
+    <button class="btn" id="importMatConfirmarBtn" onclick="confirmarImportacaoMateriais()" disabled>Confirmar e importar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
@@ -518,6 +547,139 @@ async function carregarTudo(){
     renderFornecedores();
     popularSelectMovMaterial();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
+}
+
+// ══ IMPORTAR PLANILHA DE PRODUTOS ══
+const IMPORT_MAT_CABECALHO=['codigo','codigo_barras','nome','categoria','unidade','custo_compra','valor_venda','estoque_atual','estoque_minimo'];
+let importMatLinhasValidas=[];
+let importMatArquivoNome='';
+
+function abrirModalImportarMateriais(){
+  if(!temPermissao('materiais','criar')){toast('Sem permissão para importar produtos.','err');return;}
+  $('importMatArquivo').value='';
+  $('importMatResumo').style.display='none';
+  $('importMatPreviewWrap').style.display='none';
+  $('importMatPreviewTable').innerHTML='';
+  $('importMatMsg').textContent='';$('importMatMsg').className='msg';
+  $('importMatConfirmarBtn').disabled=true;
+  importMatLinhasValidas=[];
+  abrirModal('modalImportarMateriais');
+}
+
+function baixarModeloMateriais(){
+  baixarModeloCSV(
+    IMPORT_MAT_CABECALHO,
+    ['','7891000000001','Exemplo de produto','Outros','UN','10,00','20,00','50','5'],
+    'modelo_materiais.csv',
+  );
+}
+
+function lerArquivoImportacaoMateriais(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{ processarImportacaoMateriais(parseCSV(String(reader.result||'')), arquivo.name); }
+    catch(e){ $('importMatMsg').textContent='Não foi possível ler o arquivo: '+e.message; $('importMatMsg').className='msg show err'; }
+  };
+  reader.onerror=()=>{ $('importMatMsg').textContent='Erro ao ler o arquivo.'; $('importMatMsg').className='msg show err'; };
+  reader.readAsText(arquivo, 'UTF-8');
+}
+
+// Código de barras precisa ser único por empresa (mesmo índice que trava isso no
+// banco) — checa contra o que já existe E contra as outras linhas da própria
+// planilha, senão a segunda linha com o mesmo código quebraria a gravação em lote.
+function validarLinhaImportacaoMaterial(linha, codigosVistos){
+  const erros=[];
+  const nome=(linha.nome||'').trim();
+  if(!nome)erros.push('nome obrigatório');
+
+  const codigoBarras=(linha.codigo_barras||'').trim()||null;
+  if(codigoBarras){
+    if(dados.materiais.some(m=>m.codigo_barras===codigoBarras))erros.push('código de barras já cadastrado');
+    else if(codigosVistos.has(codigoBarras))erros.push('código de barras duplicado na planilha');
+  }
+
+  const custo=parseNumeroBR(linha.custo_compra);
+  const venda=parseNumeroBR(linha.valor_venda);
+  const estoqueAtual=parseNumeroBR(linha.estoque_atual);
+  const estoqueMinimo=parseNumeroBR(linha.estoque_minimo);
+  if(linha.custo_compra&&isNaN(custo))erros.push('custo inválido');
+  if(linha.valor_venda&&isNaN(venda))erros.push('valor de venda inválido');
+  if(linha.estoque_atual&&isNaN(estoqueAtual))erros.push('estoque atual inválido');
+  if(linha.estoque_minimo&&isNaN(estoqueMinimo))erros.push('estoque mínimo inválido');
+
+  const categoria=(linha.categoria||'').trim()||'Outros';
+  const unidadeIn=(linha.unidade||'').trim().toUpperCase();
+  const unidade=UNIDADES.includes(unidadeIn)?unidadeIn:'UN';
+
+  if(erros.length===0&&codigoBarras)codigosVistos.add(codigoBarras);
+
+  return {
+    ok: erros.length===0,
+    erro: erros.join('; '),
+    payload: erros.length===0?{
+      codigo:(linha.codigo||'').trim()||null, codigo_barras:codigoBarras, nome, categoria, unidade,
+      custo_compra:isNaN(custo)?0:custo, valor_venda:isNaN(venda)?0:venda,
+      estoque_atual:isNaN(estoqueAtual)?0:estoqueAtual, estoque_minimo:isNaN(estoqueMinimo)?0:estoqueMinimo,
+      status:'Ativo',
+    }:null,
+  };
+}
+
+function processarImportacaoMateriais(linhas, nomeArquivo){
+  if(!linhas.length){
+    $('importMatMsg').textContent='Planilha vazia ou sem linhas de dados.';
+    $('importMatMsg').className='msg show err';
+    $('importMatPreviewWrap').style.display='none';
+    $('importMatConfirmarBtn').disabled=true;
+    return;
+  }
+  const codigosVistos=new Set();
+  const resultados=linhas.map(l=>({linha:l,...validarLinhaImportacaoMaterial(l,codigosVistos)}));
+  importMatLinhasValidas=resultados.filter(r=>r.ok).map(r=>r.payload);
+  importMatArquivoNome=nomeArquivo;
+
+  $('importMatResumo').style.display='block';
+  $('importMatResumo').textContent=`${importMatLinhasValidas.length} de ${resultados.length} linhas prontas pra importar.`;
+  $('importMatResumo').style.color=importMatLinhasValidas.length?'var(--green)':'var(--red)';
+
+  $('importMatPreviewTable').innerHTML=resultados.map(r=>`
+    <tr style="${r.ok?'':'background:var(--red-bg,#FEF2F2)'}">
+      <td>${r.ok?'✓':'✕'}</td>
+      <td>${esc(r.linha.nome||'')}</td>
+      <td>${esc(r.linha.categoria||'')}</td>
+      <td>${esc(r.linha.codigo_barras||'')}</td>
+      <td>${esc(r.linha.estoque_atual||'')}</td>
+      <td>${esc(r.linha.custo_compra||'')}</td>
+      <td>${esc(r.linha.valor_venda||'')}</td>
+      <td style="color:var(--red)">${esc(r.erro||'')}</td>
+    </tr>`).join('');
+  $('importMatPreviewWrap').style.display='block';
+  $('importMatConfirmarBtn').disabled=importMatLinhasValidas.length===0;
+  $('importMatMsg').textContent='';$('importMatMsg').className='msg';
+}
+
+async function confirmarImportacaoMateriais(){
+  if(!importMatLinhasValidas.length)return;
+  if(!temPermissao('materiais','criar')){toast('Sem permissão para importar produtos.','err');return;}
+  const btn=$('importMatConfirmarBtn');
+  btn.disabled=true;btn.textContent='Importando...';
+  try{
+    const payloads=importMatLinhasValidas.map(p=>withEmpresa(p));
+    await dbPost('materiais',payloads);
+    try{
+      await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'materiais',nome_arquivo:importMatArquivoNome,total_linhas:importMatLinhasValidas.length,status:'concluido'}));
+    }catch(e){ /* log de auditoria não deve travar a importação em si */ }
+    toast(`${importMatLinhasValidas.length} produto(s) importado(s)!`,'ok');
+    fecharModal('modalImportarMateriais');
+    await carregarTudo();
+  }catch(e){
+    $('importMatMsg').textContent='Erro ao importar: '+e.message;
+    $('importMatMsg').className='msg show err';
+  }finally{
+    btn.disabled=false;btn.textContent='Confirmar e importar';
+  }
 }
 
 // ══ DASHBOARD ══
