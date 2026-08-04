@@ -49,6 +49,10 @@
 .abc-C{background:#FEF2F2;color:#DC2626}
 .giro-bar-track{height:6px;background:var(--line);border-radius:99px;overflow:hidden;min-width:60px}
 .giro-bar-track>div{height:100%;background:var(--p);border-radius:99px}
+.kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:6px}
+.kpi-trend.up{background:var(--green-bg);color:var(--green)}
+.kpi-trend.down{background:var(--red-bg);color:var(--red)}
+.kpi-trend svg{width:11px;height:11px;stroke-width:2}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../js/nuvix-logs.js"></script>
@@ -213,6 +217,8 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         </div>
 
         <div class="kpi-grid" id="painelKpis"></div>
+
+        <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
 
         <div class="chart-grid">
           <div class="chart-card"><h3>Curva ABC — top produtos por faturamento</h3><canvas id="chartAbc" height="220"></canvas></div>
@@ -505,15 +511,46 @@ async function carregarHistorico(){
 // período ÷ estoque atual" — uma estimativa, já que o sistema não guarda o estoque
 // dia a dia (só o snapshot atual), então giro de um período passado não é exato se o
 // estoque mudou muito desde então. Deixamos isso explícito na tela.
-let chartAbcInstance=null, chartCategoriaInstance=null;
+let chartAbcInstance=null, chartCategoriaInstance=null, chartEvolucaoInstance=null;
+const setaUp='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+// Mesmo período, mesma duração, imediatamente anterior — igual ao periodoAnterior()
+// já usado no Dashboard geral, pra manter o mesmo critério de comparação no app todo.
+function periodoAnteriorPainel(de,ate){
+  const d=new Date(de+'T12:00:00'), a=new Date(ate+'T12:00:00');
+  const span=Math.round((a-d)/864e5)+1;
+  const antAte=new Date(d); antAte.setDate(d.getDate()-1);
+  const antDe=new Date(antAte); antDe.setDate(antAte.getDate()-span+1);
+  return {de:dataLocal(antDe), ate:dataLocal(antAte)};
+}
+function trendBadge(atual,anterior,invertido,confiavel){
+  if(!anterior) return ''; // sem período anterior pra comparar — nunca vira Infinity%
+  if(!confiavel) return '';
+  const pct=Math.round(((atual-anterior)/Math.abs(anterior))*100);
+  if(pct===0) return '';
+  const bom=invertido?pct<0:pct>0;
+  return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
+}
+function totaisVendas(linhas){
+  const faturamento=linhas.reduce((a,l)=>a+Number(l.quantidade||0)*Number(l.valor_unitario||0),0);
+  const vendaIds=new Set(linhas.map(l=>l.venda_id||l.id));
+  return {faturamento,numVendas:vendaIds.size};
+}
 
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
-  let linhas;
+  const ant=periodoAnteriorPainel(de,ate);
+  let linhas,linhasAnt;
   try{
-    linhas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&data_lancamento=gte.${de}&data_lancamento=lte.${ate}&select=*`);
+    [linhas,linhasAnt]=await Promise.all([
+      dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&data_lancamento=gte.${de}&data_lancamento=lte.${ate}&select=*`),
+      dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&data_lancamento=gte.${ant.de}&data_lancamento=lte.${ant.ate}&select=*`),
+    ]);
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
+
+  renderEvolucao(linhas,de,ate);
 
   // Agrupa por produto
   const porProduto={};
@@ -543,18 +580,58 @@ async function carregarPainel(){
   const ticketMedio=vendaIds.size?faturamentoTotal/vendaIds.size:0;
   const margemPct=faturamentoTotal?((faturamentoTotal-custoTotal)/faturamentoTotal*100):0;
 
-  renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length});
+  // Período anterior (mesma duração) — só pra comparação de tendência dos KPIs.
+  const totAnt=totaisVendas(linhasAnt);
+  const ticketMedioAnt=totAnt.numVendas?totAnt.faturamento/totAnt.numVendas:0;
+  // Exige pelo menos 3 vendas nos dois períodos — amostra menor que isso deixa o
+  // "% vs período anterior" mais ruído estatístico do que informação de verdade.
+  const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
+
+  renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
+    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel});
   renderAbc(produtos,faturamentoTotal);
   renderGiroCategoria(produtos);
 }
 
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos}){
+function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel}){
   setHTML('painelKpis',[
-    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple'},
-    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple'},
+    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple',trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
+    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
     {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',cor:margemPct>=0?'green':'amber'},
     {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',cor:'purple'},
-  ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join(''));
+  ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.trend||''}</div>`).join(''));
+}
+
+// Evolução do faturamento dia a dia (ou semana a semana, se o período for longo,
+// pra não empilhar dezenas de pontos ilegíveis no gráfico).
+function renderEvolucao(linhas,de,ate){
+  const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
+  const spanDias=Math.max(1,Math.round((dFim-dIni)/864e5)+1);
+  const porSemana=spanDias>45;
+  const buckets={};
+  function chaveBucket(dataStr){
+    if(!porSemana)return dataStr;
+    const d=new Date(dataStr+'T12:00:00');
+    const diaSemana=d.getDay();
+    d.setDate(d.getDate()-diaSemana); // volta pro domingo daquela semana
+    return dataLocal(d);
+  }
+  linhas.forEach(l=>{
+    const k=chaveBucket(String(l.data_lancamento).slice(0,10));
+    buckets[k]=(buckets[k]||0)+Number(l.quantidade||0)*Number(l.valor_unitario||0);
+  });
+  const chaves=Object.keys(buckets).sort();
+  const ctx=$('chartEvolucao');
+  if(chartEvolucaoInstance)chartEvolucaoInstance.destroy();
+  if(!ctx)return;
+  if(!chaves.length){
+    chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{data:[]}]},options:{plugins:{legend:{display:false}}}});
+    return;
+  }
+  chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{
+    labels:chaves.map(k=>fmtData(k)+(porSemana?' (semana)':'')),
+    datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
+  },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
 }
 
 function renderAbc(produtos,faturamentoTotal){
