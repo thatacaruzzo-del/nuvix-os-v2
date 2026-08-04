@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Vendas</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.pdv-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.pdv-tabs::-webkit-scrollbar{display:none}
+.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.pdv-tab:hover{color:var(--p)}
+.pdv-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.pdv-pane{display:none}.pdv-pane.active{display:block}
+
+.pdv-scan-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+.pdv-scan-field{flex:2;min-width:260px}
+.pdv-busca-field{flex:1;min-width:220px;position:relative}
+#pdvBarras{font-family:monospace;font-size:16px;letter-spacing:.04em}
+.pdv-busca-resultados{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md);margin-top:6px;max-height:280px;overflow-y:auto;z-index:20;display:none}
+.pdv-busca-resultados.open{display:block}
+.pdv-busca-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);font-size:13px}
+.pdv-busca-item:last-child{border-bottom:none}
+.pdv-busca-item:hover{background:var(--p-light)}
+.pdv-busca-item .qtd-disp{font-size:11px;color:var(--muted)}
+
+.pdv-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+@media(max-width:1000px){.pdv-grid{grid-template-columns:1fr}}
+.pdv-carrinho-vazio{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+.pdv-qtd-input{width:64px;text-align:center}
+.pdv-total-row{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:800;padding:14px 0;border-top:1.5px solid var(--line);margin-top:10px}
+.pdv-troco{font-size:13px;color:var(--muted);margin-top:6px}
+.pdv-troco.neg{color:var(--red);font-weight:700}
+</style>
+<script src="../js/nuvix-logs.js"></script>
+<script src="../js/token-refresh.js"></script>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+<script>
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+
+const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+</script>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <img src="../assets/logo.png" alt="NuvixHub" width="46" height="46">
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Produtos <span style="color:var(--line)">/</span> <b>Vendas</b></div>
+          <div class="topbar-title">Vendas (PDV)</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+      <div class="pdv-tabs">
+        <button class="pdv-tab active" onclick="pdvTab('venda',this)">Venda</button>
+        <button class="pdv-tab" onclick="pdvTab('historico',this)">Histórico</button>
+      </div>
+
+      <!-- ══ VENDA ══ -->
+      <div id="pane-venda" class="pdv-pane active">
+        <div class="card">
+          <div class="pdv-scan-row">
+            <div class="field pdv-scan-field" style="margin:0">
+              <label>Código de barras</label>
+              <input id="pdvBarras" placeholder="Leia com o leitor ou digite e tecle Enter" autocomplete="off">
+            </div>
+            <div class="field pdv-busca-field" style="margin:0">
+              <label>Buscar produto (nome ou código)</label>
+              <input id="pdvBusca" placeholder="Digite pra buscar..." autocomplete="off" oninput="buscarProdutoManual()">
+              <div class="pdv-busca-resultados" id="pdvBuscaResultados"></div>
+            </div>
+          </div>
+          <div id="pdvScanMsg" class="msg"></div>
+        </div>
+
+        <div class="pdv-grid" style="margin-top:16px">
+          <div class="card">
+            <h2 style="margin-bottom:14px">Carrinho</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Subtotal</th><th></th></tr></thead>
+                <tbody id="carrinhoTable"></tbody>
+              </table>
+            </div>
+            <div id="carrinhoVazio" class="pdv-carrinho-vazio">Carrinho vazio — leia um código de barras ou busque um produto.</div>
+          </div>
+
+          <div class="card">
+            <h2 style="margin-bottom:14px">Fechamento</h2>
+            <div class="field">
+              <label>Cliente (opcional)</label>
+              <input id="pdvCliente" placeholder="Nome do cliente">
+            </div>
+            <div class="field">
+              <label>Forma de pagamento</label>
+              <select id="pdvForma" onchange="atualizarTroco()">
+                <option>Dinheiro</option><option>Pix</option><option>Cartão débito</option><option>Cartão crédito</option><option>Boleto</option><option>Transferência</option>
+              </select>
+            </div>
+            <div class="field" id="pdvRecebidoWrap">
+              <label>Valor recebido (R$)</label>
+              <input id="pdvRecebido" type="number" step="0.01" placeholder="0,00" oninput="atualizarTroco()">
+              <div class="pdv-troco" id="pdvTrocoTxt"></div>
+            </div>
+            <div class="pdv-total-row">
+              <span>Total</span>
+              <span id="pdvTotalVal">R$ 0,00</span>
+            </div>
+            <div class="actions" style="margin-top:14px">
+              <button class="btn" onclick="finalizarVenda()">Finalizar venda</button>
+              <button class="btn2" onclick="limparCarrinho()">Cancelar</button>
+            </div>
+            <div id="pdvMsg" class="msg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ HISTÓRICO ══ -->
+      <div id="pane-historico" class="pdv-pane">
+        <div class="card">
+          <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
+            <div><label>Data</label><input type="date" id="histData" onchange="carregarHistorico()"></div>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th></tr></thead>
+              <tbody id="histTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ ESTADO ══
+const session = requireAuth();
+let dados = { materiais:[] };
+let carrinho = []; // [{material_id, codigo, nome, unidade, quantidade, valor_unitario, custo_unitario, estoque_disponivel}]
+
+// ══ INIT ══
+async function init(){
+  if(!session)return;
+  if(!guardModulo('vendas'))return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · Vendas';
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+  }
+  $('histData').value=hoje();
+  await carregarMateriais();
+  atualizarTroco();
+  $('pageLoader')?.classList.add('hide');
+  setTimeout(()=>{$('pdvBarras')?.focus();},80);
+}
+
+async function carregarMateriais(){
+  if(!session?.empresa_id)return;
+  try{
+    dados.materiais=await dbGet('materiais',`?empresa_id=eq.${session.empresa_id}&status=eq.Ativo&select=id,codigo,codigo_barras,nome,unidade,valor_venda,custo_compra,estoque_atual,estoque_reservado`);
+  }catch(e){toast('Erro ao carregar produtos: '+e.message,'err');}
+}
+
+function pdvTab(id,btn){
+  document.querySelectorAll('.pdv-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.pdv-tab').forEach(t=>t.classList.remove('active'));
+  $('pane-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='historico')carregarHistorico();
+}
+
+// ══ BUSCA / LEITURA ══
+function disponivel(m){return Math.max(0,Number(m.estoque_atual||0)-Number(m.estoque_reservado||0));}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  $('pdvBarras')?.addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    e.preventDefault();
+    const codigo=val('pdvBarras').trim();
+    if(!codigo)return;
+    const mat=dados.materiais.find(m=>(m.codigo_barras&&m.codigo_barras===codigo)||(m.codigo&&m.codigo===codigo));
+    if(!mat){
+      msg('pdvScanMsg','Nenhum produto encontrado com esse código.','err');
+      $('pdvBarras').value='';
+      return;
+    }
+    adicionarAoCarrinho(mat);
+    $('pdvBarras').value='';
+    msg('pdvScanMsg','','ok');
+  });
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('.pdv-busca-field'))$('pdvBuscaResultados')?.classList.remove('open');
+  });
+});
+
+function buscarProdutoManual(){
+  const q=val('pdvBusca').trim().toLowerCase();
+  const box=$('pdvBuscaResultados');
+  if(!q){box.classList.remove('open');box.innerHTML='';return;}
+  const achados=dados.materiais.filter(m=>
+    (m.nome||'').toLowerCase().includes(q)||
+    (m.codigo||'').toLowerCase().includes(q)||
+    (m.codigo_barras||'').toLowerCase().includes(q)
+  ).slice(0,20);
+  if(!achados.length){box.innerHTML='<div class="pdv-busca-item">Nenhum produto encontrado.</div>';box.classList.add('open');return;}
+  box.innerHTML=achados.map(m=>`
+    <div class="pdv-busca-item" onclick='adicionarAoCarrinhoPorId("${m.id}")'>
+      <span>${esc(m.nome)}</span>
+      <span class="qtd-disp">${money(m.valor_venda)} · disp. ${disponivel(m)}</span>
+    </div>`).join('');
+  box.classList.add('open');
+}
+function adicionarAoCarrinhoPorId(id){
+  const mat=dados.materiais.find(m=>m.id===id);if(!mat)return;
+  adicionarAoCarrinho(mat);
+  $('pdvBusca').value='';
+  $('pdvBuscaResultados').classList.remove('open');
+}
+
+// ══ CARRINHO ══
+function adicionarAoCarrinho(mat){
+  const disp=disponivel(mat);
+  const item=carrinho.find(i=>i.material_id===mat.id);
+  const qtdAtual=item?item.quantidade:0;
+  if(qtdAtual+1>disp){
+    toast(`Estoque disponível insuficiente (${disp} un.).`,'err');
+    return;
+  }
+  if(item){
+    item.quantidade+=1;
+  }else{
+    carrinho.push({
+      material_id:mat.id,codigo:mat.codigo,nome:mat.nome,unidade:mat.unidade||'UN',
+      quantidade:1,valor_unitario:Number(mat.valor_venda||0),custo_unitario:Number(mat.custo_compra||0),
+      estoque_disponivel:disp,
+    });
+  }
+  renderCarrinho();
+}
+function alterarQtdCarrinho(idx,novaQtd){
+  novaQtd=Number(novaQtd);
+  const item=carrinho[idx];if(!item)return;
+  if(!novaQtd||novaQtd<=0){carrinho.splice(idx,1);renderCarrinho();return;}
+  if(novaQtd>item.estoque_disponivel){
+    toast(`Estoque disponível insuficiente (${item.estoque_disponivel} un.).`,'err');
+    novaQtd=item.estoque_disponivel;
+  }
+  item.quantidade=novaQtd;
+  renderCarrinho();
+}
+function removerDoCarrinho(idx){carrinho.splice(idx,1);renderCarrinho();}
+function limparCarrinho(){carrinho=[];renderCarrinho();$('pdvCliente').value='';$('pdvRecebido').value='';atualizarTroco();}
+
+function totalCarrinho(){return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0);}
+
+function renderCarrinho(){
+  const tbody=$('carrinhoTable');
+  if(!carrinho.length){
+    tbody.innerHTML='';
+    $('carrinhoVazio').style.display='block';
+  }else{
+    $('carrinhoVazio').style.display='none';
+    tbody.innerHTML=carrinho.map((i,idx)=>`
+      <tr>
+        <td>${esc(i.nome)}</td>
+        <td><input type="number" class="pdv-qtd-input" value="${i.quantidade}" min="1" max="${i.estoque_disponivel}" onchange="alterarQtdCarrinho(${idx},this.value)"></td>
+        <td>${money(i.valor_unitario)}</td>
+        <td>${money(i.quantidade*i.valor_unitario)}</td>
+        <td><button class="btn2" style="padding:4px 10px" onclick="removerDoCarrinho(${idx})">✕</button></td>
+      </tr>`).join('');
+  }
+  $('pdvTotalVal').textContent=money(totalCarrinho());
+  atualizarTroco();
+}
+
+function atualizarTroco(){
+  const forma=val('pdvForma');
+  $('pdvRecebidoWrap').style.display=forma==='Dinheiro'?'block':'none';
+  if(forma!=='Dinheiro'){$('pdvTrocoTxt').textContent='';return;}
+  const total=totalCarrinho();
+  const recebido=num('pdvRecebido');
+  const troco=recebido-total;
+  const el=$('pdvTrocoTxt');
+  if(!recebido){el.textContent='';el.className='pdv-troco';return;}
+  if(troco<0){el.textContent=`Falta ${money(-troco)}`;el.className='pdv-troco neg';}
+  else{el.textContent=`Troco: ${money(troco)}`;el.className='pdv-troco';}
+}
+
+// ══ FECHAMENTO DA VENDA ══
+async function finalizarVenda(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
+  if(!carrinho.length){msg('pdvMsg','Adicione ao menos um produto ao carrinho.','err');return;}
+  const forma=val('pdvForma');
+  const total=totalCarrinho();
+  const recebido=forma==='Dinheiro'?num('pdvRecebido'):total;
+  if(forma==='Dinheiro'&&recebido<total){msg('pdvMsg','Valor recebido é menor que o total da venda.','err');return;}
+  // Revalida estoque disponível na hora de fechar (pode ter mudado desde que foi lido)
+  for(const item of carrinho){
+    const matAtual=dados.materiais.find(m=>m.id===item.material_id);
+    const dispAgora=matAtual?disponivel(matAtual):0;
+    if(item.quantidade>dispAgora){
+      msg('pdvMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${dispAgora}.`,'err');
+      await carregarMateriais();
+      return;
+    }
+  }
+  const clienteNome=val('pdvCliente').trim()||null;
+  const vendaId=crypto.randomUUID();
+  const btn=document.querySelector('#pane-venda .btn');
+  if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
+  try{
+    // 1) Lançamento financeiro único da venda (Receita) — mesma lógica que compra de
+    // material (entrada) já lança Despesa automaticamente em Financeiro.
+    const itens=carrinho.length;
+    const finLancamento=await dbPost('financeiro',withEmpresa({
+      tipo:'Receita',categoria:'Vendas de Produtos',
+      descricao:`Venda PDV — ${itens} ${itens===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
+      valor:total,data_lancamento:hoje(),data_pagamento:hoje(),
+      status:'Recebido',forma_pagamento:forma,favorecido:clienteNome,
+      updated_at:new Date().toISOString(),
+    }));
+    const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
+
+    // 2) Uma linha em `vendas` por item do carrinho, todas com o mesmo venda_id.
+    const linhasVenda=carrinho.map(i=>withEmpresa({
+      venda_id:vendaId,cliente_nome:clienteNome,produto_id:i.material_id,produto_nome:i.nome,
+      quantidade:i.quantidade,valor_unitario:i.valor_unitario,custo_unitario:i.custo_unitario,
+      pagamento:forma,valor_recebido:forma==='Dinheiro'?recebido:total,
+      troco:forma==='Dinheiro'?Math.max(0,recebido-total):0,recebido:total,
+      status:'Concluída',financeiro_id:financeiroId,data_lancamento:hoje(),
+    }));
+    await dbPost('vendas',linhasVenda);
+
+    // 3) Baixa de estoque — mesmo padrão de material_movimentacoes usado em Materiais.
+    for(const item of carrinho){
+      const mat=dados.materiais.find(m=>m.id===item.material_id);
+      if(!mat)continue;
+      const estAnt=Number(mat.estoque_atual||0);
+      const estPost=estAnt-item.quantidade;
+      await dbPost('material_movimentacoes',withEmpresa({
+        material_id:item.material_id,material_nome:item.nome,tipo:'saida',
+        quantidade:item.quantidade,estoque_anterior:estAnt,estoque_posterior:estPost,
+        motivo:'Venda PDV',usuario_nome:session?.nome||null,usuario_id:session?.id||null,
+        created_at:new Date().toISOString(),
+      }));
+      await dbPatch('materiais',item.material_id,{estoque_atual:estPost,updated_at:new Date().toISOString()});
+      mat.estoque_atual=estPost;
+    }
+
+    toast(`Venda finalizada — ${money(total)}`,'ok');
+    limparCarrinho();
+    await carregarMateriais();
+  }catch(e){
+    msg('pdvMsg','Erro ao finalizar venda: '+e.message,'err');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Finalizar venda';}
+  }
+}
+
+// ══ HISTÓRICO ══
+async function carregarHistorico(){
+  if(!session?.empresa_id)return;
+  const data=val('histData')||hoje();
+  try{
+    const linhas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&data_lancamento=eq.${data}&select=*&order=created_at.desc`);
+    const porVenda={};
+    linhas.forEach(l=>{
+      const k=l.venda_id||l.id;
+      if(!porVenda[k])porVenda[k]={cliente:l.cliente_nome,pagamento:l.pagamento,created_at:l.created_at,itens:0,total:0};
+      porVenda[k].itens+=Number(l.quantidade||0);
+      porVenda[k].total+=Number(l.quantidade||0)*Number(l.valor_unitario||0);
+    });
+    const vendas=Object.values(porVenda).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    $('histTable').innerHTML=vendas.length?vendas.map(v=>`
+      <tr>
+        <td>${v.created_at?new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+        <td>${esc(v.cliente||'—')}</td>
+        <td>${v.itens}</td>
+        <td>${esc(v.pagamento||'—')}</td>
+        <td><b>${money(v.total)}</b></td>
+      </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+  }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
+}
+
+// ══ SIDEBAR ══
+(function(){
+  try{const raw=sessionStorage.getItem('nuvix_v2_session');if(raw){const d=JSON.parse(raw);const seg=d.empresa?.segmento||d.empresa?.tipo||'';if(seg==='Prestação de Serviço'||seg==='Mista')document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='flex');if(seg==='Transporte'||seg==='Mista')document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');}}catch(e){}
+})();
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+init();
+</script>
+<script>
+// ── Sidebar dinâmica por segmento ──
+(function(){
+  try{
+    const raw = sessionStorage.getItem('nuvix_v2_session');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    const seg = (d.empresa?.segmento || d.empresa?.tipo || '').toLowerCase();
+    const nav = document.getElementById('sidebar');
+    if(!nav) return;
+
+    const logo = nav.querySelector('.sidebar-logo');
+    const configBtn = nav.querySelector('[href="parametros.html"]')?.closest('.sb-group');
+
+    const isTransporte = seg.includes('transporte');
+    const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
+    const isVarejo = seg.includes('venda de produto');
+    const isMista = seg.includes('mista');
+
+    nav.querySelectorAll('.sb-group').forEach(g => {
+      if(!g.style.marginTop) g.style.display = 'none';
+    });
+
+    let html = '';
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Principal</div>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
+      <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
+      <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
+    </div>`;
+
+    if(isServico || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Serviços</div>
+        <a class="sb-btn" href="os.html" data-tip="Ordens de Serviço"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span>Ordens de Serviço</span></a>
+        <a class="sb-btn" href="servicos.html" data-tip="Serviços e Orçamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Serviços</span></a>
+        <a class="sb-btn" href="materiais.html" data-tip="Materiais e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Materiais</span></a>
+      </div>`;
+    }
+
+    if(isTransporte || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Transporte</div>
+        <a class="sb-btn" href="transporte.html" data-tip="Operações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Transporte</span></a>
+        <a class="sb-btn" href="cotacao.html" data-tip="Cotação de Frete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Cotação</span></a>
+      </div>`;
+    }
+
+    // VENDA DE PRODUTO — segmento isolado de propósito: não compartilha grupo com
+    // Serviços nem Transporte (só se sobrepõe pra "Mista", que faz tudo por natureza).
+    if(isVarejo || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Produtos</div>
+        <a class="sb-btn" href="materiais.html" data-tip="Produtos e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Produtos</span></a>
+        <a class="sb-btn" href="vendas.html" data-tip="Vendas (PDV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Vendas</span></a>
+      </div>`;
+    }
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Pessoas</div>
+      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
+    </div>`;
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Análise</div>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+    </div>`;
+
+    logo.insertAdjacentHTML('afterend', html);
+
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','vendas.html':'vendas'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const p=permsUser.find(x=>x.modulo===id);return p?!!p.pode_ver:true;});
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
+
+    const current = window.location.pathname.split('/').pop();
+    nav.querySelectorAll('.sb-btn').forEach(btn => {
+      if(btn.getAttribute('href') === current){
+        btn.classList.add('active');
+      }
+    });
+
+  }catch(e){ console.warn('Sidebar error:', e); }
+})();
+</script>
+<script src="../js/alerta-sidebar.js"></script>
+</body>
+</html>

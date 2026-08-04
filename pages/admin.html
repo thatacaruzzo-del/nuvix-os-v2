@@ -340,6 +340,8 @@ const MODULOS_TODOS=[
   {id:'contas_pagar',nome:'Contas a Pagar',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>'},
   {id:'contas_receber',nome:'Contas a Receber',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>'},
   {id:'transporte',nome:'Transporte',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>'},
+  {id:'materiais',nome:'Produtos e Estoque',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'},
+  {id:'vendas',nome:'Vendas (PDV)',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>'},
   {id:'crm',nome:'CRM / Pipeline',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'},
   {id:'rh',nome:'RH / People',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'},
   {id:'folha_ponto',nome:'Folha de Ponto',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="M22 6l-3-3"/></svg>'},
@@ -352,8 +354,8 @@ const MODULOS_TODOS=[
 ];
 const MODULOS_PLANO={
   'Start':['dashboard','financeiro','contas_pagar','contas_receber','usuarios','relatorios','configuracoes'],
-  'Pro':  ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','usuarios','relatorios','configuracoes'],
-  'Plus': ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia'],
+  'Pro':  ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','usuarios','relatorios','configuracoes'],
+  'Plus': ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia'],
 };
 </script>
 
@@ -910,6 +912,7 @@ const MODULOS_PLANO={
     <div class="field"><label>Segmento</label>
       <select id="empSegmento">
         <option>Prestação de Serviço</option><option>Transporte</option>
+        <option>Venda de Produto</option>
         <option>Mista</option><option>Comércio</option><option>Indústria</option>
       </select>
     </div>
@@ -961,6 +964,7 @@ const MODULOS_PLANO={
     <div class="field"><label>Segmento</label>
       <select id="editEmpSegmento">
         <option>Prestação de Serviço</option><option>Transporte</option>
+        <option>Venda de Produto</option>
         <option>Mista</option><option>Comércio</option><option>Indústria</option>
       </select>
     </div>
