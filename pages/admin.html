@@ -213,6 +213,35 @@ const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_admin_session')||'null')?.access_token||null;}catch(e){return null;}}
 const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+
+// O access_token do Supabase expira bem antes das 8h que a sessão local considera válida
+// (e não existe refresh em lugar nenhum do app) — depois disso, toda ação que chama uma
+// edge function (criar/excluir usuário, convidar admin etc.) passa a falhar com "sessão
+// inválida", mesmo a pessoa parecendo "logada". Renovar em segundo plano evita isso.
+let renovacaoTokenTimer=null;
+async function renovarTokenAdmin(){
+  try{
+    const raw=sessionStorage.getItem('nuvix_admin_session');
+    if(!raw)return;
+    const sess=JSON.parse(raw);
+    if(!sess?.refresh_token)return;
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST',
+      headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:sess.refresh_token}),
+    });
+    const auth=await r.json().catch(()=>({}));
+    if(!r.ok||!auth.access_token)return;
+    sess.access_token=auth.access_token;
+    sess.refresh_token=auth.refresh_token||sess.refresh_token;
+    sessionStorage.setItem('nuvix_admin_session',JSON.stringify(sess));
+    if(adminSession)adminSession=sess;
+  }catch(e){}
+}
+function iniciarRenovacaoTokenAdmin(){
+  if(renovacaoTokenTimer)clearInterval(renovacaoTokenTimer);
+  renovacaoTokenTimer=setInterval(renovarTokenAdmin,30*60*1000);
+}
 function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
@@ -1221,6 +1250,8 @@ async function initAdmin(){
     if(raw){
       adminSession = JSON.parse(raw);
       if(Date.now() - adminSession.loginAt < 8*60*60*1000){
+        await renovarTokenAdmin();
+        iniciarRenovacaoTokenAdmin();
         mostrarPainel();
         await carregarTudo();
         $('pageLoader')?.classList.add('hide');
@@ -1266,8 +1297,9 @@ async function fazerLoginAdmin(){
     if(!claims?.is_admin_nuvix){
       errEl.textContent='Acesso negado. Apenas administradores Nuvix.';errEl.style.display='block';return;
     }
-    adminSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,loginAt:Date.now()};
+    adminSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,refresh_token:auth.refresh_token,loginAt:Date.now()};
     sessionStorage.setItem('nuvix_admin_session',JSON.stringify(adminSession));
+    iniciarRenovacaoTokenAdmin();
     mostrarPainel();
     await carregarTudo();
   }catch(e){errEl.textContent='Erro: '+e.message;errEl.style.display='block';}
@@ -1277,6 +1309,7 @@ async function fazerLoginAdmin(){
 function logoutAdmin(){
   sessionStorage.removeItem('nuvix_admin_session');
   adminSession=null;
+  if(renovacaoTokenTimer){clearInterval(renovacaoTokenTimer);renovacaoTokenTimer=null;}
   mostrarLogin();
 }
 

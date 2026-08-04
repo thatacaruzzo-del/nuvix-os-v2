@@ -14,7 +14,13 @@ function getSession() {
       clearSession();
       return null;
     }
-    return { ...data.user, empresa_id: data.empresa?.id, empresa: data.empresa };
+    return {
+      ...data.user,
+      empresa_id: data.empresa?.id,
+      empresa: data.empresa,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token
+    };
   } catch {
     return null;
   }

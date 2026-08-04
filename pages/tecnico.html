@@ -317,6 +317,33 @@ let minhasOS=[];
 let osAtual=null;
 let statusSelecionado='';
 
+// O access_token expira bem antes da sessão local ser limpa — sem renovar, o portal do
+// técnico para de carregar OS depois de um tempo, mesmo com a tela ainda "logada".
+let renovacaoTokenTecnicoTimer=null;
+async function renovarTokenTecnico(){
+  try{
+    const raw=sessionStorage.getItem(TKEY);
+    if(!raw)return;
+    const sess=JSON.parse(raw);
+    if(!sess?.refresh_token)return;
+    const r=await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST',
+      headers:{apikey:KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:sess.refresh_token}),
+    });
+    const auth=await r.json().catch(()=>({}));
+    if(!r.ok||!auth.access_token)return;
+    sess.access_token=auth.access_token;
+    sess.refresh_token=auth.refresh_token||sess.refresh_token;
+    sessionStorage.setItem(TKEY,JSON.stringify(sess));
+    if(tSession)tSession=sess;
+  }catch(e){}
+}
+function iniciarRenovacaoTokenTecnico(){
+  if(renovacaoTokenTecnicoTimer)clearInterval(renovacaoTokenTecnicoTimer);
+  renovacaoTokenTecnicoTimer=setInterval(renovarTokenTecnico,30*60*1000);
+}
+
 // ── LOGIN ──
 async function fazerLogin(){
   const email=($('loginEmail').value||'').trim().toLowerCase();
@@ -327,23 +354,29 @@ async function fazerLogin(){
     const auth=await r.json();
     if(!r.ok||!auth.access_token){mostrarErr('E-mail ou senha incorretos.');return;}
     const claims=parseJwt(auth.access_token);
+    if(claims?.is_admin_nuvix){
+      sessionStorage.setItem('nuvix_admin_session',JSON.stringify({id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,refresh_token:auth.refresh_token,loginAt:Date.now()}));
+      window.location.href='admin.html';
+      return;
+    }
     if(!claims?.empresa_id){mostrarErr('Conta sem empresa vinculada.');return;}
     const rEmp=await fetch(`${SB}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:{apikey:KEY,'Authorization':'Bearer '+auth.access_token}});
     const empresa=(await rEmp.json())?.[0];
-    tSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,empresa_id:empresa?.id,empresa};
+    tSession={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,access_token:auth.access_token,refresh_token:auth.refresh_token,empresa_id:empresa?.id,empresa};
     sessionStorage.setItem(TKEY,JSON.stringify(tSession));
+    iniciarRenovacaoTokenTecnico();
     iniciarPortal();
   }catch(e){mostrarErr('Erro ao fazer login: '+e.message);}
 }
 
 function mostrarErr(txt){const e=$('loginErr');e.textContent=txt;e.style.display='block';setTimeout(()=>e.style.display='none',4000)}
 
-function fazerLogout(){sessionStorage.removeItem(TKEY);tSession=null;$('loginScreen').style.display='flex';$('portalScreen').style.display='none';}
+function fazerLogout(){sessionStorage.removeItem(TKEY);tSession=null;if(renovacaoTokenTecnicoTimer){clearInterval(renovacaoTokenTecnicoTimer);renovacaoTokenTecnicoTimer=null;}$('loginScreen').style.display='flex';$('portalScreen').style.display='none';}
 
 // ── INIT ──
 async function init(){
   const raw=sessionStorage.getItem(TKEY);
-  if(raw){try{tSession=JSON.parse(raw);iniciarPortal();return;}catch(e){}}
+  if(raw){try{tSession=JSON.parse(raw);await renovarTokenTecnico();iniciarRenovacaoTokenTecnico();iniciarPortal();return;}catch(e){}}
   $('loginScreen').style.display='flex';
   $('portalScreen').style.display='none';
   $('pageLoader')?.classList.add('hide');

@@ -25,7 +25,7 @@
 
     var SB = 'https://quullcxptbiqycyakzlc.supabase.co';
     var KEY = 'sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
-    var H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+    var H = { apikey: KEY, Authorization: 'Bearer ' + (sess.access_token || KEY) };
 
     function dataLocalStr(d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
