@@ -1924,85 +1924,27 @@ async function toggleEmpresa(id,ativar){
   }catch(e){toast('Erro: '+e.message,'err');}
 }
 
+// Roda inteira no servidor (edge function excluir-empresa) — uma chamada só, em vez
+// de ~45 chamadas sequenciais no navegador (era assim antes: fácil de interromper
+// fechando ou recarregando a aba no meio, e a empresa nunca chegava a ser apagada de
+// verdade, mesmo que os dados filhos já tivessem sumido).
 async function excluirEmpresa(id,nome){
   if(!await confirmarAcao(`Excluir "${nome}"?\n\nTODOS os dados serão perdidos:\n• Clientes, Usuários, Financeiro\n• Transporte, Materiais, Serviços, RH\n\nEsta ação NÃO pode ser desfeita!`,{labelOk:'Continuar'}))return;
   if(!await confirmarAcao(`CONFIRMAÇÃO FINAL: excluir "${nome}" permanentemente?`,{labelOk:'Excluir permanentemente'}))return;
 
-  toast('Excluindo dados... aguarde.','ok');
-
-  // usuarios vem PRIMEIRO e sozinho, de propósito: usuarios.email tem restrição de único no
-  // banco, então se a empresa for apagada antes (ou mesmo com) usuarios sobrando, a FK
-  // usuarios_empresa_id_fkey zera o empresa_id (ON DELETE SET NULL) e o e-mail fica "preso"
-  // pra sempre, bloqueando qualquer novo cadastro com aquele e-mail — sem aviso nenhum na hora.
-  // Por isso: se usuarios não limpar 100%, a gente PARA aqui e não apaga a empresa.
-  let usuariosRestantes=0;
+  toast('Excluindo empresa e todos os dados... aguarde.','ok');
+  const token=tokenAtual();
+  if(!token){toast('Sessão inválida — saia e entre de novo.','err');return;}
   try{
-    const usuariosDaEmpresa=await dbGet('usuarios',`?empresa_id=eq.${id}&select=id`);
-    for(const u of usuariosDaEmpresa){
-      try{ await dbDelete('usuarios',u.id); }
-      catch(e){ usuariosRestantes++; console.warn('Falha ao excluir usuario',u.id,e.message); }
-    }
-  }catch(e){ toast('Erro ao verificar usuários da empresa: '+e.message,'err'); return; }
-
-  if(usuariosRestantes>0){
-    toast(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Parado: ${usuariosRestantes} usuário(s) desta empresa não puderam ser excluídos (permissão/sessão). A empresa NÃO foi apagada — tente sair e entrar de novo, depois exclua novamente.`,'err');
-    return;
-  }
-
-  const tabelas=[
-    // Materiais
-    'material_movimentacoes','material_reservas','material_categorias',
-    'material_fornecedores','materiais','materiais_servico',
-    'orcamento_materiais','servico_materiais','servicos_compras_materiais',
-    'servicos_materiais','servicos_orcamento_materiais',
-    // Serviços
-    'servicos_orcamentos','servicos_catalogo','servicos','servicos_tipos','tipos_servico',
-    // CRM
-    'crm_oportunidades','crm_leads','crm_followups','crm_propostas',
-    // RH
-    'ponto','ponto_importacoes','colaboradores','parametros_empresa',
-    'folha_pagamentos','folha_lancamentos','holerites',
-    // Transporte
-    'transporte','transporte_documentos','transporte_rotas',
-    'rotas','motoristas','pagamentos_motorista','cotacoes_frete',
-    // Financeiro
-    'financeiro','financeiro_recorrencias',
-    'caixa_movimentos','caixa_sangria','fechamento_caixa',
-    // Produtos/Vendas
-    'produtos','vendas','compras','fornecedores',
-    'categorias_produtos','estoque_alertas',
-    // Notas Fiscais
-    'notas_fiscais','nfse_credenciais',
-    // Ordens de Serviço
-    'os_materiais','os_mao_obra','os_checklist','os_timeline','ordens_servico',
-    // Relatórios/Logs
-    'relatorios_salvos','exportacoes_logs','email_logs',
-    'importacoes','dashboard_config',
-    // Base
-    'clientes',
-    // Admin/Permissões
-    'empresa_modulos','usuario_permissoes','assinaturas','access_logs',
-    'suporte_tickets','implantacao_checklists',
-    'nuvix_implantacoes','nuvix_impersonacoes','nuvix_tickets',
-    'nuvix_recebimentos','nuvix_despesas','nuvix_leads',
-  ];
-
-  const falhas=[];
-  try{
-    for(const tabela of tabelas){
-      try{
-        const registros=await dbGet(tabela,`?empresa_id=eq.${id}&select=id`);
-        let falhouNesta=0;
-        for(const r of registros){
-          try{ await dbDelete(tabela,r.id); }
-          catch(e){ falhouNesta++; }
-        }
-        if(falhouNesta>0) falhas.push(`${tabela} (${falhouNesta})`);
-      }catch(e){ falhas.push(`${tabela} (erro ao consultar)`); console.warn(`Skip ${tabela}:`,e.message); }
-    }
-    await dbDelete('empresas',id);
-    if(falhas.length){
-      toast(`Empresa excluída, mas sobrou dado em: ${falhas.join(', ')}. Confira manualmente.`,'err');
+    const r=await fetch(`${SB_URL}/functions/v1/excluir-empresa`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({empresa_id:id}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao excluir empresa.');
+    if(data?.falhas?.length){
+      toast(`Empresa excluída, mas sobrou dado em: ${data.falhas.join(', ')}. Confira manualmente.`,'err');
     }else{
       toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa e todos os dados excluídos!');
     }
