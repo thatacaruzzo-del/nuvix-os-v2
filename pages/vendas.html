@@ -642,9 +642,11 @@ async function registrarVendaCompleta(itens, opts){
     if(!mat)continue;
     const estAnt=Number(mat.estoque_atual||0);
     const estPost=estAnt-item.quantidade;
+    const custoUnit=Number(item.custo_unitario||0);
     await dbPost('material_movimentacoes',withEmpresa({
       material_id:item.material_id,material_nome:item.nome,tipo:'saida',
       quantidade:item.quantidade,estoque_anterior:estAnt,estoque_posterior:estPost,
+      custo_unitario:custoUnit||null,valor_total:custoUnit?custoUnit*item.quantidade:null,
       motivo:motivoMovimentacao,usuario_nome:session?.nome||null,usuario_id:session?.id||null,
       created_at:new Date().toISOString(),
     }));
