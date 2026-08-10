@@ -226,7 +226,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div class="field" id="prodEstoqueInicialWrap">
     <label>Estoque inicial</label>
     <div id="prodEstoqueInicialLista"></div>
-    <div class="field-hint">Quantidade que já tem em cada loja agora. Depois de criado, ajustes de estoque se fazem na aba "Estoque por loja".</div>
+    <div class="field-hint">Quantidade que já tem em cada loja agora.</div>
+  </div>
+  <div class="field" id="prodEstoqueAtualWrap">
+    <label>Estoque atual</label>
+    <div id="prodEstoqueAtualLista"></div>
   </div>
   <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
   <div id="produtoMsg" class="msg"></div>
@@ -373,6 +377,15 @@ function renderEstoqueInicialCampos(){
       <input type="text" inputmode="numeric" class="prod-estoque-inicial-input" data-loja="${l.id}" value="0" style="width:100px" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
     </div>`).join(''):'<p class="field-hint">Cadastre uma loja em "Lojas" antes de informar estoque.</p>';
 }
+function renderEstoqueAtualCampos(produtoId){
+  const linhas=dados.estoque.filter(e=>e.produto_id===produtoId);
+  $('prodEstoqueAtualLista').innerHTML=linhas.length?linhas.map(e=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <span style="flex:1;font-size:13px">${esc(nomeLoja(e.loja_id))}</span>
+      <b style="width:60px;text-align:right">${Number(e.quantidade||0)}</b>
+      <button class="btn2" style="padding:6px 12px" onclick="abrirModalAjusteEstoque('${e.id}')">Ajustar</button>
+    </div>`).join(''):'<p class="field-hint">Sem estoque cadastrado pra esse produto ainda — cadastre uma loja em "Lojas".</p>';
+}
 function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
@@ -380,6 +393,7 @@ function abrirModalProduto(){
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   $('prodEstoqueInicialWrap').style.display='block';
+  $('prodEstoqueAtualWrap').style.display='none';
   renderEstoqueInicialCampos();
   atualizarPrecoSugerido();
   abrirModal('modalProduto');
@@ -393,7 +407,9 @@ function editarProduto(id){
   $('prodCusto').value=money(p.custo_atual); $('prodSugerido').value=money(p.preco_venda_sugerido);
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
-  $('prodEstoqueInicialWrap').style.display='none'; // edição de estoque existente é feita na aba "Estoque por loja"
+  $('prodEstoqueInicialWrap').style.display='none'; // na edição mostra o estoque atual, não o "inicial"
+  $('prodEstoqueAtualWrap').style.display='block';
+  renderEstoqueAtualCampos(id);
   checarSobrescrito();
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   abrirModal('modalProduto');
@@ -609,6 +625,9 @@ async function confirmarAjusteEstoque(){
     toast('Estoque ajustado.','ok');
     fecharModal('modalAjusteEstoque');
     await carregarTudo();
+    // Se o modal de produto estava aberto (ajuste feito de dentro da edição), atualiza
+    // a lista de estoque ali também — sem isso ficaria mostrando o número antigo.
+    if(val('prodId')===linha.produto_id) renderEstoqueAtualCampos(linha.produto_id);
   }catch(e){msg('ajusteEstoqueMsg','Erro ao ajustar: '+e.message,'err');}
 }
 
