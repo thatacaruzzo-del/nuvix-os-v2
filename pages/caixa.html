@@ -448,18 +448,31 @@ function renderTotais(){
 }
 
 // ══ PAGAMENTO (dividido em várias formas) ══
-function adicionarLinhaPagamento(){ pagamentos.push({forma:'Dinheiro',valor:0,parcelas:null}); renderPagamentos(); }
+function adicionarLinhaPagamento(){ pagamentos.push({forma:'Dinheiro',valor:0,parcelas:null,recebido:null}); renderPagamentos(); }
+function atualizarRecebido(idx,valorDigitado){
+  pagamentos[idx].recebido=valorDigitado===''?null:numBR(valorDigitado);
+  renderPagamentos();
+}
 function renderPagamentos(){
-  if(!pagamentos.length) pagamentos=[{forma:'Dinheiro',valor:totalCarrinho(),parcelas:null}];
-  $('pgtoLinhas').innerHTML=pagamentos.map((p,idx)=>`
-    <div class="pgto-row">
-      <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
-        ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
-      </select>
-      <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);renderTotais()">
-      ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
-      ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
-    </div>`).join('');
+  if(!pagamentos.length) pagamentos=[{forma:'Dinheiro',valor:totalCarrinho(),parcelas:null,recebido:null}];
+  $('pgtoLinhas').innerHTML=pagamentos.map((p,idx)=>{
+    const troco=(p.forma==='Dinheiro'&&p.recebido!=null)?Math.round((p.recebido-p.valor)*100)/100:null;
+    return `<div style="margin-bottom:8px">
+      <div class="pgto-row" style="margin-bottom:${p.forma==='Dinheiro'?'4px':'0'}">
+        <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
+          ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
+        </select>
+        <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);renderTotais()">
+        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
+        ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
+      </div>
+      ${p.forma==='Dinheiro'?`<div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;color:var(--muted);flex:1">Cliente pagou com quanto? (pra calcular o troco)</span>
+        <input type="text" inputmode="decimal" placeholder="Recebido" value="${p.recebido??''}" oninput="sanitizarDecimal(this);atualizarRecebido(${idx},this.value)" style="width:110px">
+      </div>
+      ${troco!=null?`<div class="field-hint" style="${troco<0?'color:var(--red)':'color:var(--green)'}">${troco<0?`Falta ${money(-troco)}`:`Troco: ${money(troco)}`}</div>`:''}`:''}
+    </div>`;
+  }).join('');
   renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
 }
 function renderPagamentosRestante(total){
