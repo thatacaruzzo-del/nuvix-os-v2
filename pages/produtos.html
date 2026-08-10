@@ -223,6 +223,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <input id="prodPrecoFinal" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);checarSobrescrito()">
     <div class="field-hint" id="prodSobrescritoHint">Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.</div>
   </div>
+  <div class="field" id="prodEstoqueInicialWrap">
+    <label>Estoque inicial</label>
+    <div id="prodEstoqueInicialLista"></div>
+    <div class="field-hint">Quantidade que já tem em cada loja agora. Depois de criado, ajustes de estoque se fazem na aba "Estoque por loja".</div>
+  </div>
   <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
   <div id="produtoMsg" class="msg"></div>
   <div class="modal-actions">
@@ -261,6 +266,22 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalTransferencia')">Cancelar</button>
     <button class="btn" onclick="confirmarTransferencia()">Transferir</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL AJUSTE DE ESTOQUE -->
+<div class="modal-overlay" id="modalAjusteEstoque">
+<div class="modal" style="max-width:420px">
+  <h3>Ajustar estoque</h3>
+  <input type="hidden" id="ajusteEstoqueId">
+  <p id="ajusteEstoqueInfo" style="font-size:13px;color:var(--muted);margin-bottom:14px"></p>
+  <div class="field"><label>Nova quantidade *</label><input id="ajusteNovaQtd" type="text" inputmode="numeric" oninput="sanitizarInteiro(this)"></div>
+  <div class="field"><label>Motivo *</label><input id="ajusteMotivo" placeholder="Ex: recontagem, compra sem nota, avaria..."></div>
+  <div id="ajusteEstoqueMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalAjusteEstoque')">Cancelar</button>
+    <button class="btn" onclick="confirmarAjusteEstoque()">Salvar ajuste</button>
   </div>
 </div>
 </div>
@@ -331,12 +352,22 @@ function renderProdutos(){
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum produto encontrado.</td></tr>';
 }
 
+function renderEstoqueInicialCampos(){
+  const ativas=dados.lojas.filter(l=>l.ativo);
+  $('prodEstoqueInicialLista').innerHTML=ativas.length?ativas.map(l=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <span style="flex:1;font-size:13px">${esc(l.nome)}</span>
+      <input type="text" inputmode="numeric" class="prod-estoque-inicial-input" data-loja="${l.id}" value="0" style="width:100px" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+    </div>`).join(''):'<p class="field-hint">Cadastre uma loja em "Lojas" antes de informar estoque.</p>';
+}
 function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
   $('prodCusto').value=money(0); $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
+  $('prodEstoqueInicialWrap').style.display='block';
+  renderEstoqueInicialCampos();
   atualizarPrecoSugerido();
   abrirModal('modalProduto');
 }
@@ -349,6 +380,7 @@ function editarProduto(id){
   $('prodCusto').value=money(p.custo_atual); $('prodSugerido').value=money(p.preco_venda_sugerido);
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
+  $('prodEstoqueInicialWrap').style.display='none'; // edição de estoque existente é feita na aba "Estoque por loja"
   checarSobrescrito();
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   abrirModal('modalProduto');
@@ -392,9 +424,19 @@ async function salvarProduto(){
     }else{
       const novo=await dbPost('produtos',withEmpresa({...payload, preco_venda_sugerido: sugerido||0}));
       const novoId=Array.isArray(novo)?novo[0]?.id:novo?.id;
-      // Cria a linha de estoque (zerada) em cada loja ativa, pra já aparecer na aba Estoque.
+      // Cria a linha de estoque em cada loja ativa, com a quantidade inicial informada
+      // no cadastro (0 se não preencher) — e registra a entrada pra manter o histórico.
       for(const loja of dados.lojas.filter(l=>l.ativo)){
-        await dbPost('estoque_por_loja',withEmpresa({produto_id:novoId, loja_id:loja.id, quantidade:0}));
+        const inputQtd=document.querySelector(`.prod-estoque-inicial-input[data-loja="${loja.id}"]`);
+        const quantidade=Number(inputQtd?.value||0);
+        await dbPost('estoque_por_loja',withEmpresa({produto_id:novoId, loja_id:loja.id, quantidade}));
+        if(quantidade>0){
+          await dbPost('estoque_movimentacoes',withEmpresa({
+            produto_id:novoId, loja_id:loja.id, tipo:'entrada', quantidade,
+            estoque_anterior:0, estoque_posterior:quantidade, motivo:'Estoque inicial do cadastro',
+            referencia_tipo:'ajuste', usuario_id:session?.id||null,
+          }));
+        }
       }
     }
     toast('Produto salvo.','ok');
@@ -450,7 +492,10 @@ function renderEstoque(){
       <td>${qtd}</td>
       <td>${min||'—'}</td>
       <td>${badge}</td>
-      <td><button class="btn2" style="padding:6px 12px" onclick="abrirModalTransferencia('${e.produto_id}','${e.loja_id}')">Transferir</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn2" style="padding:6px 12px" onclick="abrirModalAjusteEstoque('${e.id}')">Ajustar</button>
+        <button class="btn2" style="padding:6px 12px" onclick="abrirModalTransferencia('${e.produto_id}','${e.loja_id}')">Transferir</button>
+      </td>
     </tr>`;
   }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum estoque cadastrado.</td></tr>';
 }
@@ -507,6 +552,40 @@ async function confirmarTransferencia(){
     fecharModal('modalTransferencia');
     await carregarTudo();
   }catch(e){msg('transferenciaMsg','Erro na transferência: '+e.message,'err');}
+}
+
+// ══ AJUSTE DE ESTOQUE (correção manual — recontagem, compra sem nota, avaria...) ══
+function abrirModalAjusteEstoque(estoqueId){
+  const linha=dados.estoque.find(e=>e.id===estoqueId);
+  if(!linha)return;
+  const produto=dados.produtos.find(p=>p.id===linha.produto_id);
+  $('ajusteEstoqueId').value=estoqueId;
+  $('ajusteEstoqueInfo').textContent=`${produto?.nome||''} — ${nomeLoja(linha.loja_id)} — estoque atual: ${Number(linha.quantidade||0)}`;
+  $('ajusteNovaQtd').value=Number(linha.quantidade||0);
+  $('ajusteMotivo').value='';
+  $('ajusteEstoqueMsg').textContent='';$('ajusteEstoqueMsg').className='msg';
+  abrirModal('modalAjusteEstoque');
+}
+async function confirmarAjusteEstoque(){
+  const estoqueId=val('ajusteEstoqueId');
+  const linha=dados.estoque.find(e=>e.id===estoqueId);
+  if(!linha)return;
+  const novaQtd=num('ajusteNovaQtd');
+  const motivo=val('ajusteMotivo').trim();
+  if(!motivo){msg('ajusteEstoqueMsg','Informe o motivo do ajuste.','err');return;}
+  const anterior=Number(linha.quantidade||0);
+  if(novaQtd===anterior){msg('ajusteEstoqueMsg','A quantidade é igual à atual — nada pra ajustar.','err');return;}
+  try{
+    await dbPatch('estoque_por_loja',estoqueId,{quantidade:novaQtd,updated_at:new Date().toISOString()});
+    await dbPost('estoque_movimentacoes',withEmpresa({
+      produto_id:linha.produto_id, loja_id:linha.loja_id, tipo:novaQtd>anterior?'entrada':'ajuste',
+      quantidade:Math.abs(novaQtd-anterior), estoque_anterior:anterior, estoque_posterior:novaQtd,
+      motivo, referencia_tipo:'ajuste', usuario_id:session?.id||null,
+    }));
+    toast('Estoque ajustado.','ok');
+    fecharModal('modalAjusteEstoque');
+    await carregarTudo();
+  }catch(e){msg('ajusteEstoqueMsg','Erro ao ajustar: '+e.message,'err');}
 }
 
 // ══ LOJAS ══
