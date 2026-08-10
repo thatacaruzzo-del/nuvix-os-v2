@@ -318,6 +318,16 @@ async function carregarTudo(){
     ]);
     dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias;
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
+  // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
+  // cadastro novo) — cria uma loja padrão sozinho, pra estoque/PDV já funcionarem
+  // sem exigir que o primeiro acesso seja "vá cadastrar uma loja primeiro".
+  if(!dados.lojas.length && temPermissao('estoque','criar')){
+    try{
+      const nova=await dbPost('lojas',withEmpresa({nome:'Loja 1',tipo:'Loja física',identificador:'L1',ativo:true}));
+      dados.lojas=[Array.isArray(nova)?nova[0]:nova];
+      toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
+    }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
+  }
   renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas();
   popularSelectsComuns();
 }

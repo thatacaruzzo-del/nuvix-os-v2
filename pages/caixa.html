@@ -294,6 +294,15 @@ async function init(){
 
 async function carregarLojas(){
   dados.lojas=await dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
+  // Mesma lógica de auto-criação do produtos.html — quem entra direto no Caixa sem
+  // nunca ter passado por Produtos também não deve travar sem loja nenhuma.
+  if(!dados.lojas.length && temPermissao('estoque','criar')){
+    try{
+      const nova=await dbPost('lojas',withEmpresa({nome:'Loja 1',tipo:'Loja física',identificador:'L1',ativo:true}));
+      dados.lojas=[Array.isArray(nova)?nova[0]:nova];
+      toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear em Produtos → Lojas.','ok');
+    }catch(e){ /* segue sem loja — abrirCaixaSessao() já avisa se não tiver nenhuma */ }
+  }
   const ultimaId=localStorage.getItem(chaveUltimaLoja());
   $('abrirLoja').innerHTML=dados.lojas.map(l=>`<option value="${l.id}"${l.id===ultimaId?' selected':''}>${esc(l.nome)}</option>`).join('')||'<option value="">Nenhuma loja cadastrada</option>';
 }
