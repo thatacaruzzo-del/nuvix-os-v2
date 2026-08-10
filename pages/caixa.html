@@ -140,6 +140,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div style="font-size:13px;color:var(--muted)">Caixa aberto em <b id="lblLojaAtual"></b> · fundo de troco <b id="lblFundoTroco"></b> · <span id="lblAbertoEm"></span></div>
           <div style="display:flex;gap:8px">
             <button class="btn2" onclick="pareirImpressora()" title="Impressora térmica USB (opcional)">🖨️ Parear impressora</button>
+            <button class="btn2" onclick="abrirTelaHistorico()">Histórico</button>
             <button class="btn2" onclick="abrirModalMovimento('Sangria')">Sangria</button>
             <button class="btn2" onclick="abrirModalMovimento('Suprimento')">Suprimento</button>
             <button class="btn2" onclick="abrirTelaFechamento()">Fechar caixa</button>
@@ -221,6 +222,25 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div class="modal-actions">
             <button class="btn2" onclick="fecharTelaFechamento()">Voltar</button>
             <button class="btn" onclick="confirmarFechamentoCaixa()">Confirmar fechamento</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ HISTÓRICO DE VENDAS ══ -->
+      <div id="telaHistorico" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <h2>Vendas</h2>
+            <div style="display:flex;gap:10px;align-items:flex-end">
+              <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Data</label><input type="date" id="histData" onchange="carregarHistoricoVendas()"></div>
+              <button class="btn2" onclick="fecharTelaHistorico()">Voltar pro caixa</button>
+            </div>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <tbody id="histTable"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -545,8 +565,22 @@ async function finalizarVenda(){
   const btn=document.querySelector('#telaPdv .btn');
   if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
   try{
+    const n=carrinho.length;
+    const clienteNome=val('pdvClienteNome').trim()||null;
+    const formasTxt=pagamentos.filter(p=>p.valor>0).map(p=>p.forma).join(' + ')||'Dinheiro';
+    // Toda venda vira uma Receita no Financeiro — sem isso, o fluxo de caixa/contas a
+    // receber nunca fica sabendo que a venda aconteceu.
+    const finLancamento=await dbPost('financeiro',withEmpresa({
+      tipo:'Receita', categoria:'Vendas de Produtos',
+      descricao:`Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
+      valor:total, data_lancamento:hoje(), data_pagamento:hoje(),
+      status:'Recebido', forma_pagamento:formasTxt, favorecido:clienteNome,
+      updated_at:new Date().toISOString(),
+    }));
+    const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
+
     const venda=await dbPost('vendas',withEmpresa({
-      loja_id:sessaoAtual.loja_id, caixa_sessao_id:sessaoAtual.id, cliente_id:null,
+      loja_id:sessaoAtual.loja_id, caixa_sessao_id:sessaoAtual.id, cliente_id:null, cliente_nome:clienteNome, financeiro_id:financeiroId,
       subtotal, desconto_total:desconto, total, status:'Concluída',
     }));
     const vendaRow=Array.isArray(venda)?venda[0]:venda;
@@ -583,7 +617,7 @@ async function finalizarVenda(){
     }
 
     toast(`Venda finalizada — ${money(total)}`,'ok');
-    await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome:val('pdvClienteNome').trim()});
+    await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
     limparCarrinho();
   }catch(e){
     msg('pdvMsg','Erro ao finalizar venda: '+e.message,'err');
@@ -735,6 +769,79 @@ async function confirmarFechamentoCaixa(){
     $('telaFechamento').style.display='none';
     await verificarCaixaAberto();
   }catch(e){msg('fechamentoMsg','Erro ao fechar caixa: '+e.message,'err');}
+}
+
+// ══ HISTÓRICO DE VENDAS (do dia) — e cancelamento ══
+function abrirTelaHistorico(){
+  $('telaPdv').style.display='none';
+  $('telaHistorico').style.display='block';
+  if(!val('histData')) $('histData').value=hoje();
+  carregarHistoricoVendas();
+}
+function fecharTelaHistorico(){ $('telaHistorico').style.display='none'; $('telaPdv').style.display='block'; }
+async function carregarHistoricoVendas(){
+  const data=val('histData')||hoje();
+  const proximoDia=dataLocal(new Date(new Date(data+'T00:00:00').getTime()+864e5));
+  try{
+    const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}&created_at=gte.${data}&created_at=lt.${proximoDia}&select=*&order=created_at.desc`);
+    const ids=vendas.map(v=>v.id);
+    const [itens,formas]=await Promise.all([
+      ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade`):[],
+      ids.length?dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento`):[],
+    ]);
+    renderHistoricoVendas(vendas,itens,formas);
+  }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
+}
+function renderHistoricoVendas(vendas,itens,formas){
+  $('histTable').innerHTML=vendas.length?vendas.map(v=>{
+    const seusItens=itens.filter(i=>i.venda_id===v.id);
+    const qtdItens=seusItens.reduce((a,i)=>a+Number(i.quantidade||0),0);
+    const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento).join(' + ')||'—';
+    const cancelada=v.status==='Cancelada';
+    return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
+      <td>${new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${esc(v.cliente_nome||'—')}</td>
+      <td>${qtdItens} (${esc(seusItens.map(i=>i.produto_nome).join(', '))})</td>
+      <td>${esc(suasFormas)}</td>
+      <td><b>${money(v.total)}</b></td>
+      <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
+      <td>${cancelada?'':`<button class="btn2" style="padding:6px 12px" onclick="cancelarVenda('${v.id}')">Cancelar</button>`}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+}
+// Cancelar reflete em tudo: devolve o estoque (com histórico), apaga a receita que a
+// venda tinha gerado no Financeiro, e marca a venda como Cancelada (não apaga a
+// linha — fica no histórico, riscada, pra auditoria).
+async function cancelarVenda(vendaId){
+  if(!temPermissao('vendas','excluir')){toast('Sem permissão para cancelar vendas.','err');return;}
+  if(!confirm('Cancelar essa venda? O estoque volta, a receita no Financeiro é removida, e ela fica marcada como cancelada no histórico. Essa ação não pode ser desfeita.'))return;
+  try{
+    const venda=await dbGet('vendas',`?id=eq.${vendaId}&select=*`).then(r=>r[0]);
+    if(!venda||venda.status==='Cancelada'){toast('Venda não encontrada ou já cancelada.','err');return;}
+    const itens=await dbGet('itens_venda',`?venda_id=eq.${vendaId}&select=*`);
+
+    for(const item of itens){
+      if(!item.produto_id)continue; // produto já foi excluído do catálogo — não tem onde devolver estoque
+      const linhaEstoque=await dbGet('estoque_por_loja',`?produto_id=eq.${item.produto_id}&loja_id=eq.${venda.loja_id}&select=*`).then(r=>r[0]);
+      if(!linhaEstoque)continue;
+      const estAnt=Number(linhaEstoque.quantidade||0);
+      const estPost=estAnt+Number(item.quantidade||0);
+      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:estPost,updated_at:new Date().toISOString()});
+      await dbPost('estoque_movimentacoes',withEmpresa({
+        produto_id:item.produto_id, loja_id:venda.loja_id, tipo:'entrada', quantidade:item.quantidade,
+        estoque_anterior:estAnt, estoque_posterior:estPost, motivo:'Cancelamento de venda',
+        referencia_tipo:'venda', referencia_id:vendaId, usuario_id:session.id,
+      }));
+    }
+
+    if(venda.financeiro_id){
+      await fetch(`${SB_URL}/rest/v1/financeiro?id=eq.${venda.financeiro_id}`,{method:'DELETE',headers:H});
+    }
+    await dbPatch('vendas',vendaId,{status:'Cancelada'});
+    toast('Venda cancelada — estoque devolvido e receita removida do Financeiro.','ok');
+    await carregarProdutosLoja();
+    await carregarHistoricoVendas();
+  }catch(e){toast('Erro ao cancelar: '+e.message,'err');}
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
