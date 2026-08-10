@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Caixa</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.pdv-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.pdv-tabs::-webkit-scrollbar{display:none}
+.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.pdv-tab:hover{color:var(--p)}
+.pdv-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.pdv-pane{display:none}.pdv-pane.active{display:block}
+.pdv-scan-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+.pdv-scan-field{flex:2;min-width:260px}
+.pdv-busca-field{flex:1;min-width:220px;position:relative}
+#pdvBarras{font-family:monospace;font-size:16px;letter-spacing:.04em}
+.pdv-busca-resultados{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md);margin-top:6px;max-height:280px;overflow-y:auto;z-index:20;display:none}
+.pdv-busca-resultados.open{display:block}
+.pdv-busca-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);font-size:13px}
+.pdv-busca-item:last-child{border-bottom:none}
+.pdv-busca-item:hover{background:var(--p-light)}
+.pdv-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+@media(max-width:1000px){.pdv-grid{grid-template-columns:1fr}}
+.pdv-carrinho-vazio{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+.pdv-total-row{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:800;padding:14px 0;border-top:1.5px solid var(--line);margin-top:10px}
+.pgto-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.pgto-row select{flex:1}.pgto-row input{width:110px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:520px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.modal-actions button{flex:1}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-amber{background:var(--amber-bg,#FEF3C7);color:var(--p2,#92400E)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-blue{background:var(--p-light);color:var(--p)}
+.field-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.caixa-fechada-box{max-width:480px;margin:60px auto;text-align:center}
+</style>
+<script src="../js/nuvix-logs.js"></script>
+<script src="../js/token-refresh.js"></script>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+<script>
+function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.modal-overlay').forEach(m=>{
+    m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open');});
+  });
+});
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+
+const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+</script>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <img src="../assets/logo.png" alt="NuvixHub" width="46" height="46">
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Produtos <span style="color:var(--line)">/</span> <b>Caixa</b></div>
+          <div class="topbar-title">Caixa (PDV)</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+
+      <!-- ══ SEM CAIXA ABERTO ══ -->
+      <div id="telaAbrirCaixa" style="display:none">
+        <div class="card caixa-fechada-box">
+          <h2 style="margin-bottom:6px">Abrir caixa</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Nenhum caixa aberto nessa loja agora. Informe o fundo de troco pra começar a vender.</p>
+          <div class="field" style="text-align:left"><label>Loja</label><select id="abrirLoja"></select></div>
+          <div class="field" style="text-align:left"><label>Turno (opcional)</label><input id="abrirTurno" placeholder="Ex: Manhã, Tarde..."></div>
+          <div class="field" style="text-align:left"><label>Fundo de troco (R$)</label><input id="abrirFundoTroco" type="number" step="0.01" placeholder="0,00"></div>
+          <div id="abrirCaixaMsg" class="msg"></div>
+          <button class="btn" style="width:100%;margin-top:10px" onclick="abrirCaixaSessao()">Abrir caixa</button>
+        </div>
+      </div>
+
+      <!-- ══ CAIXA ABERTO — PDV ══ -->
+      <div id="telaPdv" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="font-size:13px;color:var(--muted)">Caixa aberto em <b id="lblLojaAtual"></b> · fundo de troco <b id="lblFundoTroco"></b> · <span id="lblAbertoEm"></span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn2" onclick="pareirImpressora()" title="Impressora térmica USB (opcional)">🖨️ Parear impressora</button>
+            <button class="btn2" onclick="abrirModalMovimento('Sangria')">Sangria</button>
+            <button class="btn2" onclick="abrirModalMovimento('Suprimento')">Suprimento</button>
+            <button class="btn2" onclick="abrirTelaFechamento()">Fechar caixa</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="pdv-scan-row">
+            <div class="field pdv-scan-field" style="margin:0">
+              <label>Código de barras</label>
+              <input id="pdvBarras" placeholder="Leia com o leitor ou digite e tecle Enter" autocomplete="off">
+            </div>
+            <div class="field pdv-busca-field" style="margin:0">
+              <label>Buscar produto (nome, SKU ou código)</label>
+              <input id="pdvBusca" placeholder="Digite pra buscar..." autocomplete="off" oninput="buscarProdutoManual()">
+              <div class="pdv-busca-resultados" id="pdvBuscaResultados"></div>
+            </div>
+          </div>
+          <div id="pdvScanMsg" class="msg"></div>
+        </div>
+
+        <div class="pdv-grid" style="margin-top:16px">
+          <div class="card">
+            <h2 style="margin-bottom:14px">Carrinho</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Subtotal</th><th></th></tr></thead>
+                <tbody id="carrinhoTable"></tbody>
+              </table>
+            </div>
+            <div id="carrinhoVazio" class="pdv-carrinho-vazio">Carrinho vazio — leia um código de barras ou busque um produto.</div>
+          </div>
+
+          <div class="card">
+            <h2 style="margin-bottom:14px">Fechamento da venda</h2>
+
+            <div class="field">
+              <label>Desconto</label>
+              <div style="display:flex;gap:8px">
+                <select id="descTipo" style="width:130px" onchange="renderTotais()"><option value="">Sem desconto</option><option value="Percentual">%</option><option value="Valor fixo">R$</option></select>
+                <input id="descValor" type="number" step="0.01" placeholder="0" oninput="renderTotais()">
+              </div>
+              <select id="descMotivo" style="margin-top:6px"><option value="">Motivo do desconto...</option><option>Fidelização</option><option>Avaria</option><option>Negociação</option><option>Outro</option></select>
+              <div class="field-hint" id="descAprovacaoHint"></div>
+            </div>
+
+            <div class="field">
+              <label>Cliente (opcional)</label>
+              <input id="pdvClienteNome" placeholder="Nome do cliente">
+            </div>
+
+            <div class="field">
+              <label>Pagamento</label>
+              <div id="pgtoLinhas"></div>
+              <button class="btn2" style="width:100%;margin-top:4px" onclick="adicionarLinhaPagamento()">+ Adicionar forma de pagamento</button>
+              <div class="field-hint" id="pgtoRestanteHint"></div>
+            </div>
+
+            <div class="pdv-total-row">
+              <span>Total</span>
+              <span id="pdvTotalVal">R$ 0,00</span>
+            </div>
+            <div class="actions" style="margin-top:14px">
+              <button class="btn" onclick="finalizarVenda()">Finalizar venda</button>
+              <button class="btn2" onclick="limparCarrinho()">Cancelar</button>
+            </div>
+            <div id="pdvMsg" class="msg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ FECHAMENTO DE CAIXA ══ -->
+      <div id="telaFechamento" style="display:none">
+        <div class="card" style="max-width:560px;margin:0 auto">
+          <h2 style="margin-bottom:6px">Fechar caixa</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Dinheiro físico exige contagem manual. Cartão e Pix não têm contagem — ficam aguardando conciliação com o extrato.</p>
+          <div id="fechamentoFormas"></div>
+          <div id="fechamentoMsg" class="msg"></div>
+          <div class="modal-actions">
+            <button class="btn2" onclick="fecharTelaFechamento()">Voltar</button>
+            <button class="btn" onclick="confirmarFechamentoCaixa()">Confirmar fechamento</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SANGRIA/SUPRIMENTO -->
+<div class="modal-overlay" id="modalMovimento">
+<div class="modal" style="max-width:420px">
+  <h3 id="modalMovimentoTitulo">Sangria</h3>
+  <input type="hidden" id="movTipo">
+  <div class="field"><label>Valor (R$) *</label><input id="movValor" type="number" step="0.01"></div>
+  <div class="field"><label>Motivo *</label><input id="movMotivo" placeholder="Ex: retirada pro banco, troco pra outra loja..."></div>
+  <div id="movMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalMovimento')">Cancelar</button>
+    <button class="btn" onclick="confirmarMovimento()">Confirmar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL APROVAÇÃO DE DESCONTO -->
+<div class="modal-overlay" id="modalAprovacao">
+<div class="modal" style="max-width:420px">
+  <h3>Desconto acima do limite</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Esse desconto passa do seu limite sem aprovação. Peça pra um Administrador confirmar com a senha dele.</p>
+  <div class="field"><label>E-mail do aprovador</label><input id="aprovEmail" placeholder="admin@empresa.com"></div>
+  <div class="field"><label>Senha</label><input id="aprovSenha" type="password"></div>
+  <div id="aprovacaoMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalAprovacao')">Cancelar</button>
+    <button class="btn" onclick="confirmarAprovacaoDesconto()">Aprovar e continuar</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ══ ESTADO ══
+const session = requireAuth();
+let dados = { produtos:[], estoque:[], lojas:[] };
+let carrinho = [];
+let pagamentos = [];
+let sessaoAtual = null;
+let impressoraDevice = null;
+let aprovacaoDescontoOk = false;
+let aprovacaoDescontoUsuarioId = null;
+
+const LIMITE_DESCONTO_PADRAO_PCT = 5; // perfis que não são Administrador/SuperAdmin
+function limiteDescontoPct(){ return (session.perfil==='Administrador'||session.perfil==='SuperAdmin') ? 100 : LIMITE_DESCONTO_PADRAO_PCT; }
+
+function chaveUltimaLoja(){return `nuvix_caixa_loja_${session?.empresa_id||''}`}
+
+async function init(){
+  if(!session)return;
+  if(!guardModulo('caixa'))return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · Caixa';
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+  }
+  await carregarLojas();
+  await verificarCaixaAberto();
+  reconectarImpressoraSalva();
+  $('pageLoader')?.classList.add('hide');
+  setTimeout(()=>{$('pdvBarras')?.focus();},80);
+}
+
+async function carregarLojas(){
+  dados.lojas=await dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
+  const ultimaId=localStorage.getItem(chaveUltimaLoja());
+  $('abrirLoja').innerHTML=dados.lojas.map(l=>`<option value="${l.id}"${l.id===ultimaId?' selected':''}>${esc(l.nome)}</option>`).join('')||'<option value="">Nenhuma loja cadastrada</option>';
+}
+
+async function verificarCaixaAberto(){
+  const lojaId=val('abrirLoja')||dados.lojas[0]?.id;
+  if(!lojaId){ $('telaAbrirCaixa').style.display='block'; return; }
+  const abertos=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+  if(abertos.length){
+    sessaoAtual=abertos[0];
+    await carregarProdutosLoja();
+    mostrarTelaPdv();
+  }else{
+    $('telaAbrirCaixa').style.display='block';
+    $('telaPdv').style.display='none';
+  }
+}
+
+async function carregarProdutosLoja(){
+  const [produtos,estoque]=await Promise.all([
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual`),
+    dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}`),
+  ]);
+  dados.produtos=produtos; dados.estoque=estoque;
+}
+
+function mostrarTelaPdv(){
+  $('telaAbrirCaixa').style.display='none';
+  $('telaFechamento').style.display='none';
+  $('telaPdv').style.display='block';
+  $('lblLojaAtual').textContent=dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'—';
+  $('lblFundoTroco').textContent=money(sessaoAtual.fundo_troco);
+  $('lblAbertoEm').textContent='aberto '+fmtDataHora(sessaoAtual.aberto_em);
+  limparCarrinho();
+}
+
+// ══ ABRIR CAIXA ══
+async function abrirCaixaSessao(){
+  const lojaId=val('abrirLoja');
+  if(!lojaId){msg('abrirCaixaMsg','Cadastre uma loja em Produtos → Lojas antes de abrir o caixa.','err');return;}
+  try{
+    const nova=await dbPost('caixa_sessoes',withEmpresa({
+      loja_id:lojaId, turno:val('abrirTurno').trim()||null, responsavel_abertura_id:session.id,
+      fundo_troco:num('abrirFundoTroco'), status:'Aberto',
+    }));
+    sessaoAtual=Array.isArray(nova)?nova[0]:nova;
+    localStorage.setItem(chaveUltimaLoja(),lojaId);
+    await carregarProdutosLoja();
+    mostrarTelaPdv();
+    toast('Caixa aberto.','ok');
+  }catch(e){msg('abrirCaixaMsg','Erro ao abrir caixa: '+e.message,'err');}
+}
+
+// ══ BUSCA / CARRINHO ══
+function disponivel(produtoId){return Number(dados.estoque.find(e=>e.produto_id===produtoId)?.quantidade||0)}
+function buscarProdutoManual(){
+  const q=val('pdvBusca').trim().toLowerCase();
+  const box=$('pdvBuscaResultados');
+  if(!q){box.classList.remove('open');box.innerHTML='';return;}
+  const achados=dados.produtos.filter(p=>(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q)).slice(0,10);
+  box.innerHTML=achados.map(p=>`<div class="pdv-busca-item" onclick="adicionarAoCarrinhoPorId('${p.id}')"><span>${esc(p.nome)}</span><span class="qtd-disp">${disponivel(p.id)} disp. · ${money(p.preco_venda_final)}</span></div>`).join('')||'<div class="pdv-busca-item">Nenhum produto encontrado.</div>';
+  box.classList.add('open');
+}
+function adicionarAoCarrinhoPorId(id){
+  const p=dados.produtos.find(x=>x.id===id);
+  if(p)adicionarAoCarrinho(p);
+  $('pdvBusca').value=''; $('pdvBuscaResultados').classList.remove('open');
+}
+function adicionarAoCarrinho(produto){
+  const disp=disponivel(produto.id);
+  const item=carrinho.find(i=>i.produto_id===produto.id);
+  const qtdAtual=item?item.quantidade:0;
+  if(qtdAtual+1>disp){ toast(`Estoque disponível insuficiente (${disp} un.).`,'err'); return; }
+  if(item){ item.quantidade+=1; } else {
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),estoque_disponivel:disp});
+  }
+  renderCarrinho();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  $('pdvBarras')?.addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    const codigo=val('pdvBarras').trim();
+    if(!codigo)return;
+    const produto=dados.produtos.find(p=>p.codigo_barras===codigo);
+    if(!produto){ msg('pdvScanMsg','Nenhum produto com esse código de barras.','err'); }
+    else{ adicionarAoCarrinho(produto); msg('pdvScanMsg',`${produto.nome} adicionado.`,'ok'); }
+    $('pdvBarras').value=''; $('pdvBarras').focus();
+  });
+  document.addEventListener('click',e=>{ if(!e.target.closest('.pdv-busca-field'))$('pdvBuscaResultados')?.classList.remove('open'); });
+});
+function renderCarrinho(){
+  $('carrinhoVazio').style.display=carrinho.length?'none':'block';
+  if(!carrinho.length){ $('carrinhoTable').innerHTML=''; }
+  else{
+    $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
+      <tr>
+        <td>${esc(i.nome)}</td>
+        <td><input type="number" class="pdv-qtd-input" value="${i.quantidade}" min="1" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
+        <td>${money(i.valor_unitario)}</td>
+        <td>${money(i.quantidade*i.valor_unitario)}</td>
+        <td><button class="btn2" style="padding:4px 10px" onclick="removerDoCarrinho(${idx})">✕</button></td>
+      </tr>`).join('');
+  }
+  renderTotais();
+}
+function alterarQtdCarrinho(idx,novoValor){
+  const item=carrinho[idx]; if(!item)return;
+  let novaQtd=Math.max(1,Math.floor(Number(novoValor)||1));
+  if(novaQtd>item.estoque_disponivel){ toast(`Estoque disponível insuficiente (${item.estoque_disponivel} un.).`,'err'); novaQtd=item.estoque_disponivel; }
+  item.quantidade=novaQtd; renderCarrinho();
+}
+function removerDoCarrinho(idx){ carrinho.splice(idx,1); renderCarrinho(); }
+function limparCarrinho(){
+  carrinho=[]; pagamentos=[]; aprovacaoDescontoOk=false; aprovacaoDescontoUsuarioId=null;
+  $('descTipo').value=''; $('descValor').value=''; $('descMotivo').value=''; $('descAprovacaoHint').textContent='';
+  $('pdvClienteNome').value='';
+  renderPagamentos(); renderCarrinho();
+}
+function totalCarrinho(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
+function arred2(v){ return Math.round(Number(v||0)*100)/100; }
+function valorDesconto(subtotal){
+  const tipo=val('descTipo'); const v=num('descValor');
+  if(!tipo||!v)return 0;
+  return arred2(tipo==='Percentual' ? subtotal*v/100 : Math.min(v,subtotal));
+}
+function descontoPctEquivalente(subtotal,desconto){ return subtotal>0 ? desconto/subtotal*100 : 0; }
+function renderTotais(){
+  const subtotal=totalCarrinho();
+  const desconto=valorDesconto(subtotal);
+  const total=arred2(Math.max(0,subtotal-desconto));
+  $('pdvTotalVal').textContent=money(total);
+  const pctEquiv=descontoPctEquivalente(subtotal,desconto);
+  const limite=limiteDescontoPct();
+  if(desconto>0 && pctEquiv>limite && !aprovacaoDescontoOk){
+    $('descAprovacaoHint').innerHTML=`<span style="color:var(--red)">Desconto de ${pctEquiv.toFixed(1)}% passa do seu limite (${limite}%) — vai pedir aprovação ao finalizar.</span>`;
+  }else if(desconto>0){
+    $('descAprovacaoHint').textContent=`Desconto: ${money(desconto)} (${pctEquiv.toFixed(1)}%)`;
+  }else{ $('descAprovacaoHint').textContent=''; }
+  // Com uma única forma de pagamento (o caso comum), mantém o valor sempre igual ao
+  // total — só passa a exigir alocação manual quando o caixa dividir em mais de uma.
+  if(pagamentos.length===1){ pagamentos[0].valor=total; renderPagamentos(); }
+  else{ renderPagamentosRestante(total); }
+}
+
+// ══ PAGAMENTO (dividido em várias formas) ══
+function adicionarLinhaPagamento(){ pagamentos.push({forma:'Dinheiro',valor:0,parcelas:null}); renderPagamentos(); }
+function renderPagamentos(){
+  if(!pagamentos.length) pagamentos=[{forma:'Dinheiro',valor:totalCarrinho(),parcelas:null}];
+  $('pgtoLinhas').innerHTML=pagamentos.map((p,idx)=>`
+    <div class="pgto-row">
+      <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
+        ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
+      </select>
+      <input type="number" step="0.01" value="${p.valor}" oninput="pagamentos[${idx}].valor=Number(this.value||0);renderTotais()">
+      ${p.forma==='Cartão Crédito'?`<input type="number" min="1" placeholder="parcelas" value="${p.parcelas||1}" oninput="pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
+      ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
+    </div>`).join('');
+  renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
+}
+function renderPagamentosRestante(total){
+  const alocado=pagamentos.reduce((a,p)=>a+Number(p.valor||0),0);
+  const restante=Math.round((total-alocado)*100)/100;
+  $('pgtoRestanteHint').innerHTML=restante===0?'<span style="color:var(--green)">Pagamento cobre o total.</span>':(restante>0?`Falta alocar ${money(restante)}.`:`<span style="color:var(--red)">Alocado ${money(-restante)} a mais que o total.</span>`);
+}
+
+// ══ APROVAÇÃO DE DESCONTO ══
+function abrirModalAprovacao(){ $('aprovEmail').value=''; $('aprovSenha').value=''; $('aprovacaoMsg').textContent=''; $('aprovacaoMsg').className='msg'; abrirModal('modalAprovacao'); }
+async function confirmarAprovacaoDesconto(){
+  const email=val('aprovEmail').trim(); const senha=val('aprovSenha');
+  if(!email||!senha){msg('aprovacaoMsg','Informe e-mail e senha.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const j=await r.json();
+    if(!r.ok||!j.access_token){msg('aprovacaoMsg','E-mail ou senha inválidos.','err');return;}
+    const usuarios=await fetch(`${SB_URL}/rest/v1/usuarios?id=eq.${j.user.id}&select=id,perfil,empresa_id`,{headers:{...H,Authorization:'Bearer '+j.access_token}}).then(x=>x.json());
+    const u=usuarios[0];
+    if(!u||u.empresa_id!==session.empresa_id||!['Administrador','SuperAdmin'].includes(u.perfil)){
+      msg('aprovacaoMsg','Esse usuário não tem perfil pra aprovar descontos.','err');return;
+    }
+    aprovacaoDescontoOk=true; aprovacaoDescontoUsuarioId=u.id;
+    toast('Desconto aprovado.','ok');
+    fecharModal('modalAprovacao');
+    finalizarVenda();
+  }catch(e){msg('aprovacaoMsg','Erro ao validar aprovação: '+e.message,'err');}
+}
+
+// ══ SANGRIA / SUPRIMENTO ══
+function abrirModalMovimento(tipo){
+  $('modalMovimentoTitulo').textContent=tipo; $('movTipo').value=tipo;
+  $('movValor').value=''; $('movMotivo').value=''; $('movMsg').textContent=''; $('movMsg').className='msg';
+  abrirModal('modalMovimento');
+}
+async function confirmarMovimento(){
+  const tipo=val('movTipo'); const valor=num('movValor'); const motivo=val('movMotivo').trim();
+  if(!valor||valor<=0){msg('movMsg','Informe um valor válido.','err');return;}
+  if(!motivo){msg('movMsg','Informe o motivo.','err');return;}
+  try{
+    await dbPost('caixa_movimentos',withEmpresa({caixa_sessao_id:sessaoAtual.id,tipo,valor,motivo,responsavel_id:session.id}));
+    toast(`${tipo} registrada.`,'ok');
+    fecharModal('modalMovimento');
+  }catch(e){msg('movMsg','Erro: '+e.message,'err');}
+}
+
+// ══ FINALIZAR VENDA ══
+async function finalizarVenda(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
+  if(!carrinho.length){msg('pdvMsg','Adicione ao menos um produto ao carrinho.','err');return;}
+  for(const item of carrinho){
+    if(item.quantidade>disponivel(item.produto_id)){
+      msg('pdvMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${disponivel(item.produto_id)}.`,'err');
+      await carregarProdutosLoja();
+      return;
+    }
+  }
+  const subtotal=totalCarrinho();
+  const desconto=valorDesconto(subtotal);
+  const total=arred2(Math.max(0,subtotal-desconto));
+  const pctEquiv=descontoPctEquivalente(subtotal,desconto);
+  if(desconto>0 && pctEquiv>limiteDescontoPct() && !aprovacaoDescontoOk){
+    abrirModalAprovacao(); return;
+  }
+  if(desconto>0 && !val('descMotivo')){ msg('pdvMsg','Selecione o motivo do desconto.','err'); return; }
+  if(!pagamentos.length) renderPagamentos();
+  const alocado=pagamentos.reduce((a,p)=>a+Number(p.valor||0),0);
+  if(Math.abs(alocado-total)>0.01){ msg('pdvMsg','A soma das formas de pagamento precisa bater com o total.','err'); return; }
+
+  const btn=document.querySelector('#telaPdv .btn');
+  if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
+  try{
+    const venda=await dbPost('vendas',withEmpresa({
+      loja_id:sessaoAtual.loja_id, caixa_sessao_id:sessaoAtual.id, cliente_id:null,
+      subtotal, desconto_total:desconto, total, status:'Concluída',
+    }));
+    const vendaRow=Array.isArray(venda)?venda[0]:venda;
+    const vendaId=vendaRow.id;
+
+    await dbPost('itens_venda', carrinho.map(i=>withEmpresa({
+      venda_id:vendaId, produto_id:i.produto_id, quantidade:i.quantidade,
+      valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, subtotal:i.quantidade*i.valor_unitario,
+    })));
+
+    await dbPost('venda_formas_pagamento', pagamentos.filter(p=>p.valor>0).map(p=>withEmpresa({
+      venda_id:vendaId, forma_pagamento:p.forma, valor:p.valor, parcelas:p.forma==='Cartão Crédito'?(p.parcelas||1):null,
+    })));
+
+    if(desconto>0){
+      await dbPost('descontos_aplicados',withEmpresa({
+        venda_id:vendaId, tipo:val('descTipo'), valor_desconto:desconto, motivo:val('descMotivo'),
+        aplicado_por_id:session.id, requer_aprovacao:pctEquiv>limiteDescontoPct(),
+        aprovado_por_id:aprovacaoDescontoUsuarioId, aprovado_em:aprovacaoDescontoUsuarioId?new Date().toISOString():null,
+      }));
+    }
+
+    for(const item of carrinho){
+      const linhaEstoque=dados.estoque.find(e=>e.produto_id===item.produto_id);
+      const estAnt=Number(linhaEstoque?.quantidade||0);
+      const estPost=estAnt-item.quantidade;
+      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:estPost,updated_at:new Date().toISOString()});
+      await dbPost('estoque_movimentacoes',withEmpresa({
+        produto_id:item.produto_id, loja_id:sessaoAtual.loja_id, tipo:'saida', quantidade:item.quantidade,
+        estoque_anterior:estAnt, estoque_posterior:estPost, motivo:'Venda PDV',
+        referencia_tipo:'venda', referencia_id:vendaId, usuario_id:session.id,
+      }));
+      linhaEstoque.quantidade=estPost;
+    }
+
+    toast(`Venda finalizada — ${money(total)}`,'ok');
+    await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome:val('pdvClienteNome').trim()});
+    limparCarrinho();
+  }catch(e){
+    msg('pdvMsg','Erro ao finalizar venda: '+e.message,'err');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Finalizar venda';}
+  }
+}
+
+// ══ CUPOM NÃO-FISCAL ══
+// Sempre gera o cupom em HTML (pronto pra imprimir na impressora do sistema) — e, se
+// tiver uma térmica USB pareada, também manda o ESC/POS pra ela automaticamente.
+// Uma falha na impressora nunca invalida a venda, que já foi gravada antes disso.
+async function emitirCupom(dadosVenda){
+  abrirCupomHtml(dadosVenda);
+  if(impressoraDevice){
+    try{ await imprimirCupomTermico(dadosVenda); }
+    catch(e){ toast('Venda registrada, mas a impressora térmica falhou — cupom em HTML foi aberto.','err'); }
+  }
+}
+function abrirCupomHtml(d){
+  const emp=session.empresa||{};
+  const linhas=d.itens.map(i=>`
+    <tr><td colspan="3" style="padding-top:8px;font-weight:700">${esc(i.nome)}</td></tr>
+    <tr><td>${i.quantidade} x ${money(i.valor_unitario)}</td><td></td><td style="text-align:right">${money(i.quantidade*i.valor_unitario)}</td></tr>`).join('');
+  const pgtoLinhas=d.pagamentos.filter(p=>p.valor>0).map(p=>`<div><span>${esc(p.forma)}${p.parcelas>1?' ('+p.parcelas+'x)':''}</span><span>${money(p.valor)}</span></div>`).join('');
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cupom</title>
+  <style>
+    @media print{@page{size:80mm auto;margin:6mm}.btn-imprimir{display:none}}
+    body{font-family:'Courier New',monospace;max-width:320px;margin:0 auto;padding:16px;color:#101828}
+    h1{font-size:15px;text-align:center;margin:0 0 2px}
+    .sub{text-align:center;font-size:11px;color:#667085;margin-bottom:12px}
+    .aviso{text-align:center;font-size:10px;color:#98A2B3;border-top:1px dashed #D0D5DD;border-bottom:1px dashed #D0D5DD;padding:6px 0;margin:10px 0}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    .tot-row td{padding-top:8px;font-weight:800;font-size:14px;border-top:1px dashed #667085}
+    .desc-row td{font-size:12px;color:#DC2626}
+    .rodape{margin-top:14px;font-size:11px;color:#667085}
+    .rodape div{display:flex;justify-content:space-between;padding:2px 0}
+    .btn-imprimir{display:block;width:100%;margin-top:16px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+  </style></head><body>
+  <h1>${esc(emp.fantasia||emp.razao||'Cupom de venda')}</h1>
+  <div class="sub">${esc(dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'')} · ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="aviso">Cupom sem valor fiscal</div>
+  <table>${linhas}
+    ${d.desconto>0?`<tr class="desc-row"><td colspan="2">Desconto</td><td style="text-align:right">-${money(d.desconto)}</td></tr>`:''}
+    <tr class="tot-row"><td colspan="2">Total</td><td style="text-align:right">${money(d.total)}</td></tr>
+  </table>
+  <div class="rodape">${pgtoLinhas}${d.clienteNome?`<div><span>Cliente</span><span>${esc(d.clienteNome)}</span></div>`:''}</div>
+  <button class="btn-imprimir" onclick="window.print()">Imprimir</button>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
+// WebUSB — ESC/POS. Endpoint/interface variam por modelo de impressora; isso é uma
+// implementação de referência, testar e ajustar com a impressora real da loja.
+async function pareirImpressora(){
+  try{
+    if(!navigator.usb){ toast('Este navegador não suporta WebUSB (use Chrome ou Edge).','err'); return; }
+    const device=await navigator.usb.requestDevice({filters:[]});
+    await device.open();
+    if(device.configuration===null) await device.selectConfiguration(1);
+    await device.claimInterface(0);
+    impressoraDevice=device;
+    toast('Impressora pareada.','ok');
+  }catch(e){ toast('Não foi possível parear: '+e.message,'err'); }
+}
+async function reconectarImpressoraSalva(){
+  try{
+    if(!navigator.usb)return;
+    const devices=await navigator.usb.getDevices();
+    if(devices[0]){
+      await devices[0].open();
+      if(devices[0].configuration===null) await devices[0].selectConfiguration(1);
+      await devices[0].claimInterface(0);
+      impressoraDevice=devices[0];
+    }
+  }catch(e){ /* silencioso — não bloqueia o uso do caixa */ }
+}
+async function imprimirCupomTermico(d){
+  const enc=new TextEncoder();
+  let txt='';
+  txt+=(session.empresa?.fantasia||'')+'\n';
+  txt+=new Date().toLocaleString('pt-BR')+'\n';
+  txt+='--------------------------------\n';
+  d.itens.forEach(i=>{ txt+=`${i.nome}\n  ${i.quantidade} x ${money(i.valor_unitario)} = ${money(i.quantidade*i.valor_unitario)}\n`; });
+  txt+='--------------------------------\n';
+  if(d.desconto>0) txt+=`Desconto: -${money(d.desconto)}\n`;
+  txt+=`TOTAL: ${money(d.total)}\n`;
+  d.pagamentos.filter(p=>p.valor>0).forEach(p=>{ txt+=`${p.forma}: ${money(p.valor)}\n`; });
+  txt+='\n\n\n';
+  const bytes=new Uint8Array([0x1B,0x40, ...enc.encode(txt), 0x1D,0x56,0x00]);
+  await impressoraDevice.transferOut(1,bytes);
+}
+
+// ══ FECHAMENTO DE CAIXA ══
+const FORMAS_FECHAMENTO=['Dinheiro','Cartão Débito','Cartão Crédito','Pix'];
+async function abrirTelaFechamento(){
+  $('telaPdv').style.display='none';
+  $('telaFechamento').style.display='block';
+  const [vendasDoTurno,movimentos]=await Promise.all([
+    dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&caixa_sessao_id=eq.${sessaoAtual.id}&select=id`),
+    dbGet('caixa_movimentos',`?empresa_id=eq.${session.empresa_id}&caixa_sessao_id=eq.${sessaoAtual.id}`),
+  ]);
+  const ids=vendasDoTurno.map(v=>v.id);
+  const vendas=ids.length?await dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=forma_pagamento,valor`):[];
+  const sangrias=movimentos.filter(m=>m.tipo==='Sangria').reduce((a,m)=>a+Number(m.valor||0),0);
+  const suprimentos=movimentos.filter(m=>m.tipo==='Suprimento').reduce((a,m)=>a+Number(m.valor||0),0);
+  const porForma={};
+  FORMAS_FECHAMENTO.forEach(f=>porForma[f]=0);
+  vendas.forEach(v=>{ if(porForma[v.forma_pagamento]!=null) porForma[v.forma_pagamento]+=Number(v.valor||0); });
+
+  $('fechamentoFormas').innerHTML=FORMAS_FECHAMENTO.map(forma=>{
+    const esperado=forma==='Dinheiro' ? Number(sessaoAtual.fundo_troco||0)+porForma['Dinheiro']-sangrias+suprimentos : porForma[forma];
+    return `<div class="field" style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px">
+      <b>${forma}</b>
+      <div style="font-size:13px;color:var(--muted);margin:4px 0">Esperado pelo sistema: <b>${money(esperado)}</b></div>
+      ${forma==='Dinheiro'
+        ? `<label>Contagem física (R$)</label><input id="fech_${forma.replace(/\s/g,'')}" type="number" step="0.01" data-esperado="${esperado}" oninput="atualizarDiferencaFechamento('${forma}')"><div id="fechDif_${forma.replace(/\s/g,'')}" class="field-hint"></div>`
+        : `<div class="badge badge-blue">Aguardando conciliação (sem contagem manual)</div>`}
+    </div>`;
+  }).join('')+`<div class="field-hint">Sangrias no turno: ${money(sangrias)} · Suprimentos: ${money(suprimentos)}</div>`;
+}
+function atualizarDiferencaFechamento(forma){
+  const el=$('fech_'+forma.replace(/\s/g,''));
+  const esperado=Number(el.dataset.esperado||0);
+  const contado=Number(el.value||0);
+  const dif=contado-esperado;
+  const hint=$('fechDif_'+forma.replace(/\s/g,''));
+  if(!el.value){hint.textContent='';return;}
+  hint.innerHTML=dif===0?'<span style="color:var(--green)">Confere.</span>':(dif>0?`<span style="color:var(--p)">Sobra de ${money(dif)}</span>`:`<span style="color:var(--red)">Falta ${money(-dif)}</span>`);
+}
+function fecharTelaFechamento(){ $('telaFechamento').style.display='none'; $('telaPdv').style.display='block'; }
+async function confirmarFechamentoCaixa(){
+  const dinheiroEl=$('fech_Dinheiro');
+  if(!dinheiroEl.value){ msg('fechamentoMsg','Informe a contagem física de dinheiro antes de fechar.','err'); return; }
+  try{
+    for(const forma of FORMAS_FECHAMENTO){
+      const el=$('fech_'+forma.replace(/\s/g,''));
+      const esperado=el?Number(el.dataset.esperado||0):0;
+      const contado=forma==='Dinheiro'?Number(el.value||0):null;
+      await dbPost('caixa_fechamento_formas',withEmpresa({
+        caixa_sessao_id:sessaoAtual.id, forma_pagamento:forma, valor_esperado:esperado,
+        valor_contado:contado, diferenca:contado!=null?contado-esperado:null,
+        status_conciliacao: forma==='Dinheiro'?'Não se aplica':(esperado>0?'Aguardando':'Não se aplica'),
+      }));
+    }
+    await dbPatch('caixa_sessoes',sessaoAtual.id,{status:'Fechado',fechado_em:new Date().toISOString(),responsavel_fechamento_id:session.id});
+    toast('Caixa fechado.','ok');
+    sessaoAtual=null;
+    $('telaFechamento').style.display='none';
+    await verificarCaixaAberto();
+  }catch(e){msg('fechamentoMsg','Erro ao fechar caixa: '+e.message,'err');}
+}
+
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+init();
+</script>
+<script>
+// ── Sidebar dinâmica por segmento ──
+(function(){
+  try{
+    const raw = sessionStorage.getItem('nuvix_v2_session');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    const seg = (d.empresa?.segmento || d.empresa?.tipo || '').toLowerCase();
+    const nav = document.getElementById('sidebar');
+    if(!nav) return;
+
+    const logo = nav.querySelector('.sidebar-logo');
+
+    const isTransporte = seg.includes('transporte');
+    const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
+    const isVarejo = seg.includes('venda de produto');
+    const isMista = seg.includes('mista');
+
+    nav.querySelectorAll('.sb-group').forEach(g => {
+      if(!g.style.marginTop) g.style.display = 'none';
+    });
+
+    let html = '';
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Principal</div>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
+      <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
+      <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
+    </div>`;
+
+    if(isServico || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Serviços</div>
+        <a class="sb-btn" href="os.html" data-tip="Ordens de Serviço"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span>Ordens de Serviço</span></a>
+        <a class="sb-btn" href="servicos.html" data-tip="Serviços e Orçamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Serviços</span></a>
+        <a class="sb-btn" href="materiais.html" data-tip="Materiais e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Materiais</span></a>
+      </div>`;
+    }
+
+    if(isTransporte || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Transporte</div>
+        <a class="sb-btn" href="transporte.html" data-tip="Operações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Transporte</span></a>
+        <a class="sb-btn" href="cotacao.html" data-tip="Cotação de Frete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Cotação</span></a>
+      </div>`;
+    }
+
+    if(isVarejo || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Produtos</div>
+        <a class="sb-btn" href="produtos.html" data-tip="Produtos e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Produtos</span></a>
+        <a class="sb-btn" href="caixa.html" data-tip="Caixa (PDV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Caixa</span></a>
+      </div>`;
+    }
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Pessoas</div>
+      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
+    </div>`;
+
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Análise</div>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+    </div>`;
+
+    logo.insertAdjacentHTML('afterend', html);
+
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','produtos.html':'produtos','caixa.html':'caixa'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const p=permsUser.find(x=>x.modulo===id);return p?!!p.pode_ver:true;});
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
+
+    const current = window.location.pathname.split('/').pop();
+    nav.querySelectorAll('.sb-btn').forEach(btn => {
+      if(btn.getAttribute('href') === current){
+        btn.classList.add('active');
+      }
+    });
+
+  }catch(e){ console.warn('Sidebar error:', e); }
+})();
+</script>
+</body>
+</html>
