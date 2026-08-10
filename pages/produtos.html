@@ -215,13 +215,13 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <div class="field" style="flex:1"><label>Código de barras</label><input id="prodCodigoBarras" placeholder="Opcional"></div>
   </div>
   <div style="display:flex;gap:12px">
-    <div class="field" style="flex:1"><label>Custo atual</label><input id="prodCusto" disabled style="background:#F7F7FA"><div class="field-hint">Só muda ao lançar uma compra em Contas a Pagar vinculada a este produto.</div></div>
-    <div class="field" style="flex:1"><label>Preço sugerido</label><input id="prodSugerido" disabled style="background:#F7F7FA"></div>
+    <div class="field" style="flex:1"><label>Custo atual (automático)</label><input id="prodCusto" disabled style="background:#F7F7FA"><div class="field-hint">Só muda ao lançar uma compra em Contas a Pagar vinculada a este produto.</div></div>
+    <div class="field" style="flex:1"><label>Preço sugerido (automático)</label><input id="prodSugerido" disabled style="background:#F7F7FA"><div class="field-hint">Calculado pelo custo + markup da categoria — só uma referência.</div></div>
   </div>
   <div class="field">
-    <label>Preço de venda final *</label>
+    <label>👉 Preço de venda final — digite aqui *</label>
     <input id="prodPrecoFinal" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);checarSobrescrito()">
-    <div class="field-hint" id="prodSobrescritoHint"></div>
+    <div class="field-hint" id="prodSobrescritoHint">Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.</div>
   </div>
   <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
   <div id="produtoMsg" class="msg"></div>
@@ -269,6 +269,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 // ══ ESTADO ══
 const session = requireAuth();
 let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[] };
+const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
 async function init(){
   if(!session)return;
@@ -334,7 +335,7 @@ function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
   $('prodCusto').value=money(0); $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
-  $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent='';
+  $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   atualizarPrecoSugerido();
   abrirModal('modalProduto');
@@ -365,7 +366,7 @@ function checarSobrescrito(){
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);
   const final=numBR('prodPrecoFinal');
-  $('prodSobrescritoHint').textContent=(final&&sugerido&&Math.abs(final-sugerido)>0.01)?'Preço editado manualmente — diferente do sugerido.':'';
+  $('prodSobrescritoHint').textContent=(final&&sugerido&&Math.abs(final-sugerido)>0.01)?'Preço editado manualmente — diferente do sugerido.':DICA_PRECO_PADRAO;
 }
 async function salvarProduto(){
   const nome=val('prodNome').trim();
