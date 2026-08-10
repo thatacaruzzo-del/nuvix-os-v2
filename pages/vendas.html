@@ -183,7 +183,12 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div class="card">
             <h2 style="margin-bottom:14px">Fechamento</h2>
             <div class="field">
-              <label>Cliente (opcional)</label>
+              <label>CPF do cliente (opcional)</label>
+              <input id="pdvClienteCpf" placeholder="000.000.000-00" oninput="pdvClienteId=null" onblur="pdvClienteBusca=buscarClientePorCpf()">
+              <div id="pdvClienteStatus" style="font-size:12px;margin-top:4px"></div>
+            </div>
+            <div class="field">
+              <label>Nome do cliente (opcional)</label>
               <input id="pdvCliente" placeholder="Nome do cliente">
             </div>
             <div class="field">
@@ -570,7 +575,31 @@ function alterarQtdCarrinho(idx,novaQtd){
   renderCarrinho();
 }
 function removerDoCarrinho(idx){carrinho.splice(idx,1);renderCarrinho();}
-function limparCarrinho(){carrinho=[];renderCarrinho();$('pdvCliente').value='';$('pdvRecebido').value='';atualizarTroco();}
+function limparCarrinho(){carrinho=[];renderCarrinho();$('pdvCliente').value='';$('pdvClienteCpf').value='';pdvClienteId=null;pdvClienteBusca=null;setHTML('pdvClienteStatus','');$('pdvRecebido').value='';atualizarTroco();}
+
+// Busca opcional por CPF pra puxar o cadastro do cliente na hora da compra — nunca
+// bloqueia a venda: se não achar, o caixa simplesmente segue com o nome digitado (ou
+// sem nome nenhum), e o cliente é cadastrado automaticamente ao finalizar (ver
+// finalizarVenda) pra já reconhecer da próxima vez.
+let pdvClienteId=null;
+let pdvClienteBusca=null; // promise da busca em andamento — finalizarVenda espera ela antes de decidir se cadastra um cliente novo, senão um clique rápido demais duplicaria o cliente
+async function buscarClientePorCpf(){
+  const raw=val('pdvClienteCpf').trim();
+  const digits=raw.replace(/\D/g,'');
+  pdvClienteId=null;
+  if(!digits||digits.length<11){setHTML('pdvClienteStatus','');return;}
+  try{
+    const filtro=raw!==digits?`or=(documento.eq.${encodeURIComponent(raw)},documento.eq.${digits})`:`documento=eq.${digits}`;
+    const rows=await dbGet('clientes',`?empresa_id=eq.${session.empresa_id}&${filtro}&select=id,nome&limit=1`);
+    if(rows&&rows[0]){
+      pdvClienteId=rows[0].id;
+      if(!val('pdvCliente').trim())$('pdvCliente').value=rows[0].nome||'';
+      setHTML('pdvClienteStatus',`<span style="color:var(--green,#16a34a)">✓ Cliente encontrado: ${esc(rows[0].nome||'')}</span>`);
+    }else{
+      setHTML('pdvClienteStatus','<span style="color:var(--muted)">CPF não cadastrado — a venda segue normal.</span>');
+    }
+  }catch(e){setHTML('pdvClienteStatus','');}
+}
 
 function totalCarrinho(){return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0);}
 
@@ -614,7 +643,7 @@ function atualizarTroco(){
 // era feita só dentro de finalizarVenda(), agora reaproveitada também pela
 // importação de planilha (cada linha da planilha vira uma venda de 1 item).
 async function registrarVendaCompleta(itens, opts){
-  const {clienteNome=null, forma='Dinheiro', dataLancamento=hoje(), recebido=null, descricao=null, motivoMovimentacao='Venda'}=opts||{};
+  const {clienteNome=null, clienteId=null, forma='Dinheiro', dataLancamento=hoje(), recebido=null, descricao=null, motivoMovimentacao='Venda'}=opts||{};
   const total=itens.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0);
   const valorRecebido=recebido!=null?recebido:total;
   const vendaId=crypto.randomUUID();
@@ -630,7 +659,7 @@ async function registrarVendaCompleta(itens, opts){
   const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
 
   const linhasVenda=itens.map(i=>withEmpresa({
-    venda_id:vendaId,cliente_nome:clienteNome,produto_id:i.material_id,produto_nome:i.nome,
+    venda_id:vendaId,cliente_nome:clienteNome,cliente_id:clienteId,produto_id:i.material_id,produto_nome:i.nome,
     quantidade:i.quantidade,valor_unitario:i.valor_unitario,custo_unitario:i.custo_unitario,
     pagamento:forma,valor_recebido:valorRecebido,troco:Math.max(0,valorRecebido-total),recebido:total,
     status:'Concluída',financeiro_id:financeiroId,data_lancamento:dataLancamento,
@@ -674,12 +703,25 @@ async function finalizarVenda(){
     }
   }
   const clienteNome=val('pdvCliente').trim()||null;
+  const clienteCpfDigits=val('pdvClienteCpf').trim().replace(/\D/g,'')||null;
   const btn=document.querySelector('#pane-venda .btn');
   if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
   try{
+    // Espera a busca por CPF terminar, caso ainda esteja em andamento (evita cadastrar
+    // um cliente duplicado se o caixa finalizar rápido demais). Se digitou CPF mas ele
+    // não bateu com nenhum cliente já cadastrado, cadastra na hora — silenciosamente,
+    // sem travar a venda se o cadastro falhar por qualquer motivo.
+    if(pdvClienteBusca){try{await pdvClienteBusca;}catch(e){}}
+    let clienteId=pdvClienteId;
+    if(!clienteId&&clienteCpfDigits&&clienteNome){
+      try{
+        const novoCliente=await dbPost('clientes',withEmpresa({nome:clienteNome,documento:clienteCpfDigits}));
+        clienteId=Array.isArray(novoCliente)?novoCliente[0]?.id:novoCliente?.id;
+      }catch(e){/* segue a venda mesmo se o cadastro automático do cliente falhar */}
+    }
     const n=carrinho.length;
     await registrarVendaCompleta(carrinho,{
-      clienteNome,forma,recebido,
+      clienteNome,clienteId,forma,recebido,
       descricao:`Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
       motivoMovimentacao:'Venda PDV',
     });
