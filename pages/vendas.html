@@ -148,7 +148,10 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <button class="pdv-tab" onclick="pdvTab('historico',this)">Histórico</button>
           <button class="pdv-tab" onclick="pdvTab('painel',this)">Painel Executivo</button>
         </div>
-        <button class="btn2" onclick="abrirModalImportarVendas()">Importar planilha de vendas</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn2" onclick="abrirModalLojas()">Lojas</button>
+          <button class="btn2" onclick="abrirModalImportarVendas()">Importar planilha de vendas</button>
+        </div>
       </div>
 
       <!-- ══ VENDA ══ -->
@@ -182,6 +185,10 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
           <div class="card">
             <h2 style="margin-bottom:14px">Fechamento</h2>
+            <div class="field" id="pdvLojaWrap" style="display:none">
+              <label>Loja</label>
+              <select id="pdvLoja" onchange="salvarUltimaLoja()"></select>
+            </div>
             <div class="field">
               <label>CPF do cliente (opcional)</label>
               <input id="pdvClienteCpf" placeholder="000.000.000-00" oninput="pdvClienteId=null" onblur="pdvClienteBusca=buscarClientePorCpf()">
@@ -220,10 +227,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <div class="card">
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
             <div><label>Data</label><input type="date" id="histData" onchange="carregarHistorico()"></div>
+            <div><label>Loja</label><select id="histLoja" onchange="carregarHistorico()"><option value="">Todas</option></select></div>
           </div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th></tr></thead>
+              <thead><tr><th>Hora</th><th>Cliente</th><th>Loja</th><th>Itens</th><th>Pagamento</th><th>Total</th></tr></thead>
               <tbody id="histTable"></tbody>
             </table>
           </div>
@@ -241,6 +249,16 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         </div>
 
         <div class="kpi-grid" id="painelKpis"></div>
+
+        <div class="card" id="painelLojaWrap" style="margin-bottom:16px;display:none">
+          <h2 style="margin-bottom:14px">Vendas por loja</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Loja</th><th>Nº de vendas</th><th>Faturamento</th><th>% do total</th></tr></thead>
+              <tbody id="painelLojaTable"></tbody>
+            </table>
+          </div>
+        </div>
 
         <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
 
@@ -288,7 +306,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div id="importVendasResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
   <div id="importVendasPreviewWrap" style="display:none;max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px">
     <table style="font-size:12px">
-      <thead><tr><th></th><th>Produto</th><th>Qtd.</th><th>Vlr. unit.</th><th>Data</th><th>Cliente</th><th>Motivo</th></tr></thead>
+      <thead><tr><th></th><th>Produto</th><th>Qtd.</th><th>Vlr. unit.</th><th>Data</th><th>Cliente</th><th>Loja</th><th>Motivo</th></tr></thead>
       <tbody id="importVendasPreviewTable"></tbody>
     </table>
   </div>
@@ -300,10 +318,29 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 </div>
 </div>
 
+<div class="modal-overlay" id="modalLojas">
+<div class="modal" style="max-width:520px">
+  <h3>Lojas</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Cada loja/canal (ex: Loja 1, Loja 2, E-commerce) só marca de onde saiu a venda pra relatório — o estoque continua único e compartilhado entre todas.</p>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="novaLojaNome" placeholder="Nome da loja" style="flex:1">
+    <select id="novaLojaTipo" style="width:150px">
+      <option>Loja física</option><option>E-commerce</option><option>Outro</option>
+    </select>
+    <button class="btn" onclick="criarLoja()">Adicionar</button>
+  </div>
+  <div id="lojasMsg" class="msg"></div>
+  <div id="lojasLista" style="max-height:320px;overflow:auto"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalLojas')">Fechar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { materiais:[] };
+let dados = { materiais:[], locais:[] };
 let carrinho = []; // [{material_id, codigo, nome, unidade, quantidade, valor_unitario, custo_unitario, estoque_disponivel}]
 
 // ══ INIT ══
@@ -322,6 +359,7 @@ async function init(){
   $('painelDe').value=dataLocal(de);
   $('painelAte').value=hoje();
   await carregarMateriais();
+  await carregarLocais();
   atualizarTroco();
   $('pageLoader')?.classList.add('hide');
   setTimeout(()=>{$('pdvBarras')?.focus();},80);
@@ -334,8 +372,65 @@ async function carregarMateriais(){
   }catch(e){toast('Erro ao carregar produtos: '+e.message,'err');}
 }
 
+// ══ LOJAS (canal de venda — estoque continua único, só marca a origem da venda) ══
+function chaveUltimaLoja(){return `nuvix_pdv_loja_${session?.empresa_id||''}`}
+async function carregarLocais(){
+  if(!session?.empresa_id)return;
+  try{
+    dados.locais=await dbGet('locais_venda',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`);
+  }catch(e){dados.locais=[];}
+  const ativos=dados.locais.filter(l=>l.ativo);
+  $('pdvLojaWrap').style.display=ativos.length?'block':'none';
+  const ultimaId=localStorage.getItem(chaveUltimaLoja());
+  $('pdvLoja').innerHTML='<option value="">Não informada</option>'+ativos.map(l=>
+    `<option value="${l.id}"${l.id===ultimaId?' selected':''}>${esc(l.nome)}</option>`).join('');
+  popularFiltroLojaHistorico();
+}
+function salvarUltimaLoja(){
+  const v=val('pdvLoja');
+  if(v)localStorage.setItem(chaveUltimaLoja(),v);
+  else localStorage.removeItem(chaveUltimaLoja());
+}
+function abrirModalLojas(){renderLojasLista();abrirModal('modalLojas');}
+function renderLojasLista(){
+  $('lojasLista').innerHTML=dados.locais.length?dados.locais.map(l=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1"><b>${esc(l.nome)}</b><div style="font-size:12px;color:var(--muted)">${esc(l.tipo)}${l.ativo?'':' · inativa'}</div></div>
+      <button class="btn2" onclick="alternarAtivoLoja('${l.id}',${!l.ativo})">${l.ativo?'Desativar':'Ativar'}</button>
+      <button class="btn2" onclick="excluirLoja('${l.id}')">Excluir</button>
+    </div>`).join(''):'<p style="font-size:13px;color:var(--muted)">Nenhuma loja cadastrada ainda.</p>';
+}
+async function criarLoja(){
+  const nome=val('novaLojaNome').trim();
+  if(!nome){msg('lojasMsg','Digite o nome da loja.','err');return;}
+  try{
+    await dbPost('locais_venda',withEmpresa({nome,tipo:val('novaLojaTipo'),ativo:true}));
+    $('novaLojaNome').value='';
+    await carregarLocais();
+    renderLojasLista();
+    toast('Loja cadastrada.','ok');
+  }catch(e){msg('lojasMsg','Erro ao cadastrar: '+e.message,'err');}
+}
+async function alternarAtivoLoja(id,novoAtivo){
+  try{
+    await dbPatch('locais_venda',id,{ativo:novoAtivo});
+    await carregarLocais();
+    renderLojasLista();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+async function excluirLoja(id){
+  if(!confirm('Excluir essa loja? Vendas já registradas com ela continuam guardadas, só perdem essa marcação.'))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/locais_venda?id=eq.${id}`,{method:'DELETE',headers:H});
+    if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
+    await carregarLocais();
+    renderLojasLista();
+    toast('Loja excluída.','ok');
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
+}
+
 // ══ IMPORTAR PLANILHA DE VENDAS (histórico) ══
-const IMPORT_VENDAS_CABECALHO=['produto_codigo_barras','produto_nome','quantidade','valor_unitario','data_lancamento','forma_pagamento','cliente_nome'];
+const IMPORT_VENDAS_CABECALHO=['produto_codigo_barras','produto_nome','quantidade','valor_unitario','data_lancamento','forma_pagamento','cliente_nome','loja'];
 const IMPORT_VENDAS_FORMAS=['Dinheiro','Pix','Boleto','Cartão débito','Cartão crédito','Transferência'];
 let importVendasLinhasValidas=[];
 let importVendasArquivoNome='';
@@ -355,7 +450,7 @@ function abrirModalImportarVendas(){
 function baixarModeloVendas(){
   baixarModeloCSV(
     IMPORT_VENDAS_CABECALHO,
-    ['7891000000001','','2','25.00','04/08/2026','Pix','Cliente Exemplo'],
+    ['7891000000001','','2','25.00','04/08/2026','Pix','Cliente Exemplo','Loja 1'],
     'modelo_vendas.csv',
   );
 }
@@ -398,6 +493,10 @@ function validarLinhaImportacaoVenda(linha, estoqueSimulado){
   const formaIn=(linha.forma_pagamento||'').trim();
   const forma=IMPORT_VENDAS_FORMAS.find(f=>f.toLowerCase()===formaIn.toLowerCase())||'Dinheiro';
   const clienteNome=(linha.cliente_nome||'').trim()||null;
+  // Loja é opcional e não bloqueia a linha se não bater com nenhuma cadastrada — só
+  // fica sem essa marcação (mesmo espírito do resto da importação: nunca travar).
+  const lojaIn=(linha.loja||'').trim();
+  const lojaId=lojaIn?(dados.locais.find(l=>(l.nome||'').toLowerCase()===lojaIn.toLowerCase())?.id||null):null;
 
   if(produto&&erros.length===0){
     const disponivelAtual=estoqueSimulado.has(produto.id)?estoqueSimulado.get(produto.id):disponivel(produto);
@@ -414,7 +513,7 @@ function validarLinhaImportacaoVenda(linha, estoqueSimulado){
     payload: erros.length===0?{
       material_id:produto.id, nome:produto.nome, quantidade,
       valor_unitario:valorUnitario, custo_unitario:Number(produto.custo_compra||0),
-      dataLancamento, forma, clienteNome,
+      dataLancamento, forma, clienteNome, lojaId,
     }:null,
   };
 }
@@ -444,6 +543,7 @@ function processarImportacaoVendas(linhas, nomeArquivo){
       <td>${esc(r.linha.valor_unitario||'')}</td>
       <td>${esc(r.linha.data_lancamento||'')}</td>
       <td>${esc(r.linha.cliente_nome||'')}</td>
+      <td>${esc(r.linha.loja||'')}</td>
       <td style="color:var(--red)">${esc(r.erro||'')}</td>
     </tr>`).join('');
   $('importVendasPreviewWrap').style.display='block';
@@ -464,7 +564,7 @@ async function confirmarImportacaoVendas(){
     btn.textContent=`Importando ${ok+falhas+1}/${importVendasLinhasValidas.length}...`;
     try{
       await registrarVendaCompleta([{material_id:l.material_id,nome:l.nome,quantidade:l.quantidade,valor_unitario:l.valor_unitario,custo_unitario:l.custo_unitario}],{
-        clienteNome:l.clienteNome, forma:l.forma, dataLancamento:l.dataLancamento,
+        clienteNome:l.clienteNome, lojaId:l.lojaId, forma:l.forma, dataLancamento:l.dataLancamento,
         descricao:`Venda importada — ${l.nome}${l.clienteNome?' — '+l.clienteNome:''}`,
         motivoMovimentacao:'Venda importada',
       });
@@ -643,7 +743,7 @@ function atualizarTroco(){
 // era feita só dentro de finalizarVenda(), agora reaproveitada também pela
 // importação de planilha (cada linha da planilha vira uma venda de 1 item).
 async function registrarVendaCompleta(itens, opts){
-  const {clienteNome=null, clienteId=null, forma='Dinheiro', dataLancamento=hoje(), recebido=null, descricao=null, motivoMovimentacao='Venda'}=opts||{};
+  const {clienteNome=null, clienteId=null, lojaId=null, forma='Dinheiro', dataLancamento=hoje(), recebido=null, descricao=null, motivoMovimentacao='Venda'}=opts||{};
   const total=itens.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0);
   const valorRecebido=recebido!=null?recebido:total;
   const vendaId=crypto.randomUUID();
@@ -659,7 +759,7 @@ async function registrarVendaCompleta(itens, opts){
   const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
 
   const linhasVenda=itens.map(i=>withEmpresa({
-    venda_id:vendaId,cliente_nome:clienteNome,cliente_id:clienteId,produto_id:i.material_id,produto_nome:i.nome,
+    venda_id:vendaId,cliente_nome:clienteNome,cliente_id:clienteId,loja_id:lojaId,produto_id:i.material_id,produto_nome:i.nome,
     quantidade:i.quantidade,valor_unitario:i.valor_unitario,custo_unitario:i.custo_unitario,
     pagamento:forma,valor_recebido:valorRecebido,troco:Math.max(0,valorRecebido-total),recebido:total,
     status:'Concluída',financeiro_id:financeiroId,data_lancamento:dataLancamento,
@@ -673,7 +773,7 @@ async function registrarVendaCompleta(itens, opts){
     const estPost=estAnt-item.quantidade;
     const custoUnit=Number(item.custo_unitario||0);
     await dbPost('material_movimentacoes',withEmpresa({
-      material_id:item.material_id,material_nome:item.nome,tipo:'saida',
+      material_id:item.material_id,material_nome:item.nome,tipo:'saida',loja_id:lojaId,
       quantidade:item.quantidade,estoque_anterior:estAnt,estoque_posterior:estPost,
       custo_unitario:custoUnit||null,valor_total:custoUnit?custoUnit*item.quantidade:null,
       motivo:motivoMovimentacao,usuario_nome:session?.nome||null,usuario_id:session?.id||null,
@@ -744,6 +844,7 @@ async function finalizarVenda(){
   }
   const clienteNome=val('pdvCliente').trim()||null;
   const clienteCpfDigits=val('pdvClienteCpf').trim().replace(/\D/g,'')||null;
+  const lojaId=val('pdvLoja')||null;
   const btn=document.querySelector('#pane-venda .btn');
   if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
   try{
@@ -762,7 +863,7 @@ async function finalizarVenda(){
     const n=carrinho.length;
     const itensVenda=[...carrinho]; // snapshot — limparCarrinho() esvazia o carrinho logo abaixo
     await registrarVendaCompleta(carrinho,{
-      clienteNome,clienteId,forma,recebido,
+      clienteNome,clienteId,lojaId,forma,recebido,
       descricao:`Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
       motivoMovimentacao:'Venda PDV',
     });
@@ -778,15 +879,23 @@ async function finalizarVenda(){
 }
 
 // ══ HISTÓRICO ══
+function popularFiltroLojaHistorico(){
+  const sel=$('histLoja');
+  const atual=sel.value;
+  sel.innerHTML='<option value="">Todas</option>'+dados.locais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+  sel.value=atual;
+}
 async function carregarHistorico(){
   if(!session?.empresa_id)return;
   const data=val('histData')||hoje();
+  const lojaFiltro=val('histLoja');
   try{
     const linhas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&data_lancamento=eq.${data}&select=*&order=created_at.desc`);
     const porVenda={};
     linhas.forEach(l=>{
+      if(lojaFiltro&&l.loja_id!==lojaFiltro)return;
       const k=l.venda_id||l.id;
-      if(!porVenda[k])porVenda[k]={cliente:l.cliente_nome,pagamento:l.pagamento,created_at:l.created_at,itens:0,total:0};
+      if(!porVenda[k])porVenda[k]={cliente:l.cliente_nome,loja_id:l.loja_id,pagamento:l.pagamento,created_at:l.created_at,itens:0,total:0};
       porVenda[k].itens+=Number(l.quantidade||0);
       porVenda[k].total+=Number(l.quantidade||0)*Number(l.valor_unitario||0);
     });
@@ -795,10 +904,11 @@ async function carregarHistorico(){
       <tr>
         <td>${v.created_at?new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
         <td>${esc(v.cliente||'—')}</td>
+        <td>${esc(dados.locais.find(l=>l.id===v.loja_id)?.nome||'—')}</td>
         <td>${v.itens}</td>
         <td>${esc(v.pagamento||'—')}</td>
         <td><b>${money(v.total)}</b></td>
-      </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+      </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
   }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
 }
 
@@ -835,6 +945,29 @@ function totaisVendas(linhas){
   return {faturamento,numVendas:vendaIds.size};
 }
 
+// Só aparece se pelo menos 1 loja estiver cadastrada — sem isso, não faz sentido
+// mostrar uma tabela de 1 linha só dizendo "Não informada".
+function renderVendasPorLoja(linhas){
+  if(!dados.locais.length){$('painelLojaWrap').style.display='none';return;}
+  const porLoja={};
+  linhas.forEach(l=>{
+    const k=l.loja_id||'—';
+    if(!porLoja[k])porLoja[k]={nome:dados.locais.find(x=>x.id===l.loja_id)?.nome||'Não informada',faturamento:0,vendaIds:new Set()};
+    porLoja[k].faturamento+=Number(l.quantidade||0)*Number(l.valor_unitario||0);
+    porLoja[k].vendaIds.add(l.venda_id||l.id);
+  });
+  const linhasLoja=Object.values(porLoja).sort((a,b)=>b.faturamento-a.faturamento);
+  const total=linhasLoja.reduce((a,l)=>a+l.faturamento,0);
+  $('painelLojaWrap').style.display=linhasLoja.length?'block':'none';
+  $('painelLojaTable').innerHTML=linhasLoja.length?linhasLoja.map(l=>`
+    <tr>
+      <td>${esc(l.nome)}</td>
+      <td>${l.vendaIds.size}</td>
+      <td><b>${money(l.faturamento)}</b></td>
+      <td>${total?Math.round(l.faturamento/total*100):0}%</td>
+    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+}
+
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
@@ -848,6 +981,7 @@ async function carregarPainel(){
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
 
   renderEvolucao(linhas,de,ate);
+  renderVendasPorLoja(linhas);
 
   // Agrupa por produto
   const porProduto={};
