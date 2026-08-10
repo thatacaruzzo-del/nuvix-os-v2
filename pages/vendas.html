@@ -685,6 +685,46 @@ async function registrarVendaCompleta(itens, opts){
   return total;
 }
 
+// Comprovante de venda (SEM valor fiscal — é só o recibo do caixa pro cliente levar,
+// não é NFC-e). Abre em nova aba já pronto pra imprimir, mesmo padrão de janela usado
+// em notas-fiscais.html (Blob + window.open).
+function imprimirComprovante(itens, opts){
+  const {clienteNome=null, forma='Dinheiro', recebido=0, total=0}=opts||{};
+  const emp=session.empresa||{};
+  const troco=forma==='Dinheiro'?Math.max(0,recebido-total):0;
+  const linhas=itens.map(i=>`
+    <tr><td colspan="3" style="padding-top:8px;font-weight:700">${esc(i.nome)}</td></tr>
+    <tr><td>${i.quantidade} ${esc(i.unidade||'UN')} x ${money(i.valor_unitario)}</td><td></td><td style="text-align:right">${money(i.quantidade*i.valor_unitario)}</td></tr>`).join('');
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comprovante de venda</title>
+  <style>
+    @media print{@page{size:80mm auto;margin:6mm}.btn-imprimir{display:none}}
+    body{font-family:'Courier New',monospace;max-width:320px;margin:0 auto;padding:16px;color:#101828}
+    h1{font-size:15px;text-align:center;margin:0 0 2px}
+    .sub{text-align:center;font-size:11px;color:#667085;margin-bottom:12px}
+    .aviso{text-align:center;font-size:10px;color:#98A2B3;border-top:1px dashed #D0D5DD;border-bottom:1px dashed #D0D5DD;padding:6px 0;margin:10px 0}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    .tot-row td{padding-top:8px;font-weight:800;font-size:14px;border-top:1px dashed #667085}
+    .rodape{margin-top:14px;font-size:11px;color:#667085}
+    .rodape div{display:flex;justify-content:space-between;padding:2px 0}
+    .btn-imprimir{display:block;width:100%;margin-top:16px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+  </style></head><body>
+  <h1>${esc(emp.fantasia||emp.razao||'Comprovante de venda')}</h1>
+  <div class="sub">${emp.cnpj?esc(emp.cnpj)+' · ':''}${new Date().toLocaleString('pt-BR')}</div>
+  <div class="aviso">Comprovante sem valor fiscal</div>
+  <table>${linhas}
+    <tr class="tot-row"><td colspan="2">Total</td><td style="text-align:right">${money(total)}</td></tr>
+  </table>
+  <div class="rodape">
+    <div><span>Forma de pagamento</span><span>${esc(forma)}</span></div>
+    ${forma==='Dinheiro'?`<div><span>Recebido</span><span>${money(recebido)}</span></div><div><span>Troco</span><span>${money(troco)}</span></div>`:''}
+    ${clienteNome?`<div><span>Cliente</span><span>${esc(clienteNome)}</span></div>`:''}
+  </div>
+  <button class="btn-imprimir" onclick="window.print()">Imprimir</button>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
+
 async function finalizarVenda(){
   if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
   if(!carrinho.length){msg('pdvMsg','Adicione ao menos um produto ao carrinho.','err');return;}
@@ -720,12 +760,14 @@ async function finalizarVenda(){
       }catch(e){/* segue a venda mesmo se o cadastro automático do cliente falhar */}
     }
     const n=carrinho.length;
+    const itensVenda=[...carrinho]; // snapshot — limparCarrinho() esvazia o carrinho logo abaixo
     await registrarVendaCompleta(carrinho,{
       clienteNome,clienteId,forma,recebido,
       descricao:`Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
       motivoMovimentacao:'Venda PDV',
     });
     toast(`Venda finalizada — ${money(total)}`,'ok');
+    imprimirComprovante(itensVenda,{clienteNome,forma,recebido,total});
     limparCarrinho();
     await carregarMateriais();
   }catch(e){
