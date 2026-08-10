@@ -436,8 +436,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="tab active" onclick="abrirAba('geral',this)">Visão geral</button>
         <button class="tab" onclick="abrirAba('financeiro',this)"><span class="tab-alert" id="tabAlert-financeiro" style="display:none"></span>Financeiro</button>
         <button class="tab" onclick="abrirAba('comercial',this)"><span class="tab-alert" id="tabAlert-comercial" style="display:none"></span>Comercial</button>
-        <button class="tab" onclick="abrirAba('operacao',this)"><span class="tab-alert" id="tabAlert-operacao" style="display:none"></span>Operação</button>
-        <button class="tab" onclick="abrirAba('materiais',this)"><span class="tab-alert" id="tabAlert-materiais" style="display:none"></span>Materiais</button>
+        <button class="tab" id="tabBtnVendas" style="display:none" onclick="abrirAba('vendas',this)">Vendas</button>
+        <button class="tab" id="tabBtnOperacao" onclick="abrirAba('operacao',this)"><span class="tab-alert" id="tabAlert-operacao" style="display:none"></span>Operação</button>
+        <button class="tab" id="tabBtnMateriais" onclick="abrirAba('materiais',this)"><span class="tab-alert" id="tabAlert-materiais" style="display:none"></span>Materiais</button>
         <button class="tab" onclick="abrirAba('rh',this)"><span class="tab-alert" id="tabAlert-rh" style="display:none"></span>RH</button>
         <button class="tab" onclick="abrirAba('atividade',this)">Atividade</button>
       </div>
@@ -497,10 +498,24 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div class="recent-card">
             <div class="recent-hdr">
-              <h3>Serviços mais vendidos</h3>
-              <a href="servicos.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
+              <h3 id="topServicosTitulo">Serviços mais vendidos</h3>
+              <a href="servicos.html" id="topServicosLink" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver todos →</a>
             </div>
             <div class="recent-body" id="topServicos"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VENDAS — quanto vendi? (só aparece pra segmento Venda de Produto / Mista) -->
+      <div class="pane" id="pane-vendas">
+        <div class="kpi-grid-4" id="vendasKpis"></div>
+        <div class="recent-grid" style="margin-top:16px">
+          <div class="recent-card" style="grid-column:1/-1">
+            <div class="recent-hdr">
+              <h3>Produtos mais vendidos</h3>
+              <a href="caixa.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver Caixa →</a>
+            </div>
+            <div class="recent-body" id="topProdutosVenda"></div>
           </div>
         </div>
       </div>
@@ -533,7 +548,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
 <script>
 const session = requireAuth();
-let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[]};
+let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[],vendas:[],itensVenda:[]};
+// Segmento da empresa — controla quais abas do Painel fazem sentido pra ela. Definido
+// aqui (não só na sidebar) porque o conteúdo das abas também precisa respeitar isso:
+// uma empresa só de Varejo não presta serviço nenhum, "Serviços mais vendidos" e a aba
+// de Ordens de Serviço não deviam nem aparecer pra ela.
+let isVarejo=false, isServico=false, isTransporte=false, isMista=false;
 let periodo = {dias:'mes', de:'', ate:''};
 let competencia = 'vencimento';
 let direcao = 'passado'; // 'passado' ou 'futuro' — só é usado quando competencia==='vencimento'
@@ -555,6 +575,23 @@ async function init(){
     const seg=emp.segmento||emp.tipo||'';
     if(seg==='Prestação de Serviço'||seg==='Mista') document.querySelectorAll('.nx-menu-servico').forEach(el=>el.style.display='flex');
     if(seg==='Transporte'||seg==='Mista') document.querySelectorAll('.nx-menu-transporte').forEach(el=>el.style.display='flex');
+    const segL=seg.toLowerCase();
+    isVarejo=segL.includes('venda de produto');
+    isServico=segL.includes('serviço')||segL.includes('servico')||segL.includes('prestação');
+    isTransporte=segL.includes('transporte');
+    isMista=segL.includes('mista');
+    // Varejo puro (nem serviço, nem mista): esconde o que é só de Serviços e mostra
+    // a aba de Vendas; troca "Serviços mais vendidos" por "Produtos mais vendidos".
+    if(isVarejo && !isServico && !isMista){
+      $('tabBtnOperacao').style.display='none';
+      $('tabBtnMateriais').style.display='none';
+      $('topServicosTitulo').textContent='Produtos mais vendidos (30 dias)';
+      $('topServicosLink').setAttribute('href','caixa.html');
+      $('topServicosLink').textContent='Ver Caixa →';
+    }
+    if(isVarejo || isMista){
+      $('tabBtnVendas').style.display='';
+    }
   }else{
     $('topbarSub').textContent = saudacao;
   }
@@ -688,7 +725,7 @@ async function loadData(){
   if(!session?.empresa_id)return;
   const q = `?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   try{
-    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas] = await Promise.all([
+    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda] = await Promise.all([
       db.get('financeiro', q),
       db.get('servicos_orcamentos', q).catch(()=>[]),
       db.get('clientes', q).catch(()=>[]),
@@ -699,8 +736,10 @@ async function loadData(){
       db.get('colaboradores',`?select=id,nome,ativo,salario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
       db.get('ponto',`?select=data,horas_extras,tipo,colaborador_nome&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
       db.get('notas_fiscais',`?select=id,cliente_nome,status,mensagem_erro&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
+      (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      (isVarejo||isMista) ? db.get('itens_venda',`?select=venda_id,produto_nome,quantidade,valor_unitario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
     ]);
-    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas};
+    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda};
     renderAll();
     $('lastUpd').textContent = 'Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -717,6 +756,7 @@ function renderAll(){
   renderAgendaConsolidada();
   renderCentralAtencao();
   renderComercial();
+  if(isVarejo||isMista) renderVendas();
   renderOperacao();
   renderMateriais();
   renderRH();
@@ -764,6 +804,47 @@ function calcComercial(de,ate){
   const ticketMedio = fechadosLista.length ? fechadosLista.reduce((a,o)=>a+Number(o.valor_previsto||0),0)/fechadosLista.length : null;
   const pipelineAberto = (dados.crm||[]).filter(o=>!['Fechado','Perdido'].includes(o.status||'')).reduce((a,o)=>a+Number(o.valor_previsto||0),0);
   return {leads, fechados, txConv, ticketMedio, pipelineAberto};
+}
+// VENDAS — quanto vendi? (só Varejo/Mista) — filtra por created_at já que vendas.created_at
+// é a data/hora real da venda (não tem data_lancamento separado, diferente de Financeiro).
+function calcVendasSetor(de,ate){
+  const periodo_=(dados.vendas||[]).filter(v=>{const dt=String(v.created_at||'').slice(0,10);return dt>=de&&dt<=ate;});
+  const faturamento=periodo_.reduce((a,v)=>a+Number(v.total||0),0);
+  const numVendas=periodo_.length;
+  const ticketMedio=numVendas?faturamento/numVendas:0;
+  return {faturamento,numVendas,ticketMedio};
+}
+function renderVendas(){
+  const de=periodo.de||hoje(), ate=periodo.ate||hoje();
+  const v=calcVendasSetor(de,ate);
+  const hj=hoje();
+  const hoje_=calcVendasSetor(hj,hj);
+  setHTML('vendasKpis', kpiCardsHTML([
+    {ico:icoWallet,cls:'p',lbl:'Faturamento hoje',val:money(hoje_.faturamento),sub:`${hoje_.numVendas} venda${hoje_.numVendas!==1?'s':''}`,destaque:true},
+    {ico:icoSVG(pathComercial),cls:'g',lbl:'Faturamento no período',val:money(v.faturamento),sub:'ver filtro de período acima'},
+    {ico:icoScale,cls:'b',lbl:'Nº de vendas no período',val:v.numVendas,sub:'concluídas'},
+    {ico:icoClock,cls:'a',lbl:'Ticket médio',val:v.ticketMedio?money(v.ticketMedio):'—',sub:'no período'},
+  ]));
+
+  const idsNoPeriodo=new Set((dados.vendas||[]).filter(vd=>{const dt=String(vd.created_at||'').slice(0,10);return dt>=de&&dt<=ate;}).map(vd=>vd.id));
+  const porProduto={};
+  (dados.itensVenda||[]).forEach(i=>{
+    if(!idsNoPeriodo.has(i.venda_id))return;
+    const nome=i.produto_nome||'Sem nome';
+    if(!porProduto[nome])porProduto[nome]={qtd:0,faturamento:0};
+    porProduto[nome].qtd+=Number(i.quantidade||0);
+    porProduto[nome].faturamento+=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+  });
+  const topProdutos=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento).slice(0,5);
+  setHTML('topProdutosVenda', topProdutos.length ? topProdutos.map(([nome,d],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${money(d.faturamento)}</span></div>`).join('')
+    : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhuma venda no período</div>');
+
+  // Reaproveita o card "Serviços mais vendidos" da aba Comercial só pra Varejo puro —
+  // empresa Mista já usa esse espaço pra serviço de verdade, não mexe nele.
+  if(isVarejo && !isServico && !isMista){
+    setHTML('topServicos', topProdutos.length ? topProdutos.map(([nome,d],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${d.qtd} un.</span></div>`).join('')
+      : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhuma venda ainda</div>');
+  }
 }
 function calcOperacao(de,ate){
   const abertasPeriodo = filtrarPorCampoData(dados.os,'data_abertura',de,ate).length;
@@ -1756,6 +1837,9 @@ function renderQuemMove(){
   setHTML('topClientes', topCli.length ? topCli.map(([nome,val],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${money(val)}</span></div>`).join('')
     : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhum orçamento cadastrado ainda</div>');
 
+  // Empresa só de Varejo não presta serviço nenhum — quem preenche esse card é
+  // renderVendas(), com produtos em vez de serviços.
+  if(isVarejo && !isServico && !isMista) return;
   const mapSrv={};
   dados.orc.forEach(o=>{const s=o.servico_nome||'Outros';mapSrv[s]=(mapSrv[s]||0)+1;});
   const topSrv=Object.entries(mapSrv).sort((a,b)=>b[1]-a[1]).slice(0,5);
