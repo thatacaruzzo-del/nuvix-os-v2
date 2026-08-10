@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
+function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
+function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
+function numBR(id){let s=val(id).trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
@@ -217,7 +220,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   </div>
   <div class="field">
     <label>Preço de venda final *</label>
-    <input id="prodPrecoFinal" type="number" step="0.01" oninput="checarSobrescrito()">
+    <input id="prodPrecoFinal" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);checarSobrescrito()">
     <div class="field-hint" id="prodSobrescritoHint"></div>
   </div>
   <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
@@ -235,7 +238,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <h3>Nova categoria</h3>
   <input type="hidden" id="catId">
   <div class="field"><label>Nome *</label><input id="catNome" placeholder="Ex: Bebidas"></div>
-  <div class="field"><label>Markup (%) *</label><input id="catMarkup" type="number" step="1" placeholder="Ex: 100"></div>
+  <div class="field"><label>Markup (%) *</label><input id="catMarkup" type="text" inputmode="decimal" placeholder="Ex: 100" oninput="sanitizarDecimal(this)"></div>
   <div id="categoriaMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalCategoria')">Cancelar</button>
@@ -253,7 +256,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <div class="field" style="flex:1"><label>Loja origem *</label><select id="trfOrigem" onchange="atualizarEstoqueOrigemInfo()"></select><div class="field-hint" id="trfOrigemInfo"></div></div>
     <div class="field" style="flex:1"><label>Loja destino *</label><select id="trfDestino"></select></div>
   </div>
-  <div class="field"><label>Quantidade *</label><input id="trfQuantidade" type="number" step="1" min="1"></div>
+  <div class="field"><label>Quantidade *</label><input id="trfQuantidade" type="text" inputmode="numeric" oninput="sanitizarInteiro(this)"></div>
   <div id="transferenciaMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalTransferencia')">Cancelar</button>
@@ -361,13 +364,13 @@ function atualizarPrecoSugerido(){
 function checarSobrescrito(){
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);
-  const final=num('prodPrecoFinal');
+  const final=numBR('prodPrecoFinal');
   $('prodSobrescritoHint').textContent=(final&&sugerido&&Math.abs(final-sugerido)>0.01)?'Preço editado manualmente — diferente do sugerido.':'';
 }
 async function salvarProduto(){
   const nome=val('prodNome').trim();
   if(!nome){msg('produtoMsg','Informe o nome do produto.','err');return;}
-  const precoFinal=num('prodPrecoFinal');
+  const precoFinal=numBR('prodPrecoFinal');
   if(!precoFinal){msg('produtoMsg','Informe o preço de venda final.','err');return;}
   const id=val('prodId');
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
@@ -417,7 +420,7 @@ function editarCategoria(id){
 }
 async function salvarCategoria(){
   const nome=val('catNome').trim();
-  const markup=num('catMarkup');
+  const markup=numBR('catMarkup');
   if(!nome){msg('categoriaMsg','Informe o nome da categoria.','err');return;}
   const id=val('catId');
   try{

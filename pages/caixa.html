@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
+function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
+function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
+function numBR(v){let s=(typeof v==='string'&&$(v)?val(v):v).toString().trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -125,7 +128,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Nenhum caixa aberto nessa loja agora. Informe o fundo de troco pra começar a vender.</p>
           <div class="field" style="text-align:left"><label>Loja</label><select id="abrirLoja"></select></div>
           <div class="field" style="text-align:left"><label>Turno (opcional)</label><input id="abrirTurno" placeholder="Ex: Manhã, Tarde..."></div>
-          <div class="field" style="text-align:left"><label>Fundo de troco (R$)</label><input id="abrirFundoTroco" type="number" step="0.01" placeholder="0,00"></div>
+          <div class="field" style="text-align:left"><label>Fundo de troco (R$)</label><input id="abrirFundoTroco" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
           <div id="abrirCaixaMsg" class="msg"></div>
           <button class="btn" style="width:100%;margin-top:10px" onclick="abrirCaixaSessao()">Abrir caixa</button>
         </div>
@@ -177,7 +180,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <label>Desconto</label>
               <div style="display:flex;gap:8px">
                 <select id="descTipo" style="width:130px" onchange="renderTotais()"><option value="">Sem desconto</option><option value="Percentual">%</option><option value="Valor fixo">R$</option></select>
-                <input id="descValor" type="number" step="0.01" placeholder="0" oninput="renderTotais()">
+                <input id="descValor" type="text" inputmode="decimal" placeholder="0" oninput="sanitizarDecimal(this);renderTotais()">
               </div>
               <select id="descMotivo" style="margin-top:6px"><option value="">Motivo do desconto...</option><option>Fidelização</option><option>Avaria</option><option>Negociação</option><option>Outro</option></select>
               <div class="field-hint" id="descAprovacaoHint"></div>
@@ -231,7 +234,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <div class="modal" style="max-width:420px">
   <h3 id="modalMovimentoTitulo">Sangria</h3>
   <input type="hidden" id="movTipo">
-  <div class="field"><label>Valor (R$) *</label><input id="movValor" type="number" step="0.01"></div>
+  <div class="field"><label>Valor (R$) *</label><input id="movValor" type="text" inputmode="decimal" oninput="sanitizarDecimal(this)"></div>
   <div class="field"><label>Motivo *</label><input id="movMotivo" placeholder="Ex: retirada pro banco, troco pra outra loja..."></div>
   <div id="movMsg" class="msg"></div>
   <div class="modal-actions">
@@ -334,7 +337,7 @@ async function abrirCaixaSessao(){
   try{
     const nova=await dbPost('caixa_sessoes',withEmpresa({
       loja_id:lojaId, turno:val('abrirTurno').trim()||null, responsavel_abertura_id:session.id,
-      fundo_troco:num('abrirFundoTroco'), status:'Aberto',
+      fundo_troco:numBR('abrirFundoTroco'), status:'Aberto',
     }));
     sessaoAtual=Array.isArray(nova)?nova[0]:nova;
     localStorage.setItem(chaveUltimaLoja(),lojaId);
@@ -388,7 +391,7 @@ function renderCarrinho(){
     $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
       <tr>
         <td>${esc(i.nome)}</td>
-        <td><input type="number" class="pdv-qtd-input" value="${i.quantidade}" min="1" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
+        <td><input type="text" inputmode="numeric" class="pdv-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
         <td>${money(i.valor_unitario)}</td>
         <td>${money(i.quantidade*i.valor_unitario)}</td>
         <td><button class="btn2" style="padding:4px 10px" onclick="removerDoCarrinho(${idx})">✕</button></td>
@@ -412,7 +415,7 @@ function limparCarrinho(){
 function totalCarrinho(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
 function arred2(v){ return Math.round(Number(v||0)*100)/100; }
 function valorDesconto(subtotal){
-  const tipo=val('descTipo'); const v=num('descValor');
+  const tipo=val('descTipo'); const v=numBR('descValor');
   if(!tipo||!v)return 0;
   return arred2(tipo==='Percentual' ? subtotal*v/100 : Math.min(v,subtotal));
 }
@@ -444,8 +447,8 @@ function renderPagamentos(){
       <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
         ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
       </select>
-      <input type="number" step="0.01" value="${p.valor}" oninput="pagamentos[${idx}].valor=Number(this.value||0);renderTotais()">
-      ${p.forma==='Cartão Crédito'?`<input type="number" min="1" placeholder="parcelas" value="${p.parcelas||1}" oninput="pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
+      <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);renderTotais()">
+      ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
       ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
     </div>`).join('');
   renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
@@ -484,7 +487,7 @@ function abrirModalMovimento(tipo){
   abrirModal('modalMovimento');
 }
 async function confirmarMovimento(){
-  const tipo=val('movTipo'); const valor=num('movValor'); const motivo=val('movMotivo').trim();
+  const tipo=val('movTipo'); const valor=numBR('movValor'); const motivo=val('movMotivo').trim();
   if(!valor||valor<=0){msg('movMsg','Informe um valor válido.','err');return;}
   if(!motivo){msg('movMsg','Informe o motivo.','err');return;}
   try{
@@ -675,7 +678,7 @@ async function abrirTelaFechamento(){
       <b>${forma}</b>
       <div style="font-size:13px;color:var(--muted);margin:4px 0">Esperado pelo sistema: <b>${money(esperado)}</b></div>
       ${forma==='Dinheiro'
-        ? `<label>Contagem física (R$)</label><input id="fech_${forma.replace(/\s/g,'')}" type="number" step="0.01" data-esperado="${esperado}" oninput="atualizarDiferencaFechamento('${forma}')"><div id="fechDif_${forma.replace(/\s/g,'')}" class="field-hint"></div>`
+        ? `<label>Contagem física (R$)</label><input id="fech_${forma.replace(/\s/g,'')}" type="text" inputmode="decimal" data-esperado="${esperado}" oninput="sanitizarDecimal(this);atualizarDiferencaFechamento('${forma}')"><div id="fechDif_${forma.replace(/\s/g,'')}" class="field-hint"></div>`
         : `<div class="badge badge-blue">Aguardando conciliação (sem contagem manual)</div>`}
     </div>`;
   }).join('')+`<div class="field-hint">Sangrias no turno: ${money(sangrias)} · Suprimentos: ${money(suprimentos)}</div>`;
@@ -683,7 +686,7 @@ async function abrirTelaFechamento(){
 function atualizarDiferencaFechamento(forma){
   const el=$('fech_'+forma.replace(/\s/g,''));
   const esperado=Number(el.dataset.esperado||0);
-  const contado=Number(el.value||0);
+  const contado=numBR(el.value);
   const dif=contado-esperado;
   const hint=$('fechDif_'+forma.replace(/\s/g,''));
   if(!el.value){hint.textContent='';return;}
@@ -697,7 +700,7 @@ async function confirmarFechamentoCaixa(){
     for(const forma of FORMAS_FECHAMENTO){
       const el=$('fech_'+forma.replace(/\s/g,''));
       const esperado=el?Number(el.dataset.esperado||0):0;
-      const contado=forma==='Dinheiro'?Number(el.value||0):null;
+      const contado=forma==='Dinheiro'?numBR(el.value):null;
       await dbPost('caixa_fechamento_formas',withEmpresa({
         caixa_sessao_id:sessaoAtual.id, forma_pagamento:forma, valor_esperado:esperado,
         valor_contado:contado, diferenca:contado!=null?contado-esperado:null,
