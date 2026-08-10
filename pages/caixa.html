@@ -531,7 +531,7 @@ async function finalizarVenda(){
     const vendaId=vendaRow.id;
 
     await dbPost('itens_venda', carrinho.map(i=>withEmpresa({
-      venda_id:vendaId, produto_id:i.produto_id, quantidade:i.quantidade,
+      venda_id:vendaId, produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
       valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, subtotal:i.quantidade*i.valor_unitario,
     })));
 

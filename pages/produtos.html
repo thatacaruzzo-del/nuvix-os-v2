@@ -347,7 +347,10 @@ function renderProdutos(){
       <td>${money(p.preco_venda_sugerido)}</td>
       <td>${money(p.preco_venda_final)}${sobrescrito?' <span class="badge badge-blue">editado</span>':''}</td>
       <td>${estoqueTotalProduto(p.id)}</td>
-      <td><button class="btn2" style="padding:6px 12px" onclick="editarProduto('${p.id}')">Editar</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn2" style="padding:6px 12px" onclick="editarProduto('${p.id}')">Editar</button>
+        <button class="btn2" style="padding:6px 12px" onclick="excluirProduto('${p.id}')">Excluir</button>
+      </td>
     </tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum produto encontrado.</td></tr>';
 }
@@ -443,6 +446,17 @@ async function salvarProduto(){
     fecharModal('modalProduto');
     await carregarTudo();
   }catch(e){msg('produtoMsg','Erro ao salvar: '+e.message,'err');}
+}
+async function excluirProduto(id){
+  const p=dados.produtos.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm(`Excluir "${p.nome}"? O estoque e o histórico de custo desse produto somem junto. Vendas já feitas com ele continuam no histórico, só perdem o vínculo com o cadastro.`))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/produtos?id=eq.${id}`,{method:'DELETE',headers:H});
+    if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
+    toast('Produto excluído.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
 }
 
 // ══ CATEGORIAS ══
