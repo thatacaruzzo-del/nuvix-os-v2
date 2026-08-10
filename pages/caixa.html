@@ -40,7 +40,28 @@
 .badge-blue{background:var(--p-light);color:var(--p)}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .caixa-fechada-box{max-width:480px;margin:60px auto;text-align:center}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden}
+.kpi-card.purple{border-left:4px solid var(--p)}
+.kpi-card.green{border-left:4px solid var(--green)}
+.kpi-card.amber{border-left:4px solid var(--amber)}
+.kpi-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.kpi-value{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
+.kpi-sub{font-size:11px;color:var(--muted2)}
+.chart-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:1000px){.chart-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr 1fr}}
+.abc-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:11px;font-weight:800}
+.abc-A{background:#ECFDF5;color:#059669}
+.abc-B{background:#FEF3C7;color:#92400E}
+.abc-C{background:#FEF2F2;color:#DC2626}
+.giro-bar-track{height:6px;background:var(--line);border-radius:99px;overflow:hidden;min-width:60px}
+.giro-bar-track>div{height:100%;background:var(--p);border-radius:99px}
+.kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:6px}
+.kpi-trend.up{background:var(--green-bg);color:var(--green)}
+.kpi-trend.down{background:var(--red-bg);color:var(--red)}
+.kpi-trend svg{width:11px;height:11px;stroke-width:2}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
 </head>
@@ -141,6 +162,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div style="display:flex;gap:8px">
             <button class="btn2" onclick="pareirImpressora()" title="Impressora térmica USB (opcional)">🖨️ Parear impressora</button>
             <button class="btn2" onclick="abrirTelaHistorico()">Histórico</button>
+            <button class="btn2" onclick="abrirTelaPainel()">Painel</button>
             <button class="btn2" onclick="abrirModalMovimento('Sangria')">Sangria</button>
             <button class="btn2" onclick="abrirModalMovimento('Suprimento')">Suprimento</button>
             <button class="btn2" onclick="abrirTelaFechamento()">Fechar caixa</button>
@@ -240,6 +262,60 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <table>
               <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
               <tbody id="histTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PAINEL EXECUTIVO ══ -->
+      <div id="telaPainel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <h2 style="margin:0">Painel Executivo</h2>
+          <button class="btn2" onclick="fecharTelaPainel()">Voltar pro caixa</button>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">De</label><input type="date" id="painelDe" onchange="carregarPainel()"></div>
+            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Até</label><input type="date" id="painelAte" onchange="carregarPainel()"></div>
+            <div style="font-size:12px;color:var(--muted);padding-bottom:10px">Giro é estimado com base no estoque atual (não há histórico diário de estoque salvo). Vendas canceladas não entram nos números.</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid" id="painelKpis"></div>
+
+        <div class="card" id="painelLojaWrap" style="margin-bottom:16px;display:none">
+          <h2 style="margin-bottom:14px">Vendas por loja</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Loja</th><th>Nº de vendas</th><th>Faturamento</th><th>% do total</th></tr></thead>
+              <tbody id="painelLojaTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
+
+        <div class="chart-grid">
+          <div class="chart-card"><h3>Curva ABC — top produtos por faturamento</h3><canvas id="chartAbc" height="220"></canvas></div>
+          <div class="chart-card"><h3>Faturamento por categoria</h3><canvas id="chartCategoria" height="220"></canvas></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <h2 style="margin-bottom:14px">Curva ABC de produtos</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th></th><th>Produto</th><th>Qtd. vendida</th><th>Faturamento</th><th>Margem</th><th>% do total</th><th>% acumulado</th></tr></thead>
+              <tbody id="abcTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-bottom:14px">Giro por categoria</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Categoria</th><th>Qtd. vendida</th><th>Faturamento</th><th>Estoque atual</th><th>Giro estimado</th></tr></thead>
+              <tbody id="giroCategoriaTable"></tbody>
             </table>
           </div>
         </div>
@@ -842,6 +918,230 @@ async function cancelarVenda(vendaId){
     await carregarProdutosLoja();
     await carregarHistoricoVendas();
   }catch(e){toast('Erro ao cancelar: '+e.message,'err');}
+}
+
+// ══ PAINEL EXECUTIVO ══
+// Curva ABC (Pareto): produtos ordenados por faturamento desc; classe A = até 80% do
+// faturamento acumulado, B = até 95%, C = o resto. Giro é "quantidade vendida no
+// período ÷ estoque atual" — estimativa, já que não guardamos estoque dia a dia.
+// Vendas com status='Cancelada' nunca entram em nenhum número aqui.
+let chartAbcInstance=null, chartCategoriaInstance=null, chartEvolucaoInstance=null;
+const setaUp='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function nomeLoja(id){return dados.lojas.find(l=>l.id===id)?.nome||'—'}
+function abrirTelaPainel(){
+  $('telaPdv').style.display='none';
+  $('telaPainel').style.display='block';
+  if(!val('painelDe')){const de=new Date();de.setDate(de.getDate()-29);$('painelDe').value=dataLocal(de);}
+  if(!val('painelAte'))$('painelAte').value=hoje();
+  carregarPainel();
+}
+function fecharTelaPainel(){ $('telaPainel').style.display='none'; $('telaPdv').style.display='block'; }
+
+function periodoAnteriorPainel(de,ate){
+  const d=new Date(de+'T12:00:00'), a=new Date(ate+'T12:00:00');
+  const span=Math.round((a-d)/864e5)+1;
+  const antAte=new Date(d); antAte.setDate(d.getDate()-1);
+  const antDe=new Date(antAte); antDe.setDate(antAte.getDate()-span+1);
+  return {de:dataLocal(antDe), ate:dataLocal(antAte)};
+}
+function trendBadge(atual,anterior,invertido,confiavel){
+  if(!anterior) return '';
+  if(!confiavel) return '';
+  const pct=Math.round(((atual-anterior)/Math.abs(anterior))*100);
+  if(pct===0) return '';
+  const bom=invertido?pct<0:pct>0;
+  return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
+}
+async function buscarVendasCompletas(de,ate){
+  const proximoDia=dataLocal(new Date(new Date(ate+'T00:00:00').getTime()+864e5));
+  const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&created_at=gte.${de}&created_at=lt.${proximoDia}&select=*`);
+  const ids=vendas.map(v=>v.id);
+  const itens=ids.length?await dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=*`):[];
+  const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
+  return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
+}
+function totaisVendas(linhas){
+  const faturamento=linhas.reduce((a,l)=>a+Number(l.quantidade||0)*Number(l.valor_unitario||0),0);
+  const vendaIds=new Set(linhas.map(l=>l.venda_id));
+  return {faturamento,numVendas:vendaIds.size};
+}
+function renderVendasPorLojaPainel(linhas){
+  if(dados.lojas.length<2){$('painelLojaWrap').style.display='none';return;}
+  const porLoja={};
+  linhas.forEach(l=>{
+    const k=l.loja_id||'—';
+    if(!porLoja[k])porLoja[k]={nome:nomeLoja(l.loja_id)||'Não informada',faturamento:0,vendaIds:new Set()};
+    porLoja[k].faturamento+=Number(l.quantidade||0)*Number(l.valor_unitario||0);
+    porLoja[k].vendaIds.add(l.venda_id);
+  });
+  const linhasLoja=Object.values(porLoja).sort((a,b)=>b.faturamento-a.faturamento);
+  const total=linhasLoja.reduce((a,l)=>a+l.faturamento,0);
+  $('painelLojaWrap').style.display=linhasLoja.length?'block':'none';
+  $('painelLojaTable').innerHTML=linhasLoja.length?linhasLoja.map(l=>`
+    <tr>
+      <td>${esc(l.nome)}</td>
+      <td>${l.vendaIds.size}</td>
+      <td><b>${money(l.faturamento)}</b></td>
+      <td>${total?Math.round(l.faturamento/total*100):0}%</td>
+    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+}
+async function carregarPainel(){
+  if(!session?.empresa_id)return;
+  const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
+  const ant=periodoAnteriorPainel(de,ate);
+  let linhas,linhasAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
+  try{
+    [linhas,linhasAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
+      buscarVendasCompletas(de,ate),
+      buscarVendasCompletas(ant.de,ant.ate),
+      dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
+      dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
+      dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
+    ]);
+  }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
+
+  renderEvolucao(linhas,de,ate);
+  renderVendasPorLojaPainel(linhas);
+
+  const porProduto={};
+  linhas.forEach(l=>{
+    const k=l.produto_id||l.produto_nome;
+    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0};
+    const qtd=Number(l.quantidade||0);
+    porProduto[k].qtd+=qtd;
+    porProduto[k].faturamento+=qtd*Number(l.valor_unitario||0);
+    porProduto[k].custo+=qtd*Number(l.custo_unitario_snapshot||0);
+  });
+  const produtos=Object.values(porProduto).sort((a,b)=>b.faturamento-a.faturamento);
+  const faturamentoTotal=produtos.reduce((a,p)=>a+p.faturamento,0);
+  const custoTotal=produtos.reduce((a,p)=>a+p.custo,0);
+
+  let acumulado=0;
+  produtos.forEach(p=>{
+    p.pct=faturamentoTotal?p.faturamento/faturamentoTotal*100:0;
+    acumulado+=p.pct;
+    p.pctAcumulado=acumulado;
+    p.classe=acumulado<=80?'A':acumulado<=95?'B':'C';
+    p.margemPct=p.faturamento?((p.faturamento-p.custo)/p.faturamento*100):0;
+  });
+
+  const vendaIds=new Set(linhas.map(l=>l.venda_id));
+  const ticketMedio=vendaIds.size?faturamentoTotal/vendaIds.size:0;
+  const margemPct=faturamentoTotal?((faturamentoTotal-custoTotal)/faturamentoTotal*100):0;
+
+  const totAnt=totaisVendas(linhasAnt);
+  const ticketMedioAnt=totAnt.numVendas?totAnt.faturamento/totAnt.numVendas:0;
+  const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
+
+  renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
+    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel});
+  renderAbc(produtos,faturamentoTotal);
+  renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
+}
+function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel}){
+  setHTML('painelKpis',[
+    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple',trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
+    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
+    {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',cor:margemPct>=0?'green':'amber'},
+    {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',cor:'purple'},
+  ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.trend||''}</div>`).join(''));
+}
+function renderEvolucao(linhas,de,ate){
+  const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
+  const spanDias=Math.max(1,Math.round((dFim-dIni)/864e5)+1);
+  const porSemana=spanDias>45;
+  const buckets={};
+  function chaveBucket(dataStr){
+    if(!porSemana)return dataStr;
+    const d=new Date(dataStr+'T12:00:00');
+    const diaSemana=d.getDay();
+    d.setDate(d.getDate()-diaSemana);
+    return dataLocal(d);
+  }
+  linhas.forEach(l=>{
+    const k=chaveBucket(String(l.total_venda?.created_at||'').slice(0,10));
+    buckets[k]=(buckets[k]||0)+Number(l.quantidade||0)*Number(l.valor_unitario||0);
+  });
+  const chaves=Object.keys(buckets).filter(k=>k).sort();
+  const ctx=$('chartEvolucao');
+  if(chartEvolucaoInstance)chartEvolucaoInstance.destroy();
+  if(!ctx)return;
+  if(!chaves.length){
+    chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{data:[]}]},options:{plugins:{legend:{display:false}}}});
+    return;
+  }
+  chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{
+    labels:chaves.map(k=>fmtData(k)+(porSemana?' (semana)':'')),
+    datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
+  },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
+}
+function renderAbc(produtos,faturamentoTotal){
+  $('abcTable').innerHTML=produtos.length?produtos.map(p=>`
+    <tr>
+      <td><span class="abc-badge abc-${p.classe}">${p.classe}</span></td>
+      <td>${esc(p.nome||'—')}</td>
+      <td>${p.qtd}</td>
+      <td>${money(p.faturamento)}</td>
+      <td style="color:${p.margemPct>=0?'var(--green)':'var(--red)'}">${p.margemPct.toFixed(1)}%</td>
+      <td>${p.pct.toFixed(1)}%</td>
+      <td>${p.pctAcumulado.toFixed(1)}%</td>
+    </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+
+  const top=produtos.slice(0,10);
+  const ctx=$('chartAbc');
+  if(chartAbcInstance)chartAbcInstance.destroy();
+  if(ctx&&top.length){
+    chartAbcInstance=new Chart(ctx,{type:'bar',data:{
+      labels:top.map(p=>p.nome),
+      datasets:[{label:'Faturamento',data:top.map(p=>p.faturamento),backgroundColor:top.map(p=>p.classe==='A'?'#059669':p.classe==='B'?'#D97706':'#DC2626')}],
+    },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});
+  }
+}
+function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,estoqueTodasLojas){
+  const nomeCategoriaMap={}; categoriasTodas.forEach(c=>nomeCategoriaMap[c.id]=c.nome);
+  const categoriaPorProduto={}; produtosTodos.forEach(p=>categoriaPorProduto[p.id]=nomeCategoriaMap[p.categoria_id]||'Sem categoria');
+  const estoquePorProduto={}; estoqueTodasLojas.forEach(e=>{estoquePorProduto[e.produto_id]=(estoquePorProduto[e.produto_id]||0)+Number(e.quantidade||0);});
+
+  const porCategoria={};
+  produtosVendidos.forEach(p=>{
+    const cat=categoriaPorProduto[p.produto_id]||'Sem categoria';
+    if(!porCategoria[cat])porCategoria[cat]={categoria:cat,qtd:0,faturamento:0,estoqueAtual:0};
+    porCategoria[cat].qtd+=p.qtd;
+    porCategoria[cat].faturamento+=p.faturamento;
+  });
+  produtosTodos.forEach(p=>{
+    const cat=categoriaPorProduto[p.id]||'Sem categoria';
+    if(!porCategoria[cat])return; // só mostra categoria que teve venda no período
+    porCategoria[cat].estoqueAtual+=Number(estoquePorProduto[p.id]||0);
+  });
+  const categorias=Object.values(porCategoria).sort((a,b)=>b.faturamento-a.faturamento);
+  categorias.forEach(c=>{c.giro=c.estoqueAtual>0?c.qtd/c.estoqueAtual:0;});
+  const giroMax=Math.max(1,...categorias.map(c=>c.giro));
+
+  $('giroCategoriaTable').innerHTML=categorias.length?categorias.map(c=>`
+    <tr>
+      <td>${esc(c.categoria)}</td>
+      <td>${c.qtd}</td>
+      <td>${money(c.faturamento)}</td>
+      <td>${c.estoqueAtual}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%"></div></div>
+          <span style="font-size:12px;color:var(--muted)">${c.giro.toFixed(2)}x</span>
+        </div>
+      </td>
+    </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+
+  const ctx=$('chartCategoria');
+  if(chartCategoriaInstance)chartCategoriaInstance.destroy();
+  if(ctx&&categorias.length){
+    chartCategoriaInstance=new Chart(ctx,{type:'doughnut',data:{
+      labels:categorias.map(c=>c.categoria),
+      datasets:[{data:categorias.map(c=>c.faturamento),backgroundColor:['#6D5EF5','#059669','#D97706','#DC2626','#0EA5E9','#8B5CF6','#F472B6','#64748B']}],
+    },options:{plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
+  }
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
