@@ -232,6 +232,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <label>Estoque atual</label>
     <div id="prodEstoqueAtualLista"></div>
   </div>
+  <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label></div>
+  <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
+    <label>Fornecedor / consignante</label>
+    <input id="prodConsignadoFornecedor" placeholder="Nome de quem consignou o produto">
+  </div>
   <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
   <div id="produtoMsg" class="msg"></div>
   <div class="modal-actions">
@@ -354,7 +359,7 @@ function renderProdutos(){
   $('produtosTable').innerHTML=lista.length?lista.map(p=>{
     const sobrescrito=p.preco_sobrescrito&&Number(p.preco_venda_final)!==Number(p.preco_venda_sugerido);
     return `<tr>
-      <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}</td>
+      <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}${p.is_consignado?' <span class="badge badge-amber" title="'+esc(p.consignado_fornecedor||'')+'">Consignado</span>':''}</td>
       <td>${esc(nomeCategoria(p.categoria_id))}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
       <td>${money(p.custo_atual)}</td>
@@ -386,11 +391,15 @@ function renderEstoqueAtualCampos(produtoId){
       <button class="btn2" style="padding:6px 12px" onclick="abrirModalAjusteEstoque('${e.id}')">Ajustar</button>
     </div>`).join(''):'<p class="field-hint">Sem estoque cadastrado pra esse produto ainda — cadastre uma loja em "Lojas".</p>';
 }
+function toggleFornecedorConsignado(){
+  $('prodConsignadoFornecedorWrap').style.display=$('prodConsignado').checked?'block':'none';
+}
 function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
   $('prodCusto').value=money(0); $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
+  $('prodConsignado').checked=false; $('prodConsignadoFornecedor').value=''; toggleFornecedorConsignado();
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   $('prodEstoqueInicialWrap').style.display='block';
   $('prodEstoqueAtualWrap').style.display='none';
@@ -407,6 +416,7 @@ function editarProduto(id){
   $('prodCusto').value=money(p.custo_atual); $('prodSugerido').value=money(p.preco_venda_sugerido);
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
+  $('prodConsignado').checked=!!p.is_consignado; $('prodConsignadoFornecedor').value=p.consignado_fornecedor||''; toggleFornecedorConsignado();
   $('prodEstoqueInicialWrap').style.display='none'; // na edição mostra o estoque atual, não o "inicial"
   $('prodEstoqueAtualWrap').style.display='block';
   renderEstoqueAtualCampos(id);
@@ -445,7 +455,9 @@ async function salvarProduto(){
   const payload={
     nome, categoria_id: val('prodCategoria')||null, sku: val('prodSku').trim()||null,
     codigo_barras: codigoBarras, preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
-    ativo: $('prodAtivo').checked, updated_at: new Date().toISOString(),
+    ativo: $('prodAtivo').checked,
+    is_consignado: $('prodConsignado').checked, consignado_fornecedor: $('prodConsignado').checked?(val('prodConsignadoFornecedor').trim()||null):null,
+    updated_at: new Date().toISOString(),
   };
   try{
     if(id){
