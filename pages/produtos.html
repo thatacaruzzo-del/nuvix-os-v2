@@ -128,7 +128,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-produtos" class="pdv-pane active">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-            <input id="buscaProduto" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:320px" oninput="renderProdutos()">
+            <input id="buscaProduto" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:320px" oninput="paginaProdutos=1;renderProdutos()">
             <button class="btn" onclick="abrirModalProduto()">+ Novo produto</button>
           </div>
           <div class="tablewrap">
@@ -137,6 +137,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="produtosTable"></tbody>
             </table>
           </div>
+          <div id="produtosPaginacao"></div>
         </div>
       </div>
 
@@ -161,7 +162,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-estoque" class="pdv-pane">
         <div class="card">
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
-            <div><label>Loja</label><select id="estoqueLojaFiltro" onchange="renderEstoque()"><option value="">Todas</option></select></div>
+            <div><label>Loja</label><select id="estoqueLojaFiltro" onchange="paginaEstoque=1;renderEstoque()"><option value="">Todas</option></select></div>
             <div style="font-size:12px;color:var(--muted);padding-bottom:10px">
               <span class="badge badge-red">Zerado</span> <span class="badge badge-amber">Abaixo do mínimo</span> <span class="badge badge-green">Ok</span>
             </div>
@@ -172,6 +173,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="estoqueTable"></tbody>
             </table>
           </div>
+          <div id="estoquePaginacao"></div>
         </div>
       </div>
 
@@ -313,6 +315,26 @@ const session = requireAuth();
 let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[] };
 const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
+// ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
+// listar tudo de uma vez (rolagem infinita) elas são divididas em páginas de 20 linhas.
+const ITENS_POR_PAGINA=20;
+let paginaProdutos=1, paginaEstoque=1;
+function irParaPaginaProdutos(p){paginaProdutos=p;renderProdutos();}
+function irParaPaginaEstoque(p){paginaEstoque=p;renderEstoque();}
+function paginar(lista,pagina){const ini=(pagina-1)*ITENS_POR_PAGINA;return lista.slice(ini,ini+ITENS_POR_PAGINA);}
+function renderPaginacao(containerId,totalItens,paginaAtual,nomeFuncaoIr){
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/ITENS_POR_PAGINA));
+  if(totalPaginas<=1){setHTML(containerId,'');return paginaAtual;}
+  if(paginaAtual>totalPaginas)paginaAtual=totalPaginas;
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    const ativo=i===paginaAtual;
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${ativo?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="${nomeFuncaoIr}(${i})">${i}</button>`);
+  }
+  setHTML(containerId,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+  return paginaAtual;
+}
+
 async function init(){
   if(!session)return;
   if(!guardModulo('produtos'))return;
@@ -404,7 +426,9 @@ function estoqueTotalProduto(produtoId){return dados.estoque.filter(e=>e.produto
 function renderProdutos(){
   const q=(val('buscaProduto')||'').toLowerCase();
   const lista=dados.produtos.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
-  $('produtosTable').innerHTML=lista.length?lista.map(p=>{
+  paginaProdutos=renderPaginacao('produtosPaginacao',lista.length,paginaProdutos,'irParaPaginaProdutos');
+  const pagina=paginar(lista,paginaProdutos);
+  $('produtosTable').innerHTML=pagina.length?pagina.map(p=>{
     const sobrescrito=p.preco_sobrescrito&&Number(p.preco_venda_final)!==Number(p.preco_venda_sugerido);
     return `<tr>
       <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}${p.is_consignado?' <span class="badge badge-amber" title="'+esc(p.consignado_fornecedor||'')+'">Consignado</span>':''}</td>
@@ -579,7 +603,9 @@ async function salvarCategoria(){
 function renderEstoque(){
   const lojaFiltro=val('estoqueLojaFiltro');
   const lista=dados.estoque.filter(e=>!lojaFiltro||e.loja_id===lojaFiltro);
-  $('estoqueTable').innerHTML=lista.length?lista.map(e=>{
+  paginaEstoque=renderPaginacao('estoquePaginacao',lista.length,paginaEstoque,'irParaPaginaEstoque');
+  const pagina=paginar(lista,paginaEstoque);
+  $('estoqueTable').innerHTML=pagina.length?pagina.map(e=>{
     const produto=dados.produtos.find(p=>p.id===e.produto_id);
     const qtd=Number(e.quantidade||0);
     const min=Number(e.estoque_minimo||0);
