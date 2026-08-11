@@ -214,6 +214,14 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <div class="field" style="flex:1"><label>SKU</label><input id="prodSku" placeholder="Código interno"></div>
     <div class="field" style="flex:1"><label>Código de barras</label><input id="prodCodigoBarras" placeholder="Opcional"></div>
   </div>
+  <div style="display:flex;gap:20px;margin-bottom:14px">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label>
+  </div>
+  <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
+    <label>Fornecedor / consignante</label>
+    <input id="prodConsignadoFornecedor" placeholder="Nome de quem consignou o produto">
+  </div>
   <div style="display:flex;gap:12px">
     <div class="field" style="flex:1"><label>Custo atual (automático)</label><input id="prodCusto" disabled style="background:#F7F7FA"><div class="field-hint">Só muda ao lançar uma compra em Contas a Pagar vinculada a este produto.</div></div>
     <div class="field" style="flex:1"><label>Preço sugerido (automático)</label><input id="prodSugerido" disabled style="background:#F7F7FA"><div class="field-hint">Calculado pelo custo + markup da categoria — só uma referência.</div></div>
@@ -232,12 +240,6 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <label>Estoque atual</label>
     <div id="prodEstoqueAtualLista"></div>
   </div>
-  <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label></div>
-  <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
-    <label>Fornecedor / consignante</label>
-    <input id="prodConsignadoFornecedor" placeholder="Nome de quem consignou o produto">
-  </div>
-  <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label></div>
   <div id="produtoMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalProduto')">Cancelar</button>
