@@ -258,6 +258,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <button class="btn2" onclick="fecharTelaHistorico()">Voltar pro caixa</button>
             </div>
           </div>
+          <div id="histResumoConsignado"></div>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
@@ -419,7 +420,7 @@ async function verificarCaixaAberto(){
 
 async function carregarProdutosLoja(){
   const [produtos,estoque]=await Promise.all([
-    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual`),
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado`),
     dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}`),
   ]);
   dados.produtos=produtos; dados.estoque=estoque;
@@ -473,7 +474,7 @@ function adicionarAoCarrinho(produto){
   const qtdAtual=item?item.quantidade:0;
   if(qtdAtual+1>disp){ toast(`Estoque disponível insuficiente (${disp} un.).`,'err'); return; }
   if(item){ item.quantidade+=1; } else {
-    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),estoque_disponivel:disp});
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,estoque_disponivel:disp});
   }
   renderCarrinho();
 }
@@ -495,7 +496,7 @@ function renderCarrinho(){
   else{
     $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
       <tr>
-        <td>${esc(i.nome)}</td>
+        <td>${esc(i.nome)}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}</td>
         <td><input type="text" inputmode="numeric" class="pdv-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
         <td>${money(i.valor_unitario)}</td>
         <td>${money(i.quantidade*i.valor_unitario)}</td>
@@ -664,7 +665,8 @@ async function finalizarVenda(){
 
     await dbPost('itens_venda', carrinho.map(i=>withEmpresa({
       venda_id:vendaId, produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
-      valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, subtotal:i.quantidade*i.valor_unitario,
+      valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, is_consignado:!!i.is_consignado,
+      subtotal:i.quantidade*i.valor_unitario,
     })));
 
     await dbPost('venda_formas_pagamento', pagamentos.filter(p=>p.valor>0).map(p=>withEmpresa({
@@ -862,22 +864,33 @@ async function carregarHistoricoVendas(){
     const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}&created_at=gte.${data}&created_at=lt.${proximoDia}&select=*&order=created_at.desc`);
     const ids=vendas.map(v=>v.id);
     const [itens,formas]=await Promise.all([
-      ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade`):[],
+      ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado`):[],
       ids.length?dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento`):[],
     ]);
     renderHistoricoVendas(vendas,itens,formas);
   }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
 }
 function renderHistoricoVendas(vendas,itens,formas){
+  // Resumo próprio x consignado do dia — só conta vendas concluídas (canceladas não entram).
+  let fatProprio=0, fatConsignado=0;
+  itens.forEach(i=>{
+    const venda=vendas.find(v=>v.id===i.venda_id);
+    if(!venda||venda.status==='Cancelada')return;
+    const val=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    if(i.is_consignado)fatConsignado+=val; else fatProprio+=val;
+  });
+  setHTML('histResumoConsignado',(fatProprio+fatConsignado)>0?`<div class="field-hint" style="margin-bottom:10px">Faturamento do dia — próprio: <b style="color:var(--txt)">${money(fatProprio)}</b> · consignado: <b style="color:var(--txt)">${money(fatConsignado)}</b></div>`:'');
+
   $('histTable').innerHTML=vendas.length?vendas.map(v=>{
     const seusItens=itens.filter(i=>i.venda_id===v.id);
     const qtdItens=seusItens.reduce((a,i)=>a+Number(i.quantidade||0),0);
     const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento).join(' + ')||'—';
     const cancelada=v.status==='Cancelada';
+    const itensTxt=seusItens.map(i=>esc(i.produto_nome)+(i.is_consignado?' <span class="badge badge-amber">consig.</span>':'')).join(', ');
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
       <td>${new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
       <td>${esc(v.cliente_nome||'—')}</td>
-      <td>${qtdItens} (${esc(seusItens.map(i=>i.produto_nome).join(', '))})</td>
+      <td>${qtdItens} (${itensTxt})</td>
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
       <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
@@ -1006,13 +1019,16 @@ async function carregarPainel(){
   renderVendasPorLojaPainel(linhas);
 
   const porProduto={};
+  let fatProprio=0, fatConsignado=0;
   linhas.forEach(l=>{
     const k=l.produto_id||l.produto_nome;
-    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0};
+    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0,is_consignado:false};
     const qtd=Number(l.quantidade||0);
+    const valLinha=qtd*Number(l.valor_unitario||0);
     porProduto[k].qtd+=qtd;
-    porProduto[k].faturamento+=qtd*Number(l.valor_unitario||0);
+    porProduto[k].faturamento+=valLinha;
     porProduto[k].custo+=qtd*Number(l.custo_unitario_snapshot||0);
+    if(l.is_consignado){porProduto[k].is_consignado=true; fatConsignado+=valLinha;} else{fatProprio+=valLinha;}
   });
   const produtos=Object.values(porProduto).sort((a,b)=>b.faturamento-a.faturamento);
   const faturamentoTotal=produtos.reduce((a,p)=>a+p.faturamento,0);
@@ -1036,16 +1052,18 @@ async function carregarPainel(){
   const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
 
   renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
-    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel});
+    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado});
   renderAbc(produtos,faturamentoTotal);
   renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
 }
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel}){
+function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado}){
   setHTML('painelKpis',[
     {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple',trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
     {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
     {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',cor:margemPct>=0?'green':'amber'},
     {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',cor:'purple'},
+    {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',cor:'green'},
+    {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',cor:'amber'},
   ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.trend||''}</div>`).join(''));
 }
 function renderEvolucao(linhas,de,ate){
@@ -1081,7 +1099,7 @@ function renderAbc(produtos,faturamentoTotal){
   $('abcTable').innerHTML=produtos.length?produtos.map(p=>`
     <tr>
       <td><span class="abc-badge abc-${p.classe}">${p.classe}</span></td>
-      <td>${esc(p.nome||'—')}</td>
+      <td>${esc(p.nome||'—')}${p.is_consignado?' <span class="badge badge-amber">Consig.</span>':''}</td>
       <td>${p.qtd}</td>
       <td>${money(p.faturamento)}</td>
       <td style="color:${p.margemPct>=0?'var(--green)':'var(--red)'}">${p.margemPct.toFixed(1)}%</td>
