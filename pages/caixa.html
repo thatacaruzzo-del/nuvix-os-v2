@@ -385,6 +385,7 @@ async function init(){
   await carregarLojas();
   await verificarCaixaAberto();
   reconectarImpressoraSalva();
+  if(new URLSearchParams(location.search).get('tela')==='painel') abrirTelaPainel();
   $('pageLoader')?.classList.add('hide');
   setTimeout(()=>{$('pdvBarras')?.focus();},80);
 }
@@ -944,13 +945,23 @@ const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 
 function nomeLoja(id){return dados.lojas.find(l=>l.id===id)?.nome||'—'}
 function abrirTelaPainel(){
+  $('telaAbrirCaixa').style.display='none';
   $('telaPdv').style.display='none';
+  $('telaFechamento').style.display='none';
+  $('telaHistorico').style.display='none';
   $('telaPainel').style.display='block';
   if(!val('painelDe')){const de=new Date();de.setDate(de.getDate()-29);$('painelDe').value=dataLocal(de);}
   if(!val('painelAte'))$('painelAte').value=hoje();
   carregarPainel();
 }
-function fecharTelaPainel(){ $('telaPainel').style.display='none'; $('telaPdv').style.display='block'; }
+function fecharTelaPainel(){
+  $('telaPainel').style.display='none';
+  if(new URLSearchParams(location.search).get('tela')==='painel'){
+    history.replaceState(null,'',location.pathname);
+  }
+  if(sessaoAtual) $('telaPdv').style.display='block';
+  else $('telaAbrirCaixa').style.display='block';
+}
 
 function periodoAnteriorPainel(de,ate){
   const d=new Date(de+'T12:00:00'), a=new Date(ate+'T12:00:00');

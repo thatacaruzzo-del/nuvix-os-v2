@@ -435,7 +435,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div class="tabs">
         <button class="tab active" onclick="abrirAba('geral',this)">Visão geral</button>
         <button class="tab" onclick="abrirAba('financeiro',this)"><span class="tab-alert" id="tabAlert-financeiro" style="display:none"></span>Financeiro</button>
-        <button class="tab" onclick="abrirAba('comercial',this)"><span class="tab-alert" id="tabAlert-comercial" style="display:none"></span>Comercial</button>
+        <button class="tab" id="tabBtnComercial" onclick="abrirAba('comercial',this)"><span class="tab-alert" id="tabAlert-comercial" style="display:none"></span>Comercial</button>
         <button class="tab" id="tabBtnVendas" style="display:none" onclick="abrirAba('vendas',this)">Vendas</button>
         <button class="tab" id="tabBtnOperacao" onclick="abrirAba('operacao',this)"><span class="tab-alert" id="tabAlert-operacao" style="display:none"></span>Operação</button>
         <button class="tab" id="tabBtnMateriais" onclick="abrirAba('materiais',this)"><span class="tab-alert" id="tabAlert-materiais" style="display:none"></span>Materiais</button>
@@ -513,7 +513,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div class="recent-card" style="grid-column:1/-1">
             <div class="recent-hdr">
               <h3>Produtos mais vendidos</h3>
-              <a href="caixa.html" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver Caixa →</a>
+              <a href="caixa.html?tela=painel" style="font-size:12px;color:var(--p);font-weight:600;text-decoration:none">Ver Curva ABC e análise completa →</a>
             </div>
             <div class="recent-body" id="topProdutosVenda"></div>
           </div>
@@ -548,7 +548,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
 <script>
 const session = requireAuth();
-let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[],vendas:[],itensVenda:[]};
+let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[],vendas:[],itensVenda:[],estoqueVarejo:[]};
 // Segmento da empresa — controla quais abas do Painel fazem sentido pra ela. Definido
 // aqui (não só na sidebar) porque o conteúdo das abas também precisa respeitar isso:
 // uma empresa só de Varejo não presta serviço nenhum, "Serviços mais vendidos" e a aba
@@ -585,6 +585,7 @@ async function init(){
     if(isVarejo && !isServico && !isMista){
       $('tabBtnOperacao').style.display='none';
       $('tabBtnMateriais').style.display='none';
+      $('tabBtnComercial').style.display='none';
       $('topServicosTitulo').textContent='Produtos mais vendidos (30 dias)';
       $('topServicosLink').setAttribute('href','caixa.html');
       $('topServicosLink').textContent='Ver Caixa →';
@@ -725,7 +726,7 @@ async function loadData(){
   if(!session?.empresa_id)return;
   const q = `?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   try{
-    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda] = await Promise.all([
+    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo] = await Promise.all([
       db.get('financeiro', q),
       db.get('servicos_orcamentos', q).catch(()=>[]),
       db.get('clientes', q).catch(()=>[]),
@@ -738,8 +739,9 @@ async function loadData(){
       db.get('notas_fiscais',`?select=id,cliente_nome,status,mensagem_erro&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
       (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
       (isVarejo||isMista) ? db.get('itens_venda',`?select=venda_id,produto_nome,quantidade,valor_unitario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      (isVarejo||isMista) ? db.get('estoque_por_loja',`?select=quantidade,estoque_minimo&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
     ]);
-    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda};
+    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo};
     renderAll();
     $('lastUpd').textContent = 'Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -884,26 +886,19 @@ const pathFinanceiro='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3
 // SAÚDE GERAL — 1 status + 1 headline por área, renderizada como tira compacta dentro do Hero
 // consolidado. Financeiro mostra a PALAVRA do status, nunca o R$ (o valor mora exclusivamente
 // na aba Financeiro).
+// Estoque do modelo novo (produtos/estoque_por_loja) — o antigo calcMateriaisSetor lê a
+// tabela materiais, que Varejo não usa mais desde a Fase 1, então sempre daria "em dia"
+// mesmo sem checar nada de verdade.
+function calcEstoqueVarejoSetor(){
+  const linhas=dados.estoqueVarejo||[];
+  const zerados=linhas.filter(e=>Number(e.quantidade||0)<=0).length;
+  const abaixoMinimo=linhas.filter(e=>Number(e.estoque_minimo||0)>0 && Number(e.quantidade||0)>0 && Number(e.quantidade||0)<Number(e.estoque_minimo||0)).length;
+  return {zerados,abaixoMinimo};
+}
 function renderSetores(){
   const {de:antDe,ate:antAte} = periodoAnterior();
-  const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
-  const opr=calcOperacao(periodo.de,periodo.ate);
-  const mat=calcMateriaisSetor(periodo.de,periodo.ate);
   const rh=calcRHSetor(periodo.de,periodo.ate);
   const fin=calcStatusFinanceiro();
-
-  let comCls='ok';
-  if(comA.leads===0 && comA.fechados===0) comCls='warn';
-  else if(comB.fechados && comA.fechados<comB.fechados) comCls='warn';
-
-  let oprCls='ok';
-  if(opr.atrasadasAgora>=4) oprCls='crit';
-  else if(opr.atrasadasAgora>=1) oprCls='warn';
-
-  let matCls='ok';
-  if(mat.zerados>0) matCls='crit';
-  else if(mat.abaixoMinimo>0) matCls='warn';
-
   const rhCls = rh.faltas>=3 ? 'warn' : 'ok';
 
   const stat=(titulo,cls,headline)=>`<div class="hstat">
@@ -911,10 +906,38 @@ function renderSetores(){
     <div class="hstat-val">${headline}</div>
   </div>`;
 
+  let statsSetor;
+  if(isVarejo && !isServico && !isMista){
+    const v=calcVendasSetor(periodo.de,periodo.ate);
+    const est=calcEstoqueVarejoSetor();
+    let estCls='ok';
+    if(est.zerados>0) estCls='crit'; else if(est.abaixoMinimo>0) estCls='warn';
+    statsSetor=[
+      stat('Vendas', 'ok', `${v.numVendas} venda${v.numVendas!==1?'s':''} · ${money(v.faturamento)}`),
+      stat('Estoque', estCls, est.zerados?`${est.zerados} produto${est.zerados!==1?'s':''} zerado${est.zerados!==1?'s':''}`:(est.abaixoMinimo?`${est.abaixoMinimo} abaixo do mín.`:'Estoque em dia')),
+    ];
+  }else{
+    const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
+    const opr=calcOperacao(periodo.de,periodo.ate);
+    const mat=calcMateriaisSetor(periodo.de,periodo.ate);
+    let comCls='ok';
+    if(comA.leads===0 && comA.fechados===0) comCls='warn';
+    else if(comB.fechados && comA.fechados<comB.fechados) comCls='warn';
+    let oprCls='ok';
+    if(opr.atrasadasAgora>=4) oprCls='crit';
+    else if(opr.atrasadasAgora>=1) oprCls='warn';
+    let matCls='ok';
+    if(mat.zerados>0) matCls='crit';
+    else if(mat.abaixoMinimo>0) matCls='warn';
+    statsSetor=[
+      stat('Comercial', comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`),
+      stat('Operação', oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`),
+      stat('Materiais', matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mín.` : 'Estoque em dia'),
+    ];
+  }
+
   setHTML('heroStatusStrip', [
-    stat('Comercial', comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`),
-    stat('Operação', oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`),
-    stat('Materiais', matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mín.` : 'Estoque em dia'),
+    ...statsSetor,
     stat('RH', rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`),
     stat('Financeiro', fin.cls, fin.txt),
   ].join(''));
@@ -1371,7 +1394,14 @@ function renderInteligenciaNuvix(){
   const anterior = coletarMetricas(antDe, antAte);
   const diff = compararPeriodos(atual, anterior);
   const timeline = construirTimeline();
-  const {principais, todos} = priorizarInsights(avaliarRegras(atual, anterior, diff, timeline));
+  // Varejo puro não usa Comercial/Operação/Materiais (modelo antigo) — o motor de regras
+  // não sabe disso sozinho, então filtra aqui as áreas que não fazem sentido pra esse
+  // segmento antes de priorizar, pra nunca sugerir "acompanhar o comercial" pra quem só vende.
+  let insightsBrutos = avaliarRegras(atual, anterior, diff, timeline);
+  if(isVarejo && !isServico && !isMista){
+    insightsBrutos = insightsBrutos.filter(i=>!['comercial','operacao','materiais'].includes(i.area));
+  }
+  const {principais, todos} = priorizarInsights(insightsBrutos);
   const resumo = gerarResumoExecutivo(atual, diff, principais);
   const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
   const overflow = todos.length - principais.length;
@@ -1910,7 +1940,7 @@ init();
       <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
       <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
       <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
-      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
+      ${(isVarejo && !isServico && !isMista) ? '' : '<a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"22 12 18 12 15 21 9 3 6 12 2 12\"/></svg><span>Comercial</span></a>'}
     </div>`;
 
     // SERVIÇOS
