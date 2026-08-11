@@ -359,15 +359,21 @@ function calcKpisProdutos(){
   const inativos = dados.produtos.length - ativos.length;
   const consignados = dados.produtos.filter(p=>p.is_consignado).length;
   const produtoPorId = {}; dados.produtos.forEach(p=>{produtoPorId[p.id]=p});
-  let valorEstoque=0, zerados=0, abaixoMinimo=0;
+  // Custo (custo_atual) só existe depois que uma compra é lançada no Financeiro —
+  // então, enquanto isso não acontece, o valor de venda (sempre preenchido no
+  // cadastro do produto) é o que reflete o que já está de fato registrado.
+  let valorCusto=0, valorVenda=0, zerados=0, abaixoMinimo=0;
   dados.estoque.forEach(e=>{
     const qtd=Number(e.quantidade||0);
     const p=produtoPorId[e.produto_id];
-    if(p) valorEstoque += qtd*Number(p.custo_atual||0);
+    if(p){
+      valorCusto += qtd*Number(p.custo_atual||0);
+      valorVenda += qtd*Number(p.preco_venda_final||0);
+    }
     if(qtd<=0) zerados++;
     else if(Number(e.estoque_minimo||0)>0 && qtd<Number(e.estoque_minimo||0)) abaixoMinimo++;
   });
-  return {totalAtivos:ativos.length, inativos, totalCategorias:dados.categorias.length, consignados, valorEstoque, zerados, abaixoMinimo};
+  return {totalAtivos:ativos.length, inativos, totalCategorias:dados.categorias.length, consignados, valorCusto, valorVenda, zerados, abaixoMinimo};
 }
 function renderKpisProdutos(){
   const k=calcKpisProdutos();
@@ -375,7 +381,7 @@ function renderKpisProdutos(){
   setHTML('produtosKpis',[
     {lbl:'Produtos cadastrados', val:k.totalAtivos, sub:k.inativos?`${k.inativos} inativo${k.inativos!==1?'s':''}`:'Todos ativos', cor:'purple'},
     {lbl:'Categorias', val:k.totalCategorias, sub:k.consignados?`${k.consignados} produto${k.consignados!==1?'s':''} consignado${k.consignados!==1?'s':''}`:'Nenhum consignado', cor:'purple'},
-    {lbl:'Valor em estoque', val:money(k.valorEstoque), sub:'Pelo custo atual', cor:'green'},
+    {lbl:'Valor em estoque (venda)', val:money(k.valorVenda), sub:k.valorCusto?`Custo: ${money(k.valorCusto)}`:'Custo ainda não lançado', cor:'green'},
     {lbl:'Alertas de estoque', val:alertas, sub:`${k.zerados} zerado${k.zerados!==1?'s':''} · ${k.abaixoMinimo} abaixo do mín.`, cor:alertas>0?'amber':'green'},
   ].map(c=>`<div class="kpi-card ${c.cor}"><div class="kpi-label">${c.lbl}</div><div class="kpi-value">${c.val}</div><div class="kpi-sub">${c.sub}</div></div>`).join(''));
 }
