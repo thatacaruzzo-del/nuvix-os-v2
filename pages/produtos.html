@@ -362,8 +362,11 @@ function calcKpisProdutos(){
   // Custo (custo_atual) só existe depois que uma compra é lançada no Financeiro —
   // então, enquanto isso não acontece, o valor de venda (sempre preenchido no
   // cadastro do produto) é o que reflete o que já está de fato registrado.
+  const lojasAtivas = new Set(dados.lojas.filter(l=>l.ativo).map(l=>l.id));
   let valorCusto=0, valorVenda=0, zerados=0, abaixoMinimo=0;
-  dados.estoque.forEach(e=>{
+  // Loja inativa não conta como alerta — se ela não está em uso, estoque zerado
+  // nela não é uma falta de verdade, só ruído (ex: loja criada por engano/teste).
+  dados.estoque.filter(e=>lojasAtivas.has(e.loja_id)).forEach(e=>{
     const qtd=Number(e.quantidade||0);
     const p=produtoPorId[e.produto_id];
     if(p){
