@@ -25,6 +25,15 @@
 .badge-blue{background:var(--p-light);color:var(--p)}
 .badge-muted{background:#F1F1F4;color:var(--muted)}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden}
+.kpi-card.purple{border-left:4px solid var(--p)}
+.kpi-card.green{border-left:4px solid var(--green)}
+.kpi-card.amber{border-left:4px solid var(--amber)}
+.kpi-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.kpi-value{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
+.kpi-sub{font-size:11px;color:var(--muted2)}
+@media(max-width:1000px){.kpi-grid{grid-template-columns:1fr 1fr}}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -106,6 +115,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     </div>
 
     <div class="main-scroll">
+      <div class="kpi-grid" id="produtosKpis"></div>
       <div class="pdv-tabs">
         <button class="pdv-tab active" onclick="abaTab('produtos',this)">Produtos</button>
         <button class="pdv-tab" onclick="abaTab('categorias',this)">Categorias</button>
@@ -339,8 +349,35 @@ async function carregarTudo(){
       toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
-  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas();
+  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos();
   popularSelectsComuns();
+}
+
+// ══ KPIs — visão geral do catálogo (produtos, categorias, valor em estoque, alertas) ══
+function calcKpisProdutos(){
+  const ativos = dados.produtos.filter(p=>p.ativo!==false);
+  const inativos = dados.produtos.length - ativos.length;
+  const consignados = dados.produtos.filter(p=>p.is_consignado).length;
+  const produtoPorId = {}; dados.produtos.forEach(p=>{produtoPorId[p.id]=p});
+  let valorEstoque=0, zerados=0, abaixoMinimo=0;
+  dados.estoque.forEach(e=>{
+    const qtd=Number(e.quantidade||0);
+    const p=produtoPorId[e.produto_id];
+    if(p) valorEstoque += qtd*Number(p.custo_atual||0);
+    if(qtd<=0) zerados++;
+    else if(Number(e.estoque_minimo||0)>0 && qtd<Number(e.estoque_minimo||0)) abaixoMinimo++;
+  });
+  return {totalAtivos:ativos.length, inativos, totalCategorias:dados.categorias.length, consignados, valorEstoque, zerados, abaixoMinimo};
+}
+function renderKpisProdutos(){
+  const k=calcKpisProdutos();
+  const alertas=k.zerados+k.abaixoMinimo;
+  setHTML('produtosKpis',[
+    {lbl:'Produtos cadastrados', val:k.totalAtivos, sub:k.inativos?`${k.inativos} inativo${k.inativos!==1?'s':''}`:'Todos ativos', cor:'purple'},
+    {lbl:'Categorias', val:k.totalCategorias, sub:k.consignados?`${k.consignados} produto${k.consignados!==1?'s':''} consignado${k.consignados!==1?'s':''}`:'Nenhum consignado', cor:'purple'},
+    {lbl:'Valor em estoque', val:money(k.valorEstoque), sub:'Pelo custo atual', cor:'green'},
+    {lbl:'Alertas de estoque', val:alertas, sub:`${k.zerados} zerado${k.zerados!==1?'s':''} · ${k.abaixoMinimo} abaixo do mín.`, cor:alertas>0?'amber':'green'},
+  ].map(c=>`<div class="kpi-card ${c.cor}"><div class="kpi-label">${c.lbl}</div><div class="kpi-value">${c.val}</div><div class="kpi-sub">${c.sub}</div></div>`).join(''));
 }
 
 function abaTab(id,btn){
