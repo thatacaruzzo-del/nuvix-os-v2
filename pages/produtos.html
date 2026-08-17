@@ -119,7 +119,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div class="pdv-tabs">
         <button class="pdv-tab active" onclick="abaTab('produtos',this)">Produtos</button>
         <button class="pdv-tab" onclick="abaTab('categorias',this)">Categorias</button>
-        <button class="pdv-tab" onclick="abaTab('estoque',this)">Estoque por loja</button>
+        <button class="pdv-tab" id="tabBtnEstoque" onclick="abaTab('estoque',this)">Estoque por loja</button>
         <button class="pdv-tab" onclick="abaTab('transferencias',this)">Transferências</button>
         <button class="pdv-tab" onclick="abaTab('lojas',this)">Lojas</button>
       </div>
@@ -163,6 +163,13 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <div class="card">
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
             <div><label>Loja</label><select id="estoqueLojaFiltro" onchange="paginaEstoque=1;renderEstoque()"><option value="">Todas</option></select></div>
+            <div><label>Status</label><select id="estoqueStatusFiltro" onchange="paginaEstoque=1;renderEstoque()">
+              <option value="">Todos</option>
+              <option value="alerta">Zerado ou abaixo do mínimo</option>
+              <option value="zerado">Zerado</option>
+              <option value="abaixo">Abaixo do mínimo</option>
+              <option value="ok">Ok</option>
+            </select></div>
             <div style="font-size:12px;color:var(--muted);padding-bottom:10px">
               <span class="badge badge-red">Zerado</span> <span class="badge badge-amber">Abaixo do mínimo</span> <span class="badge badge-green">Ok</span>
             </div>
@@ -407,8 +414,8 @@ function renderKpisProdutos(){
     {lbl:'Produtos cadastrados', val:k.totalAtivos, sub:k.inativos?`${k.inativos} inativo${k.inativos!==1?'s':''}`:'Todos ativos', cor:'purple'},
     {lbl:'Categorias', val:k.totalCategorias, sub:k.consignados?`${k.consignados} produto${k.consignados!==1?'s':''} consignado${k.consignados!==1?'s':''}`:'Nenhum consignado', cor:'purple'},
     {lbl:'Valor em estoque (venda)', val:money(k.valorVenda), sub:k.valorCusto?`Custo: ${money(k.valorCusto)}`:'Custo ainda não lançado', cor:'green'},
-    {lbl:'Alertas de estoque', val:alertas, sub:`${k.zerados} zerado${k.zerados!==1?'s':''} · ${k.abaixoMinimo} abaixo do mín.`, cor:alertas>0?'amber':'green'},
-  ].map(c=>`<div class="kpi-card ${c.cor}"><div class="kpi-label">${c.lbl}</div><div class="kpi-value">${c.val}</div><div class="kpi-sub">${c.sub}</div></div>`).join(''));
+    {lbl:'Alertas de estoque', val:alertas, sub:`${k.zerados} zerado${k.zerados!==1?'s':''} · ${k.abaixoMinimo} abaixo do mín.`, cor:alertas>0?'amber':'green', click:alertas>0?'abrirAlertasEstoque()':null},
+  ].map(c=>`<div class="kpi-card ${c.cor}"${c.click?` onclick="${c.click}" style="cursor:pointer" title="Clique para ver e atualizar os itens"`:''}><div class="kpi-label">${c.lbl}</div><div class="kpi-value">${c.val}</div><div class="kpi-sub">${c.sub}</div></div>`).join(''));
 }
 
 function abaTab(id,btn){
@@ -600,18 +607,38 @@ async function salvarCategoria(){
 }
 
 // ══ ESTOQUE POR LOJA ══
+function statusEstoqueLinha(e){
+  const qtd=Number(e.quantidade||0);
+  const min=Number(e.estoque_minimo||0);
+  if(qtd<=0)return'zerado';
+  if(min>0&&qtd<min)return'abaixo';
+  return'ok';
+}
+function abrirAlertasEstoque(){
+  abaTab('estoque',$('tabBtnEstoque'));
+  $('estoqueStatusFiltro').value='alerta';
+  paginaEstoque=1;
+  renderEstoque();
+  $('pane-estoque').scrollIntoView({behavior:'smooth',block:'start'});
+}
 function renderEstoque(){
   const lojaFiltro=val('estoqueLojaFiltro');
-  const lista=dados.estoque.filter(e=>!lojaFiltro||e.loja_id===lojaFiltro);
+  const statusFiltro=val('estoqueStatusFiltro');
+  const lista=dados.estoque.filter(e=>{
+    if(lojaFiltro&&e.loja_id!==lojaFiltro)return false;
+    if(!statusFiltro)return true;
+    const status=statusEstoqueLinha(e);
+    if(statusFiltro==='alerta')return status==='zerado'||status==='abaixo';
+    return status===statusFiltro;
+  });
   paginaEstoque=renderPaginacao('estoquePaginacao',lista.length,paginaEstoque,'irParaPaginaEstoque');
   const pagina=paginar(lista,paginaEstoque);
   $('estoqueTable').innerHTML=pagina.length?pagina.map(e=>{
     const produto=dados.produtos.find(p=>p.id===e.produto_id);
     const qtd=Number(e.quantidade||0);
     const min=Number(e.estoque_minimo||0);
-    let badge='<span class="badge badge-green">Ok</span>';
-    if(qtd<=0)badge='<span class="badge badge-red">Zerado</span>';
-    else if(min>0&&qtd<min)badge='<span class="badge badge-amber">Abaixo do mínimo</span>';
+    const status=statusEstoqueLinha(e);
+    const badge=status==='zerado'?'<span class="badge badge-red">Zerado</span>':status==='abaixo'?'<span class="badge badge-amber">Abaixo do mínimo</span>':'<span class="badge badge-green">Ok</span>';
     return `<tr>
       <td>${esc(produto?.nome||'—')}</td>
       <td>${esc(nomeLoja(e.loja_id))}</td>
@@ -623,7 +650,7 @@ function renderEstoque(){
         <button class="btn2" style="padding:6px 12px" onclick="abrirModalTransferencia('${e.produto_id}','${e.loja_id}')">Transferir</button>
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum estoque cadastrado.</td></tr>';
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum estoque nesse filtro.</td></tr>';
 }
 
 // ══ TRANSFERÊNCIAS ══
