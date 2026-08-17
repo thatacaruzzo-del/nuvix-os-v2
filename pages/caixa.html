@@ -200,6 +200,16 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             </div>
           </div>
           <div id="pdvScanMsg" class="msg"></div>
+          <button type="button" class="btn2" id="btnToggleAvulso" style="margin-top:10px;font-size:12px;padding:5px 12px" onclick="toggleItemAvulso()">+ Vender item sem cadastro</button>
+          <div id="avulsoWrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+            <p class="field-hint" style="margin-bottom:8px">Pra quando o produto não está no catálogo ainda — não trava a venda, mas fica marcado como "Avulso" no carrinho e no histórico. Vale cadastrar em Produtos depois.</p>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+              <div class="field" style="flex:2;min-width:200px;margin:0"><label>Nome do produto</label><input id="avulsoNome" placeholder="Ex: Caneca personalizada"></div>
+              <div class="field" style="width:110px;margin:0"><label>Valor unit.</label><input id="avulsoValor" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+              <div class="field" style="width:80px;margin:0"><label>Qtd.</label><input id="avulsoQtd" type="text" inputmode="numeric" value="1" oninput="sanitizarInteiro(this)"></div>
+              <button class="btn2" onclick="adicionarItemAvulso()">+ Adicionar</button>
+            </div>
+          </div>
         </div>
 
         <div class="pdv-grid" style="margin-top:16px">
@@ -560,6 +570,29 @@ function adicionarAoCarrinho(produto){
   }
   renderCarrinho();
 }
+// Item sem cadastro no catálogo — acontece esporadicamente (produto novo, encomenda,
+// algo que ainda não deu tempo de cadastrar) e a venda não pode travar por causa disso.
+// Não baixa estoque (não existe registro de estoque pra baixar) nem tem custo conhecido
+// (fica 0 — a margem dessa linha específica não é confiável, e não tem como ser).
+function toggleItemAvulso(){
+  const wrap=$('avulsoWrap');
+  const aberto=wrap.style.display==='block';
+  wrap.style.display=aberto?'none':'block';
+  $('btnToggleAvulso').textContent=aberto?'+ Vender item sem cadastro':'− Ocultar item sem cadastro';
+  if(!aberto)$('avulsoNome').focus();
+}
+function adicionarItemAvulso(){
+  const nome=val('avulsoNome').trim();
+  const valor=numBR('avulsoValor');
+  const qtd=Number(val('avulsoQtd')||0);
+  if(!nome){toast('Informe o nome do produto.','err');return;}
+  if(!valor||valor<=0){toast('Informe o valor unitário.','err');return;}
+  if(!qtd||qtd<=0){toast('Informe a quantidade.','err');return;}
+  carrinho.push({produto_id:null,nome,quantidade:qtd,valor_unitario:arred2(valor),custo_unitario:0,is_consignado:false,estoque_disponivel:Infinity,avulso:true});
+  $('avulsoNome').value=''; $('avulsoValor').value=''; $('avulsoQtd').value='1';
+  renderCarrinho();
+  toast(`"${nome}" adicionado ao carrinho.`,'ok');
+}
 document.addEventListener('DOMContentLoaded',()=>{
   $('pdvBarras')?.addEventListener('keydown',e=>{
     if(e.key!=='Enter')return;
@@ -578,7 +611,7 @@ function renderCarrinho(){
   else{
     $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
       <tr>
-        <td>${esc(i.nome)}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}</td>
+        <td>${esc(i.nome)}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}${i.avulso?' <span class="badge badge-blue" title="Sem cadastro no catálogo">Avulso</span>':''}</td>
         <td><input type="text" inputmode="numeric" class="pdv-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
         <td><input type="text" inputmode="decimal" class="pdv-qtd-input" value="${i.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}" oninput="sanitizarDecimal(this)" onchange="alterarPrecoCarrinho(${idx},this.value)" style="width:90px;text-align:right" title="Preço combinado com o cliente pode ser diferente do preço de tabela — edite aqui se precisar."></td>
         <td>${money(i.quantidade*i.valor_unitario)}</td>
@@ -606,6 +639,8 @@ function limparCarrinho(){
   $('pdvClienteNome').value=''; $('pdvClienteDoc').value=''; $('pdvClienteEmail').value=''; $('pdvClienteTel').value='';
   $('pdvClienteStatus').textContent=''; $('pdvClienteContatoWrap').style.display='none'; $('btnToggleContatoCliente').textContent='+ E-mail e telefone';
   pdvClienteId=null; pdvClienteBusca=null;
+  $('avulsoNome').value=''; $('avulsoValor').value=''; $('avulsoQtd').value='1';
+  $('avulsoWrap').style.display='none'; $('btnToggleAvulso').textContent='+ Vender item sem cadastro';
   renderPagamentos(); renderCarrinho();
 }
 function toggleContatoCliente(){
@@ -757,6 +792,7 @@ async function finalizarVenda(){
   }
 
   for(const item of carrinho){
+    if(item.avulso)continue; // sem cadastro = sem registro de estoque pra checar
     if(item.quantidade>disponivel(item.produto_id)){
       msg('pdvMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${disponivel(item.produto_id)}.`,'err');
       await carregarProdutosLoja(modoRetroativo?lojaId:undefined);
@@ -839,6 +875,7 @@ async function finalizarVenda(){
     }
 
     for(const item of carrinho){
+      if(item.avulso)continue; // sem cadastro = nada pra baixar no estoque
       const linhaEstoque=dados.estoque.find(e=>e.produto_id===item.produto_id);
       const estAnt=Number(linhaEstoque?.quantidade||0);
       const estPost=estAnt-item.quantidade;
