@@ -201,8 +201,8 @@ let _vendasBrutas = null;
 let paginaVendasRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
 let relVendasSecoes = { resumo:true, forma:true, produto:true, detalhe:true };
-let relVendasColunas = { data:true, loja:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
-const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', cliente:'Cliente', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total', retroativa:'Retroativa' };
+let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
+const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', vendedor:'Vendedor', cliente:'Cliente', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total', retroativa:'Retroativa' };
 
 async function gerarRelatorioVendas(){
   const de=val('relDe'), ate=val('relAte');
@@ -266,7 +266,7 @@ function renderRelatorioVendas(){
 
   const colunasAtivas=Object.keys(relVendasColunas).filter(c=>relVendasColunas[c]);
   const valorLinha={
-    data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', cliente:v=>v.cliente_nome||'—',
+    data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', vendedor:v=>v.vendedor_nome||'—', cliente:v=>v.cliente_nome||'—',
     forma:v=>(formasPorVenda[v.id]||[]).join(' + ')||'—', subtotal:v=>v.subtotal, desconto:v=>v.desconto_total,
     total:v=>v.total, retroativa:v=>v.retroativa?'Sim':'Não',
   };
@@ -337,7 +337,7 @@ function renderRelatorioVendas(){
     if(paginaVendasRel>totalPaginas) paginaVendasRel=totalPaginas;
     const inicio=(paginaVendasRel-1)*VENDAS_REL_POR_PAGINA;
     const paginaVendas=vendas.slice(inicio,inicio+VENDAS_REL_POR_PAGINA);
-    const FMT_COL={ data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), cliente:v=>esc(v.cliente_nome||'—'),
+    const FMT_COL={ data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), vendedor:v=>esc(v.vendedor_nome||'—'), cliente:v=>esc(v.cliente_nome||'—'),
       forma:v=>esc((formasPorVenda[v.id]||[]).join(' + ')||'—'), subtotal:v=>money(v.subtotal), desconto:v=>money(v.desconto_total),
       total:v=>`<b>${money(v.total)}</b>`, retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—' };
     const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${

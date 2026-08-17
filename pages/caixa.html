@@ -228,6 +228,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <h2 style="margin-bottom:14px">Fechamento da venda</h2>
 
             <div class="field">
+              <label>Vendedor (opcional)</label>
+              <select id="pdvVendedor"><option value="">Selecione...</option></select>
+            </div>
+
+            <div class="field">
               <label>Desconto</label>
               <div style="display:flex;gap:8px">
                 <select id="descTipo" style="width:130px" onchange="renderTotais()"><option value="">Sem desconto</option><option value="Percentual">%</option><option value="Valor fixo">R$</option></select>
@@ -298,7 +303,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div id="histResumoConsignado"></div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Hora</th><th>Vendedor</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
               <tbody id="histTable"></tbody>
             </table>
           </div>
@@ -396,7 +401,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], estoque:[], lojas:[] };
+let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[] };
 let carrinho = [];
 let pagamentos = [];
 let sessaoAtual = null;
@@ -422,6 +427,7 @@ async function init(){
     if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
   }
   await carregarLojas();
+  carregarVendedores();
   await verificarCaixaAberto();
   reconectarImpressoraSalva();
   if(new URLSearchParams(location.search).get('tela')==='painel') abrirTelaPainel();
@@ -442,6 +448,17 @@ async function carregarLojas(){
   }
   const ultimaId=localStorage.getItem(chaveUltimaLoja());
   $('abrirLoja').innerHTML=dados.lojas.map(l=>`<option value="${l.id}"${l.id===ultimaId?' selected':''}>${esc(l.nome)}</option>`).join('')||'<option value="">Nenhuma loja cadastrada</option>';
+}
+
+// "Vendedor" é quem atendeu o cliente — pode ser diferente de quem está logado
+// operando o caixa, então fica separado do session.id. Best-effort: se a busca falhar
+// (ex: usuário sem permissão em colaboradores), o campo só fica vazio, nunca trava a venda.
+async function carregarVendedores(){
+  try{
+    dados.colaboradores=await dbGet('colaboradores',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome&order=nome.asc`);
+  }catch(e){ dados.colaboradores=[]; }
+  const sel=$('pdvVendedor');
+  if(sel) sel.innerHTML='<option value="">Selecione...</option>'+dados.colaboradores.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 }
 
 async function verificarCaixaAberto(){
@@ -815,6 +832,8 @@ async function finalizarVenda(){
   if(btn){btn.disabled=true;btn.textContent='Finalizando...';}
   try{
     const n=carrinho.length;
+    const vendedorId=val('pdvVendedor')||null;
+    const vendedorNome=vendedorId?(dados.colaboradores.find(c=>c.id===vendedorId)?.nome||null):null;
     const clienteNome=val('pdvClienteNome').trim()||null;
     const clienteEmail=val('pdvClienteEmail').trim()||null;
     const clienteTel=val('pdvClienteTel').trim()||null;
@@ -850,6 +869,7 @@ async function finalizarVenda(){
 
     const venda=await dbPost('vendas',withEmpresa({
       loja_id:lojaId, caixa_sessao_id:caixaSessaoId, cliente_id:clienteId, cliente_nome:clienteNome, financeiro_id:financeiroId,
+      vendedor_id:vendedorId, vendedor_nome:vendedorNome,
       subtotal, desconto_total:desconto, total, status:'Concluída',
       data_venda:dataRef, retroativa:!!modoRetroativo, motivo_retroativo:modoRetroativo?motivoRetro:null,
     }));
@@ -1092,6 +1112,7 @@ function renderHistoricoVendas(vendas,itens,formas){
       : new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
       <td>${horaOuRetroativa}</td>
+      <td>${esc(v.vendedor_nome||'—')}</td>
       <td>${esc(v.cliente_nome||'—')}</td>
       <td>${qtdItens} (${itensTxt})</td>
       <td>${esc(suasFormas)}</td>
@@ -1099,7 +1120,7 @@ function renderHistoricoVendas(vendas,itens,formas){
       <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
       <td>${cancelada?'':`<button class="btn2" style="padding:6px 12px" onclick="cancelarVenda('${v.id}')">Cancelar</button>`}</td>
     </tr>`;
-  }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+  }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
 // Cancelar reflete em tudo: devolve o estoque (com histórico), apaga a receita que a
 // venda tinha gerado no Financeiro, e marca a venda como Cancelada (não apaga a
