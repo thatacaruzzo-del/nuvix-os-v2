@@ -690,7 +690,12 @@ function toggleContatoCliente(){
 // cliente é cadastrado automaticamente ao finalizar (ver finalizarVenda) pra já reconhecer
 // da próxima vez que ele comprar.
 async function buscarClientePdv(){
-  const raw=val('pdvClienteDoc').trim();
+  const rawInput=val('pdvClienteDoc').trim();
+  // CPF/CNPJ de verdade só tem dígito, ponto, traço e barra — qualquer outro caractere
+  // (parênteses, vírgula) tem significado especial na sintaxe de filtro do PostgREST e
+  // não é escapado por encodeURIComponent; removê-los evita quebrar ou manipular a
+  // consulta com uma entrada malformada, mesmo o RLS já impedindo vazamento entre empresas.
+  const raw=rawInput.replace(/[^0-9./-]/g,'');
   const digits=raw.replace(/\D/g,'');
   pdvClienteId=null;
   if(!digits||digits.length<11){setHTML('pdvClienteStatus','');return;}
