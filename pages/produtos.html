@@ -772,6 +772,22 @@ init();
     const nav = document.getElementById('sidebar');
     if(!nav) return;
 
+    // Ponto x RH — funcionário que só bate ponto (permissão "folha_ponto" liberada
+    // e "rh" explicitamente negada) não deve ver "RH" no menu, só "Ponto". Mesma
+    // regra "fail-open" do resto do sistema: sem linha de permissão pro módulo,
+    // conta como liberado — então por padrão continua mostrando RH normalmente.
+    const _perfil = d.user?.perfil;
+    const _perms = d.user?.usuario_permissoes || [];
+    const temPerm = (mod,tipo) => {
+      if(_perfil==='Administrador'||_perfil==='SuperAdmin') return true;
+      const p = _perms.find(x=>x.modulo===mod);
+      return p ? !!p[`pode_${tipo}`] : true;
+    };
+    const soPonto = !temPerm('rh','ver') && temPerm('folha_ponto','ver');
+    const linkPessoasRH = soPonto
+      ? '<a class="sb-btn" href="rh.html" data-tip="Bater ponto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Ponto</span></a>'
+      : '<a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>';
+
     const logo = nav.querySelector('.sidebar-logo');
 
     const isTransporte = seg.includes('transporte');
@@ -821,7 +837,7 @@ init();
     html += `<div class="sb-group">
       <div class="sb-group-label">Pessoas</div>
       <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
-      <a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>
+      ${linkPessoasRH}
     </div>`;
 
     html += `<div class="sb-group">
