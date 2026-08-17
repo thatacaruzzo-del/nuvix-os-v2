@@ -83,6 +83,7 @@ function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
 function numBR(v){let s=(typeof v==='string'&&$(v)?val(v):v).toString().trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -152,6 +153,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div class="field" style="text-align:left"><label>Fundo de troco (R$)</label><input id="abrirFundoTroco" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
           <div id="abrirCaixaMsg" class="msg"></div>
           <button class="btn" style="width:100%;margin-top:10px" onclick="abrirCaixaSessao()">Abrir caixa</button>
+          <button class="btn2" style="width:100%;margin-top:8px" onclick="abrirModalVendaRetroativa()">Esqueceu de lançar uma venda de outro dia? Lançar venda retroativa</button>
         </div>
       </div>
 
@@ -163,6 +165,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <button class="btn2" onclick="pareirImpressora()" title="Impressora térmica USB (opcional)">🖨️ Parear impressora</button>
             <button class="btn2" onclick="abrirTelaHistorico()">Histórico</button>
             <button class="btn2" onclick="abrirTelaPainel()">Painel</button>
+            <button class="btn2" onclick="abrirModalVendaRetroativa()">Venda retroativa</button>
             <button class="btn2" onclick="abrirModalMovimento('Sangria')">Sangria</button>
             <button class="btn2" onclick="abrirModalMovimento('Suprimento')">Suprimento</button>
             <button class="btn2" onclick="abrirTelaFechamento()">Fechar caixa</button>
@@ -337,6 +340,47 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalMovimento')">Cancelar</button>
     <button class="btn" onclick="confirmarMovimento()">Confirmar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL VENDA RETROATIVA -->
+<div class="modal-overlay" id="modalVendaRetroativa">
+<div class="modal" style="max-width:640px">
+  <h3>Venda retroativa</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Pra lançar uma venda que já aconteceu e não foi registrada na hora. Não entra na sessão de caixa de hoje nem no fechamento — fica marcada como retroativa no Histórico e no Painel.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div class="field" style="flex:1;min-width:160px"><label>Data da venda *</label><input id="vrData" type="date"></div>
+    <div class="field" style="flex:1;min-width:160px"><label>Loja *</label><select id="vrLoja" onchange="carregarProdutosRetroativos()"></select></div>
+  </div>
+  <div class="field"><label>Cliente (opcional)</label><input id="vrCliente" placeholder="Nome do cliente"></div>
+  <div class="field"><label>Motivo do lançamento retroativo *</label><input id="vrMotivo" placeholder="Ex: esquecemos de bater no PDV no dia, venda feita fora do sistema..."></div>
+
+  <div style="display:flex;gap:10px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">
+    <div class="field" style="flex:2;min-width:200px;margin:0"><label>Produto</label><select id="vrProduto"></select></div>
+    <div class="field" style="width:90px;margin:0"><label>Qtd.</label><input id="vrQtd" type="text" inputmode="numeric" value="1" oninput="sanitizarInteiro(this)"></div>
+    <button class="btn2" onclick="adicionarItemRetroativo()">+ Adicionar</button>
+  </div>
+
+  <div class="tablewrap" style="margin-top:12px">
+    <table>
+      <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Subtotal</th><th></th></tr></thead>
+      <tbody id="vrCarrinhoTable"></tbody>
+    </table>
+  </div>
+  <div id="vrCarrinhoVazio" class="pdv-carrinho-vazio" style="display:none">Nenhum item adicionado ainda.</div>
+
+  <div style="display:flex;gap:10px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">
+    <div class="field" style="flex:1;min-width:160px;margin:0"><label>Forma de pagamento *</label>
+      <select id="vrForma"><option>Dinheiro</option><option>Pix</option><option>Cartão Débito</option><option>Cartão Crédito</option></select>
+    </div>
+    <div style="flex:1;text-align:right;font-size:18px;font-weight:800">Total: <span id="vrTotal">R$ 0,00</span></div>
+  </div>
+
+  <div id="vrMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalVendaRetroativa')">Cancelar</button>
+    <button class="btn" onclick="confirmarVendaRetroativa()">Registrar venda retroativa</button>
   </div>
 </div>
 </div>
@@ -617,6 +661,133 @@ async function confirmarMovimento(){
   }catch(e){msg('movMsg','Erro: '+e.message,'err');}
 }
 
+// ══ VENDA RETROATIVA — lança uma venda de um dia passado sem tocar na sessão de
+// caixa de hoje. Fica isolada do carrinho/estoque normais do PDV de propósito
+// (usa suas próprias variáveis), pra nunca interferir numa venda em andamento
+// caso o operador abra esse modal com o caixa já aberto no meio de um atendimento.
+let carrinhoRetroativo=[], produtosRetroativos=[], estoqueRetroativoModal=[];
+async function abrirModalVendaRetroativa(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
+  carrinhoRetroativo=[]; produtosRetroativos=[]; estoqueRetroativoModal=[];
+  $('vrData').value=hoje(); $('vrData').max=hoje();
+  $('vrCliente').value=''; $('vrMotivo').value=''; $('vrQtd').value='1';
+  $('vrMsg').textContent=''; $('vrMsg').className='msg';
+  const lojas=(dados.lojas||[]).filter(l=>l.ativo);
+  $('vrLoja').innerHTML=lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')||'<option value="">Cadastre uma loja primeiro</option>';
+  renderCarrinhoRetroativo();
+  abrirModal('modalVendaRetroativa');
+  if(lojas.length) await carregarProdutosRetroativos();
+}
+async function carregarProdutosRetroativos(){
+  const lojaId=val('vrLoja');
+  if(!lojaId){$('vrProduto').innerHTML='';return;}
+  const [produtos,estoque]=await Promise.all([
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,preco_venda_final,custo_atual,is_consignado&order=nome.asc`),
+    dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
+  ]);
+  produtosRetroativos=produtos; estoqueRetroativoModal=estoque;
+  $('vrProduto').innerHTML=produtos.map(p=>`<option value="${p.id}">${esc(p.nome)} — ${money(p.preco_venda_final)}</option>`).join('')||'<option value="">Nenhum produto cadastrado</option>';
+}
+function disponivelRetroativo(produtoId){return Number(estoqueRetroativoModal.find(e=>e.produto_id===produtoId)?.quantidade||0)}
+function adicionarItemRetroativo(){
+  const produtoId=val('vrProduto');
+  const produto=produtosRetroativos.find(p=>p.id===produtoId);
+  if(!produto){msg('vrMsg','Selecione um produto.','err');return;}
+  const qtd=Number(val('vrQtd')||0);
+  if(!qtd||qtd<=0){msg('vrMsg','Informe uma quantidade válida.','err');return;}
+  const jaNoCarrinho=carrinhoRetroativo.find(i=>i.produto_id===produtoId)?.quantidade||0;
+  if(qtd+jaNoCarrinho>disponivelRetroativo(produtoId)){
+    msg('vrMsg',`Estoque de "${produto.nome}" nessa loja: ${disponivelRetroativo(produtoId)}. Não é possível vender mais do que isso.`,'err');
+    return;
+  }
+  const existente=carrinhoRetroativo.find(i=>i.produto_id===produtoId);
+  if(existente) existente.quantidade+=qtd;
+  else carrinhoRetroativo.push({produto_id:produto.id,nome:produto.nome,quantidade:qtd,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado});
+  $('vrQtd').value='1'; $('vrMsg').textContent=''; $('vrMsg').className='msg';
+  renderCarrinhoRetroativo();
+}
+function removerItemRetroativo(produtoId){carrinhoRetroativo=carrinhoRetroativo.filter(i=>i.produto_id!==produtoId);renderCarrinhoRetroativo();}
+function totalCarrinhoRetroativo(){return arred2(carrinhoRetroativo.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0));}
+function renderCarrinhoRetroativo(){
+  $('vrCarrinhoTable').innerHTML=carrinhoRetroativo.map(i=>`<tr>
+    <td>${esc(i.nome)}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}</td>
+    <td>${i.quantidade}</td>
+    <td>${money(i.valor_unitario)}</td>
+    <td>${money(i.quantidade*i.valor_unitario)}</td>
+    <td><button class="btn2" style="padding:4px 10px" onclick="removerItemRetroativo('${i.produto_id}')">Remover</button></td>
+  </tr>`).join('');
+  $('vrCarrinhoVazio').style.display=carrinhoRetroativo.length?'none':'block';
+  $('vrTotal').textContent=money(totalCarrinhoRetroativo());
+}
+async function confirmarVendaRetroativa(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
+  const dataVenda=val('vrData'), lojaId=val('vrLoja'), motivo=val('vrMotivo').trim(), forma=val('vrForma');
+  if(!dataVenda){msg('vrMsg','Informe a data da venda.','err');return;}
+  if(dataVenda>hoje()){msg('vrMsg','A data não pode ser no futuro.','err');return;}
+  if(!lojaId){msg('vrMsg','Selecione a loja.','err');return;}
+  if(!motivo){msg('vrMsg','Informe o motivo do lançamento retroativo.','err');return;}
+  if(!carrinhoRetroativo.length){msg('vrMsg','Adicione ao menos um produto.','err');return;}
+  for(const item of carrinhoRetroativo){
+    if(item.quantidade>disponivelRetroativo(item.produto_id)){
+      msg('vrMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${disponivelRetroativo(item.produto_id)}.`,'err');
+      await carregarProdutosRetroativos();
+      return;
+    }
+  }
+  const total=totalCarrinhoRetroativo();
+  const clienteNome=val('vrCliente').trim()||null;
+  const btn=document.querySelector('#modalVendaRetroativa .btn');
+  if(btn){btn.disabled=true;btn.textContent='Registrando...';}
+  try{
+    const n=carrinhoRetroativo.length;
+    const finLancamento=await dbPost('financeiro',withEmpresa({
+      tipo:'Receita', categoria:'Vendas de Produtos',
+      descricao:`Venda retroativa (${fmtData(dataVenda)}) — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`,
+      valor:total, data_lancamento:dataVenda, data_pagamento:dataVenda,
+      status:'Recebido', forma_pagamento:forma, favorecido:clienteNome,
+      updated_at:new Date().toISOString(),
+    }));
+    const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
+
+    const venda=await dbPost('vendas',withEmpresa({
+      loja_id:lojaId, caixa_sessao_id:null, cliente_id:null, cliente_nome:clienteNome, financeiro_id:financeiroId,
+      subtotal:total, desconto_total:0, total, status:'Concluída',
+      data_venda:dataVenda, retroativa:true, motivo_retroativo:motivo,
+    }));
+    const vendaRow=Array.isArray(venda)?venda[0]:venda;
+    const vendaId=vendaRow.id;
+
+    await dbPost('itens_venda', carrinhoRetroativo.map(i=>withEmpresa({
+      venda_id:vendaId, produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
+      valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, is_consignado:!!i.is_consignado,
+      subtotal:i.quantidade*i.valor_unitario,
+    })));
+
+    await dbPost('venda_formas_pagamento', [withEmpresa({venda_id:vendaId, forma_pagamento:forma, valor:total, parcelas:null})]);
+
+    for(const item of carrinhoRetroativo){
+      const linhaEstoque=estoqueRetroativoModal.find(e=>e.produto_id===item.produto_id);
+      const estAnt=Number(linhaEstoque?.quantidade||0);
+      const estPost=estAnt-item.quantidade;
+      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:estPost,updated_at:new Date().toISOString()});
+      await dbPost('estoque_movimentacoes',withEmpresa({
+        produto_id:item.produto_id, loja_id:lojaId, tipo:'saida', quantidade:item.quantidade,
+        estoque_anterior:estAnt, estoque_posterior:estPost, motivo:`Venda retroativa (${fmtData(dataVenda)}) — ${motivo}`,
+        referencia_tipo:'venda', referencia_id:vendaId, usuario_id:session.id,
+      }));
+      linhaEstoque.quantidade=estPost;
+    }
+
+    toast(`Venda retroativa registrada — ${money(total)}`,'ok');
+    fecharModal('modalVendaRetroativa');
+    if($('telaHistorico')?.style.display==='block') await carregarHistoricoVendas();
+  }catch(e){
+    msg('vrMsg','Erro ao registrar: '+e.message,'err');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Registrar venda retroativa';}
+  }
+}
+
 // ══ FINALIZAR VENDA ══
 async function finalizarVenda(){
   if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
@@ -660,6 +831,7 @@ async function finalizarVenda(){
     const venda=await dbPost('vendas',withEmpresa({
       loja_id:sessaoAtual.loja_id, caixa_sessao_id:sessaoAtual.id, cliente_id:null, cliente_nome:clienteNome, financeiro_id:financeiroId,
       subtotal, desconto_total:desconto, total, status:'Concluída',
+      data_venda:hoje(), retroativa:false,
     }));
     const vendaRow=Array.isArray(venda)?venda[0]:venda;
     const vendaId=vendaRow.id;
@@ -860,9 +1032,10 @@ function abrirTelaHistorico(){
 function fecharTelaHistorico(){ $('telaHistorico').style.display='none'; $('telaPdv').style.display='block'; }
 async function carregarHistoricoVendas(){
   const data=val('histData')||hoje();
-  const proximoDia=dataLocal(new Date(new Date(data+'T00:00:00').getTime()+864e5));
   try{
-    const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}&created_at=gte.${data}&created_at=lt.${proximoDia}&select=*&order=created_at.desc`);
+    // data_venda (não created_at) — pra vendas retroativas aparecerem no dia a que
+    // de fato pertencem, não no dia em que foram digitadas no sistema.
+    const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}&data_venda=eq.${data}&select=*&order=created_at.desc`);
     const ids=vendas.map(v=>v.id);
     const [itens,formas]=await Promise.all([
       ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado`):[],
@@ -888,8 +1061,11 @@ function renderHistoricoVendas(vendas,itens,formas){
     const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento).join(' + ')||'—';
     const cancelada=v.status==='Cancelada';
     const itensTxt=seusItens.map(i=>esc(i.produto_nome)+(i.is_consignado?' <span class="badge badge-amber">consig.</span>':'')).join(', ');
+    const horaOuRetroativa=v.retroativa
+      ? '<span class="badge badge-blue" title="Lançada depois, fora do fluxo normal do PDV">Retroativa</span>'
+      : new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
-      <td>${new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${horaOuRetroativa}</td>
       <td>${esc(v.cliente_nome||'—')}</td>
       <td>${qtdItens} (${itensTxt})</td>
       <td>${esc(suasFormas)}</td>
@@ -979,8 +1155,8 @@ function trendBadge(atual,anterior,invertido,confiavel){
   return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
 }
 async function buscarVendasCompletas(de,ate){
-  const proximoDia=dataLocal(new Date(new Date(ate+'T00:00:00').getTime()+864e5));
-  const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&created_at=gte.${de}&created_at=lt.${proximoDia}&select=*`);
+  // data_venda — vendas retroativas entram no período a que de fato pertencem.
+  const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=*`);
   const ids=vendas.map(v=>v.id);
   const itens=ids.length?await dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=*`):[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
