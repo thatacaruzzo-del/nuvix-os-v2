@@ -229,7 +229,16 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
             <div class="field">
               <label>Cliente (opcional)</label>
-              <input id="pdvClienteNome" placeholder="Nome do cliente">
+              <div style="display:flex;gap:8px">
+                <input id="pdvClienteDoc" placeholder="CPF/CNPJ" style="max-width:150px" oninput="pdvClienteId=null" onblur="pdvClienteBusca=buscarClientePdv()">
+                <input id="pdvClienteNome" placeholder="Nome do cliente" style="flex:1">
+              </div>
+              <div id="pdvClienteStatus" class="field-hint"></div>
+              <div id="pdvClienteContatoWrap" style="display:none;margin-top:8px;gap:8px">
+                <input id="pdvClienteEmail" type="email" placeholder="E-mail (opcional)" style="flex:1">
+                <input id="pdvClienteTel" placeholder="Telefone (opcional)" style="flex:1">
+              </div>
+              <button type="button" class="btn2" id="btnToggleContatoCliente" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="toggleContatoCliente()">+ E-mail e telefone</button>
             </div>
 
             <div class="field">
@@ -384,6 +393,8 @@ let sessaoAtual = null;
 let impressoraDevice = null;
 let aprovacaoDescontoOk = false;
 let aprovacaoDescontoUsuarioId = null;
+let pdvClienteId = null;
+let pdvClienteBusca = null; // promise da busca em andamento — finalizarVenda espera ela antes de decidir se cadastra cliente novo
 
 const LIMITE_DESCONTO_PADRAO_PCT = 5; // perfis que não são Administrador/SuperAdmin
 function limiteDescontoPct(){ return (session.perfil==='Administrador'||session.perfil==='SuperAdmin') ? 100 : LIMITE_DESCONTO_PADRAO_PCT; }
@@ -592,8 +603,40 @@ function removerDoCarrinho(idx){ carrinho.splice(idx,1); renderCarrinho(); }
 function limparCarrinho(){
   carrinho=[]; pagamentos=[]; aprovacaoDescontoOk=false; aprovacaoDescontoUsuarioId=null;
   $('descTipo').value=''; $('descValor').value=''; $('descMotivo').value=''; $('descAprovacaoHint').textContent='';
-  $('pdvClienteNome').value='';
+  $('pdvClienteNome').value=''; $('pdvClienteDoc').value=''; $('pdvClienteEmail').value=''; $('pdvClienteTel').value='';
+  $('pdvClienteStatus').textContent=''; $('pdvClienteContatoWrap').style.display='none'; $('btnToggleContatoCliente').textContent='+ E-mail e telefone';
+  pdvClienteId=null; pdvClienteBusca=null;
   renderPagamentos(); renderCarrinho();
+}
+function toggleContatoCliente(){
+  const wrap=$('pdvClienteContatoWrap');
+  const aberto=wrap.style.display==='flex';
+  wrap.style.display=aberto?'none':'flex';
+  $('btnToggleContatoCliente').textContent=aberto?'+ E-mail e telefone':'− Ocultar e-mail e telefone';
+}
+// Busca opcional por CPF/CNPJ pra puxar o cadastro do cliente na hora da compra — nunca
+// bloqueia a venda: se não achar, o caixa simplesmente segue com o que foi digitado, e o
+// cliente é cadastrado automaticamente ao finalizar (ver finalizarVenda) pra já reconhecer
+// da próxima vez que ele comprar.
+async function buscarClientePdv(){
+  const raw=val('pdvClienteDoc').trim();
+  const digits=raw.replace(/\D/g,'');
+  pdvClienteId=null;
+  if(!digits||digits.length<11){setHTML('pdvClienteStatus','');return;}
+  try{
+    const filtro=raw!==digits?`or=(documento.eq.${encodeURIComponent(raw)},documento.eq.${digits})`:`documento=eq.${digits}`;
+    const rows=await dbGet('clientes',`?empresa_id=eq.${session.empresa_id}&${filtro}&select=id,nome,email,telefone&limit=1`);
+    if(rows&&rows[0]){
+      pdvClienteId=rows[0].id;
+      if(!val('pdvClienteNome').trim())$('pdvClienteNome').value=rows[0].nome||'';
+      if(rows[0].email&&!val('pdvClienteEmail').trim())$('pdvClienteEmail').value=rows[0].email;
+      if(rows[0].telefone&&!val('pdvClienteTel').trim())$('pdvClienteTel').value=rows[0].telefone;
+      if(rows[0].email||rows[0].telefone){$('pdvClienteContatoWrap').style.display='flex';$('btnToggleContatoCliente').textContent='− Ocultar e-mail e telefone';}
+      setHTML('pdvClienteStatus',`<span style="color:var(--green)">✓ Cliente encontrado: ${esc(rows[0].nome||'')}</span>`);
+    }else{
+      setHTML('pdvClienteStatus','<span style="color:var(--muted)">Documento não cadastrado — a venda segue normal, cliente é cadastrado ao finalizar.</span>');
+    }
+  }catch(e){setHTML('pdvClienteStatus','');}
 }
 function totalCarrinho(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
 function arred2(v){ return Math.round(Number(v||0)*100)/100; }
@@ -737,6 +780,23 @@ async function finalizarVenda(){
   try{
     const n=carrinho.length;
     const clienteNome=val('pdvClienteNome').trim()||null;
+    const clienteEmail=val('pdvClienteEmail').trim()||null;
+    const clienteTel=val('pdvClienteTel').trim()||null;
+    const clienteDocDigits=val('pdvClienteDoc').trim().replace(/\D/g,'')||null;
+    // Espera a busca por documento terminar, se ainda estiver em andamento (evita
+    // cadastrar um cliente duplicado se finalizar rápido demais). Se informou algum
+    // dado real (documento, e-mail ou telefone) e não achou cadastro existente,
+    // cadastra na hora — silenciosamente, sem travar a venda se isso falhar.
+    if(pdvClienteBusca){try{await pdvClienteBusca;}catch(e){}}
+    let clienteId=pdvClienteId;
+    if(!clienteId && (clienteDocDigits||clienteEmail||clienteTel)){
+      try{
+        const novoCliente=await dbPost('clientes',withEmpresa({
+          nome:clienteNome||'Cliente balcão', email:clienteEmail, telefone:clienteTel, documento:clienteDocDigits,
+        }));
+        clienteId=Array.isArray(novoCliente)?novoCliente[0]?.id:novoCliente?.id;
+      }catch(e){ /* cadastro automático do cliente é best-effort — nunca trava a venda */ }
+    }
     const formasTxt=pagamentos.filter(p=>p.valor>0).map(p=>p.forma).join(' + ')||'Dinheiro';
     const descricaoVenda=modoRetroativo
       ? `Venda retroativa (${fmtData(dataRef)}) — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`
@@ -753,7 +813,7 @@ async function finalizarVenda(){
     const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
 
     const venda=await dbPost('vendas',withEmpresa({
-      loja_id:lojaId, caixa_sessao_id:caixaSessaoId, cliente_id:null, cliente_nome:clienteNome, financeiro_id:financeiroId,
+      loja_id:lojaId, caixa_sessao_id:caixaSessaoId, cliente_id:clienteId, cliente_nome:clienteNome, financeiro_id:financeiroId,
       subtotal, desconto_total:desconto, total, status:'Concluída',
       data_venda:dataRef, retroativa:!!modoRetroativo, motivo_retroativo:modoRetroativo?motivoRetro:null,
     }));
