@@ -193,6 +193,17 @@ async function gerarRelatorio(){
 // ── Relatório de Vendas — só pra Varejo, junta vendas + itens_venda + venda_formas_pagamento.
 // Usa data_venda (não created_at) pra respeitar vendas retroativas: elas devem aparecer
 // no período a que de fato pertencem, não no dia em que foram digitadas no sistema.
+//
+// Busca os dados uma vez só (gerarRelatorioVendas) e guarda em _vendasBrutas; alternar
+// seção/coluna/página só re-renderiza a partir do cache (renderRelatorioVendas), sem
+// bater no banco de novo — sensação instantânea ao personalizar o relatório.
+let _vendasBrutas = null;
+let paginaVendasRel = 1;
+const VENDAS_REL_POR_PAGINA = 20;
+let relVendasSecoes = { resumo:true, forma:true, produto:true, detalhe:true };
+let relVendasColunas = { data:true, loja:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
+const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', cliente:'Cliente', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total', retroativa:'Retroativa' };
+
 async function gerarRelatorioVendas(){
   const de=val('relDe'), ate=val('relAte');
   if(!de||!ate){toast('Selecione o período.','err');return;}
@@ -201,7 +212,7 @@ async function gerarRelatorioVendas(){
   try{
     const vendas=await db.get('vendas',`?select=*&empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&order=data_venda.desc`);
     if(!vendas.length){
-      _relDados=[];
+      _vendasBrutas=null; _relDados=[];
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>');
       return;
     }
@@ -212,81 +223,138 @@ async function gerarRelatorioVendas(){
       db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
     ]);
     const nomeLoja={}; lojas.forEach(l=>{nomeLoja[l.id]=l.nome;});
-
-    const faturamentoTotal=vendas.reduce((a,v)=>a+Number(v.total||0),0);
-    const qtdVendas=vendas.length;
-    const ticketMedio=qtdVendas?faturamentoTotal/qtdVendas:0;
-    const qtdItens=itens.reduce((a,i)=>a+Number(i.quantidade||0),0);
-
-    const porForma={};
-    formas.forEach(f=>{ porForma[f.forma_pagamento]=(porForma[f.forma_pagamento]||0)+Number(f.valor||0); });
-
-    const porProduto={};
-    itens.forEach(i=>{
-      const nome=i.produto_nome||'—';
-      if(!porProduto[nome]) porProduto[nome]={qtd:0,faturamento:0};
-      porProduto[nome].qtd+=Number(i.quantidade||0);
-      porProduto[nome].faturamento+=Number(i.quantidade||0)*Number(i.valor_unitario||0);
-    });
-    const produtosOrdenados=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento);
-
-    const formasPorVenda={};
-    formas.forEach(f=>{ (formasPorVenda[f.venda_id]=formasPorVenda[f.venda_id]||[]).push(f.forma_pagamento); });
-
-    setHTML('relInfo',`<b>${qtdVendas}</b> vendas encontradas no período`);
-
-    const kpisHTML=`
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Faturamento</div><div class="metric-value" style="font-size:20px">${money(faturamentoTotal)}</div></div>
-        <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Vendas</div><div class="metric-value" style="font-size:20px">${qtdVendas}</div></div>
-        <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Ticket médio</div><div class="metric-value" style="font-size:20px">${money(ticketMedio)}</div></div>
-        <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Itens vendidos</div><div class="metric-value" style="font-size:20px">${qtdItens}</div></div>
-      </div>`;
-
-    const formaHTML=`
-      <div class="card" style="margin:0 0 20px">
-        <h3 style="margin-bottom:12px">Por forma de pagamento</h3>
-        <table>
-          <thead><tr><th>Forma</th><th>Valor</th><th>% do total</th></tr></thead>
-          <tbody>${Object.entries(porForma).sort((a,b)=>b[1]-a[1]).map(([forma,valor])=>`<tr><td>${esc(forma)}</td><td>${money(valor)}</td><td>${faturamentoTotal?((valor/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
-        </table>
-      </div>`;
-
-    const produtoHTML=`
-      <div class="card" style="margin:0 0 20px">
-        <h3 style="margin-bottom:12px">Por produto</h3>
-        <table>
-          <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>% do total</th></tr></thead>
-          <tbody>${produtosOrdenados.map(([nome,d])=>`<tr><td>${esc(nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
-        </table>
-      </div>`;
-
-    // Linha por venda — é isso que vira o CSV exportado, com a forma de pagamento inclusa.
-    _relDados = vendas.map(v=>({
-      Data: fmtData(v.data_venda),
-      Loja: nomeLoja[v.loja_id]||'—',
-      Cliente: v.cliente_nome||'—',
-      'Forma de pagamento': (formasPorVenda[v.id]||[]).join(' + ')||'—',
-      Subtotal: v.subtotal,
-      Desconto: v.desconto_total,
-      Total: v.total,
-      Retroativa: v.retroativa?'Sim':'Não',
-    }));
-
-    const detalheHTML=`
-      <div class="card" style="margin:0">
-        <h3 style="margin-bottom:12px">Vendas do período</h3>
-        <table>
-          <thead><tr><th>Data</th><th>Loja</th><th>Cliente</th><th>Forma de pagamento</th><th>Subtotal</th><th>Desconto</th><th>Total</th><th>Retroativa</th></tr></thead>
-          <tbody>${_relDados.map(r=>`<tr><td>${r.Data}</td><td>${esc(r.Loja)}</td><td>${esc(r.Cliente)}</td><td>${esc(r['Forma de pagamento'])}</td><td>${money(r.Subtotal)}</td><td>${money(r.Desconto)}</td><td><b>${money(r.Total)}</b></td><td>${r.Retroativa==='Sim'?'<span class="badge badge-blue">Sim</span>':'—'}</td></tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-
-    setHTML('relConteudo', kpisHTML + formaHTML + produtoHTML + detalheHTML);
+    _vendasBrutas = { vendas, itens, formas, nomeLoja };
+    paginaVendasRel = 1;
+    renderRelatorioVendas();
   }catch(e){
     toast('Erro: '+e.message,'err');
     setHTML('relConteudo','');
   }
+}
+
+function toggleSecaoVendas(chave){ relVendasSecoes[chave]=!relVendasSecoes[chave]; renderRelatorioVendas(); }
+function toggleColunaVendas(chave){ relVendasColunas[chave]=!relVendasColunas[chave]; renderRelatorioVendas(); }
+function irParaPaginaVendasRel(p){ paginaVendasRel=p; renderRelatorioVendas(); }
+
+function renderRelatorioVendas(){
+  if(!_vendasBrutas){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>'); return; }
+  const { vendas, itens, formas, nomeLoja } = _vendasBrutas;
+
+  const faturamentoTotal=vendas.reduce((a,v)=>a+Number(v.total||0),0);
+  const qtdVendas=vendas.length;
+  const ticketMedio=qtdVendas?faturamentoTotal/qtdVendas:0;
+  const qtdItens=itens.reduce((a,i)=>a+Number(i.quantidade||0),0);
+
+  const porForma={};
+  formas.forEach(f=>{ porForma[f.forma_pagamento]=(porForma[f.forma_pagamento]||0)+Number(f.valor||0); });
+  const formasOrdenadas=Object.entries(porForma).sort((a,b)=>b[1]-a[1]);
+  const CORES_FORMA={'Dinheiro':'#059669','Pix':'#0EA5E9','Cartão Débito':'#8171E8','Cartão Crédito':'#F59E0B'};
+
+  const porProduto={};
+  itens.forEach(i=>{
+    const nome=i.produto_nome||'—';
+    if(!porProduto[nome]) porProduto[nome]={qtd:0,faturamento:0};
+    porProduto[nome].qtd+=Number(i.quantidade||0);
+    porProduto[nome].faturamento+=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+  });
+  const produtosOrdenados=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento);
+
+  const formasPorVenda={};
+  formas.forEach(f=>{ (formasPorVenda[f.venda_id]=formasPorVenda[f.venda_id]||[]).push(f.forma_pagamento); });
+
+  setHTML('relInfo',`<b>${qtdVendas}</b> vendas encontradas no período`);
+
+  const colunasAtivas=Object.keys(relVendasColunas).filter(c=>relVendasColunas[c]);
+  const valorLinha={
+    data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', cliente:v=>v.cliente_nome||'—',
+    forma:v=>(formasPorVenda[v.id]||[]).join(' + ')||'—', subtotal:v=>v.subtotal, desconto:v=>v.desconto_total,
+    total:v=>v.total, retroativa:v=>v.retroativa?'Sim':'Não',
+  };
+  // Exporta exatamente as colunas marcadas — é o que "o cliente selecionou que quer no relatório".
+  _relDados = vendas.map(v=>{
+    const row={};
+    colunasAtivas.forEach(c=>{ row[COLUNAS_VENDAS_LABEL[c]] = valorLinha[c](v); });
+    return row;
+  });
+
+  const personalizarHTML=`
+    <div class="card" style="margin:0 0 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+        <h3 style="margin:0">Personalizar relatório</h3>
+        <button class="btn" onclick="exportarRelatorio()">⬇ Exportar CSV</button>
+      </div>
+      <div style="display:flex;gap:32px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Seções</div>
+          ${Object.entries({resumo:'Resumo',forma:'Por forma de pagamento',produto:'Por produto',detalhe:'Lista de vendas'}).map(([k,lbl])=>
+            `<label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:7px;cursor:pointer"><input type="checkbox" ${relVendasSecoes[k]?'checked':''} onchange="toggleSecaoVendas('${k}')">${lbl}</label>`
+          ).join('')}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Colunas da lista de vendas</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:2px 20px">
+          ${Object.entries(COLUNAS_VENDAS_LABEL).map(([k,lbl])=>
+            `<label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:7px;cursor:pointer"><input type="checkbox" ${relVendasColunas[k]?'checked':''} onchange="toggleColunaVendas('${k}')">${lbl}</label>`
+          ).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const kpisHTML = relVendasSecoes.resumo ? `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Faturamento</div><div class="metric-value" style="font-size:20px">${money(faturamentoTotal)}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Vendas</div><div class="metric-value" style="font-size:20px">${qtdVendas}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Ticket médio</div><div class="metric-value" style="font-size:20px">${money(ticketMedio)}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Itens vendidos</div><div class="metric-value" style="font-size:20px">${qtdItens}</div></div>
+    </div>` : '';
+
+  const formaHTML = relVendasSecoes.forma ? `
+    <div class="card" style="margin:0 0 20px">
+      <h3 style="margin-bottom:16px">Por forma de pagamento</h3>
+      ${formasOrdenadas.length?formasOrdenadas.map(([forma,valor])=>{
+        const pct=faturamentoTotal?(valor/faturamentoTotal)*100:0;
+        const cor=CORES_FORMA[forma]||'var(--p)';
+        return `<div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="font-weight:600">${esc(forma)}</span><span>${money(valor)} · <b>${pct.toFixed(1)}%</b></span></div>
+          <div style="background:#F1EFF7;border-radius:8px;height:10px;overflow:hidden"><div style="width:${pct}%;background:${cor};height:100%;border-radius:8px"></div></div>
+        </div>`;
+      }).join(''):'<div style="text-align:center;color:var(--muted);padding:16px">Sem dados</div>'}
+    </div>` : '';
+
+  const produtoHTML = relVendasSecoes.produto ? `
+    <div class="card" style="margin:0 0 20px">
+      <h3 style="margin-bottom:12px">Por produto</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>% do total</th></tr></thead>
+        <tbody>${produtosOrdenados.map(([nome,d])=>`<tr><td>${esc(nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
+      </table></div>
+    </div>` : '';
+
+  let detalheHTML = '';
+  if(relVendasSecoes.detalhe){
+    const totalPaginas=Math.max(1,Math.ceil(vendas.length/VENDAS_REL_POR_PAGINA));
+    if(paginaVendasRel>totalPaginas) paginaVendasRel=totalPaginas;
+    const inicio=(paginaVendasRel-1)*VENDAS_REL_POR_PAGINA;
+    const paginaVendas=vendas.slice(inicio,inicio+VENDAS_REL_POR_PAGINA);
+    const FMT_COL={ data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), cliente:v=>esc(v.cliente_nome||'—'),
+      forma:v=>esc((formasPorVenda[v.id]||[]).join(' + ')||'—'), subtotal:v=>money(v.subtotal), desconto:v=>money(v.desconto_total),
+      total:v=>`<b>${money(v.total)}</b>`, retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—' };
+    const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${
+      Array.from({length:totalPaginas},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaVendasRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaVendasRel(${p})">${p}</button>`).join('')
+    }</div>` : '';
+    detalheHTML = `
+      <div class="card" style="margin:0">
+        <h3 style="margin-bottom:12px">Vendas do período <span style="font-weight:400;color:var(--muted);font-size:13px">(${vendas.length})</span></h3>
+        <div class="tablewrap"><table>
+          <thead><tr>${colunasAtivas.map(c=>`<th>${COLUNAS_VENDAS_LABEL[c]}</th>`).join('')||'<th>—</th>'}</tr></thead>
+          <tbody>${paginaVendas.map(v=>`<tr>${colunasAtivas.length?colunasAtivas.map(c=>`<td>${FMT_COL[c](v)}</td>`).join(''):'<td style="text-align:center;color:var(--muted)">Nenhuma coluna selecionada</td>'}</tr>`).join('')}</tbody>
+        </table></div>
+        ${paginacaoHTML}
+      </div>`;
+  }
+
+  setHTML('relConteudo', personalizarHTML + kpisHTML + formaHTML + produtoHTML + detalheHTML);
 }
 
 function exportarRelatorio(){
