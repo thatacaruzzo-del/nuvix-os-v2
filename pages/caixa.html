@@ -90,6 +90,23 @@ function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
@@ -307,6 +324,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="histTable"></tbody>
             </table>
           </div>
+          <div id="histTablePaginacao"></div>
         </div>
       </div>
 
@@ -351,6 +369,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="abcTable"></tbody>
             </table>
           </div>
+          <div id="abcTablePaginacao"></div>
         </div>
 
         <div class="card">
@@ -1090,7 +1109,12 @@ async function carregarHistoricoVendas(){
     renderHistoricoVendas(vendas,itens,formas);
   }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
 }
+let _ultimoHistorico={vendas:[],itens:[],formas:[]};
 function renderHistoricoVendas(vendas,itens,formas){
+  // Paginação chama de novo sem argumentos (irParaPagina só sabe invocar a função,
+  // não tem como reenviar os dados) — cacheia a última carga pra reusar nesse caso.
+  if(vendas===undefined){ ({vendas,itens,formas}=_ultimoHistorico); }
+  else{ _ultimoHistorico={vendas,itens,formas}; }
   // Resumo próprio x consignado do dia — só conta vendas concluídas (canceladas não entram).
   let fatProprio=0, fatConsignado=0;
   itens.forEach(i=>{
@@ -1101,7 +1125,8 @@ function renderHistoricoVendas(vendas,itens,formas){
   });
   setHTML('histResumoConsignado',(fatProprio+fatConsignado)>0?`<div class="field-hint" style="margin-bottom:10px">Faturamento do dia — próprio: <b style="color:var(--txt)">${money(fatProprio)}</b> · consignado: <b style="color:var(--txt)">${money(fatConsignado)}</b></div>`:'');
 
-  $('histTable').innerHTML=vendas.length?vendas.map(v=>{
+  renderPaginacao('histTable',vendas.length,'renderHistoricoVendas');
+  $('histTable').innerHTML=vendas.length?paginar(vendas,'histTable').map(v=>{
     const seusItens=itens.filter(i=>i.venda_id===v.id);
     const qtdItens=seusItens.reduce((a,i)=>a+Number(i.quantidade||0),0);
     const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento).join(' + ')||'—';
@@ -1329,8 +1354,12 @@ function renderEvolucao(linhas,de,ate){
     datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
   },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
 }
+let _ultimoAbc={produtos:[],faturamentoTotal:0};
 function renderAbc(produtos,faturamentoTotal){
-  $('abcTable').innerHTML=produtos.length?produtos.map(p=>`
+  if(produtos===undefined){ ({produtos,faturamentoTotal}=_ultimoAbc); }
+  else{ _ultimoAbc={produtos,faturamentoTotal}; }
+  renderPaginacao('abcTable',produtos.length,'renderAbc');
+  $('abcTable').innerHTML=produtos.length?paginar(produtos,'abcTable').map(p=>`
     <tr>
       <td><span class="abc-badge abc-${p.classe}">${p.classe}</span></td>
       <td>${esc(p.nome||'—')}${p.is_consignado?' <span class="badge badge-amber">Consig.</span>':''}</td>

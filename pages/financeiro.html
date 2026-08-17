@@ -123,6 +123,26 @@ function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+// ── PAGINAÇÃO genérica — nenhuma listagem pode rolar infinito. Cada tabela usa sua
+// própria chave (mesmo id do tbody) pra guardar em que página está; renderPaginacao
+// já se esconde sozinha quando cabe tudo numa página só (não aparece à toa).
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
@@ -351,6 +371,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <tbody id="lanTable"></tbody>
             </table>
           </div>
+          <div id="lanTablePaginacao"></div>
         </div>
       </div>
 
@@ -371,6 +392,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <tbody id="fluxoTable"></tbody>
             </table>
           </div>
+          <div id="fluxoTablePaginacao"></div>
         </div>
       </div>
 
@@ -385,6 +407,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <tbody id="receberTable"></tbody>
             </table>
           </div>
+          <div id="receberTablePaginacao"></div>
         </div>
       </div>
 
@@ -399,6 +422,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <tbody id="pagarTable"></tbody>
             </table>
           </div>
+          <div id="pagarTablePaginacao"></div>
         </div>
       </div>
 
@@ -1260,7 +1284,8 @@ function renderLancamentos(){
     {lbl:'Total despesas',val:money(totalDesp),cor:'var(--txt)'},
     {lbl:'Saldo',val:money(saldo),cor:saldo>=0?'var(--green)':'var(--red)'},
   ].map(c=>`<div class="card" style="margin:0;padding:14px;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div style="font-size:20px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
-  setHTML('lanTable',lista.map(f=>{
+  renderPaginacao('lanTable',lista.length,'renderLancamentos');
+  setHTML('lanTable',paginar(lista,'lanTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
     const atrasado=venc&&venc<hj&&!pago;
@@ -1305,7 +1330,8 @@ function renderFluxo(){
   if(fluxoFiltro==='hoje')lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,10)===hj);
   if(fluxoFiltro==='semana')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v>=hj&&v<=semStr});
   if(fluxoFiltro==='atrasados')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v&&v<hj&&!['Pago','Recebido'].includes(f.status||'')});
-  setHTML('fluxoTable',lista.map(f=>{
+  renderPaginacao('fluxoTable',lista.length,'renderFluxo');
+  setHTML('fluxoTable',paginar(lista,'fluxoTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
     const dataRef=venc||String(f.data_lancamento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
@@ -1335,7 +1361,8 @@ function renderReceber(){
     {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
-  setHTML('receberTable',lista.map(f=>{
+  renderPaginacao('receberTable',lista.length,'renderReceber');
+  setHTML('receberTable',paginar(lista,'receberTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
     return`<tr style="${at?'color:var(--red)':''}">
@@ -1361,7 +1388,8 @@ function renderPagar(){
     {lbl:'Vence hoje',val:money(hjV),cor:'var(--txt)'},
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
-  setHTML('pagarTable',lista.map(f=>{
+  renderPaginacao('pagarTable',lista.length,'renderPagar');
+  setHTML('pagarTable',paginar(lista,'pagarTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
     return`<tr style="${at?'color:var(--red)':''}">

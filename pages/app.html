@@ -72,6 +72,23 @@ function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');r
 function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
@@ -190,6 +207,7 @@ async function deleteRow(table,id,area){
             <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Cidade</th><th>Segmento</th><th>Ação</th></tr></thead>
             <tbody id="cliTable"></tbody>
           </table>
+          <div id="cliTablePaginacao"></div>
         </div>
       </div>
     </div>
@@ -268,6 +286,7 @@ async function deleteRow(table,id,area){
             <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Último acesso</th><th>Status</th><th>Ação</th></tr></thead>
             <tbody id="usrTable"></tbody>
           </table>
+          <div id="usrTablePaginacao"></div>
         </div>
       </div>
     </div>
@@ -397,7 +416,7 @@ function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCid
 // "Veio do CRM": compara por nome com as oportunidades já Fechadas, mesmo criterio de
 // duplicidade que converterCliente() (crm.html) ja usa - sem precisar de coluna nova no banco.
 function veioDoCrm(nome){return(dados.oportunidadesFechadas||[]).some(o=>(o.empresa_nome||o.nome||'').toLowerCase()===(nome||'').toLowerCase());}
-function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));setHTML('cliTable',lista.map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do Comercial →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
+function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));renderPaginacao('cliTable',lista.length,'renderClientes');setHTML('cliTable',paginar(lista,'cliTable').map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do Comercial →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
 
 const COLS_MODULO={financeiro:['tipo','categoria','descricao','valor','data_lancamento','vencimento','status','forma_pagamento','favorecido','centro_custo'],clientes:['nome','email','telefone','documento','cidade','segmento'],colaboradores:['nome','cargo','departamento','salario','data_admissao','tipo_contrato','cpf','telefone','email'],transporte:['data_lancamento','ppe','cliente_nome','motorista_nome','origem','destino','receita','custo','status'],servicos_orcamentos:['cliente_nome','servico_nome','quantidade','valor_unitario','valor_total','status','validade'],crm_oportunidades:['nome','empresa_nome','valor_previsto','status','proximo_contato','responsavel'],ponto:['colaborador_nome','data','entrada','saida','horas_trabalhadas','horas_extras','tipo']};
 async function gerarRelatorio(){
@@ -492,7 +511,7 @@ const MODULOS_TODOS=[
   {id:'integracoes',nome:'Integrações'},
 ];
 
-function renderUsuarios(){setHTML('usrTable',(dados.usuarios||[]).map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="abrirPermissoesFuncionario('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Permissões</button><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
+function renderUsuarios(){const _lUsr=dados.usuarios||[];renderPaginacao('usrTable',_lUsr.length,'renderUsuarios');setHTML('usrTable',paginar(_lUsr,'usrTable').map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="abrirPermissoesFuncionario('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Permissões</button><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
 
 async function abrirPermissoesFuncionario(usuId){
   if(!can('admin')){toast('Sem permissão.','err');return;}

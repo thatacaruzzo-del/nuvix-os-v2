@@ -155,6 +155,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="categoriasTable"></tbody>
             </table>
           </div>
+          <div id="categoriasPaginacao"></div>
         </div>
       </div>
 
@@ -197,6 +198,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="transferenciasTable"></tbody>
             </table>
           </div>
+          <div id="transferenciasPaginacao"></div>
         </div>
       </div>
 
@@ -216,6 +218,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <tbody id="lojasTable"></tbody>
             </table>
           </div>
+          <div id="lojasPaginacao"></div>
         </div>
       </div>
     </div>
@@ -325,9 +328,12 @@ const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igua
 // ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
 // listar tudo de uma vez (rolagem infinita) elas são divididas em páginas de 20 linhas.
 const ITENS_POR_PAGINA=20;
-let paginaProdutos=1, paginaEstoque=1;
+let paginaProdutos=1, paginaEstoque=1, paginaCategorias=1, paginaTransferencias=1, paginaLojas=1;
 function irParaPaginaProdutos(p){paginaProdutos=p;renderProdutos();}
 function irParaPaginaEstoque(p){paginaEstoque=p;renderEstoque();}
+function irParaPaginaCategorias(p){paginaCategorias=p;renderCategorias();}
+function irParaPaginaTransferencias(p){paginaTransferencias=p;renderTransferencias();}
+function irParaPaginaLojas(p){paginaLojas=p;renderLojas();}
 function paginar(lista,pagina){const ini=(pagina-1)*ITENS_POR_PAGINA;return lista.slice(ini,ini+ITENS_POR_PAGINA);}
 function renderPaginacao(containerId,totalItens,paginaAtual,nomeFuncaoIr){
   const totalPaginas=Math.max(1,Math.ceil(totalItens/ITENS_POR_PAGINA));
@@ -578,7 +584,9 @@ async function excluirProduto(id){
 
 // ══ CATEGORIAS ══
 function renderCategorias(){
-  $('categoriasTable').innerHTML=dados.categorias.length?dados.categorias.map(c=>`
+  paginaCategorias=renderPaginacao('categoriasPaginacao',dados.categorias.length,paginaCategorias,'irParaPaginaCategorias');
+  const _pagCategorias=paginar(dados.categorias,paginaCategorias);
+  $('categoriasTable').innerHTML=dados.categorias.length?_pagCategorias.map(c=>`
     <tr>
       <td><b>${esc(c.nome)}</b></td>
       <td>${Number(c.markup_pct)}%</td>
@@ -655,7 +663,9 @@ function renderEstoque(){
 
 // ══ TRANSFERÊNCIAS ══
 function renderTransferencias(){
-  $('transferenciasTable').innerHTML=dados.transferencias.length?dados.transferencias.map(t=>{
+  paginaTransferencias=renderPaginacao('transferenciasPaginacao',dados.transferencias.length,paginaTransferencias,'irParaPaginaTransferencias');
+  const _pagTransferencias=paginar(dados.transferencias,paginaTransferencias);
+  $('transferenciasTable').innerHTML=dados.transferencias.length?_pagTransferencias.map(t=>{
     const produto=dados.produtos.find(p=>p.id===t.produto_id);
     return `<tr>
       <td>${fmtDataHora(t.created_at)}</td>
@@ -746,7 +756,9 @@ async function confirmarAjusteEstoque(){
 
 // ══ LOJAS ══
 function renderLojas(){
-  $('lojasTable').innerHTML=dados.lojas.length?dados.lojas.map(l=>`
+  paginaLojas=renderPaginacao('lojasPaginacao',dados.lojas.length,paginaLojas,'irParaPaginaLojas');
+  const _pagLojas=paginar(dados.lojas,paginaLojas);
+  $('lojasTable').innerHTML=dados.lojas.length?_pagLojas.map(l=>`
     <tr>
       <td><b>${esc(l.nome)}</b></td>
       <td>${esc(l.identificador||'—')}</td>

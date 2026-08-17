@@ -178,17 +178,34 @@ async function gerarRelatorio(){
       return;
     }
     const cols = COLS_MODULO[modulo] || Object.keys(_relDados[0]).filter(k=>!['id','empresa_id'].includes(k));
+    _relColsAtuais = cols;
+    paginaRelGenerico = 1;
     setHTML('relInfo',`<b>${_relDados.length}</b> registros encontrados`);
-    setHTML('relConteudo',`
-      <table>
-        <thead><tr>${cols.map(c=>`<th>${LABELS[c]||c}</th>`).join('')}</tr></thead>
-        <tbody>${_relDados.map(row=>`<tr>${cols.map(c=>`<td>${fmtVal(c,row[c])}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>`);
+    renderRelConteudoGenerico();
   }catch(e){
     toast('Erro: '+e.message,'err');
     setHTML('relConteudo','');
   }
 }
+// Paginado — o relatório genérico busca até 500 registros de uma vez (_relDados,
+// usado inteiro na exportação), mas só mostra 20 por vez na tela pra não rolar infinito.
+let _relColsAtuais = [];
+let paginaRelGenerico = 1;
+const REL_GENERICO_POR_PAGINA = 20;
+function renderRelConteudoGenerico(){
+  const cols = _relColsAtuais;
+  const totalPaginas = Math.max(1,Math.ceil(_relDados.length/REL_GENERICO_POR_PAGINA));
+  if(paginaRelGenerico>totalPaginas) paginaRelGenerico=totalPaginas;
+  const inicio=(paginaRelGenerico-1)*REL_GENERICO_POR_PAGINA;
+  const pagina=_relDados.slice(inicio,inicio+REL_GENERICO_POR_PAGINA);
+  const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginas},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaRelGenerico?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaRelGenerico(${p})">${p}</button>`).join('')}</div>` : '';
+  setHTML('relConteudo',`
+    <table>
+      <thead><tr>${cols.map(c=>`<th>${LABELS[c]||c}</th>`).join('')}</tr></thead>
+      <tbody>${pagina.map(row=>`<tr>${cols.map(c=>`<td>${fmtVal(c,row[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>${paginacaoHTML}`);
+}
+function irParaPaginaRelGenerico(p){ paginaRelGenerico=p; renderRelConteudoGenerico(); }
 
 // ── Relatório de Vendas — só pra Varejo, junta vendas + itens_venda + venda_formas_pagamento.
 // Usa data_venda (não created_at) pra respeitar vendas retroativas: elas devem aparecer
@@ -199,6 +216,7 @@ async function gerarRelatorio(){
 // bater no banco de novo — sensação instantânea ao personalizar o relatório.
 let _vendasBrutas = null;
 let paginaVendasRel = 1;
+let paginaProdutoRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
 let relVendasSecoes = { resumo:true, forma:true, produto:true, detalhe:true };
 let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
@@ -235,6 +253,7 @@ async function gerarRelatorioVendas(){
 function toggleSecaoVendas(chave){ relVendasSecoes[chave]=!relVendasSecoes[chave]; renderRelatorioVendas(); }
 function toggleColunaVendas(chave){ relVendasColunas[chave]=!relVendasColunas[chave]; renderRelatorioVendas(); }
 function irParaPaginaVendasRel(p){ paginaVendasRel=p; renderRelatorioVendas(); }
+function irParaPaginaProdutoRel(p){ paginaProdutoRel=p; renderRelatorioVendas(); }
 
 function renderRelatorioVendas(){
   if(!_vendasBrutas){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>'); return; }
@@ -322,14 +341,23 @@ function renderRelatorioVendas(){
       }).join(''):'<div style="text-align:center;color:var(--muted);padding:16px">Sem dados</div>'}
     </div>` : '';
 
-  const produtoHTML = relVendasSecoes.produto ? `
+  let produtoHTML = '';
+  if(relVendasSecoes.produto){
+    const totalPaginasProduto=Math.max(1,Math.ceil(produtosOrdenados.length/VENDAS_REL_POR_PAGINA));
+    if(paginaProdutoRel>totalPaginasProduto)paginaProdutoRel=totalPaginasProduto;
+    const inicioProduto=(paginaProdutoRel-1)*VENDAS_REL_POR_PAGINA;
+    const paginaProdutos=produtosOrdenados.slice(inicioProduto,inicioProduto+VENDAS_REL_POR_PAGINA);
+    const paginacaoProdutoHTML = totalPaginasProduto>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginasProduto},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaProdutoRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaProdutoRel(${p})">${p}</button>`).join('')}</div>` : '';
+    produtoHTML = `
     <div class="card" style="margin:0 0 20px">
-      <h3 style="margin-bottom:12px">Por produto</h3>
+      <h3 style="margin-bottom:12px">Por produto <span style="font-weight:400;color:var(--muted);font-size:13px">(${produtosOrdenados.length})</span></h3>
       <div class="tablewrap"><table>
         <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>% do total</th></tr></thead>
-        <tbody>${produtosOrdenados.map(([nome,d])=>`<tr><td>${esc(nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
+        <tbody>${paginaProdutos.map(([nome,d])=>`<tr><td>${esc(nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
       </table></div>
-    </div>` : '';
+      ${paginacaoProdutoHTML}
+    </div>`;
+  }
 
   let detalheHTML = '';
   if(relVendasSecoes.detalhe){

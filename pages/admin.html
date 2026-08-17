@@ -247,6 +247,23 @@ function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -647,6 +664,7 @@ const MODULOS_PLANO={
         </tr></thead>
         <tbody id="tabelaEmpresas"></tbody>
       </table>
+      <div id="tabelaEmpresasPaginacao"></div>
     </div>
   </div>
 </div>
@@ -675,6 +693,7 @@ const MODULOS_PLANO={
         </tr></thead>
         <tbody id="tabelaUsuarios"></tbody>
       </table>
+      <div id="tabelaUsuariosPaginacao"></div>
     </div>
   </div>
 </div>
@@ -750,6 +769,7 @@ const MODULOS_PLANO={
         <thead><tr><th>Empresa</th><th>Plano</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Observação</th><th>Data</th></tr></thead>
         <tbody id="tabelaAssinaturas"></tbody>
       </table>
+      <div id="tabelaAssinaturasPaginacao"></div>
     </div>
   </div>
 </div>
@@ -774,6 +794,7 @@ const MODULOS_PLANO={
         <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Empresa</th><th>Módulo</th><th>Ação</th><th>IP</th></tr></thead>
         <tbody id="tabelaLogs"></tbody>
       </table>
+      <div id="tabelaLogsPaginacao"></div>
     </div>
   </div>
 </div>
@@ -1745,7 +1766,8 @@ function renderEmpresas(){
         ultimoAcesso[u.empresa_id]=u.ultimo_acesso;
     }
   });
-  setHTML('tabelaEmpresas',empFiltradas.map(e=>{
+  renderPaginacao('tabelaEmpresas',empFiltradas.length,'renderEmpresas');
+  setHTML('tabelaEmpresas',paginar(empFiltradas,'tabelaEmpresas').map(e=>{
     const nUsu=usuPorEmp[e.id]||0;
     const ult=ultimoAcesso[e.id];
     const plano=e.plano||'Start';
@@ -1966,7 +1988,8 @@ function filtrarUsuarios(){
 
 function renderUsuarios(){
   const empMap={};empresas.forEach(e=>empMap[e.id]=e.fantasia||e.razao||'—');
-  setHTML('tabelaUsuarios',usuFiltrados.map(u=>{
+  renderPaginacao('tabelaUsuarios',usuFiltrados.length,'renderUsuarios');
+  setHTML('tabelaUsuarios',paginar(usuFiltrados,'tabelaUsuarios').map(u=>{
     const ativo=u.ativo!==false;
     return`<tr>
       <td><b>${esc(u.nome||'')}</b>${u.cargo?`<div style="font-size:11px;color:var(--muted)">${esc(u.cargo)}</div>`:''}</td>
@@ -2259,7 +2282,8 @@ function renderAssinaturas(){
       <div class="kpi"><div class="kpi-label">Registros</div><div class="kpi-value">${lista.length}</div></div>
     </div>`);
   const stBadge={pago:'badge-ativo',pendente:'badge-trial',atrasado:'badge-inadimplente',cancelado:'badge-bloqueado'};
-  setHTML('tabelaAssinaturas',lista.map(a=>`<tr>
+  renderPaginacao('tabelaAssinaturas',lista.length,'renderAssinaturas');
+  setHTML('tabelaAssinaturas',paginar(lista,'tabelaAssinaturas').map(a=>`<tr>
     <td><b>${esc(empMap[a.empresa_id]||'—')}</b></td>
     <td>${planoBadge(a.plano)}</td>
     <td style="font-weight:700;color:var(--txt)">${money(a.valor)}</td>
@@ -2288,7 +2312,8 @@ async function carregarLogs(){
 }
 
 function renderLogs(){
-  setHTML('tabelaLogs',logs.map(l=>`<tr>
+  renderPaginacao('tabelaLogs',logs.length,'renderLogs');
+  setHTML('tabelaLogs',paginar(logs,'tabelaLogs').map(l=>`<tr>
     <td style="font-size:11px">${l.created_at?new Date(l.created_at).toLocaleString('pt-BR'):'—'}</td>
     <td><b>${esc(l.usuario_nome||'—')}</b></td>
     <td style="font-size:12px">${esc(l.empresa_nome||'—')}</td>

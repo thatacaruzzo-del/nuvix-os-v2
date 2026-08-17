@@ -139,6 +139,23 @@ function hoje(){return dataLocal(new Date())}
 function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgEl,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
@@ -266,6 +283,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
                 </tr></thead>
                 <tbody id="matTable"></tbody>
               </table>
+              <div id="matTablePaginacao"></div>
             </div>
           </div>
         </div>
@@ -346,6 +364,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
               <tbody id="movTable"></tbody>
             </table>
           </div>
+          <div id="movTablePaginacao"></div>
         </div>
       </div>
 
@@ -382,6 +401,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
                 <thead><tr><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Contato</th><th>Status</th><th>Ação</th></tr></thead>
                 <tbody id="fornTable"></tbody>
               </table>
+              <div id="fornTablePaginacao"></div>
             </div>
           </div>
         </div>
@@ -802,7 +822,8 @@ function renderMateriais(){
   if(status)lista=lista.filter(m=>m.status===status);
 
   // Tabela
-  setHTML('matTable',lista.map(m=>{
+  renderPaginacao('matTable',lista.length,'renderMateriais');
+  setHTML('matTable',paginar(lista,'matTable').map(m=>{
     const{cls,txt}=estoqueStatus(m.estoque_atual,m.estoque_minimo,m.estoque_reservado);
     const est=Number(m.estoque_atual||0),min=Number(m.estoque_minimo||0);
     const disp=Math.max(0,est-Number(m.estoque_reservado||0));
@@ -1131,7 +1152,8 @@ function renderMovimentacoes(){
     {lbl:'Registros',val:lista.length,sub:'no período',cor:'var(--txt)'},
   ].map(k=>`<div class="kpi" style="padding:14px;margin:0"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="font-size:18px;color:${k.cor}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join(''));
 
-  setHTML('movTable',lista.map(v=>{
+  renderPaginacao('movTable',lista.length,'renderMovimentacoes');
+  setHTML('movTable',paginar(lista,'movTable').map(v=>{
     const dt=v.created_at?new Date(v.created_at).toLocaleString('pt-BR'):'—';
     const qtdStr=(v.tipo==='saida'?'-':'+')+fmtNum(v.quantidade||0,3);
     const qtdCor='var(--txt)';
@@ -1209,7 +1231,9 @@ async function excluirFornecedor(id){
 }
 function limparFornecedor(){['fornId','fornNome','fornCnpj','fornTel','fornEmail','fornContato','fornObs'].forEach(id=>{if($(id))$(id).value='';});$('fornTitulo').textContent='Novo fornecedor';}
 function renderFornecedores(){
-  setHTML('fornTable',dados.fornecedores.map(f=>`<tr>
+  const _lForn=dados.fornecedores||[];
+  renderPaginacao('fornTable',_lForn.length,'renderFornecedores');
+  setHTML('fornTable',paginar(_lForn,'fornTable').map(f=>`<tr>
     <td><b>${esc(f.nome)}</b></td>
     <td style="font-size:12px;color:var(--muted)">${esc(f.cnpj||'—')}</td>
     <td style="font-size:12px">${esc(f.telefone||'—')}</td>

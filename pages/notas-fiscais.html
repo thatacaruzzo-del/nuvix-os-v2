@@ -39,6 +39,23 @@ function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');r
 function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function toast(text,type){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className='nx-toast '+(type||'ok');t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function msg(id,text,type){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className='msg show '+(type||'ok');setTimeout(()=>e.classList.remove('show'),5000)}
@@ -137,6 +154,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
               <tbody id="nfTable"></tbody>
             </table>
           </div>
+          <div id="nfTablePaginacao"></div>
         </div>
 
       </div>
@@ -221,7 +239,8 @@ function renderLista(){
   let lista=notas;
   if(status)lista=lista.filter(n=>n.status===status);
   if(busca)lista=lista.filter(n=>(n.cliente_nome||'').toLowerCase().includes(busca)||(n.descricao_servico||'').toLowerCase().includes(busca)||(n.numero_nfse||'').toLowerCase().includes(busca));
-  setHTML('nfTable',lista.map(n=>{
+  renderPaginacao('nfTable',lista.length,'renderLista');
+  setHTML('nfTable',paginar(lista,'nfTable').map(n=>{
     const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
     return`<tr style="cursor:pointer" onclick="verDetalhe('${n.id}')">
       <td>${n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at)}</td>
