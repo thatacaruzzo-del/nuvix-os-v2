@@ -2341,7 +2341,7 @@ async function carregarLogs(){
 function renderLogs(){
   renderPaginacao('tabelaLogs',logs.length,'renderLogs');
   setHTML('tabelaLogs',paginar(logs,'tabelaLogs').map(l=>`<tr>
-    <td style="font-size:11px">${l.created_at?new Date(l.created_at).toLocaleString('pt-BR'):'—'}</td>
+    <td style="font-size:11px">${l.created_at?new Date(l.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</td>
     <td><b>${esc(l.usuario_nome||'—')}</b></td>
     <td style="font-size:12px">${esc(l.empresa_nome||'—')}</td>
     <td><span class="badge badge-start">${esc(l.modulo||'—')}</span></td>

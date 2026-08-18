@@ -84,7 +84,7 @@ function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
 function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
 function numBR(v){let s=(typeof v==='string'&&$(v)?val(v):v).toString().trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function hoje(){return dataLocal(new Date())}
@@ -1050,7 +1050,7 @@ function abrirCupomHtml(d){
     .btn-imprimir{display:block;width:100%;margin-top:16px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
   </style></head><body>
   <h1>${esc(emp.fantasia||emp.razao||'Cupom de venda')}</h1>
-  <div class="sub">${esc(dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'')} · ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="sub">${esc(dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'')} · ${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</div>
   <div class="aviso">Cupom sem valor fiscal</div>
   <table>${linhas}
     ${d.desconto>0?`<tr class="desc-row"><td colspan="2">Desconto</td><td style="text-align:right">-${money(d.desconto)}</td></tr>`:''}
@@ -1091,7 +1091,7 @@ async function imprimirCupomTermico(d){
   const enc=new TextEncoder();
   let txt='';
   txt+=(session.empresa?.fantasia||'')+'\n';
-  txt+=new Date().toLocaleString('pt-BR')+'\n';
+  txt+=new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})+'\n';
   txt+='--------------------------------\n';
   d.itens.forEach(i=>{ txt+=`${i.nome}\n  ${i.quantidade} x ${money(i.valor_unitario)} = ${money(i.quantidade*i.valor_unitario)}\n`; });
   txt+='--------------------------------\n';
@@ -1210,7 +1210,7 @@ function renderHistoricoVendas(vendas,itens,formas){
     const itensTxt=seusItens.map(i=>esc(i.produto_nome)+(i.is_consignado?' <span class="badge badge-amber">consig.</span>':'')).join(', ');
     const horaOuRetroativa=v.retroativa
       ? '<span class="badge badge-blue" title="Lançada depois, fora do fluxo normal do PDV">Retroativa</span>'
-      : new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      : new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
       <td>${horaOuRetroativa}</td>
       <td>${esc(v.vendedor_nome||'—')}</td>

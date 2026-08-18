@@ -105,7 +105,7 @@ function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',c
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtHora(h){return h?String(h).slice(0,5):'—'}
 function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function toast(t,type){document.querySelector('.nx-toast')?.remove();const el=document.createElement('div');el.className='nx-toast '+(type||'ok');el.textContent=t;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0'},3000);setTimeout(()=>el.remove(),3400)}
@@ -513,7 +513,7 @@ function renderOsCard(o){
       ${o.tecnico_nome?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <b>${esc(o.tecnico_nome)}</b></div>`:''}
       ${o.data_agendada?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <b>${fmtData(o.data_agendada)}</b>${o.hora_inicio?' às '+fmtHora(o.hora_inicio):''}</div>`:''}
       ${o.valor_total?`<div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> <b style="color:var(--txt)">${money(o.valor_total)}</b></div>`:''}
-      <div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <b>${new Date(o.created_at).toLocaleDateString('pt-BR')}</b></div>
+      <div class="os-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <b>${new Date(o.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</b></div>
     </div>
   </div>`;
 }
@@ -641,7 +641,7 @@ async function verOS(id){
       <div class="os-section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Timeline</div>
       <div class="timeline">
         ${timeline.map(t=>`<div class="timeline-item">
-          <div class="timeline-time">${new Date(t.created_at).toLocaleString('pt-BR')}</div>
+          <div class="timeline-time">${new Date(t.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</div>
           <div class="timeline-event">${esc(t.evento)}</div>
           ${t.usuario_nome?`<div class="timeline-user">por ${esc(t.usuario_nome)}</div>`:''}
         </div>`).join('')}

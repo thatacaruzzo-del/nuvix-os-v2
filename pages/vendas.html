@@ -809,7 +809,7 @@ function imprimirComprovante(itens, opts){
     .btn-imprimir{display:block;width:100%;margin-top:16px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
   </style></head><body>
   <h1>${esc(emp.fantasia||emp.razao||'Comprovante de venda')}</h1>
-  <div class="sub">${emp.cnpj?esc(emp.cnpj)+' · ':''}${new Date().toLocaleString('pt-BR')}</div>
+  <div class="sub">${emp.cnpj?esc(emp.cnpj)+' · ':''}${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</div>
   <div class="aviso">Comprovante sem valor fiscal</div>
   <table>${linhas}
     <tr class="tot-row"><td colspan="2">Total</td><td style="text-align:right">${money(total)}</td></tr>
@@ -902,7 +902,7 @@ async function carregarHistorico(){
     const vendas=Object.values(porVenda).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     $('histTable').innerHTML=vendas.length?vendas.map(v=>`
       <tr>
-        <td>${v.created_at?new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+        <td>${v.created_at?new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}):'—'}</td>
         <td>${esc(v.cliente||'—')}</td>
         <td>${esc(dados.locais.find(l=>l.id===v.loja_id)?.nome||'—')}</td>
         <td>${v.itens}</td>

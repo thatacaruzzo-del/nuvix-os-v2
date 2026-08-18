@@ -39,7 +39,7 @@ function $(id){return document.getElementById(id)}
 function val(id){const e=$(id);return e?e.value:''}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 const PAGINACAO_POR_PAGINA=20;

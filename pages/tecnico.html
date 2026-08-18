@@ -437,7 +437,7 @@ async function iniciarPortal(){
   const nome=tSession.nome?.split(' ')[0]||'Técnico';
   const saud=h<12?'Bom dia ':h<18?'Boa tarde ':'Boa noite ';
   $('portalGreeting').textContent=saud+', '+nome+'!';
-  $('portalDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  $('portalDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',timeZone:'America/Sao_Paulo'});
   await carregarOS();
   $('pageLoader')?.classList.add('hide');
 }
@@ -554,7 +554,7 @@ function renderRelatorio(){
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
           <div>
             <div style="font-size:13px;font-weight:700">${esc(o.numero||'—')} — ${esc(o.cliente_nome||'—')}</div>
-            <div style="font-size:12px;color:var(--muted)">${esc(o.servico||'—')} · ${o.data_conclusao?new Date(o.data_conclusao+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+            <div style="font-size:12px;color:var(--muted)">${esc(o.servico||'—')} · ${o.data_conclusao?new Date(o.data_conclusao+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</div>
           </div>
           <div style="font-size:14px;font-weight:800;color:var(--txt)">${Number(o.valor_total||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
         </div>`).join('')}

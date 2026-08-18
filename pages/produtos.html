@@ -56,7 +56,7 @@ function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
 function numBR(id){let s=val(id).trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
-function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR')}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}

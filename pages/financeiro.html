@@ -877,8 +877,8 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
     <div class="det-section">Registro</div>
-    <div class="det-row"><span class="det-lbl">Criado em</span><span class="det-val">${f.created_at?new Date(f.created_at).toLocaleString('pt-BR'):'—'}</span></div>
-    ${f.updated_at?`<div class="det-row"><span class="det-lbl">Última alteração</span><span class="det-val">${new Date(f.updated_at).toLocaleString('pt-BR')}</span></div>`:''}
+    <div class="det-row"><span class="det-lbl">Criado em</span><span class="det-val">${f.created_at?new Date(f.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</span></div>
+    ${f.updated_at?`<div class="det-row"><span class="det-lbl">Última alteração</span><span class="det-val">${new Date(f.updated_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</span></div>`:''}
   `);
   // Botões do modal
   $('detEditBtn').onclick=()=>editarLancamento(f.id);

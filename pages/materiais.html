@@ -136,7 +136,7 @@ function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');r
 function fmtNum(v,dec=2){return Number(v||0).toFixed(dec)}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function hoje(){return dataLocal(new Date())}
-function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function agora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 const PAGINACAO_POR_PAGINA=20;
@@ -1034,7 +1034,7 @@ function verDetalhe(id){
       ${m.estoque_minimo?`<b>Estoque mínimo:</b> ${fmtNum(m.estoque_minimo,3)} ${m.unidade||'UN'}<br>`:''}
       ${reservado>0?`<b>Reservado (serviços em execução):</b> ${fmtNum(reservado,3)} ${m.unidade||'UN'}<br><b>Disponível:</b> ${fmtNum(disp,3)} ${m.unidade||'UN'}<br>`:''}
     </div>
-    ${movs.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Últimas movimentações</div>${movs.map(v=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px"><span><span class="mov-badge mov-${v.tipo}">${v.tipo}</span> ${esc(v.motivo||'')}</span><span style="color:var(--muted)">${fmtNum(v.quantidade||0,3)} — ${v.created_at?new Date(v.created_at).toLocaleDateString('pt-BR'):'—'}</span></div>`).join('')}</div>`:''}
+    ${movs.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Últimas movimentações</div>${movs.map(v=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px"><span><span class="mov-badge mov-${v.tipo}">${v.tipo}</span> ${esc(v.motivo||'')}</span><span style="color:var(--muted)">${fmtNum(v.quantidade||0,3)} — ${v.created_at?new Date(v.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</span></div>`).join('')}</div>`:''}
   `);
   $('detalheEditBtn').onclick=()=>{fecharModal('modalDetalhe');editarMaterial(id);};
   abrirModal('modalDetalhe');
@@ -1154,7 +1154,7 @@ function renderMovimentacoes(){
 
   renderPaginacao('movTable',lista.length,'renderMovimentacoes');
   setHTML('movTable',paginar(lista,'movTable').map(v=>{
-    const dt=v.created_at?new Date(v.created_at).toLocaleString('pt-BR'):'—';
+    const dt=v.created_at?new Date(v.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
     const qtdStr=(v.tipo==='saida'?'-':'+')+fmtNum(v.quantidade||0,3);
     const qtdCor='var(--txt)';
     return`<tr>
