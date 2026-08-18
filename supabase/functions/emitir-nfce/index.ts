@@ -229,7 +229,7 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, prefer',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
