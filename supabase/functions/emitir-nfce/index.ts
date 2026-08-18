@@ -177,7 +177,7 @@ async function aplicarCancelamentoFocus(notaId: string, focusData: any, justific
 function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: any[]) {
   return {
     natureza_operacao: 'VENDA AO CONSUMIDOR',
-    data_emissao: new Date().toISOString().slice(0, 19) + '-03:00',
+    data_emissao: dataEmissaoBrasilia(),
     presenca_comprador: 1, // 1 = presencial
     modalidade_frete: 9, // 9 = sem frete (venda de balcão)
     local_destino: 1, // 1 = operação interna — NFC-e é sempre venda presencial de balcão, então
@@ -238,6 +238,16 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
+}
+
+// Brasília nunca tem horário de verão desde 2019, então é sempre UTC-3 fixo.
+// new Date().toISOString() dá o relógio de parede em UTC — só colar '-03:00'
+// no final (sem subtrair as 3 horas primeiro) rotula errado, fazendo a SEFAZ
+// achar que a nota foi emitida no futuro (mesmo bug real já confirmado no
+// emitir-nfse, ao vivo, em produção). Subtrai 3h do instante antes de formatar.
+function dataEmissaoBrasilia(): string {
+  const menos3h = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  return menos3h.toISOString().slice(0, 19) + '-03:00';
 }
 
 Deno.serve(async (req) => {

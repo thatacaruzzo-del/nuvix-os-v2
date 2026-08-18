@@ -165,6 +165,17 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Brasília nunca tem horário de verão desde 2019, então é sempre UTC-3 fixo.
+// new Date().toISOString() dá o relógio de parede em UTC — só colar '-03:00'
+// no final (sem subtrair as 3 horas primeiro) rotula errado, fazendo a SEFAZ
+// achar que a nota foi emitida no futuro (erro real já visto em produção:
+// "A data de emissão da DPS não pode ser posterior à data do seu
+// processamento."). Subtrai 3h do instante antes de formatar.
+function dataEmissaoBrasilia(): string {
+  const menos3h = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  return menos3h.toISOString().slice(0, 19) + '-03:00';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -229,7 +240,7 @@ Deno.serve(async (req) => {
     // acao === 'emitir' (padrão)
     const ref = `nuvix-${nota_fiscal_id}`;
     const payload = {
-      data_emissao: new Date().toISOString().slice(0, 19),
+      data_emissao: dataEmissaoBrasilia(),
       data_competencia: nota.data_competencia || new Date().toISOString().slice(0, 10),
       prestador: {
         cnpj: params.cnpj,
