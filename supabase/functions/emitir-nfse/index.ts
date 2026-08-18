@@ -236,10 +236,18 @@ Deno.serve(async (req) => {
         inscricao_municipal: params.inscricao_municipal,
         codigo_municipio: params.codigo_municipio_ibge,
       },
-      tomador: {
-        cpf_cnpj: (nota.cliente_documento || '').replace(/\D/g, '') || undefined,
-        razao_social: nota.cliente_nome,
-      },
+      tomador: (() => {
+        // Focus NFe espera campos separados 'cpf'/'cnpj', não um campo combinado —
+        // confirmado em doc.focusnfe.com.br/reference/emitir_nfse. O schema deles
+        // marca os dois como obrigatórios (sempre presentes), um vazio conforme o
+        // tamanho do documento — por isso manda string vazia, não omite a chave.
+        const doc = (nota.cliente_documento || '').replace(/\D/g, '');
+        return {
+          cpf: doc.length === 11 ? doc : '',
+          cnpj: doc.length === 14 ? doc : '',
+          razao_social: nota.cliente_nome || undefined,
+        };
+      })(),
       servico: {
         codigo_tributacao_nacional: params.codigo_tributacao_nacional_iss,
         discriminacao: nota.descricao_servico,
