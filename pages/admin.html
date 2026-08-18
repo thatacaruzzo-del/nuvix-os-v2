@@ -183,6 +183,18 @@ tr:hover td{background:#FAFAFF}
 .perm-table td:first-child{text-align:left;font-weight:600}
 .perm-check{width:16px;height:16px;accent-color:var(--p);cursor:pointer}
 
+/* ── Modelos de acesso (presets de permissão) ── */
+.papel-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:18px}
+.papel-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease,background-color .15s ease;display:flex;gap:10px;align-items:flex-start}
+.papel-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.papel-card.active{border-color:var(--p);background:var(--p-light)}
+.papel-card-ic{width:34px;height:34px;border-radius:10px;background:var(--p-light);color:var(--p);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;font-size:13px;transition:background-color .15s ease,color .15s ease}
+.papel-card.active .papel-card-ic{background:var(--p);color:#fff}
+.papel-card h5{font-size:12.5px;font-weight:800;margin:0 0 2px;color:var(--txt)}
+.papel-card p{font-size:11px;color:var(--muted);line-height:1.35;margin:0}
+@keyframes permFlash{0%{background:var(--p-light)}100%{background:transparent}}
+.perm-flash{animation:permFlash 1s ease}
+
 /* ── STATUS BADGE ── */
 .status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot-ativo{background:var(--green)}
@@ -353,6 +365,9 @@ function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='.
 // MÓDULOS por plano
 const MODULOS_TODOS=[
   {id:'dashboard',nome:'Dashboard',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>'},
+  {id:'caixa',nome:'Caixa / PDV',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>'},
+  {id:'produtos',nome:'Produtos',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'},
+  {id:'estoque',nome:'Estoque',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>'},
   {id:'financeiro',nome:'Financeiro',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>'},
   {id:'contas_pagar',nome:'Contas a Pagar',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>'},
   {id:'contas_receber',nome:'Contas a Receber',icone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>'},
@@ -371,9 +386,94 @@ const MODULOS_TODOS=[
 ];
 const MODULOS_PLANO={
   'Start':['dashboard','financeiro','contas_pagar','contas_receber','usuarios','relatorios','configuracoes'],
-  'Pro':  ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','usuarios','relatorios','configuracoes'],
-  'Plus': ['dashboard','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia'],
+  'Pro':  ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','usuarios','relatorios','configuracoes'],
+  'Plus': ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia'],
 };
+
+// Modelos de acesso prontos — mesma referência de sql/PRESETS_PAPEL usada em
+// app.html, pra ficar consistente entre o painel do cliente e o painel Nuvix.
+const PRESETS_PAPEL={
+  'Vendedor/Caixa':{
+    resumo:'Caixa e vendas. Vê produtos só pra consultar — sem editar preço ou custo.',
+    modulos:{
+      dashboard:{ver:1},
+      caixa:{ver:1,criar:1,editar:1},
+      vendas:{ver:1,criar:1},
+      produtos:{ver:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'Gerente de loja':{
+    resumo:'Caixa, produtos, vendas e estoque completos. Financeiro e relatórios só pra ver.',
+    modulos:{
+      dashboard:{ver:1},
+      caixa:{ver:1,criar:1,editar:1,excluir:1},
+      produtos:{ver:1,criar:1,editar:1,excluir:1},
+      vendas:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      estoque:{ver:1,criar:1,editar:1},
+      financeiro:{ver:1},
+      notas_fiscais:{ver:1},
+      crm:{ver:1,criar:1,editar:1},
+      folha_ponto:{ver:1,criar:1},
+      relatorios:{ver:1,exportar:1},
+    },
+  },
+  'Estoquista':{
+    resumo:'Produtos e estoque — sem acesso ao Caixa nem ao Financeiro.',
+    modulos:{
+      produtos:{ver:1,criar:1,editar:1},
+      estoque:{ver:1,criar:1,editar:1},
+      vendas:{ver:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'Financeiro/Contador':{
+    resumo:'Financeiro, notas fiscais e relatórios completos. Sem folha de pagamento nem RH.',
+    modulos:{
+      dashboard:{ver:1},
+      financeiro:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      notas_fiscais:{ver:1,criar:1,editar:1,exportar:1},
+      relatorios:{ver:1,exportar:1},
+      caixa:{ver:1},
+      produtos:{ver:1},
+      vendas:{ver:1,exportar:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'RH':{
+    resumo:'Colaboradores, ponto e folha de pagamento. Sem financeiro nem dados de vendas.',
+    modulos:{
+      rh:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      folha_ponto:{ver:1,criar:1,editar:1,exportar:1},
+      folha_pagamento:{ver:1,criar:1,editar:1,exportar:1},
+    },
+  },
+};
+
+function renderPapelPresets(){
+  setHTML('papelPresets',Object.entries(PRESETS_PAPEL).map(([nome,p])=>`
+    <div class="papel-card" data-papel="${esc(nome)}" onclick="aplicarPresetPapel('${esc(nome)}')">
+      <div class="papel-card-ic">${esc(nome[0])}</div>
+      <div><h5>${esc(nome)}</h5><p>${esc(p.resumo)}</p></div>
+    </div>`).join(''));
+}
+
+function aplicarPresetPapel(nome){
+  const preset=PRESETS_PAPEL[nome];
+  if(!preset)return;
+  document.querySelectorAll('#papelPresets .papel-card').forEach(c=>c.classList.toggle('active',c.dataset.papel===nome));
+  document.querySelectorAll('#modalPermissoes .perm-check').forEach(chk=>{
+    if(chk.disabled)return; // módulo não contratado pela empresa — não mexe
+    const mod=chk.dataset.mod,tipo=chk.dataset.type;
+    const novo=!!(preset.modulos[mod]&&preset.modulos[mod][tipo]);
+    if(chk.checked!==novo){
+      chk.checked=novo;
+      const tr=chk.closest('tr');
+      if(tr){tr.classList.remove('perm-flash');void tr.offsetWidth;tr.classList.add('perm-flash');}
+    }
+  });
+  toast(`Modelo "${nome}" aplicado — revise as linhas destacadas e clique em Salvar.`,'ok');
+}
 </script>
 
 <!-- ═══ ADMIN LOGIN SCREEN PREMIUM ═══ -->
@@ -1128,6 +1228,8 @@ const MODULOS_PLANO={
   <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Empresa: <b id="permUsuEmpresa"></b> · Perfil: <b id="permUsuPerfil"></b></p>
   <input type="hidden" id="permUsuId">
   <input type="hidden" id="permEmpId">
+  <div class="field" style="margin-bottom:4px"><label>Modelos de acesso — aplica de uma vez, você revisa e salva depois</label></div>
+  <div class="papel-presets" id="papelPresets"></div>
   <div class="tablewrap">
     <table class="perm-table">
       <thead><tr><th>Módulo</th><th>Ver</th><th>Criar</th><th>Editar</th><th>Excluir</th><th>Exportar</th></tr></thead>
@@ -2191,6 +2293,13 @@ async function abrirPermissoes(usuId){
     </tr>`;
   });
   setHTML('permTable',rows.join(''));
+  // Administrador já tem acesso total fixo (checkboxes forçados acima) — modelo
+  // de acesso não faz sentido pra esse perfil, então some com os cards.
+  if(u.perfil==='Administrador'){
+    setHTML('papelPresets','');
+  }else{
+    renderPapelPresets();
+  }
   abrirModal('modalPermissoes');
 }
 

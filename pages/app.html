@@ -56,6 +56,18 @@
 .perm-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:6px 8px;border-bottom:1.5px solid var(--line)}
 .perm-table td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px}
 .perm-table td:not(:first-child){text-align:center}
+
+/* ── Modelos de acesso (presets de permissão) ── */
+.papel-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:18px}
+.papel-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease,background-color .15s ease;display:flex;gap:10px;align-items:flex-start}
+.papel-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.papel-card.active{border-color:var(--p);background:var(--p-light)}
+.papel-card-ic{width:34px;height:34px;border-radius:10px;background:var(--p-light);color:var(--p);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;font-size:13px;transition:background-color .15s ease,color .15s ease}
+.papel-card.active .papel-card-ic{background:var(--p);color:#fff}
+.papel-card h5{font-size:12.5px;font-weight:800;margin:0 0 2px;color:var(--txt)}
+.papel-card p{font-size:11px;color:var(--muted);line-height:1.35;margin:0}
+@keyframes permFlash{0%{background:var(--p-light)}100%{background:transparent}}
+.perm-flash{animation:permFlash 1s ease}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -297,6 +309,8 @@ async function deleteRow(table,id,area){
       <h3>Permissões — <span id="permFuncNome"></span></h3>
       <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Perfil: <b id="permFuncPerfil"></b> · Administrador tem acesso completo por padrão</p>
       <input type="hidden" id="permFuncUsuId">
+      <div class="field" style="margin-bottom:4px"><label>Modelos de acesso — aplica de uma vez, você revisa e salva depois</label></div>
+      <div class="papel-presets" id="papelPresets"></div>
       <div class="tablewrap">
         <table class="perm-table">
           <thead><tr><th>Módulo</th><th>Ver</th><th>Criar</th><th>Editar</th><th>Excluir</th><th>Exportar</th></tr></thead>
@@ -492,6 +506,10 @@ async function toggleUsuario(id,ativar){try{await db.patch('usuarios',id,{ativo:
 // mantém os dois lados (admin Nuvix e cliente) falando dos mesmos ids de módulo.
 const MODULOS_TODOS=[
   {id:'dashboard',nome:'Dashboard'},
+  {id:'caixa',nome:'Caixa / PDV'},
+  {id:'produtos',nome:'Produtos'},
+  {id:'vendas',nome:'Vendas'},
+  {id:'estoque',nome:'Estoque'},
   {id:'financeiro',nome:'Financeiro'},
   {id:'contas_pagar',nome:'Contas a Pagar'},
   {id:'contas_receber',nome:'Contas a Receber'},
@@ -510,6 +528,94 @@ const MODULOS_TODOS=[
   {id:'configuracoes',nome:'Configurações'},
   {id:'integracoes',nome:'Integrações'},
 ];
+
+// Modelos de acesso prontos — atalho visual em cima do sistema granular que já
+// existe (usuario_permissoes), pensados como dono de loja pensaria em função,
+// não em módulo por módulo. Módulo que não aparece na lista do papel fica com
+// tudo desmarcado (nega por padrão) ao aplicar — só os campos citados ficam
+// marcados. Mesma referência entre app.html e admin.html.
+const PRESETS_PAPEL={
+  'Vendedor/Caixa':{
+    resumo:'Caixa e vendas. Vê produtos só pra consultar — sem editar preço ou custo.',
+    modulos:{
+      dashboard:{ver:1},
+      caixa:{ver:1,criar:1,editar:1},
+      vendas:{ver:1,criar:1},
+      produtos:{ver:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'Gerente de loja':{
+    resumo:'Caixa, produtos, vendas e estoque completos. Financeiro e relatórios só pra ver.',
+    modulos:{
+      dashboard:{ver:1},
+      caixa:{ver:1,criar:1,editar:1,excluir:1},
+      produtos:{ver:1,criar:1,editar:1,excluir:1},
+      vendas:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      estoque:{ver:1,criar:1,editar:1},
+      financeiro:{ver:1},
+      notas_fiscais:{ver:1},
+      crm:{ver:1,criar:1,editar:1},
+      folha_ponto:{ver:1,criar:1},
+      relatorios:{ver:1,exportar:1},
+    },
+  },
+  'Estoquista':{
+    resumo:'Produtos e estoque — sem acesso ao Caixa nem ao Financeiro.',
+    modulos:{
+      produtos:{ver:1,criar:1,editar:1},
+      estoque:{ver:1,criar:1,editar:1},
+      vendas:{ver:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'Financeiro/Contador':{
+    resumo:'Financeiro, notas fiscais e relatórios completos. Sem folha de pagamento nem RH.',
+    modulos:{
+      dashboard:{ver:1},
+      financeiro:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      notas_fiscais:{ver:1,criar:1,editar:1,exportar:1},
+      relatorios:{ver:1,exportar:1},
+      caixa:{ver:1},
+      produtos:{ver:1},
+      vendas:{ver:1,exportar:1},
+      folha_ponto:{ver:1,criar:1},
+    },
+  },
+  'RH':{
+    resumo:'Colaboradores, ponto e folha de pagamento. Sem financeiro nem dados de vendas.',
+    modulos:{
+      rh:{ver:1,criar:1,editar:1,excluir:1,exportar:1},
+      folha_ponto:{ver:1,criar:1,editar:1,exportar:1},
+      folha_pagamento:{ver:1,criar:1,editar:1,exportar:1},
+    },
+  },
+};
+
+function renderPapelPresets(){
+  setHTML('papelPresets',Object.entries(PRESETS_PAPEL).map(([nome,p])=>`
+    <div class="papel-card" data-papel="${esc(nome)}" onclick="aplicarPresetPapel('${esc(nome)}')">
+      <div class="papel-card-ic">${esc(nome[0])}</div>
+      <div><h5>${esc(nome)}</h5><p>${esc(p.resumo)}</p></div>
+    </div>`).join(''));
+}
+
+function aplicarPresetPapel(nome){
+  const preset=PRESETS_PAPEL[nome];
+  if(!preset)return;
+  document.querySelectorAll('#papelPresets .papel-card').forEach(c=>c.classList.toggle('active',c.dataset.papel===nome));
+  document.querySelectorAll('#modalPermissoesFunc .perm-check').forEach(chk=>{
+    if(chk.disabled)return; // módulo não contratado pela empresa — não mexe
+    const mod=chk.dataset.mod,tipo=chk.dataset.type;
+    const novo=!!(preset.modulos[mod]&&preset.modulos[mod][tipo]);
+    if(chk.checked!==novo){
+      chk.checked=novo;
+      const tr=chk.closest('tr');
+      if(tr){tr.classList.remove('perm-flash');void tr.offsetWidth;tr.classList.add('perm-flash');}
+    }
+  });
+  toast(`Modelo "${nome}" aplicado — revise as linhas destacadas e clique em Salvar.`,'ok');
+}
 
 function renderUsuarios(){const _lUsr=dados.usuarios||[];renderPaginacao('usrTable',_lUsr.length,'renderUsuarios');setHTML('usrTable',paginar(_lUsr,'usrTable').map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td style="color:var(--muted);font-size:12px">${esc(u.email||'')}</td><td><span class="badge">${esc(u.perfil||'')}</span></td><td style="font-size:12px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'—'}</td><td><span class="badge ${u.ativo!==false?'ok':'bad'}">${u.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="abrirPermissoesFuncionario('${u.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Permissões</button><button class="btn2" onclick="resetSenhaUsuario('${u.id}','${esc(u.nome||'')}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Senha</button>${u.ativo!==false?`<button class="danger" onclick="toggleUsuario('${u.id}',false)" style="font-size:11px;padding:5px 8px">Inativar</button>`:`<button class="btn2" onclick="toggleUsuario('${u.id}',true)" style="font-size:11px;padding:5px 8px">Ativar</button>`}${delBtn('usuarios',u.id,'admin')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum usuário.</td></tr>');}
 
@@ -540,6 +646,13 @@ async function abrirPermissoesFuncionario(usuId){
     </tr>`;
   });
   setHTML('permFuncTable',rows.join(''));
+  // Administrador já tem acesso total fixo (checkboxes forçados acima) — modelo
+  // de acesso não faz sentido pra esse perfil, então some com os cards.
+  if(u.perfil==='Administrador'){
+    setHTML('papelPresets','');
+  }else{
+    renderPapelPresets();
+  }
   abrirModal('modalPermissoesFunc');
 }
 
