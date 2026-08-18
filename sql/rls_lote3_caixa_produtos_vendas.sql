@@ -186,6 +186,7 @@ create policy "caixa_fechamento_formas_delete" on caixa_fechamento_formas for de
 -- os 4 de uma vez pra quem já tem alguma configuração, sem mexer em nada que já
 -- estava definido (on conflict do nothing).
 insert into empresa_modulos (empresa_id, modulo, liberado, liberado_por)
-select distinct empresa_id, modulo, true, 'Migração automática (rls_lote3)'
-from empresa_modulos, unnest(array['caixa','produtos','estoque','vendas']) as modulo
+select distinct em.empresa_id, nm.novo_modulo, true, 'Migração automática (rls_lote3)'
+from empresa_modulos em
+cross join unnest(array['caixa','produtos','estoque','vendas']) as nm(novo_modulo)
 on conflict (empresa_id, modulo) do nothing;
