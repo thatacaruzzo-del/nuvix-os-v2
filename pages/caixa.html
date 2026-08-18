@@ -498,7 +498,7 @@ async function verificarCaixaAberto(){
 async function carregarProdutosLoja(lojaIdOverride){
   const lojaId=lojaIdOverride||sessaoAtual.loja_id;
   const [produtos,estoque]=await Promise.all([
-    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs`),
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
     dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
   ]);
   dados.produtos=produtos; dados.estoque=estoque;
@@ -936,7 +936,7 @@ async function finalizarVenda(){
 
     toast(modoRetroativo?`Venda retroativa registrada — ${money(total)}`:`Venda finalizada — ${money(total)}`,'ok');
     if(!modoRetroativo){
-      const nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total);
+      const nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef);
       if(!nfceOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
     }
     if($('telaHistorico')?.style.display==='block') await carregarHistoricoVendas();
@@ -967,7 +967,7 @@ async function carregarConfigFiscal(){
 // (empresa sem NFC-e ativa, erro, item avulso sem NCM), volta false e quem chamou
 // cai de volta pro cupom não-fiscal de sempre — a nota fica "erro" em Notas Fiscais
 // pra corrigir e reemitir manualmente depois.
-async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteNome,total){
+async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteNome,total,desconto,dataRef){
   if(!empresaFiscal.nfce_ativo)return false;
   try{
     const itensPayload=itensCarrinho.filter(i=>!i.avulso).map(i=>{
@@ -976,11 +976,14 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
         produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||'5102',
         quantidade:i.quantidade, valor_unitario:i.valor_unitario, valor_total:arred2(i.quantidade*i.valor_unitario),
         csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
+        unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
+        aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
       };
     });
     if(!itensPayload.length)return false; // venda só com item(ns) avulso(s) — sem cadastro/NCM não dá pra emitir
     const nota=await dbPost('notas_fiscais_nfce',withEmpresa({
       venda_id:vendaId, cliente_documento:clienteDocDigits, cliente_nome:clienteNome, valor_total:total,
+      desconto_total:desconto||0, data_venda:dataRef,
     }));
     const notaRow=Array.isArray(nota)?nota[0]:nota;
     await dbPost('notas_fiscais_nfce_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfce_id:notaRow.id})));

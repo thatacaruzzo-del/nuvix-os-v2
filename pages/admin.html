@@ -1010,6 +1010,8 @@ const MODULOS_PLANO={
     <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Preencha só depois de cadastrar o CNPJ desta empresa na Focus NFe. O token em si NÃO é preenchido aqui — veja NFSE-ATIVACAO.md.</div>
     <div class="form-grid">
       <div class="field"><label>Inscrição municipal</label><input id="editEmpInscMun"></div>
+      <div class="field"><label>Inscrição Estadual (IE)</label><input id="editEmpInscEst"><div class="field-hint">Obrigatória pra emitir NFC-e — sem ela a SEFAZ rejeita a nota.</div></div>
+      <div class="field"><label>CNAE principal</label><input id="editEmpCnae" placeholder="Ex: 4711-3/02"></div>
       <div class="field"><label>Regime tributário</label>
         <select id="editEmpRegime">
           <option value="">—</option><option>Simples Nacional</option>
@@ -1024,6 +1026,7 @@ const MODULOS_PLANO={
       <div class="field"><label>Logradouro</label><input id="editEmpLogradouro"></div>
       <div class="field"><label>Número</label><input id="editEmpNumero"></div>
       <div class="field"><label>Bairro</label><input id="editEmpBairro"></div>
+      <div class="field"><label>UF</label><input id="editEmpUf" maxlength="2" placeholder="Ex: SP" style="text-transform:uppercase"></div>
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpFiscalAtivo" style="width:16px;height:16px">
         <label style="margin:0" for="editEmpFiscalAtivo">Emissão de nota fiscal ativa pra esta empresa</label>
@@ -1903,6 +1906,9 @@ function editarEmpresa(id){
   $('editEmpVenc').value=(e.vencimento_mensalidade||e.vencimento)?String(e.vencimento_mensalidade||e.vencimento).slice(0,10):'';
   $('editEmpObs').value=e.observacao_interna||'';
   $('editEmpInscMun').value=e.inscricao_municipal||'';
+  $('editEmpInscEst').value=e.inscricao_estadual||'';
+  $('editEmpCnae').value=e.cnae_principal||'';
+  $('editEmpUf').value=e.endereco_uf||'';
   $('editEmpRegime').value=e.regime_tributario||'';
   $('editEmpCodMun').value=e.codigo_municipio_ibge||'';
   $('editEmpCodIss').value=e.codigo_tributacao_nacional_iss||'';
@@ -1935,6 +1941,9 @@ async function salvarEdicaoEmpresa(){
       vencimento:val('editEmpVenc')||null, vencimento_mensalidade:val('editEmpVenc')||null,
       observacao_interna:val('editEmpObs').trim(),
       inscricao_municipal:val('editEmpInscMun').trim()||null,
+      inscricao_estadual:val('editEmpInscEst').trim()||null,
+      cnae_principal:val('editEmpCnae').trim()||null,
+      endereco_uf:val('editEmpUf').trim().toUpperCase()||null,
       regime_tributario:val('editEmpRegime')||null,
       codigo_municipio_ibge:val('editEmpCodMun').trim()||null,
       codigo_tributacao_nacional_iss:val('editEmpCodIss').trim()||null,

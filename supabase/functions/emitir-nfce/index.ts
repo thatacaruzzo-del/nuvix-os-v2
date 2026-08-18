@@ -180,9 +180,18 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
     data_emissao: new Date().toISOString().slice(0, 19) + '-03:00',
     presenca_comprador: 1, // 1 = presencial
     modalidade_frete: 9, // 9 = sem frete (venda de balcão)
-    local_destino: 1, // 1 = operação interna (mesmo estado)
+    local_destino: 1, // 1 = operação interna — NFC-e é sempre venda presencial de balcão, então
+    // a mercadoria não sai do estado do emitente; não precisa comparar UF emitente x destinatário
+    // como uma NF-e normal precisaria.
     cnpj_emitente: (empresa.cnpj || '').replace(/\D/g, ''),
+    // inscricao_estadual e cnae_principal (empresas.inscricao_estadual / cnae_principal) NÃO entram
+    // aqui de propósito — pelo padrão observado na doc da Focus NFe (mesmo em emitir-nfse, que só
+    // manda cnpj+inscricao_municipal), esses dados do emitente costumam ser configurados uma vez no
+    // painel deles junto do certificado/CSC, não reenviados a cada nota. Confirmar isso no painel da
+    // Focus NFe na hora de cadastrar o CNPJ (NFCE-ATIVACAO.md) — se a API exigir também no payload,
+    // adicionar aqui usando os nomes exatos da doc.
     indicador_inscricao_estadual_destinatario: 9, // 9 = não contribuinte (consumidor final)
+    valor_desconto: nota.desconto_total || undefined,
     items: itens.map((it, idx) => ({
       numero_item: idx + 1,
       codigo_produto: it.produto_id || 'AVULSO',
@@ -191,13 +200,20 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
       cfop: it.cfop || '5102',
       quantidade_comercial: it.quantidade,
       quantidade_tributavel: it.quantidade,
-      unidade_comercial: 'UN',
-      unidade_tributavel: 'UN',
+      unidade_comercial: it.unidade_medida || 'UN',
+      unidade_tributavel: it.unidade_medida || 'UN',
       valor_unitario_comercial: it.valor_unitario,
       valor_unitario_tributavel: it.valor_unitario,
       valor_bruto: it.valor_total,
       icms_origem: it.origem_mercadoria ?? '0',
       icms_situacao_tributaria: it.csosn_cst || undefined,
+      // Alíquotas nullable — dependem do regime (Simples Nacional geralmente não destaca
+      // ICMS/PIS/COFINS por item). Nomes de campo abaixo prováveis (padrão *_aliquota que a Focus
+      // NFe usa em outros pontos da API) mas NÃO confirmados contra a doc de NFC-e especificamente —
+      // conferir junto com o restante do aviso de Reforma Tributária no topo do arquivo.
+      icms_aliquota: it.aliquota_icms ?? undefined,
+      pis_aliquota: it.aliquota_pis ?? undefined,
+      cofins_aliquota: it.aliquota_cofins ?? undefined,
       // Reforma Tributária — NÃO CONFIRMADO contra a doc oficial ainda,
       // ver aviso no topo do arquivo. Nomes de campo prováveis, a
       // confirmar antes de emitir em produção:
@@ -244,6 +260,17 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       });
       return json({ ok: false, erro: 'fiscal_nao_configurado' }, 422);
+    }
+
+    // IE é obrigatória pra NFC-e — sem ela a SEFAZ rejeita a nota. Checa aqui, antes de gastar uma
+    // chamada na Focus NFe, pra dar um erro claro em vez de uma rejeição genérica da SEFAZ.
+    if (!empresa?.inscricao_estadual) {
+      await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
+        status: 'erro',
+        mensagem_erro: 'Inscrição Estadual da empresa não cadastrada — obrigatória pra emitir NFC-e. Preencha em Admin → Editar empresa.',
+        updated_at: new Date().toISOString(),
+      });
+      return json({ ok: false, erro: 'inscricao_estadual_ausente' }, 422);
     }
 
     const base = focusBaseUrl(cred.focus_nfe_ambiente);
