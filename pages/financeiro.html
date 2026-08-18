@@ -994,7 +994,7 @@ async function emitirNotaFiscal(f){
       }
     }
   }catch(e){
-    toast('Emissão de nota fiscal ainda não está disponível neste ambiente.','err');
+    toast('Erro ao emitir nota: '+e.message,'err');
   }
   carregarStatusNota(f);
 }
