@@ -249,7 +249,10 @@ Deno.serve(async (req) => {
         };
       })(),
       servico: {
-        codigo_tributacao_nacional: params.codigo_tributacao_nacional_iss,
+        // Nome de campo confirmado em doc.focusnfe.com.br/reference/emitir_nfse —
+        // 'codigo_tributacao_nacional' (usado antes) não existe na API deles, por
+        // isso a Focus NFe sempre rejeitava como se o campo estivesse vazio.
+        item_lista_servico: params.codigo_tributacao_nacional_iss,
         discriminacao: nota.descricao_servico,
         valor_servicos: nota.valor,
         aliquota: params.aliquota_iss,
