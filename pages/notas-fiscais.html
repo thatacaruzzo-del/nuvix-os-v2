@@ -388,7 +388,7 @@ async function emitirNota(){
       if(!r.ok||!resp?.ok){msg('detMsg',resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');}
       else{msg('detMsg','Nota enviada para processamento.','ok');}
     }
-  }catch(e){msg('detMsg','Emissão de nota fiscal ainda não está disponível neste ambiente.','err');}
+  }catch(e){msg('detMsg','Erro ao emitir nota: '+e.message,'err');}
   $('detEmitirBtn').disabled=false;
   await loadData();
   const atualizada=notas.find(x=>x.id===notaAtual.id);
