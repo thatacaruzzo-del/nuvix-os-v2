@@ -236,6 +236,32 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <div class="field" style="flex:1"><label>SKU</label><input id="prodSku" placeholder="Código interno"></div>
     <div class="field" style="flex:1"><label>Código de barras</label><input id="prodCodigoBarras" placeholder="Opcional"></div>
   </div>
+  <div class="field">
+    <label>Dados fiscais (NFC-e)</label>
+    <div class="field-hint" style="margin-bottom:8px">Só é obrigatório se a empresa emitir NFC-e. Os campos da reforma tributária (IBS/CBS) ainda vão ser adicionados aqui assim que a Focus NFe publicar o nome final.</div>
+    <div style="display:flex;gap:12px;margin-bottom:8px">
+      <div class="field" style="flex:1;margin-bottom:0"><label>NCM</label><input id="prodNcm" placeholder="Ex: 22021000" maxlength="8"></div>
+      <div class="field" style="flex:1;margin-bottom:0"><label>CEST</label><input id="prodCest" placeholder="Opcional"></div>
+      <div class="field" style="flex:1;margin-bottom:0"><label>CFOP padrão</label><input id="prodCfop" placeholder="5102"></div>
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="field" style="flex:1;margin-bottom:0">
+        <label>Origem da mercadoria</label>
+        <select id="prodOrigem">
+          <option value="0">0 — Nacional</option>
+          <option value="1">1 — Estrangeira, importação direta</option>
+          <option value="2">2 — Estrangeira, adquirida no mercado interno</option>
+          <option value="3">3 — Nacional, +40% importado</option>
+          <option value="4">4 — Nacional, processo produtivo básico</option>
+          <option value="5">5 — Nacional, ≤40% importado</option>
+          <option value="6">6 — Estrangeira, importação direta, sem similar nacional</option>
+          <option value="7">7 — Estrangeira, mercado interno, sem similar nacional</option>
+          <option value="8">8 — Nacional, +70% importado</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0"><label>CST/CSOSN</label><input id="prodCstCsosn" placeholder="Depende do regime tributário da empresa"></div>
+    </div>
+  </div>
   <div style="display:flex;gap:20px;margin-bottom:14px">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label>
@@ -482,6 +508,7 @@ function toggleFornecedorConsignado(){
 function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
+  $('prodNcm').value=''; $('prodCest').value=''; $('prodCfop').value='5102'; $('prodOrigem').value='0'; $('prodCstCsosn').value='';
   $('prodCusto').value=money(0); $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('prodConsignado').checked=false; $('prodConsignadoFornecedor').value=''; toggleFornecedorConsignado();
@@ -498,6 +525,8 @@ function editarProduto(id){
   $('modalProdutoTitulo').textContent='Editar produto';
   $('prodId').value=p.id; $('prodNome').value=p.nome||''; $('prodCategoria').value=p.categoria_id||'';
   $('prodSku').value=p.sku||''; $('prodCodigoBarras').value=p.codigo_barras||'';
+  $('prodNcm').value=p.ncm||''; $('prodCest').value=p.cest||''; $('prodCfop').value=p.cfop_padrao||'5102';
+  $('prodOrigem').value=p.origem_mercadoria||'0'; $('prodCstCsosn').value=p.csosn_cst||'';
   $('prodCusto').value=money(p.custo_atual); $('prodSugerido').value=money(p.preco_venda_sugerido);
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
@@ -542,6 +571,9 @@ async function salvarProduto(){
     codigo_barras: codigoBarras, preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
     ativo: $('prodAtivo').checked,
     is_consignado: $('prodConsignado').checked, consignado_fornecedor: $('prodConsignado').checked?(val('prodConsignadoFornecedor').trim()||null):null,
+    ncm: val('prodNcm').trim()||null, cest: val('prodCest').trim()||null,
+    cfop_padrao: val('prodCfop').trim()||'5102', origem_mercadoria: val('prodOrigem')||'0',
+    csosn_cst: val('prodCstCsosn').trim()||null,
     updated_at: new Date().toISOString(),
   };
   try{

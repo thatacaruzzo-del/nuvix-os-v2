@@ -25,6 +25,9 @@
 .det-val{font-weight:700;text-align:right;color:var(--txt)}
 .det-section{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-top:14px;border-top:1.5px solid var(--p-light)}
 .nf-simulacao-aviso{background:var(--amber-bg);color:#7A5B00;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:16px}
+.nf-tipo-tabs{display:flex;gap:8px;margin-bottom:16px}
+.nf-tipo-tab{padding:8px 18px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
+.nf-tipo-tab.active{background:var(--p);border-color:var(--p);color:#fff}
 @media(max-width:900px){.nf-strip{grid-template-columns:1fr 1fr}#hambBtn{display:block!important}}
 @media(max-width:600px){.nf-strip{grid-template-columns:1fr}}
 </style>
@@ -119,6 +122,11 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
     <div class="main-scroll">
       <div class="page-content">
 
+        <div class="nf-tipo-tabs">
+          <button class="nf-tipo-tab active" data-tipo="nfse" onclick="trocarTipo('nfse')">NFS-e (serviço)</button>
+          <button class="nf-tipo-tab" data-tipo="nfce" onclick="trocarTipo('nfce')">NFC-e (produto/Caixa)</button>
+        </div>
+
         <div id="nfSimulacaoAviso" class="nf-simulacao-aviso" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           Modo simulação ativo — nenhuma nota fiscal real é emitida. Números e documentos aqui são só pra testar a tela.
@@ -147,7 +155,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
         </div>
 
         <div class="card">
-          <h2 style="margin-bottom:14px">Notas fiscais</h2>
+          <h2 style="margin-bottom:14px" id="nfListTitulo">Notas fiscais</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Emitida em</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Número</th><th>Status</th></tr></thead>
@@ -187,6 +195,31 @@ let fiscalAtivo=false;
 let nfseSimulacao=false;
 let prazoCancelamentoDias=5;
 let notaAtual=null;
+let tipoAtual='nfse';
+
+// NFS-e (serviço, fala com a prefeitura) e NFC-e (produto, fala com a SEFAZ do
+// estado) são documentos diferentes, mas essa central usa a mesma tela pras
+// duas — esse objeto guarda só o que muda entre elas, o resto da lógica é comum.
+const TIPO_CFG={
+  nfse:{
+    tabela:'notas_fiscais', idCampo:'nota_fiscal_id', funcao:'emitir-nfse',
+    campoValor:'valor', campoNumero:'numero_nfse', campoDescricao:'descricao_servico',
+    empresaAtivoCampo:'fiscal_ativo', empresaSimulacaoCampo:'nfse_simulacao', temPrazo:true,
+    tituloLista:'Notas fiscais (NFS-e)', vazio:'Nenhuma nota fiscal ainda. Emita a partir de um lançamento de Receita, no Financeiro.',
+  },
+  nfce:{
+    tabela:'notas_fiscais_nfce', idCampo:'nota_fiscal_nfce_id', funcao:'emitir-nfce',
+    campoValor:'valor_total', campoNumero:'numero', campoDescricao:null,
+    empresaAtivoCampo:'nfce_ativo', empresaSimulacaoCampo:'nfce_simulacao', temPrazo:false,
+    tituloLista:'Notas fiscais (NFC-e)', vazio:'Nenhuma NFC-e ainda. Elas são emitidas automaticamente a partir de uma venda no Caixa, se estiver ativado pra essa empresa.',
+  },
+};
+function trocarTipo(t){
+  if(tipoAtual===t)return;
+  tipoAtual=t;
+  document.querySelectorAll('.nf-tipo-tab').forEach(b=>b.classList.toggle('active',b.dataset.tipo===t));
+  loadData();
+}
 
 async function init(){
   if(!session)return;
@@ -206,15 +239,18 @@ async function init(){
 
 async function loadData(){
   if(!session?.empresa_id)return;
+  const cfg=TIPO_CFG[tipoAtual];
+  $('nfListTitulo').textContent=cfg.tituloLista;
   try{
-    const emp=await db.get('empresas',`?select=fiscal_ativo,nfse_simulacao,prazo_cancelamento_dias&id=eq.${session.empresa_id}&limit=1`);
-    fiscalAtivo=!!emp[0]?.fiscal_ativo;
-    nfseSimulacao=!!emp[0]?.nfse_simulacao;
-    prazoCancelamentoDias=Number(emp[0]?.prazo_cancelamento_dias)||5;
-  }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=5;}
+    const campos=cfg.temPrazo?`${cfg.empresaAtivoCampo},${cfg.empresaSimulacaoCampo},prazo_cancelamento_dias`:`${cfg.empresaAtivoCampo},${cfg.empresaSimulacaoCampo}`;
+    const emp=await db.get('empresas',`?select=${campos}&id=eq.${session.empresa_id}&limit=1`);
+    fiscalAtivo=!!emp[0]?.[cfg.empresaAtivoCampo];
+    nfseSimulacao=!!emp[0]?.[cfg.empresaSimulacaoCampo];
+    prazoCancelamentoDias=cfg.temPrazo?(Number(emp[0]?.prazo_cancelamento_dias)||5):null;
+  }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=cfg.temPrazo?5:null;}
   $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
   try{
-    notas=await db.get('notas_fiscais',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
+    notas=await db.get(cfg.tabela,`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
   }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
   renderStrip();
   renderLista();
@@ -223,8 +259,9 @@ async function loadData(){
 const STATUS_LABEL={nao_emitida:['Não emitida','off'],processando:['Processando','warn'],autorizada:['Autorizada','ok'],erro:['Erro','bad'],cancelada:['Cancelada','off']};
 
 function renderStrip(){
+  const cfg=TIPO_CFG[tipoAtual];
   const porStatus=s=>notas.filter(n=>n.status===s).length;
-  const valorAutorizado=notas.filter(n=>n.status==='autorizada').reduce((a,n)=>a+Number(n.valor||0),0);
+  const valorAutorizado=notas.filter(n=>n.status==='autorizada').reduce((a,n)=>a+Number(n[cfg.campoValor]||0),0);
   setHTML('nfStrip',[
     {lbl:'Autorizadas',val:porStatus('autorizada'),cor:'var(--green)'},
     {lbl:'Processando',val:porStatus('processando'),cor:'var(--amber)'},
@@ -234,51 +271,79 @@ function renderStrip(){
 }
 
 function renderLista(){
+  const cfg=TIPO_CFG[tipoAtual];
   const status=val('filtStatus');
   const busca=val('filtBusca').toLowerCase();
   let lista=notas;
   if(status)lista=lista.filter(n=>n.status===status);
-  if(busca)lista=lista.filter(n=>(n.cliente_nome||'').toLowerCase().includes(busca)||(n.descricao_servico||'').toLowerCase().includes(busca)||(n.numero_nfse||'').toLowerCase().includes(busca));
+  if(busca)lista=lista.filter(n=>(n.cliente_nome||'').toLowerCase().includes(busca)||(cfg.campoDescricao&&(n[cfg.campoDescricao]||'').toLowerCase().includes(busca))||(n[cfg.campoNumero]||'').toLowerCase().includes(busca));
   renderPaginacao('nfTable',lista.length,'renderLista');
   setHTML('nfTable',paginar(lista,'nfTable').map(n=>{
     const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
     return`<tr style="cursor:pointer" onclick="verDetalhe('${n.id}')">
       <td>${n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at)}</td>
       <td><b>${esc(n.cliente_nome||'—')}</b></td>
-      <td style="font-size:12px">${esc(n.descricao_servico||'')}</td>
-      <td style="font-weight:700">${money(n.valor)}</td>
-      <td style="font-size:12px">${esc(n.numero_nfse||'—')}</td>
+      <td style="font-size:12px">${esc(cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV')}</td>
+      <td style="font-weight:700">${money(n[cfg.campoValor])}</td>
+      <td style="font-size:12px">${esc(n[cfg.campoNumero]||'—')}</td>
       <td><span class="badge ${cor}">${label}</span></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota fiscal ainda. Emita a partir de um lançamento de Receita, no Financeiro.</td></tr>');
+  }).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">${esc(cfg.vazio)}</td></tr>`);
 }
 
-function verDetalhe(id){
+async function verDetalhe(id){
   const n=notas.find(x=>x.id===id);if(!n)return;
   notaAtual=n;
   $('detId').value=n.id;
   const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
-  setHTML('detConteudo',`
-    <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor do serviço</div>
-        <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor)}</div>
+  let corpo;
+  if(tipoAtual==='nfce'){
+    let itens=[];
+    try{ itens=await db.get('notas_fiscais_nfce_itens',`?select=descricao,quantidade,valor_unitario,valor_total&nota_fiscal_nfce_id=eq.${n.id}`); }catch(e){}
+    corpo=`
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor total</div>
+          <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor_total)}</div>
+        </div>
+        <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
       </div>
-      <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
-    </div>
-    <div class="det-section">Tomador (cliente)</div>
-    <div class="det-row"><span class="det-lbl">Nome / Razão social</span><span class="det-val">${esc(n.cliente_nome||'—')}</span></div>
-    <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
-    <div class="det-section">Serviço</div>
-    <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(n.descricao_servico||'—')}</span></div>
-    <div class="det-row"><span class="det-lbl">Competência</span><span class="det-val">${fmtData(n.data_competencia)}</span></div>
-    <div class="det-section">Nota</div>
-    <div class="det-row"><span class="det-lbl">Número NFS-e</span><span class="det-val">${esc(n.numero_nfse||'—')}</span></div>
-    <div class="det-row"><span class="det-lbl">Código de verificação</span><span class="det-val">${esc(n.codigo_verificacao||'—')}</span></div>
-    <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
-    ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
-    ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
-  `);
+      <div class="det-section">Cliente</div>
+      <div class="det-row"><span class="det-lbl">Nome</span><span class="det-val">${esc(n.cliente_nome||'Consumidor não identificado')}</span></div>
+      <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
+      <div class="det-section">Itens</div>
+      ${itens.map(it=>`<div class="det-row"><span class="det-lbl">${esc(it.descricao)} (${it.quantidade}x)</span><span class="det-val">${money(it.valor_total)}</span></div>`).join('')||'<div class="det-row"><span class="det-lbl">—</span><span class="det-val">—</span></div>'}
+      <div class="det-section">Nota</div>
+      <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+      <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+      ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
+      ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
+    `;
+  } else {
+    corpo=`
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor do serviço</div>
+          <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor)}</div>
+        </div>
+        <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
+      </div>
+      <div class="det-section">Tomador (cliente)</div>
+      <div class="det-row"><span class="det-lbl">Nome / Razão social</span><span class="det-val">${esc(n.cliente_nome||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
+      <div class="det-section">Serviço</div>
+      <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(n.descricao_servico||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Competência</span><span class="det-val">${fmtData(n.data_competencia)}</span></div>
+      <div class="det-section">Nota</div>
+      <div class="det-row"><span class="det-lbl">Número NFS-e</span><span class="det-val">${esc(n.numero_nfse||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Código de verificação</span><span class="det-val">${esc(n.codigo_verificacao||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+      ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
+      ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
+    `;
+  }
+  setHTML('detConteudo',corpo);
   ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn'].forEach(id=>$(id).style.display='none');
   if(n.status==='nao_emitida'||n.status==='erro'){$('detEmitirBtn').style.display='block';}
   if(n.status==='processando'){$('detConsultarBtn').style.display='block';}
@@ -293,8 +358,9 @@ function verDetalhe(id){
 async function emitirNota(){
   if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
   if(!notaAtual)return;
-  if(!fiscalAtivo){msg('detMsg','Emissão de nota fiscal ainda não configurada.','err');return;}
-  if(!notaAtual.cliente_documento){
+  const cfg=TIPO_CFG[tipoAtual];
+  if(!fiscalAtivo){msg('detMsg',tipoAtual==='nfce'?'Emissão de NFC-e ainda não configurada.':'Emissão de nota fiscal ainda não configurada.','err');return;}
+  if(tipoAtual==='nfse'&&!notaAtual.cliente_documento){
     const digitado=await promptAcao(`CPF ou CNPJ de ${notaAtual.cliente_nome||'cliente'} — a maioria das prefeituras exige esse dado pra autorizar a nota:`,{placeholder:'Ex: 000.000.000-00',labelOk:'Continuar'});
     if(digitado===null)return;
     if(digitado){
@@ -317,7 +383,7 @@ async function emitirNota(){
         msg('detMsg','Simulação de erro — nenhuma nota real foi emitida.','err');
       }
     } else {
-      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:notaAtual.id})});
+      const r=await fetch(`${SB}/functions/v1/${cfg.funcao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',[cfg.idCampo]:notaAtual.id})});
       const resp=await r.json().catch(()=>null);
       if(!r.ok||!resp?.ok){msg('detMsg',resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');}
       else{msg('detMsg','Nota enviada para processamento.','ok');}
@@ -331,13 +397,14 @@ async function emitirNota(){
 
 async function consultarStatus(){
   if(!notaAtual)return;
+  const cfg=TIPO_CFG[tipoAtual];
   $('detConsultarBtn').disabled=true;
   try{
     if(nfseSimulacao){
       await simularEmissaoTeste(notaAtual);
       msg('detMsg','Simulação de teste — nenhuma nota real foi emitida.','ok');
     } else {
-      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_id:notaAtual.id})});
+      const r=await fetch(`${SB}/functions/v1/${cfg.funcao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',[cfg.idCampo]:notaAtual.id})});
       if(!r.ok)throw new Error();
       msg('detMsg','Status atualizado.','ok');
     }
@@ -351,7 +418,8 @@ async function consultarStatus(){
 async function cancelarNota(){
   if(!temPermissao('notas_fiscais','excluir')){toast('Sem permissão para cancelar notas fiscais.','err');return;}
   if(!notaAtual)return;
-  if(notaAtual.data_emissao){
+  const cfg=TIPO_CFG[tipoAtual];
+  if(prazoCancelamentoDias!=null&&notaAtual.data_emissao){
     const diasDesdeEmissao=(Date.now()-new Date(notaAtual.data_emissao).getTime())/864e5;
     if(diasDesdeEmissao>prazoCancelamentoDias){
       msg('detMsg',`Prazo de cancelamento (${prazoCancelamentoDias} dias após a emissão) já passou. Consulte a prefeitura sobre carta de correção.`,'err');
@@ -364,13 +432,13 @@ async function cancelarNota(){
   $('detCancelarBtn').disabled=true;
   try{
     if(nfseSimulacao){
-      await db.patch('notas_fiscais',notaAtual.id,{status:'cancelada',motivo_cancelamento:justificativa,data_cancelamento:new Date().toISOString(),updated_at:new Date().toISOString()});
+      await db.patch(cfg.tabela,notaAtual.id,{status:'cancelada',motivo_cancelamento:justificativa,data_cancelamento:new Date().toISOString(),updated_at:new Date().toISOString()});
       msg('detMsg','Simulação de teste — cancelamento simulado.','ok');
     } else {
-      const r=await fetch(`${SB}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_id:notaAtual.id,justificativa})});
+      const r=await fetch(`${SB}/functions/v1/${cfg.funcao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',[cfg.idCampo]:notaAtual.id,justificativa})});
       const resp=await r.json().catch(()=>null);
       if(!r.ok||!resp?.ok){
-        msg('detMsg',resp?.erro==='prazo_cancelamento_expirado'?`Prazo de cancelamento (${prazoCancelamentoDias} dias após a emissão) já passou. Consulte a prefeitura sobre carta de correção.`:'Não foi possível cancelar a nota agora.','err');
+        msg('detMsg',resp?.erro==='prazo_cancelamento_expirado'?`Prazo de cancelamento já passou. Consulte a Focus NFe/SEFAZ sobre a rejeição.`:'Não foi possível cancelar a nota agora.','err');
       } else {msg('detMsg','Nota cancelada.','ok');}
     }
   }catch(e){msg('detMsg','Não foi possível cancelar a nota agora.','err');}
@@ -381,27 +449,38 @@ async function cancelarNota(){
 }
 
 async function simularEmissaoTeste(nota){
-  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,mensagem_erro:null,updated_at:new Date().toISOString()});
+  const cfg=TIPO_CFG[tipoAtual];
+  await db.patch(cfg.tabela,nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,mensagem_erro:null,updated_at:new Date().toISOString()});
   await new Promise(res=>setTimeout(res,1000));
-  await db.patch('notas_fiscais',nota.id,{
+  const patchBody={
     status:'autorizada',
-    numero_nfse:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
-    codigo_verificacao:'TESTE-'+Date.now().toString(36).toUpperCase(),
+    [cfg.campoNumero]:'SIMULADA-'+String(Math.floor(10000+Math.random()*89999)),
     data_emissao:new Date().toISOString(),
     updated_at:new Date().toISOString(),
-  });
+  };
+  if(tipoAtual==='nfse')patchBody.codigo_verificacao='TESTE-'+Date.now().toString(36).toUpperCase();
+  if(tipoAtual==='nfce')patchBody.serie='1';
+  await db.patch(cfg.tabela,nota.id,patchBody);
 }
 
 async function simularErroTeste(nota){
-  await db.patch('notas_fiscais',nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
+  const cfg=TIPO_CFG[tipoAtual];
+  await db.patch(cfg.tabela,nota.id,{status:'processando',focus_nfe_ref:'simulado-'+nota.id,updated_at:new Date().toISOString()});
   await new Promise(res=>setTimeout(res,1000));
-  const erros=[
+  const errosNfse=[
     'CPF/CNPJ do tomador inválido.',
     'Código de tributação do ISS não reconhecido pelo município.',
     'Inscrição municipal do prestador não homologada.',
     'Município temporariamente indisponível — tente novamente mais tarde.',
   ];
-  await db.patch('notas_fiscais',nota.id,{
+  const errosNfce=[
+    'NCM do produto inválido ou não cadastrado.',
+    'Certificado digital vencido ou não configurado na Focus NFe.',
+    'SEFAZ temporariamente indisponível — tente novamente mais tarde.',
+    'CST/CSOSN incompatível com o regime tributário da empresa.',
+  ];
+  const erros=tipoAtual==='nfce'?errosNfce:errosNfse;
+  await db.patch(cfg.tabela,nota.id,{
     status:'erro',
     mensagem_erro:'[Simulação] '+erros[Math.floor(Math.random()*erros.length)],
     updated_at:new Date().toISOString(),
@@ -412,7 +491,19 @@ function verImprimir(){
   if(!notaAtual)return;
   if(notaAtual.link_pdf){window.open(notaAtual.link_pdf,'_blank');return;}
   const emp=session.empresa||{};
-  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
+  const html=tipoAtual==='nfce'?`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NFC-e ${esc(notaAtual.numero||'')}</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  </head><body>
+  <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
+  <h1>Nota Fiscal de Consumidor (simulada)</h1>
+  <table>
+    <tr><td>Emitente</td><td>${esc(emp.razao||emp.fantasia||'—')} — ${esc(emp.cnpj||'—')}</td></tr>
+    <tr><td>Cliente</td><td>${esc(notaAtual.cliente_nome||'Consumidor não identificado')}</td></tr>
+    <tr><td>Valor total</td><td>${money(notaAtual.valor_total)}</td></tr>
+    <tr><td>Número / Série</td><td>${esc(notaAtual.numero||'—')} / ${esc(notaAtual.serie||'—')}</td></tr>
+    <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
+  </table>
+  </body></html>`:`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
   <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
@@ -434,7 +525,14 @@ function verImprimir(){
 function baixarXml(){
   if(!notaAtual)return;
   if(notaAtual.link_xml){window.open(notaAtual.link_xml,'_blank');return;}
-  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+  const xml=tipoAtual==='nfce'?`<?xml version="1.0" encoding="UTF-8"?>
+<NFCeSimulada observacao="Documento de teste — sem validade fiscal">
+  <numero>${esc(notaAtual.numero||'')}</numero>
+  <serie>${esc(notaAtual.serie||'')}</serie>
+  <cliente>${esc(notaAtual.cliente_nome||'')}</cliente>
+  <valorTotal>${notaAtual.valor_total}</valorTotal>
+  <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
+</NFCeSimulada>`:`<?xml version="1.0" encoding="UTF-8"?>
 <NFSeSimulada observacao="Documento de teste — sem validade fiscal">
   <numero>${esc(notaAtual.numero_nfse||'')}</numero>
   <codigoVerificacao>${esc(notaAtual.codigo_verificacao||'')}</codigoVerificacao>
@@ -446,7 +544,7 @@ function baixarXml(){
   const blob=new Blob([xml],{type:'application/xml'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=`nota-simulada-${notaAtual.numero_nfse||notaAtual.id}.xml`;
+  a.download=`nota-simulada-${notaAtual.numero||notaAtual.numero_nfse||notaAtual.id}.xml`;
   a.click();
 }
 
