@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
       prestador: {
         cnpj: params.cnpj,
         inscricao_municipal: params.inscricao_municipal,
+        codigo_municipio: params.codigo_municipio_ibge,
       },
       tomador: {
         cpf_cnpj: (nota.cliente_documento || '').replace(/\D/g, '') || undefined,
