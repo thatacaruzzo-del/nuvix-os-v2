@@ -46,15 +46,12 @@ create policy "categorias_produto_update" on categorias_produto for update using
 drop policy if exists "categorias_produto_delete" on categorias_produto;
 create policy "categorias_produto_delete" on categorias_produto for delete using (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','excluir')));
 
-drop policy if exists "empresa_isolamento" on categorias_produtos;
-drop policy if exists "categorias_produtos_select" on categorias_produtos;
-create policy "categorias_produtos_select" on categorias_produtos for select using (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','ver')));
-drop policy if exists "categorias_produtos_insert" on categorias_produtos;
-create policy "categorias_produtos_insert" on categorias_produtos for insert with check (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','criar')));
-drop policy if exists "categorias_produtos_update" on categorias_produtos;
-create policy "categorias_produtos_update" on categorias_produtos for update using (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','editar'))) with check (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','editar')));
-drop policy if exists "categorias_produtos_delete" on categorias_produtos;
-create policy "categorias_produtos_delete" on categorias_produtos for delete using (is_nuvix_admin() or (empresa_id = current_empresa_id() and tem_permissao_modulo('produtos','excluir')));
+-- categorias_produtos (plural) NÃO entra aqui de propósito: não tem coluna
+-- empresa_id (só `id`) — é uma tabela legada/órfã, diferente de
+-- categorias_produto (singular, com empresa_id, a que produtos.html usa de
+-- verdade). Confirmado via information_schema antes de aplicar — não fazia
+-- sentido nem era seguro isolar por empresa uma tabela que não foi desenhada
+-- pra isso.
 
 drop policy if exists "empresa_isolamento" on lojas;
 drop policy if exists "lojas_select" on lojas;
