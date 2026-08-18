@@ -385,7 +385,10 @@ async function emitirNota(){
     } else {
       const r=await fetch(`${SB}/functions/v1/${cfg.funcao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',[cfg.idCampo]:notaAtual.id})});
       const resp=await r.json().catch(()=>null);
-      if(!r.ok||!resp?.ok){msg('detMsg',resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':'Não foi possível emitir a nota agora.','err');}
+      if(!r.ok||!resp?.ok){
+        const detalhe=resp?.erro==='fiscal_nao_configurado'?'Emissão de nota fiscal ainda não configurada.':(resp?.erro?.mensagem||resp?.erro?.erros?.[0]?.mensagem||(typeof resp?.erro==='string'?resp.erro:null)||'Não foi possível emitir a nota agora.');
+        msg('detMsg',detalhe,'err');
+      }
       else{msg('detMsg','Nota enviada para processamento.','ok');}
     }
   }catch(e){msg('detMsg','Erro ao emitir nota: '+e.message,'err');}
