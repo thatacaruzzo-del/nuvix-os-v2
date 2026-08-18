@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
         discriminacao: nota.descricao_servico,
         valor_servicos: nota.valor,
         aliquota: params.aliquota_iss,
+        iss_retido: false,
       },
       // ATENÇÃO — confirme este formato exato em
       // doc.focusnfe.com.br/reference/emitir_nfse antes de ativar de
