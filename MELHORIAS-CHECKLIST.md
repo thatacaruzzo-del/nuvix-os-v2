@@ -49,5 +49,5 @@ Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
 ## Baixo impacto / observação
 
 - [x] `tecnico.html` e `admin.html` não seguem 100% o padrão visual de `css/nuvix.css` — as duas telas tinham paleta de cor e fonte (Inter) próprias, diferentes do resto do sistema. Corrigido: tokens de cor alinhados ao `css/nuvix.css` (`--bg`, `--txt`, `--muted`, `--line`, `--p-light`, cores semânticas) e fonte trocada pra Hanken Grotesk. **Vale dar uma olhada visual rápida antes de considerar 100% fechado, já que não dá pra tirar print neste ambiente.**
-- [ ] Pares de tabela quase-duplicada no schema — investigado, achou mais que o esperado (11 tabelas mortas, não só 4). **Decisão da usuária pendente antes de agir** (ver mensagem no chat), nada foi apagado do banco.
+- [x] Pares de tabela quase-duplicada no schema — 7 tabelas mortas vazias apagadas direto da produção; 2 com dado de teste antigo (categorias_produtos, servicos_materiais) renomeadas pra `_arquivado_*` em vez de apagadas, por segurança. `vendas_legado` e `produtos_orfaos_pre_2026_08` mantidas de propósito (parecem arquivo intencional). `sql/limpeza_tabelas_mortas_2026_08_19.sql`
 - [ ] `pages/vendas.html` é código órfão, sem link de navegação — decidir se reaproveita ou remove
