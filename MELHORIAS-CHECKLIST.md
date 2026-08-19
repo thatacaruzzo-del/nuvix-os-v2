@@ -48,6 +48,6 @@ Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
 
 ## Baixo impacto / observação
 
-- [ ] `tecnico.html` e `admin.html` não seguem 100% o padrão visual de `css/nuvix.css`
-- [ ] Pares de tabela quase-duplicada no schema (padrão `categorias_produtos`/`categorias_produto`), mais 4 casos além do já conhecido
+- [x] `tecnico.html` e `admin.html` não seguem 100% o padrão visual de `css/nuvix.css` — as duas telas tinham paleta de cor e fonte (Inter) próprias, diferentes do resto do sistema. Corrigido: tokens de cor alinhados ao `css/nuvix.css` (`--bg`, `--txt`, `--muted`, `--line`, `--p-light`, cores semânticas) e fonte trocada pra Hanken Grotesk. **Vale dar uma olhada visual rápida antes de considerar 100% fechado, já que não dá pra tirar print neste ambiente.**
+- [ ] Pares de tabela quase-duplicada no schema — investigado, achou mais que o esperado (11 tabelas mortas, não só 4). **Decisão da usuária pendente antes de agir** (ver mensagem no chat), nada foi apagado do banco.
 - [ ] `pages/vendas.html` é código órfão, sem link de navegação — decidir se reaproveita ou remove
