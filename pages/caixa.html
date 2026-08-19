@@ -766,9 +766,10 @@ function renderTotais(){
   // Com uma única forma de pagamento (o caso comum), mantém o valor sempre igual ao
   // total — só passa a exigir alocação manual quando o caixa dividir em mais de uma.
   if(pagamentos.length===1){ pagamentos[0].valor=total; }
-  // Sempre redesenha a linha, não só quando tem 1 forma — senão trocar pra "Cartão
-  // Crédito" com pagamento dividido não mostra o campo de parcelas (achado testando
-  // com cliente real querendo parcelar).
+  // Só redesenha tudo aqui (forma mudou, linha foi adicionada/removida, carrinho mudou) —
+  // nunca a cada tecla digitada num valor/parcela, senão o campo perde o foco no meio da
+  // digitação (achado testando pagamento dividido em duas formas: o segundo valor nunca
+  // terminava de ser digitado, por isso "não reconhecia" o segundo pagamento).
   renderPagamentos();
 }
 
@@ -776,27 +777,42 @@ function renderTotais(){
 function adicionarLinhaPagamento(){ pagamentos.push({forma:'Dinheiro',valor:0,parcelas:null,recebido:null}); renderPagamentos(); }
 function atualizarRecebido(idx,valorDigitado){
   pagamentos[idx].recebido=valorDigitado===''?null:numBR(valorDigitado);
-  renderPagamentos();
+  atualizarLinhaPagamento(idx);
+}
+function htmlHintParcela(p){
+  return p.forma==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:'';
+}
+function htmlHintTroco(p){
+  if(p.forma!=='Dinheiro'||p.recebido==null)return'';
+  const troco=Math.round((p.recebido-p.valor)*100)/100;
+  return `<div class="field-hint" style="${troco<0?'color:var(--red)':'color:var(--green)'}">${troco<0?`Falta ${money(-troco)}`:`Troco: ${money(troco)}`}</div>`;
+}
+// Atualiza só o texto derivado de uma linha (parcela/troco) e o "restante" — sem recriar
+// os campos de input, pra não tirar o foco de quem está digitando um valor.
+function atualizarLinhaPagamento(idx){
+  const p=pagamentos[idx]; if(!p)return;
+  const hintEl=$('pgtoHint-'+idx); if(hintEl) hintEl.innerHTML=htmlHintParcela(p);
+  const trocoEl=$('pgtoTroco-'+idx); if(trocoEl) trocoEl.innerHTML=htmlHintTroco(p);
+  renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
 }
 function renderPagamentos(){
   if(!pagamentos.length) pagamentos=[{forma:'Dinheiro',valor:totalCarrinho(),parcelas:null,recebido:null}];
   $('pgtoLinhas').innerHTML=pagamentos.map((p,idx)=>{
-    const troco=(p.forma==='Dinheiro'&&p.recebido!=null)?Math.round((p.recebido-p.valor)*100)/100:null;
     return `<div style="margin-bottom:8px">
       <div class="pgto-row" style="margin-bottom:${p.forma==='Dinheiro'?'4px':'0'}">
         <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
           ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
         </select>
-        <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);renderTotais()">
-        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1);renderPagamentos()" style="width:80px">`:''}
+        <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);atualizarLinhaPagamento(${idx})">
+        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1);atualizarLinhaPagamento(${idx})" style="width:80px">`:''}
         ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
       </div>
-      ${p.forma==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:''}
+      <div id="pgtoHint-${idx}">${htmlHintParcela(p)}</div>
       ${p.forma==='Dinheiro'?`<div style="display:flex;gap:8px;align-items:center">
         <span style="font-size:12px;color:var(--muted);flex:1">Cliente pagou com quanto? (pra calcular o troco)</span>
         <input type="text" inputmode="decimal" placeholder="Recebido" value="${p.recebido??''}" oninput="sanitizarDecimal(this);atualizarRecebido(${idx},this.value)" style="width:110px">
       </div>
-      ${troco!=null?`<div class="field-hint" style="${troco<0?'color:var(--red)':'color:var(--green)'}">${troco<0?`Falta ${money(-troco)}`:`Troco: ${money(troco)}`}</div>`:''}`:''}
+      <div id="pgtoTroco-${idx}">${htmlHintTroco(p)}</div>`:''}
     </div>`;
   }).join('');
   renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
@@ -1308,6 +1324,14 @@ async function abrirEditarPagamento(vendaId){
   renderLinhasEdicaoPagamento();
   abrirModal('modalEditarPagamento');
 }
+function htmlHintParcelaEdicao(p){
+  return p.forma_pagamento==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:'';
+}
+// Atualiza só o texto da linha (não o input de parcelas), pra não tirar o foco no meio
+// da digitação — mesmo motivo do bug corrigido no pagamento do Caixa.
+function atualizarHintEdicaoPagamento(idx){
+  const el=$('editPgtoHint-'+idx); if(el) el.innerHTML=htmlHintParcelaEdicao(linhasEdicaoPagamento[idx]);
+}
 function renderLinhasEdicaoPagamento(){
   $('editPgtoLinhas').innerHTML=linhasEdicaoPagamento.map((p,idx)=>`
     <div style="margin-bottom:10px;padding-bottom:10px;${idx<linhasEdicaoPagamento.length-1?'border-bottom:1px solid var(--line)':''}">
@@ -1316,9 +1340,9 @@ function renderLinhasEdicaoPagamento(){
           ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma_pagamento===f?' selected':''}>${f}</option>`).join('')}
         </select>
         <span style="font-weight:700;padding:0 8px;white-space:nowrap">${money(p.valor)}</span>
-        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);renderLinhasEdicaoPagamento()" style="width:80px">`:''}
+        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);atualizarHintEdicaoPagamento(${idx})" style="width:80px">`:''}
       </div>
-      ${p.forma_pagamento==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:''}
+      <div id="editPgtoHint-${idx}">${htmlHintParcelaEdicao(p)}</div>
     </div>`).join('');
 }
 function pedirAprovacaoEdicaoPagamento(){
