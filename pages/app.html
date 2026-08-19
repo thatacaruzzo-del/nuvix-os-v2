@@ -111,6 +111,11 @@ const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
 const _h={'apikey':SUPABASE_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SUPABASE_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+// Validação de CPF/CNPJ (dígito verificador, algoritmo padrão da Receita) — achado da
+// auditoria de 2026-08-19: nenhum formulário do sistema validava isso antes.
+function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
+function validarCNPJ(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==14||/^(\d)\1{13}$/.test(c))return false;const calc=b=>{const p=b.length===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<b.length;i++)s+=Number(b[i])*p[i];const r=s%11;return r<2?0:11-r;};if(calc(c.slice(0,12))!==Number(c[12]))return false;return calc(c.slice(0,13))===Number(c[13]);}
+function validarCpfCnpj(v){const d=String(v||'').replace(/\D/g,'');if(!d)return true;if(d.length===11)return validarCPF(d);if(d.length===14)return validarCNPJ(d);return false;}
 // usuarios usa return=minimal: a coluna senha fica travada pra leitura via
 // API (ver sql/seguranca_senhas.sql), então "RETURNING *" implícito do
 // return=representation quebraria em QUALQUER escrita em usuarios — nenhuma
@@ -454,6 +459,8 @@ function exportarRelatorio(){if(!temPermissao('relatorios','exportar')){toast('S
 async function salvarEmpresa(){
   if(!can('admin')){toast('Sem permissão.','err');return;}
   if(!session?.empresa_id){msg('empMsg','Empresa não encontrada.','err');return;}
+  const cnpjEmp=val('empCnpj').trim();
+  if(cnpjEmp&&!validarCNPJ(cnpjEmp)){msg('empMsg','CNPJ inválido, confira os números digitados.','err');return;}
   const seg=val('empSegmento');
   try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
 }

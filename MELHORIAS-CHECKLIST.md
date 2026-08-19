@@ -1,6 +1,6 @@
 # Checklist de melhorias, auditoria de 2026-08-19
 
-**Status: todos os itens de Alto impacto corrigidos e checados sintaxe (15 arquivos, 0 erro).**
+**Status: todos os itens de Alto e Médio impacto corrigidos e checados sintaxe.**
 
 Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
 
@@ -31,10 +31,20 @@ Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
 
 ## Médio impacto
 
-- [ ] Dashboard e Financeiro buscam histórico inteiro sem filtro de data/paginação (risco de dado incompleto silencioso após ~1000 linhas)
-- [ ] CRM não lança automático no Financeiro ao fechar negócio (diferente dos outros módulos de receita)
-- [ ] Sem validação de CNPJ/CPF em nenhum formulário do sistema
-- [ ] `clientes`/`empresas` sem prova de RLS documentada (a verificar com `sql/auditoria_seguranca_vendas.sql`)
+- [x] Dashboard e Financeiro buscam histórico inteiro sem filtro de data/paginação (risco de dado incompleto silencioso após ~1000 linhas)
+  - [x] dashboard.html: filtro de 400 dias nas buscas de financeiro/vendas/material_movimentacoes/ponto (cobre a maior janela que o próprio painel usa, com folga)
+  - [x] financeiro.html: limit=5000 explícito na consulta principal, pra parar de cortar em silêncio
+  - [ ] observação: `itens_venda` não tem nenhuma coluna de data, então não dá pra aplicar o mesmo filtro nela — ficou de fora de propósito, precisa de uma coluna nova pra resolver direito
+- [x] CRM não lança automático no Financeiro ao fechar negócio (diferente dos outros módulos de receita) — corrigido, mesmo padrão do RH/Transporte, com aviso separado se o lançamento falhar
+- [x] Sem validação de CNPJ/CPF em nenhum formulário do sistema (dígito verificador real, algoritmo da Receita)
+  - [x] admin.html: CNPJ da empresa (cadastro e edição)
+  - [x] app.html: CNPJ da empresa (painel do cliente)
+  - [x] materiais.html: CNPJ do fornecedor
+  - [x] os.html: CPF/CNPJ do cliente na ordem de serviço
+  - [x] rh.html: CPF do colaborador
+  - [x] transporte.html: CPF do motorista
+  - [ ] vendas.html: tem campo de CPF do cliente, mas é a página órfã sem link de navegação — deixado de fora de propósito
+- [x] `clientes`/`empresas` sem prova de RLS documentada — checado direto na produção com `sql/auditoria_seguranca_vendas.sql`: **RLS ligado em 100% das tabelas do sistema, nenhuma exceção**, e `clientes` tem policy própria (`empresa_isolamento`, ALL). Falso alarme, sem ação necessária.
 
 ## Baixo impacto / observação
 

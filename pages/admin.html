@@ -306,6 +306,12 @@ function parseJwt(token){
   }catch(e){return null;}
 }
 
+// Validação de CPF/CNPJ (dígito verificador, algoritmo padrão da Receita) — achado da
+// auditoria de 2026-08-19: nenhum formulário do sistema validava isso antes.
+function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
+function validarCNPJ(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==14||/^(\d)\1{13}$/.test(c))return false;const calc=b=>{const p=b.length===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<b.length;i++)s+=Number(b[i])*p[i];const r=s%11;return r<2?0:11-r;};if(calc(c.slice(0,12))!==Number(c[12]))return false;return calc(c.slice(0,13))===Number(c[13]);}
+function validarCpfCnpj(v){const d=String(v||'').replace(/\D/g,'');if(!d)return true;if(d.length===11)return validarCPF(d);if(d.length===14)return validarCNPJ(d);return false;}
+
 // DB helpers
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';if(/permission denied|row-level security|RLS/i.test(m))return'Sem permissão para esta ação — sua sessão pode estar desatualizada. Saia e entre de novo e tente outra vez.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
@@ -1934,6 +1940,8 @@ function abrirModalNovaEmpresa(){
 async function salvarEmpresa(){
   const fantasia=val('empFantasia').trim();
   if(!fantasia){msgEl('empMsg','Informe o nome da empresa.','err');return;}
+  const cnpjEmp=val('empCnpj').trim();
+  if(cnpjEmp&&!validarCNPJ(cnpjEmp)){msgEl('empMsg','CNPJ inválido, confira os números digitados.','err');return;}
   const adminEmail=val('empAdminEmail').trim().toLowerCase();
   const adminSenha=val('empAdminSenha').trim();
   const adminNome=val('empAdminNome').trim();
@@ -2035,6 +2043,8 @@ async function salvarEdicaoEmpresa(){
   const id=val('editEmpId');if(!id)return;
   const plano=val('editEmpPlano');
   const status=val('editEmpStatus');
+  const cnpjEdit=val('editEmpCnpj').trim();
+  if(cnpjEdit&&!validarCNPJ(cnpjEdit)){msgEl('editEmpMsg','CNPJ inválido, confira os números digitados.','err');return;}
   try{
     await dbPatch('empresas',id,{
       fantasia:val('editEmpFantasia').trim(),razao:val('editEmpRazao').trim(),

@@ -646,7 +646,9 @@ async function init(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
-    financeiro=await db.get('financeiro',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
+    // limit explícito: sem isso, passar de 1000 lançamentos (limite padrão do PostgREST) cortava
+    // o histórico em silêncio — a consulta continuava "dando certo", só que incompleta.
+    financeiro=await db.get('financeiro',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=5000`);
     renderHero();renderStrip();renderLancamentos();renderFluxo();renderReceber();renderPagar();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
   try{
