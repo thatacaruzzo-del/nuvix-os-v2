@@ -229,6 +229,23 @@ async function deleteRow(table,id,area){
       </div>
     </div>
 
+    <!-- Modal Histórico do cliente -->
+    <div class="modal-overlay" id="modalHistoricoCliente">
+    <div class="modal" style="max-width:640px">
+      <h3>Histórico de compras — <span id="histCliNome"></span></h3>
+      <div id="histCliResumo" class="field-hint" style="margin-bottom:12px"></div>
+      <div class="tablewrap" style="max-height:400px;overflow:auto">
+        <table>
+          <thead><tr><th>Data</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="histCliTable"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn2" onclick="fecharModal('modalHistoricoCliente')">Fechar</button>
+      </div>
+    </div>
+    </div>
+
     <!-- RELATÓRIOS -->
     <div id="pg-relatorios" class="nx-page page-content">
       <div class="card">
@@ -426,16 +443,57 @@ async function loadData() {
 async function salvarCliente() {
   if(!can('comercial')){toast('Sem permissão.','err');return;}
   const nome=val('cliNome').trim();if(!nome){msg('cliMsg','Informe o nome.','err');return;}
+  const doc=val('cliDoc').trim();
+  if(doc&&!validarCpfCnpj(doc)){msg('cliMsg','CPF/CNPJ inválido, confira os números digitados.','err');return;}
   const id=val('cliId');
-  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:val('cliDoc').trim(),cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim()});
+  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim()});
   try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
 }
 function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliTitulo').textContent='Editar cliente';window.scrollTo({top:0,behavior:'smooth'});}
 function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCidade','cliSeg','cliObs'].forEach(id=>{if($(id))$(id).value=''});$('cliTitulo').textContent='Novo cliente';}
+
+// Histórico de compras do cliente — vendas feitas no Caixa com esse cliente_id, com
+// itens e forma de pagamento de cada uma. Cliente sem nenhuma venda não é erro, é normal
+// (cadastro sem compra ainda, ou compras feitas sem informar CPF na hora).
+async function abrirHistoricoCliente(clienteId,clienteNome){
+  $('histCliNome').textContent=clienteNome||'';
+  $('histCliResumo').textContent='';
+  setHTML('histCliTable','<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Carregando...</td></tr>');
+  abrirModal('modalHistoricoCliente');
+  try{
+    const vendas=await db.get('vendas',`?cliente_id=eq.${clienteId}&empresa_id=eq.${session.empresa_id}&order=created_at.desc&select=id,total,status,created_at,data_venda`);
+    if(!vendas.length){
+      setHTML('histCliTable','<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Nenhuma compra registrada ainda pra esse cliente.</td></tr>');
+      return;
+    }
+    const vendaIds=vendas.map(v=>v.id);
+    const [itens,formas]=await Promise.all([
+      db.get('itens_venda',`?venda_id=in.(${vendaIds.join(',')})&select=venda_id,produto_nome,quantidade`),
+      db.get('venda_formas_pagamento',`?venda_id=in.(${vendaIds.join(',')})&select=venda_id,forma_pagamento,parcelas`),
+    ]);
+    const totalGasto=vendas.filter(v=>v.status!=='Cancelada').reduce((a,v)=>a+Number(v.total||0),0);
+    $('histCliResumo').textContent=`${vendas.length} compra${vendas.length>1?'s':''} · total gasto: ${money(totalGasto)}`;
+    setHTML('histCliTable',vendas.map(v=>{
+      const seusItens=itens.filter(i=>i.venda_id===v.id);
+      const itensTxt=seusItens.map(i=>`${i.quantidade}x ${esc(i.produto_nome||'')}`).join(', ')||'—';
+      const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento+(f.parcelas>1?` (${f.parcelas}x)`:'')).join(' + ')||'—';
+      const cancelada=v.status==='Cancelada';
+      return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
+        <td style="font-size:12px">${fmtData(v.data_venda||v.created_at)}</td>
+        <td style="font-size:12px">${itensTxt}</td>
+        <td style="font-size:12px">${esc(suasFormas)}</td>
+        <td style="font-weight:700">${money(v.total)}</td>
+        <td>${cancelada?'<span class="badge bad">Cancelada</span>':'<span class="badge ok">Concluída</span>'}</td>
+      </tr>`;
+    }).join(''));
+  }catch(e){
+    setHTML('histCliTable',`<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">Erro ao carregar: ${esc(e.message)}</td></tr>`);
+  }
+}
 // "Veio do CRM": compara por nome com as oportunidades já Fechadas, mesmo criterio de
 // duplicidade que converterCliente() (crm.html) ja usa - sem precisar de coluna nova no banco.
 function veioDoCrm(nome){return(dados.oportunidadesFechadas||[]).some(o=>(o.empresa_nome||o.nome||'').toLowerCase()===(nome||'').toLowerCase());}
-function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));renderPaginacao('cliTable',lista.length,'renderClientes');setHTML('cliTable',paginar(lista,'cliTable').map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do Comercial →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
+function renderClientes(){const q=val('cliBusca').toLowerCase();const lista=(dados.clientes||[]).filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));renderPaginacao('cliTable',lista.length,'renderClientes');setHTML('cliTable',paginar(lista,'cliTable').map(c=>`<tr><td><b>${esc(c.nome||'')}</b>${veioDoCrm(c.nome)?`<div class="crm-origem-chip"><a href="crm.html?busca=${encodeURIComponent(c.nome||'')}">Veio do Comercial →</a></div>`:''}</td><td>${esc(c.email||'—')}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.cidade||'—')}</td><td>${esc(c.segmento||'—')}</td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="abrirHistoricoCliente('${c.id}','${esc(c.nome||'')}')" style="font-size:11px;padding:5px 8px">Histórico</button><button class="btn2" onclick="editarCliente('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button>${delBtn('clientes',c.id,'comercial')}</div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum cliente.</td></tr>');}
 
 const COLS_MODULO={financeiro:['tipo','categoria','descricao','valor','data_lancamento','vencimento','status','forma_pagamento','favorecido','centro_custo'],clientes:['nome','email','telefone','documento','cidade','segmento'],colaboradores:['nome','cargo','departamento','salario','data_admissao','tipo_contrato','cpf','telefone','email'],transporte:['data_lancamento','ppe','cliente_nome','motorista_nome','origem','destino','receita','custo','status'],servicos_orcamentos:['cliente_nome','servico_nome','quantidade','valor_unitario','valor_total','status','validade'],crm_oportunidades:['nome','empresa_nome','valor_previsto','status','proximo_contato','responsavel'],ponto:['colaborador_nome','data','entrada','saida','horas_trabalhadas','horas_extras','tipo']};
 async function gerarRelatorio(){

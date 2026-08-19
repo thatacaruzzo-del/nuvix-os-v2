@@ -262,7 +262,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <div class="field">
               <label>Cliente (opcional)</label>
               <div style="display:flex;gap:8px">
-                <input id="pdvClienteDoc" placeholder="CPF/CNPJ" style="max-width:150px" oninput="pdvClienteId=null" onblur="pdvClienteBusca=buscarClientePdv()">
+                <input id="pdvClienteDoc" placeholder="CPF/CNPJ" style="max-width:150px" oninput="pdvClienteId=null;const _d=this.value.replace(/\D/g,'');if(_d.length===11||_d.length===14){pdvClienteBusca=buscarClientePdv();}else{setHTML('pdvClienteStatus','');}" onblur="pdvClienteBusca=buscarClientePdv()">
                 <input id="pdvClienteNome" placeholder="Nome do cliente" style="flex:1">
               </div>
               <div id="pdvClienteStatus" class="field-hint"></div>
