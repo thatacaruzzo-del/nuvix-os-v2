@@ -100,6 +100,15 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <button class="btn2" onclick="exportarRelatorio()" style="padding:10px 14px" title="Exportar CSV">⬇</button>
           </div>
         </div>
+        <div class="field" id="relTipoWrap" style="display:none;max-width:220px;margin-bottom:16px">
+          <label>Tipo (só Financeiro)</label>
+          <select id="relTipo">
+            <option value="">Todos (entradas e saídas)</option>
+            <option value="Receita">Só entradas (Receita)</option>
+            <option value="Despesa">Só saídas (Despesa)</option>
+          </select>
+        </div>
+        <div id="relTotais"></div>
         <div id="relInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
         <div class="tablewrap" id="relConteudo">
           <div style="text-align:center;padding:48px;color:var(--muted)">
@@ -163,13 +172,20 @@ async function gerarRelatorio(){
   const modulo=val('relModulo');
   if(!modulo){toast('Selecione um módulo.','err');return;}
   if(modulo==='vendas'){ await gerarRelatorioVendas(); return; }
-  let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=500`;
   const de=val('relDe'), ate=val('relAte');
-  if(de) q+=`&created_at=gte.${de}`;
-  if(ate) q+=`&created_at=lte.${ate}T23:59:59`;
+  // Financeiro usa vencimento como período do relatório (mesmo campo "recomendado" da
+  // tela Financeiro) — created_at é só quando o lançamento foi digitado no sistema, não
+  // a data que ele representa, e dava relatório com data errada pra quem lançou antecipado
+  // ou atrasado.
+  const campoData = modulo==='financeiro' ? 'vencimento' : 'created_at';
+  let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=${campoData}.desc&limit=500`;
+  if(de) q+=`&${campoData}=gte.${de}`;
+  if(ate) q+=`&${campoData}=lte.${ate}${campoData==='created_at'?'T23:59:59':''}`;
+  if(modulo==='financeiro' && val('relTipo')) q+=`&tipo=eq.${val('relTipo')}`;
 
   setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Carregando...</div>');
   setHTML('relInfo','');
+  setHTML('relTotais','');
 
   try{
     _relDados = await db.get(modulo, q);
@@ -177,6 +193,7 @@ async function gerarRelatorio(){
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro encontrado.</div>');
       return;
     }
+    if(modulo==='financeiro') renderTotaisFinanceiro(_relDados);
     const cols = COLS_MODULO[modulo] || Object.keys(_relDados[0]).filter(k=>!['id','empresa_id'].includes(k));
     _relColsAtuais = cols;
     paginaRelGenerico = 1;
@@ -186,6 +203,20 @@ async function gerarRelatorio(){
     toast('Erro: '+e.message,'err');
     setHTML('relConteudo','');
   }
+}
+// Total do relatório de Financeiro — soma o que já veio filtrado por tipo (se escolhido),
+// então mostra Receita/Despesa/Saldo só quando faz sentido pro filtro aplicado.
+function renderTotaisFinanceiro(linhas){
+  const tipoFiltro=val('relTipo');
+  const totalReceita=linhas.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
+  const totalDespesa=linhas.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
+  const cards=[];
+  if(!tipoFiltro||tipoFiltro==='Receita') cards.push({lbl:'Total de entradas',val:money(totalReceita),cor:'var(--green)'});
+  if(!tipoFiltro||tipoFiltro==='Despesa') cards.push({lbl:'Total de saídas',val:money(totalDespesa),cor:'var(--red)'});
+  if(!tipoFiltro) cards.push({lbl:'Saldo do período',val:money(totalReceita-totalDespesa),cor:'var(--txt)'});
+  setHTML('relTotais',`<div style="display:grid;grid-template-columns:repeat(${cards.length},1fr);gap:12px;margin-bottom:16px">${cards.map(c=>
+    `<div class="card" style="margin:0;border-left:4px solid ${c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px;color:${c.cor}">${c.val}</div></div>`
+  ).join('')}</div>`);
 }
 // Paginado — o relatório genérico busca até 500 registros de uma vez (_relDados,
 // usado inteiro na exportação), mas só mostra 20 por vez na tela pra não rolar infinito.
@@ -392,7 +423,8 @@ function exportarRelatorio(){
 }
 
 function atualizarColunas(){
-  // Just trigger visual feedback
+  $('relTipoWrap').style.display = val('relModulo')==='financeiro' ? 'block' : 'none';
+  setHTML('relTotais','');
   setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Clique em Gerar para carregar os dados.</div>');
 }
 
@@ -420,7 +452,7 @@ function init(){
     {ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>',lbl:'Ordens de Serviço',mod:'ordens_servico',grad:'linear-gradient(150deg,#5B21B6 0%,#3B1178 100%)'},
     {ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',lbl:'Materiais',mod:'materiais',grad:'linear-gradient(150deg,#C4B5FD 0%,#D2BCFF 100%)'},
   ].map(c=>`
-    <div onclick="document.getElementById('relModulo').value='${c.mod}';gerarRelatorio()"
+    <div onclick="document.getElementById('relModulo').value='${c.mod}';atualizarColunas();gerarRelatorio()"
       style="background:${c.grad};border:none;border-radius:20px;padding:24px 20px;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;text-align:center;box-shadow:0 10px 26px rgba(83,50,148,.25);color:#fff"
       onmouseover="this.style.transform='translateY(-2px)'"
       onmouseout="this.style.transform=''">
