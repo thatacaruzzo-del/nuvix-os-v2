@@ -213,10 +213,19 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
       pis_aliquota: it.aliquota_pis ?? undefined,
       cofins_aliquota: it.aliquota_cofins ?? undefined,
       // Reforma Tributária — nomes de campo confirmados via
-      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html e testados em
-      // homologação real: rejeição "IBS/CBS não informado" sem eles.
+      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html. "IBS/CBS não
+      // informado" sem classificacao/situacao; depois "Grupo IBS/CBS não
+      // informado" mesmo com os dois — a SEFAZ parece exigir o grupo
+      // completo (base de cálculo + alíquotas), não só a classificação.
+      // Valor 0 pra empresa Simples Nacional (dispensada de calcular
+      // IBS/CBS de verdade nesta fase de transição) — confirmar se isso
+      // muda quando a Focus NFe/SEFAZ atualizarem a regra.
       ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
       ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
+      ibs_cbs_base_calculo: it.cst_ibs_cbs ? it.valor_total : undefined,
+      ibs_uf_aliquota: it.cst_ibs_cbs ? 0 : undefined,
+      ibs_mun_aliquota: it.cst_ibs_cbs ? 0 : undefined,
+      cbs_aliquota: it.cst_ibs_cbs ? 0 : undefined,
     })),
     formas_pagamento: formasPagamento.map((p) => ({
       forma_pagamento: FORMA_PAGAMENTO_SEFAZ[p.forma_pagamento] || '99',
