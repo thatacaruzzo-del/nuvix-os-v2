@@ -417,6 +417,34 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 </div>
 </div>
 
+<div class="modal-overlay" id="modalEditarPagamento">
+<div class="modal" style="max-width:480px">
+  <h3>Editar forma de pagamento</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Corrige a forma e o parcelamento de uma venda já concluída — o valor de cada forma não muda, só como foi pago. Precisa da senha de um Administrador pra salvar.</p>
+  <input type="hidden" id="editPgtoVendaId">
+  <div id="editPgtoLinhas"></div>
+  <div id="editPgtoMsg" class="msg" style="margin-top:12px"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEditarPagamento')">Cancelar</button>
+    <button class="btn" onclick="pedirAprovacaoEdicaoPagamento()">Salvar alterações</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalAprovacaoEdicaoPagto">
+<div class="modal" style="max-width:420px">
+  <h3>Confirmar edição de pagamento</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Editar o pagamento de uma venda já concluída precisa da senha de um Administrador.</p>
+  <div class="field"><label>E-mail do administrador</label><input id="editPgtoAprovEmail" placeholder="admin@empresa.com"></div>
+  <div class="field"><label>Senha</label><input id="editPgtoAprovSenha" type="password"></div>
+  <div id="editPgtoAprovMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalAprovacaoEdicaoPagto')">Cancelar</button>
+    <button class="btn" onclick="confirmarAprovacaoEdicaoPagamento()">Confirmar e salvar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
@@ -760,9 +788,10 @@ function renderPagamentos(){
           ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
         </select>
         <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);renderTotais()">
-        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1)" style="width:80px">`:''}
+        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1);renderPagamentos()" style="width:80px">`:''}
         ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
       </div>
+      ${p.forma==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:''}
       ${p.forma==='Dinheiro'?`<div style="display:flex;gap:8px;align-items:center">
         <span style="font-size:12px;color:var(--muted);flex:1">Cliente pagou com quanto? (pra calcular o troco)</span>
         <input type="text" inputmode="decimal" placeholder="Recebido" value="${p.recebido??''}" oninput="sanitizarDecimal(this);atualizarRecebido(${idx},this.value)" style="width:110px">
@@ -1222,7 +1251,7 @@ function renderHistoricoVendas(vendas,itens,formas){
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
       <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
-      <td>${cancelada?'':`<button class="btn2" style="padding:6px 12px" onclick="cancelarVenda('${v.id}')">Cancelar</button>`}</td>
+      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
@@ -1259,6 +1288,65 @@ async function cancelarVenda(vendaId){
     await carregarProdutosLoja();
     await carregarHistoricoVendas();
   }catch(e){toast('Erro ao cancelar: '+e.message,'err');}
+}
+
+// ══ EDITAR FORMA DE PAGAMENTO DE VENDA JÁ CONCLUÍDA ══
+// Só forma_pagamento e parcelas — nunca o valor, pra não desalinhar com o total já
+// lançado no Financeiro. Exige senha de Administrador porque venda_formas_pagamento é
+// livro-razão (sem policy de UPDATE pra ninguém, só pra Administrador/SuperAdmin — ver
+// sql/permite_editar_forma_pagamento_admin.sql). A gravação usa o token do próprio
+// administrador reautenticado na hora, não o do caixa que pediu a edição.
+let linhasEdicaoPagamento=[];
+async function abrirEditarPagamento(vendaId){
+  if(!temPermissao('vendas','editar')){toast('Sem permissão para editar vendas.','err');return;}
+  try{
+    linhasEdicaoPagamento=await dbGet('venda_formas_pagamento',`?venda_id=eq.${vendaId}&select=*`);
+  }catch(e){toast('Erro ao carregar pagamento: '+e.message,'err');return;}
+  if(!linhasEdicaoPagamento.length){toast('Essa venda não tem forma de pagamento registrada.','err');return;}
+  $('editPgtoVendaId').value=vendaId;
+  $('editPgtoMsg').textContent='';$('editPgtoMsg').className='msg';
+  renderLinhasEdicaoPagamento();
+  abrirModal('modalEditarPagamento');
+}
+function renderLinhasEdicaoPagamento(){
+  $('editPgtoLinhas').innerHTML=linhasEdicaoPagamento.map((p,idx)=>`
+    <div style="margin-bottom:10px;padding-bottom:10px;${idx<linhasEdicaoPagamento.length-1?'border-bottom:1px solid var(--line)':''}">
+      <div class="pgto-row">
+        <select onchange="linhasEdicaoPagamento[${idx}].forma_pagamento=this.value;renderLinhasEdicaoPagamento()">
+          ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma_pagamento===f?' selected':''}>${f}</option>`).join('')}
+        </select>
+        <span style="font-weight:700;padding:0 8px;white-space:nowrap">${money(p.valor)}</span>
+        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);renderLinhasEdicaoPagamento()" style="width:80px">`:''}
+      </div>
+      ${p.forma_pagamento==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:''}
+    </div>`).join('');
+}
+function pedirAprovacaoEdicaoPagamento(){
+  $('editPgtoAprovEmail').value='';$('editPgtoAprovSenha').value='';$('editPgtoAprovMsg').textContent='';$('editPgtoAprovMsg').className='msg';
+  abrirModal('modalAprovacaoEdicaoPagto');
+}
+async function confirmarAprovacaoEdicaoPagamento(){
+  const email=val('editPgtoAprovEmail').trim(); const senha=val('editPgtoAprovSenha');
+  if(!email||!senha){msg('editPgtoAprovMsg','Informe e-mail e senha.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const j=await r.json();
+    if(!r.ok||!j.access_token){msg('editPgtoAprovMsg','E-mail ou senha inválidos.','err');return;}
+    const usuarios=await fetch(`${SB_URL}/rest/v1/usuarios?id=eq.${j.user.id}&select=id,perfil,empresa_id`,{headers:{...H,Authorization:'Bearer '+j.access_token}}).then(x=>x.json());
+    const u=usuarios[0];
+    if(!u||u.empresa_id!==session.empresa_id||!['Administrador','SuperAdmin'].includes(u.perfil)){
+      msg('editPgtoAprovMsg','Esse usuário não tem perfil de Administrador.','err');return;
+    }
+    const headersAdmin={...H, Authorization:'Bearer '+j.access_token};
+    for(const p of linhasEdicaoPagamento){
+      const resp=await fetch(`${SB_URL}/rest/v1/venda_formas_pagamento?id=eq.${p.id}`,{method:'PATCH',headers:headersAdmin,body:JSON.stringify({forma_pagamento:p.forma_pagamento,parcelas:p.forma_pagamento==='Cartão Crédito'?(p.parcelas||1):null})});
+      if(!resp.ok) throw new Error(traduzErroGenerico(await resp.text()));
+    }
+    toast('Pagamento atualizado!','ok');
+    fecharModal('modalAprovacaoEdicaoPagto');
+    fecharModal('modalEditarPagamento');
+    await carregarHistoricoVendas();
+  }catch(e){msg('editPgtoAprovMsg','Erro: '+e.message,'err');}
 }
 
 // ══ PAINEL EXECUTIVO ══
