@@ -290,7 +290,7 @@ async function deleteRow(table,id,area){
           <div class="field"><label>E-mail</label><input id="usrEmail" type="email"></div>
           <div class="field"><label>Senha inicial</label><input id="usrSenha" type="password"></div>
           <div class="field"><label>Perfil</label>
-            <select id="usrPerfil"><option>Administrador</option><option>Gestor</option><option>Financeiro</option><option>Comercial</option><option>Operacional</option><option>RH</option><option>Técnico</option><option>Colaborador</option></select>
+            <select id="usrPerfil"><option>Administrador</option><option>Gestor</option><option>Financeiro</option><option>Comercial</option><option>Vendedor</option><option>Operacional</option><option>RH</option><option>Técnico</option><option>Colaborador</option></select>
           </div>
         </div>
         <div class="actions"><button class="btn" onclick="salvarUsuario()">Criar usuário</button></div>
@@ -485,7 +485,18 @@ async function salvarUsuario(){
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data?.error||'Erro ao criar usuário.');
-    msg('usrMsg','Usuário criado!','ok');['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});await loadData();
+    ['usrNome','usrEmail','usrSenha'].forEach(id=>{if($(id))$(id).value=''});
+    await loadData();
+    // Escolher o acesso já faz parte de criar o usuário — sem isso, ele nasce com
+    // acesso liberado a tudo (mesmo comportamento fail-open do resto do sistema)
+    // até alguém lembrar de configurar depois.
+    const novo=(dados.usuarios||[]).find(u=>(u.email||'').toLowerCase()===email);
+    if(novo){
+      msg('usrMsg','Usuário criado! Escolha o acesso dele abaixo.','ok');
+      await abrirPermissoesFuncionario(novo.id);
+    }else{
+      msg('usrMsg','Usuário criado!','ok');
+    }
   }catch(e){msg('usrMsg','Erro: '+e.message,'err');}
 }
 // Redefine a senha real (Supabase Auth) via edge function — db.patch('usuarios',{senha})
@@ -640,16 +651,22 @@ async function abrirPermissoesFuncionario(usuId){
   let permsExist=[];
   try{permsExist=await db.get('usuario_permissoes',`?usuario_id=eq.${usuId}`);}catch(e){}
   const rows=MODULOS_TODOS.filter(m=>modsLiberados.includes(m.id)||modsLiberados.length===0).map(m=>{
-    const p=permsExist.find(x=>x.modulo===m.id)||{};
+    const p=permsExist.find(x=>x.modulo===m.id);
+    const temLinha=!!p;
     const disabled=modsLiberados.length>0&&!modsLiberados.includes(m.id);
     const ehAdmin=u.perfil==='Administrador';
+    // Sem linha salva em usuario_permissoes, o acesso real já vem liberado (mesmo
+    // fail-open do temPermissao() no resto do sistema) — o checkbox tem que mostrar
+    // isso marcado, senão a tela mente que a pessoa não tem acesso quando ela tem.
+    const marcado=tipo=>disabled?false:(ehAdmin?true:(temLinha?!!p[`pode_${tipo}`]:true));
+    const chk=tipo=>`<input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="${tipo}" ${marcado(tipo)?'checked':''} ${disabled?'disabled':''}>`;
     return`<tr style="${disabled?'opacity:.4':''}">
-      <td>${esc(m.nome)}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}</td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="ver" ${p.pode_ver||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="criar" ${p.pode_criar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="editar" ${p.pode_editar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="excluir" ${p.pode_excluir||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="exportar" ${p.pode_exportar||(!disabled&&ehAdmin)?'checked':''} ${disabled?'disabled':''}></td>
+      <td>${esc(m.nome)}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}${!disabled&&!ehAdmin&&!temLinha?' <span class="badge" style="font-size:9.5px;padding:2px 7px;margin-left:4px;background:var(--amber-bg);color:var(--amber)">padrão: liberado</span>':''}</td>
+      <td>${chk('ver')}</td>
+      <td>${chk('criar')}</td>
+      <td>${chk('editar')}</td>
+      <td>${chk('excluir')}</td>
+      <td>${chk('exportar')}</td>
     </tr>`;
   });
   setHTML('permFuncTable',rows.join(''));

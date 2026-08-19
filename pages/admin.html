@@ -1198,7 +1198,7 @@ function aplicarPresetPapel(nome){
     <div class="field"><label>Perfil</label>
       <select id="usuPerfil">
         <option>Administrador</option><option>Gestor</option><option>Financeiro</option>
-        <option>Comercial</option><option>Operacional</option><option>RH</option>
+        <option>Comercial</option><option>Vendedor</option><option>Operacional</option><option>RH</option>
         <option>Técnico</option><option>Colaborador</option>
       </select>
     </div>
@@ -2226,11 +2226,26 @@ async function salvarUsuario(){
     if(Array.isArray(existente)&&existente.length>0){msgEl('usuMsg','Já existe outro usuário cadastrado com esse e-mail.','err');return;}
     const payload={nome,email,perfil:val('usuPerfil'),cargo:val('usuCargo').trim(),telefone:val('usuTel').trim(),empresa_id:val('usuEmpresa')||null,ativo:val('usuAtivo')!=='false'};
     if(senha)payload.senha=senha;
-    if(id)await dbPatch('usuarios',id,payload);
-    else await criarUsuarioComLogin(payload);
-    msgEl('usuMsg',id?'Usuário atualizado!':'Usuário criado!','ok');
-    setTimeout(()=>fecharModal('modalNovoUsu'),1500);
-    await carregarTudo();
+    if(id){
+      await dbPatch('usuarios',id,payload);
+      msgEl('usuMsg','Usuário atualizado!','ok');
+      setTimeout(()=>fecharModal('modalNovoUsu'),1500);
+      await carregarTudo();
+    }else{
+      await criarUsuarioComLogin(payload);
+      await carregarTudo();
+      // Escolher o acesso já faz parte de criar o usuário — sem isso, ele nasce com
+      // acesso liberado a tudo (mesmo comportamento fail-open do resto do sistema)
+      // até alguém lembrar de configurar depois.
+      const novo=usuarios.find(u=>(u.email||'').toLowerCase()===email);
+      fecharModal('modalNovoUsu');
+      if(novo){
+        toast('Usuário criado! Escolha o acesso dele abaixo.');
+        await abrirPermissoes(novo.id);
+      }else{
+        toast('Usuário criado!');
+      }
+    }
   }catch(e){msgEl('usuMsg','Erro: '+e.message,'err');}
 }
 
@@ -2294,16 +2309,23 @@ async function abrirPermissoes(usuId){
   permAtual=permsExist;
   // Renderizar tabela
   const rows=MODULOS_TODOS.filter(m=>!u.empresa_id||modsLiberados.includes(m.id)||modsLiberados.length===0).map(m=>{
-    const p=permsExist.find(x=>x.modulo===m.id)||{};
+    const p=permsExist.find(x=>x.modulo===m.id);
+    const temLinha=!!p;
     const disabled=u.empresa_id&&!modsLiberados.includes(m.id)&&modsLiberados.length>0;
+    const ehAdmin=u.perfil==='Administrador';
+    // Sem linha salva em usuario_permissoes, o acesso real já vem liberado (mesmo
+    // fail-open do temPermissao() no resto do sistema) — o checkbox tem que mostrar
+    // isso marcado, senão a tela mente que a pessoa não tem acesso quando ela tem.
+    const marcado=tipo=>disabled?false:(ehAdmin?true:(temLinha?!!p[`pode_${tipo}`]:true));
+    const chk=tipo=>`<input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="${tipo}" ${marcado(tipo)?'checked':''} ${disabled?'disabled':''}>`;
     const style=disabled?'opacity:.4':'';
     return`<tr style="${style}">
-      <td>${m.icone} ${m.nome}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}</td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="ver" ${p.pode_ver||(!disabled&&u.perfil==='Administrador')?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="criar" ${p.pode_criar||(!disabled&&u.perfil==='Administrador')?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="editar" ${p.pode_editar||(!disabled&&u.perfil==='Administrador')?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="excluir" ${p.pode_excluir||(!disabled&&u.perfil==='Administrador')?'checked':''} ${disabled?'disabled':''}></td>
-      <td><input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="exportar" ${p.pode_exportar||(!disabled&&u.perfil==='Administrador')?'checked':''} ${disabled?'disabled':''}></td>
+      <td>${m.icone} ${m.nome}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}${!disabled&&!ehAdmin&&!temLinha?' <span class="badge" style="font-size:9.5px;padding:2px 7px;margin-left:4px;background:var(--amber-bg);color:var(--amber)">padrão: liberado</span>':''}</td>
+      <td>${chk('ver')}</td>
+      <td>${chk('criar')}</td>
+      <td>${chk('editar')}</td>
+      <td>${chk('excluir')}</td>
+      <td>${chk('exportar')}</td>
     </tr>`;
   });
   setHTML('permTable',rows.join(''));
