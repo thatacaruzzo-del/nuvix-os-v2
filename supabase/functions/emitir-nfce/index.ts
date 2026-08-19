@@ -25,15 +25,13 @@
 // Até isso acontecer, esta função responde "fiscal_nao_configurado" de
 // propósito — é o estado esperado, não um bug.
 //
-// ATENÇÃO — Reforma Tributária (Nota Técnica 2025.002): desde 03/08/2026 a
-// SEFAZ rejeita nota sem os campos de IBS/CBS pra empresa de regime
-// regular. Os nomes internos que usamos (produtos.cclasstrib,
-// produtos.cst_ibs_cbs, notas_fiscais_nfce_itens.cclasstrib/cst_ibs_cbs)
-// ainda NÃO foram confirmados contra o payload real que a Focus NFe espera
-// — a doc pública (doc.focusnfe.com.br/reference/emitir_nfce) não detalha
-// esses campos no momento em que este código foi escrito. Antes da
-// primeira emissão de produção, conferir o nome exato do campo/grupo na
-// doc da Focus NFe e ajustar o objeto `item` dentro de montarPayload().
+// Reforma Tributária (Nota Técnica 2025.002): desde 03/08/2026 a SEFAZ
+// rejeita nota sem os campos de IBS/CBS ("Rejeição: IBS/CBS não informado")
+// — confirmado em teste real de homologação. Nomes de campo confirmados em
+// campos.focusnfe.com.br/nfe/NotaFiscalXML.html: ibs_cbs_classificacao_tributaria
+// (cClassTrib, produtos.cclasstrib) e ibs_cbs_situacao_tributaria (CST,
+// produtos.cst_ibs_cbs). Valor padrão pra venda comum sem isenção: CST '000'
+// (tributação integral) + cClassTrib '000001'.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -214,11 +212,11 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
       icms_aliquota: it.aliquota_icms ?? undefined,
       pis_aliquota: it.aliquota_pis ?? undefined,
       cofins_aliquota: it.aliquota_cofins ?? undefined,
-      // Reforma Tributária — NÃO CONFIRMADO contra a doc oficial ainda,
-      // ver aviso no topo do arquivo. Nomes de campo prováveis, a
-      // confirmar antes de emitir em produção:
-      cclasstrib: it.cclasstrib || undefined,
-      cst_ibs_cbs: it.cst_ibs_cbs || undefined,
+      // Reforma Tributária — nomes de campo confirmados via
+      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html e testados em
+      // homologação real: rejeição "IBS/CBS não informado" sem eles.
+      ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
+      ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
     })),
     formas_pagamento: formasPagamento.map((p) => ({
       forma_pagamento: FORMA_PAGAMENTO_SEFAZ[p.forma_pagamento] || '99',
