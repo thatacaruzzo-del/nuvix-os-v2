@@ -1,6 +1,6 @@
 # Checklist de melhorias, auditoria de 2026-08-19
 
-**Status: todos os itens de Alto e Médio impacto corrigidos e checados sintaxe.**
+**Status: todos os itens (Alto, Médio e Baixo impacto) corrigidos.**
 
 Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
 
@@ -43,11 +43,11 @@ Baseado na auditoria completa do sistema. Ordenado por impacto real pro cliente.
   - [x] os.html: CPF/CNPJ do cliente na ordem de serviço
   - [x] rh.html: CPF do colaborador
   - [x] transporte.html: CPF do motorista
-  - [ ] vendas.html: tem campo de CPF do cliente, mas é a página órfã sem link de navegação — deixado de fora de propósito
+  - [x] vendas.html: removida do projeto (ver item de código órfão abaixo), então o campo de CPF dela deixou de existir
 - [x] `clientes`/`empresas` sem prova de RLS documentada — checado direto na produção com `sql/auditoria_seguranca_vendas.sql`: **RLS ligado em 100% das tabelas do sistema, nenhuma exceção**, e `clientes` tem policy própria (`empresa_isolamento`, ALL). Falso alarme, sem ação necessária.
 
 ## Baixo impacto / observação
 
 - [x] `tecnico.html` e `admin.html` não seguem 100% o padrão visual de `css/nuvix.css` — as duas telas tinham paleta de cor e fonte (Inter) próprias, diferentes do resto do sistema. Corrigido: tokens de cor alinhados ao `css/nuvix.css` (`--bg`, `--txt`, `--muted`, `--line`, `--p-light`, cores semânticas) e fonte trocada pra Hanken Grotesk. **Vale dar uma olhada visual rápida antes de considerar 100% fechado, já que não dá pra tirar print neste ambiente.**
 - [x] Pares de tabela quase-duplicada no schema — 7 tabelas mortas vazias apagadas direto da produção; 2 com dado de teste antigo (categorias_produtos, servicos_materiais) renomeadas pra `_arquivado_*` em vez de apagadas, por segurança. `vendas_legado` e `produtos_orfaos_pre_2026_08` mantidas de propósito (parecem arquivo intencional). `sql/limpeza_tabelas_mortas_2026_08_19.sql`
-- [ ] `pages/vendas.html` é código órfão, sem link de navegação — decidir se reaproveita ou remove
+- [x] `pages/vendas.html` era código órfão E incompatível com o Caixa real (usava tabela `materiais` em vez de `produtos`/`estoque_por_loja`, sem sessão de caixa, com tabela própria `locais_venda` em vez de `lojas`) — removida do projeto. O Caixa já cobre o mesmo Painel Executivo (curva ABC, margem, giro).
