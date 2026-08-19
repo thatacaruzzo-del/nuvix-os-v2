@@ -202,7 +202,7 @@ async function deleteRow(table,id,area){
           <div class="field" style="grid-column:1/-1"><label>Nome / Razão social</label><input id="cliNome" placeholder="Nome do cliente"></div>
           <div class="field"><label>E-mail</label><input id="cliEmail" type="email"></div>
           <div class="field"><label>Telefone / WhatsApp</label><input id="cliTel" placeholder="(11) 99999-9999"></div>
-          <div class="field"><label>CNPJ / CPF</label><input id="cliDoc"></div>
+          <div class="field"><label>CNPJ / CPF <span style="color:var(--p)">*</span></label><input id="cliDoc" placeholder="Obrigatório"></div>
           <div class="field"><label>Cidade / UF</label><input id="cliCidade"></div>
           <div class="field"><label>Segmento</label><input id="cliSeg" placeholder="Ex: Varejo, Logística..."></div>
           <div class="field"><label>Observação</label><input id="cliObs"></div>
@@ -444,7 +444,8 @@ async function salvarCliente() {
   if(!can('comercial')){toast('Sem permissão.','err');return;}
   const nome=val('cliNome').trim();if(!nome){msg('cliMsg','Informe o nome.','err');return;}
   const doc=val('cliDoc').trim();
-  if(doc&&!validarCpfCnpj(doc)){msg('cliMsg','CPF/CNPJ inválido, confira os números digitados.','err');return;}
+  if(!doc){msg('cliMsg','Informe o CPF/CNPJ — é obrigatório pro cadastro.','err');return;}
+  if(!validarCpfCnpj(doc)){msg('cliMsg','CPF/CNPJ inválido, confira os números digitados.','err');return;}
   const id=val('cliId');
   if(doc){
     const q=id?`?documento=eq.${encodeURIComponent(doc)}&empresa_id=eq.${session.empresa_id}&id=neq.${id}&select=nome&limit=1`:`?documento=eq.${encodeURIComponent(doc)}&empresa_id=eq.${session.empresa_id}&select=nome&limit=1`;
