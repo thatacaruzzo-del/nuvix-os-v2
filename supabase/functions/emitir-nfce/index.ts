@@ -146,7 +146,7 @@ async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData
     link_xml: focusData?.caminho_xml_nota_fiscal ? `${base}${focusData.caminho_xml_nota_fiscal}` : null,
     mensagem_erro:
       focusData?.status === 'erro_autorizacao'
-        ? focusData?.erros?.[0]?.mensagem || 'Erro na autorização da nota.'
+        ? focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
         : null,
     data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
     if (!r.ok) {
       await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
         status: 'erro',
-        mensagem_erro: focusData?.mensagem || focusData?.erros?.[0]?.mensagem || 'Erro desconhecido na Focus NFe.',
+        mensagem_erro: focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
         updated_at: new Date().toISOString(),
       });
       return json({ ok: false, erro: focusData }, 422);

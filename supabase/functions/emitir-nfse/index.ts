@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
       await sbPatch('notas_fiscais', nota_fiscal_id, {
         status: 'erro',
         mensagem_erro:
-          focusData?.mensagem || focusData?.erros?.[0]?.mensagem || 'Erro desconhecido na Focus NFe.',
+          focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
         updated_at: new Date().toISOString(),
       });
       return json({ ok: false, erro: focusData }, 422);
