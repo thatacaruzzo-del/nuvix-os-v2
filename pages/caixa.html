@@ -737,8 +737,11 @@ function renderTotais(){
   }else{ $('descAprovacaoHint').textContent=''; }
   // Com uma única forma de pagamento (o caso comum), mantém o valor sempre igual ao
   // total — só passa a exigir alocação manual quando o caixa dividir em mais de uma.
-  if(pagamentos.length===1){ pagamentos[0].valor=total; renderPagamentos(); }
-  else{ renderPagamentosRestante(total); }
+  if(pagamentos.length===1){ pagamentos[0].valor=total; }
+  // Sempre redesenha a linha, não só quando tem 1 forma — senão trocar pra "Cartão
+  // Crédito" com pagamento dividido não mostra o campo de parcelas (achado testando
+  // com cliente real querendo parcelar).
+  renderPagamentos();
 }
 
 // ══ PAGAMENTO (dividido em várias formas) ══
