@@ -404,12 +404,13 @@ const MODULOS_PLANO={
 // app.html, pra ficar consistente entre o painel do cliente e o painel Nuvix.
 const PRESETS_PAPEL={
   'Vendedor/Caixa':{
-    resumo:'Caixa e vendas. Vê produtos só pra consultar — sem editar preço ou custo.',
+    resumo:'Caixa e vendas. Vê produtos e estoque só pra consultar — sem editar preço ou custo.',
     modulos:{
       dashboard:{ver:1},
       caixa:{ver:1,criar:1,editar:1},
       vendas:{ver:1,criar:1},
       produtos:{ver:1},
+      estoque:{ver:1},
       folha_ponto:{ver:1,criar:1},
     },
   },
