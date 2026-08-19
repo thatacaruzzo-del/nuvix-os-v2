@@ -446,6 +446,11 @@ async function salvarCliente() {
   const doc=val('cliDoc').trim();
   if(doc&&!validarCpfCnpj(doc)){msg('cliMsg','CPF/CNPJ inválido, confira os números digitados.','err');return;}
   const id=val('cliId');
+  if(doc){
+    const q=id?`?documento=eq.${encodeURIComponent(doc)}&empresa_id=eq.${session.empresa_id}&id=neq.${id}&select=nome&limit=1`:`?documento=eq.${encodeURIComponent(doc)}&empresa_id=eq.${session.empresa_id}&select=nome&limit=1`;
+    const existente=await db.get('clientes',q).catch(()=>[]);
+    if(Array.isArray(existente)&&existente.length>0){msg('cliMsg',`Já existe um cliente cadastrado com esse CPF/CNPJ: ${existente[0].nome||'sem nome'}.`,'err');return;}
+  }
   const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim()});
   try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
 }
