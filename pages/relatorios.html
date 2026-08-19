@@ -89,25 +89,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div class="field" style="margin:0">
             <label>Data início</label>
-            <input type="date" id="relDe">
+            <input type="date" id="relDe" onchange="if(val('relModulo'))gerarRelatorio()">
           </div>
           <div class="field" style="margin:0">
             <label>Data fim</label>
-            <input type="date" id="relAte">
+            <input type="date" id="relAte" onchange="if(val('relModulo'))gerarRelatorio()">
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn" onclick="gerarRelatorio()" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Gerar</button>
             <button class="btn2" onclick="exportarRelatorio()" style="padding:10px 14px" title="Exportar CSV">⬇</button>
           </div>
         </div>
-        <div class="field" id="relTipoWrap" style="display:none;max-width:220px;margin-bottom:16px">
-          <label>Tipo (só Financeiro)</label>
-          <select id="relTipo">
-            <option value="">Todos (entradas e saídas)</option>
-            <option value="Receita">Só entradas (Receita)</option>
-            <option value="Despesa">Só saídas (Despesa)</option>
-          </select>
-        </div>
+        <div id="relFiltrosExtra" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
         <div id="relTotais"></div>
         <div id="relInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
         <div class="tablewrap" id="relConteudo">
@@ -168,6 +161,54 @@ function fmtVal(k, v){
   return esc(String(v));
 }
 
+// Filtros extras por módulo — além de data, cada módulo tem os campos que realmente fazem
+// sentido pra ele (mesmos valores reais usados nos formulários de cadastro de cada tela,
+// não inventados). campo=coluna no banco; opcoes=valores exatos aceitos.
+const FILTROS_MODULO = {
+  financeiro: [
+    {campo:'tipo', label:'Tipo', opcoes:['Receita','Despesa'], todos:'Todos (entradas e saídas)'},
+    {campo:'status', label:'Status', opcoes:['Pendente','Pago','Recebido'], todos:'Todos os status'},
+  ],
+  colaboradores: [
+    {campo:'tipo_contrato', label:'Contrato', opcoes:['CLT','PJ','Temporário','Estágio','Autônomo'], todos:'Todos os contratos'},
+    {campo:'ativo', label:'Situação', opcoes:[{v:'true',l:'Ativo'},{v:'false',l:'Inativo'}], todos:'Ativos e inativos'},
+  ],
+  transporte: [
+    {campo:'status', label:'Status', opcoes:['No prazo','Em trânsito','Atrasado','Ocorrência','Entregue','Entregue com atraso'], todos:'Todos os status'},
+  ],
+  materiais: [
+    {campo:'status', label:'Status', opcoes:['Ativo','Inativo'], todos:'Ativos e inativos'},
+  ],
+  ordens_servico: [
+    {campo:'status', label:'Status', opcoes:['Aberta','Agendada','Em deslocamento','Em atendimento','Aguardando material','Pausada','Concluída','Cancelada'], todos:'Todos os status'},
+    {campo:'prioridade', label:'Prioridade', opcoes:['Normal','Baixa','Alta','Urgente'], todos:'Todas as prioridades'},
+  ],
+  servicos_orcamentos: [
+    {campo:'status', label:'Status', opcoes:['Rascunho','Enviado','Aprovado','Em execução','Finalizado','Recusado'], todos:'Todos os status'},
+  ],
+  crm_oportunidades: [
+    {campo:'status', label:'Status', opcoes:['Novo','Contato feito','Proposta enviada','Negociando','Fechado','Perdido'], todos:'Todos os status'},
+  ],
+};
+// Coluna de valor pra somar no total, quando o módulo tem uma.
+const VALOR_COL_MODULO = {
+  financeiro:'valor', ordens_servico:'valor_total', servicos_orcamentos:'valor_total',
+  crm_oportunidades:'valor_previsto', transporte:'receita',
+};
+
+function renderFiltrosExtra(){
+  const modulo=val('relModulo');
+  const filtros=FILTROS_MODULO[modulo]||[];
+  setHTML('relFiltrosExtra', filtros.map(f=>`
+    <div class="field" style="margin:0;max-width:200px">
+      <label>${esc(f.label)}</label>
+      <select id="filtro_${f.campo}" onchange="gerarRelatorio()">
+        <option value="">${esc(f.todos)}</option>
+        ${f.opcoes.map(o=>typeof o==='string'?`<option value="${esc(o)}">${esc(o)}</option>`:`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('')}
+      </select>
+    </div>`).join(''));
+}
+
 async function gerarRelatorio(){
   const modulo=val('relModulo');
   if(!modulo){toast('Selecione um módulo.','err');return;}
@@ -181,7 +222,10 @@ async function gerarRelatorio(){
   let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=${campoData}.desc&limit=500`;
   if(de) q+=`&${campoData}=gte.${de}`;
   if(ate) q+=`&${campoData}=lte.${ate}${campoData==='created_at'?'T23:59:59':''}`;
-  if(modulo==='financeiro' && val('relTipo')) q+=`&tipo=eq.${val('relTipo')}`;
+  (FILTROS_MODULO[modulo]||[]).forEach(f=>{
+    const v=val('filtro_'+f.campo);
+    if(v) q+=`&${f.campo}=eq.${encodeURIComponent(v)}`;
+  });
 
   setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Carregando...</div>');
   setHTML('relInfo','');
@@ -194,6 +238,7 @@ async function gerarRelatorio(){
       return;
     }
     if(modulo==='financeiro') renderTotaisFinanceiro(_relDados);
+    else if(VALOR_COL_MODULO[modulo]) renderTotalGenerico(_relDados, VALOR_COL_MODULO[modulo]);
     const cols = COLS_MODULO[modulo] || Object.keys(_relDados[0]).filter(k=>!['id','empresa_id'].includes(k));
     _relColsAtuais = cols;
     paginaRelGenerico = 1;
@@ -207,7 +252,7 @@ async function gerarRelatorio(){
 // Total do relatório de Financeiro — soma o que já veio filtrado por tipo (se escolhido),
 // então mostra Receita/Despesa/Saldo só quando faz sentido pro filtro aplicado.
 function renderTotaisFinanceiro(linhas){
-  const tipoFiltro=val('relTipo');
+  const tipoFiltro=val('filtro_tipo');
   const totalReceita=linhas.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
   const totalDespesa=linhas.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
   const cards=[];
@@ -217,6 +262,14 @@ function renderTotaisFinanceiro(linhas){
   setHTML('relTotais',`<div style="display:grid;grid-template-columns:repeat(${cards.length},1fr);gap:12px;margin-bottom:16px">${cards.map(c=>
     `<div class="card" style="margin:0;border-left:4px solid ${c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px;color:${c.cor}">${c.val}</div></div>`
   ).join('')}</div>`);
+}
+// Total genérico — módulos com uma coluna de valor clara (OS, orçamento, comercial,
+// transporte) ganham um card de soma, sem precisar da lógica de entrada/saída do Financeiro.
+function renderTotalGenerico(linhas, coluna){
+  const total=linhas.reduce((a,r)=>a+Number(r[coluna]||0),0);
+  setHTML('relTotais',`<div style="display:grid;grid-template-columns:1fr;max-width:260px;gap:12px;margin-bottom:16px">
+    <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Total do período</div><div class="metric-value" style="font-size:20px">${money(total)}</div></div>
+  </div>`);
 }
 // Paginado — o relatório genérico busca até 500 registros de uma vez (_relDados,
 // usado inteiro na exportação), mas só mostra 20 por vez na tela pra não rolar infinito.
@@ -423,7 +476,7 @@ function exportarRelatorio(){
 }
 
 function atualizarColunas(){
-  $('relTipoWrap').style.display = val('relModulo')==='financeiro' ? 'block' : 'none';
+  renderFiltrosExtra();
   setHTML('relTotais','');
   setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Clique em Gerar para carregar os dados.</div>');
 }
