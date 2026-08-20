@@ -1256,7 +1256,12 @@ function renderHistoricoVendas(vendas,itens,formas){
   itens.forEach(i=>{
     const venda=vendas.find(v=>v.id===i.venda_id);
     if(!venda||venda.status==='Cancelada')return;
-    const val=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    // Desconta proporcionalmente o desconto da venda — mesmo ajuste do Painel, senão
+    // uma venda com desconto (ou 100% grátis) inflava esse resumo.
+    const bruto=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    const subtotal=Number(venda.subtotal||0);
+    const fator=subtotal>0?Number(venda.total||0)/subtotal:1;
+    const val=bruto*fator;
     if(i.is_consignado)fatConsignado+=val; else fatProprio+=val;
   });
   setHTML('histResumoConsignado',(fatProprio+fatConsignado)>0?`<div class="field-hint" style="margin-bottom:10px">Faturamento do dia — próprio: <b style="color:var(--txt)">${money(fatProprio)}</b> · consignado: <b style="color:var(--txt)">${money(fatConsignado)}</b></div>`:'');
@@ -1446,8 +1451,20 @@ async function buscarVendasCompletas(de,ate){
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
   return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
 }
+// Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
+// na venda inteira (venda.total/venda.subtotal). Sem isso, "Faturamento" contava o
+// preço cheio de cada item mesmo em venda com desconto, inclusive uma 100% grátis
+// (brinde), que entrava como se tivesse faturado o valor cheio do produto.
+function valorLiquidoLinha(l){
+  const bruto=Number(l.quantidade||0)*Number(l.valor_unitario||0);
+  const v=l.total_venda;
+  if(!v)return bruto;
+  const subtotal=Number(v.subtotal||0);
+  const fator=subtotal>0?Number(v.total||0)/subtotal:1;
+  return bruto*fator;
+}
 function totaisVendas(linhas){
-  const faturamento=linhas.reduce((a,l)=>a+Number(l.quantidade||0)*Number(l.valor_unitario||0),0);
+  const faturamento=linhas.reduce((a,l)=>a+valorLiquidoLinha(l),0);
   const vendaIds=new Set(linhas.map(l=>l.venda_id));
   return {faturamento,numVendas:vendaIds.size};
 }
@@ -1457,7 +1474,7 @@ function renderVendasPorLojaPainel(linhas){
   linhas.forEach(l=>{
     const k=l.loja_id||'—';
     if(!porLoja[k])porLoja[k]={nome:nomeLoja(l.loja_id)||'Não informada',faturamento:0,vendaIds:new Set()};
-    porLoja[k].faturamento+=Number(l.quantidade||0)*Number(l.valor_unitario||0);
+    porLoja[k].faturamento+=valorLiquidoLinha(l);
     porLoja[k].vendaIds.add(l.venda_id);
   });
   const linhasLoja=Object.values(porLoja).sort((a,b)=>b.faturamento-a.faturamento);
@@ -1495,7 +1512,7 @@ async function carregarPainel(){
     const k=l.produto_id||l.produto_nome;
     if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0,is_consignado:false};
     const qtd=Number(l.quantidade||0);
-    const valLinha=qtd*Number(l.valor_unitario||0);
+    const valLinha=valorLiquidoLinha(l);
     porProduto[k].qtd+=qtd;
     porProduto[k].faturamento+=valLinha;
     porProduto[k].custo+=qtd*Number(l.custo_unitario_snapshot||0);
@@ -1551,7 +1568,7 @@ function renderEvolucao(linhas,de,ate){
   }
   linhas.forEach(l=>{
     const k=chaveBucket(String(l.total_venda?.created_at||'').slice(0,10));
-    buckets[k]=(buckets[k]||0)+Number(l.quantidade||0)*Number(l.valor_unitario||0);
+    buckets[k]=(buckets[k]||0)+valorLiquidoLinha(l);
   });
   const chaves=Object.keys(buckets).filter(k=>k).sort();
   const ctx=$('chartEvolucao');
