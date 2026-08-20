@@ -214,14 +214,19 @@ async function gerarRelatorio(){
   if(!modulo){toast('Selecione um módulo.','err');return;}
   if(modulo==='vendas'){ await gerarRelatorioVendas(); return; }
   const de=val('relDe'), ate=val('relAte');
-  // Financeiro usa vencimento como período do relatório (mesmo campo "recomendado" da
-  // tela Financeiro) — created_at é só quando o lançamento foi digitado no sistema, não
-  // a data que ele representa, e dava relatório com data errada pra quem lançou antecipado
-  // ou atrasado.
-  const campoData = modulo==='financeiro' ? 'vencimento' : 'created_at';
-  let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=${campoData}.desc&limit=500`;
-  if(de) q+=`&${campoData}=gte.${de}`;
-  if(ate) q+=`&${campoData}=lte.${ate}${campoData==='created_at'?'T23:59:59':''}`;
+  const ehFinanceiro = modulo==='financeiro';
+  // Financeiro usa vencimento como período do relatório, com data_lancamento como
+  // reserva quando não tem vencimento — mesma regra de fallback já usada na tela
+  // Financeiro. Achado real: boa parte dos lançamentos não tem vencimento preenchido —
+  // filtrando só por vencimento no banco, esses lançamentos sumiam do relatório sempre,
+  // não importa qual período fosse escolhido. Por isso busca tudo (sem filtro de data na
+  // consulta) e filtra depois, já aplicando o fallback — não dá pra fazer isso só com
+  // query string simples no banco.
+  let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=${ehFinanceiro?'vencimento':'created_at'}.desc&limit=${ehFinanceiro?5000:500}`;
+  if(!ehFinanceiro){
+    if(de) q+=`&created_at=gte.${de}`;
+    if(ate) q+=`&created_at=lte.${ate}T23:59:59`;
+  }
   (FILTROS_MODULO[modulo]||[]).forEach(f=>{
     const v=val('filtro_'+f.campo);
     if(v) q+=`&${f.campo}=eq.${encodeURIComponent(v)}`;
@@ -232,7 +237,17 @@ async function gerarRelatorio(){
   setHTML('relTotais','');
 
   try{
-    _relDados = await db.get(modulo, q);
+    let dados=await db.get(modulo, q);
+    if(ehFinanceiro && (de||ate)){
+      dados=dados.filter(f=>{
+        const campo=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+        if(!campo)return false;
+        if(de&&campo<de)return false;
+        if(ate&&campo>ate)return false;
+        return true;
+      });
+    }
+    _relDados = dados;
     if(!_relDados.length){
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro encontrado.</div>');
       return;
