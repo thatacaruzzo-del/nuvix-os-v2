@@ -353,12 +353,19 @@ function renderRelatorioVendas(){
   const formasOrdenadas=Object.entries(porForma).sort((a,b)=>b[1]-a[1]);
   const CORES_FORMA={'Dinheiro':'#059669','Pix':'#0EA5E9','Cartão Débito':'#8171E8','Cartão Crédito':'#F59E0B'};
 
+  const vendaPorIdRel={}; vendas.forEach(v=>{vendaPorIdRel[v.id]=v;});
   const porProduto={};
   itens.forEach(i=>{
     const nome=i.produto_nome||'—';
     if(!porProduto[nome]) porProduto[nome]={qtd:0,faturamento:0};
     porProduto[nome].qtd+=Number(i.quantidade||0);
-    porProduto[nome].faturamento+=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    // Desconta proporcionalmente o desconto da venda — senão um item com desconto (ou
+    // 100% grátis) entrava no "Por produto" como se tivesse faturado o valor cheio.
+    const venda=vendaPorIdRel[i.venda_id];
+    const bruto=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    const subtotalVd=Number(venda?.subtotal||0);
+    const fator=venda&&subtotalVd>0?Number(venda.total||0)/subtotalVd:1;
+    porProduto[nome].faturamento+=bruto*fator;
   });
   const produtosOrdenados=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento);
 

@@ -834,14 +834,22 @@ function renderVendas(){
     {ico:icoClock,cls:'a',lbl:'Ticket médio',val:v.ticketMedio?money(v.ticketMedio):'—',sub:'no período'},
   ]));
 
-  const idsNoPeriodo=new Set((dados.vendas||[]).filter(vd=>{const dt=String(vd.created_at||'').slice(0,10);return dt>=de&&dt<=ate;}).map(vd=>vd.id));
+  const vendasNoPeriodo=(dados.vendas||[]).filter(vd=>{const dt=String(vd.created_at||'').slice(0,10);return dt>=de&&dt<=ate;});
+  const idsNoPeriodo=new Set(vendasNoPeriodo.map(vd=>vd.id));
+  const vendaPorIdProd={}; vendasNoPeriodo.forEach(vd=>{vendaPorIdProd[vd.id]=vd;});
   const porProduto={};
   (dados.itensVenda||[]).forEach(i=>{
     if(!idsNoPeriodo.has(i.venda_id))return;
     const nome=i.produto_nome||'Sem nome';
     if(!porProduto[nome])porProduto[nome]={qtd:0,faturamento:0};
     porProduto[nome].qtd+=Number(i.quantidade||0);
-    porProduto[nome].faturamento+=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    // Desconta proporcionalmente o desconto da venda — senão um item com desconto (ou
+    // 100% grátis) entrava no ranking como se tivesse faturado o valor cheio.
+    const venda=vendaPorIdProd[i.venda_id];
+    const bruto=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    const subtotalVd=Number(venda?.subtotal||0);
+    const fator=venda&&subtotalVd>0?Number(venda.total||0)/subtotalVd:1;
+    porProduto[nome].faturamento+=bruto*fator;
   });
   const topProdutos=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento).slice(0,5);
   setHTML('topProdutosVenda', topProdutos.length ? topProdutos.map(([nome,d],i)=>`<div class="top-row"><span class="top-num">${i+1}</span>${avatarHTML(nome)}<span class="top-name">${esc(nome)}</span><span class="top-val">${money(d.faturamento)}</span></div>`).join('')
