@@ -381,33 +381,37 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
 
       <!-- ══ FORNECEDORES ══ -->
       <div id="pane-fornecedores" class="mat-pane">
-        <div class="grid-2" style="display:grid;gap:16px;margin-bottom:16px">
-          <div class="card">
-            <h2 id="fornTitulo">Novo fornecedor</h2>
-            <input type="hidden" id="fornId">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="field" style="grid-column:1/-1"><label>Nome *</label><input id="fornNome" placeholder="Nome do fornecedor"></div>
-              <div class="field"><label>CNPJ</label><input id="fornCnpj" placeholder="00.000.000/0000-00"></div>
-              <div class="field"><label>Telefone</label><input id="fornTel" placeholder="(11) 99999-9999"></div>
-              <div class="field"><label>E-mail</label><input type="email" id="fornEmail"></div>
-              <div class="field"><label>Contato (nome)</label><input id="fornContato" placeholder="Nome do responsável"></div>
-              <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="fornObs"></div>
-            </div>
-            <div class="actions">
-              <button class="btn" onclick="salvarFornecedor()">Salvar fornecedor</button>
-              <button class="btn2" onclick="limparFornecedor()">Limpar</button>
-            </div>
-            <div id="fornMsg" class="msg"></div>
+        <div class="card" style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn" onclick="abrirNovoFornecedor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo fornecedor</button>
+        </div>
+
+        <div class="modal-overlay" id="modalFornecedor">
+        <div class="modal">
+          <h3 id="fornTitulo">Novo fornecedor</h3>
+          <input type="hidden" id="fornId">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field" style="grid-column:1/-1"><label>Nome *</label><input id="fornNome" placeholder="Nome do fornecedor"></div>
+            <div class="field"><label>CNPJ</label><input id="fornCnpj" placeholder="00.000.000/0000-00"></div>
+            <div class="field"><label>Telefone</label><input id="fornTel" placeholder="(11) 99999-9999"></div>
+            <div class="field"><label>E-mail</label><input type="email" id="fornEmail"></div>
+            <div class="field"><label>Contato (nome)</label><input id="fornContato" placeholder="Nome do responsável"></div>
+            <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="fornObs"></div>
           </div>
-          <div class="card">
-            <h2>Fornecedores cadastrados</h2>
-            <div class="tablewrap">
-              <table>
-                <thead><tr><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Contato</th><th>Status</th><th>Ação</th></tr></thead>
-                <tbody id="fornTable"></tbody>
-              </table>
-              <div id="fornTablePaginacao"></div>
-            </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="salvarFornecedor()">Salvar fornecedor</button>
+            <button class="btn2" onclick="fecharModal('modalFornecedor')">Cancelar</button>
+          </div>
+          <div id="fornMsg" class="msg"></div>
+        </div>
+        </div>
+        <div class="card">
+          <h2>Fornecedores cadastrados</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Contato</th><th>Status</th><th>Ação</th></tr></thead>
+              <tbody id="fornTable"></tbody>
+            </table>
+            <div id="fornTablePaginacao"></div>
           </div>
         </div>
       </div>
@@ -1210,7 +1214,7 @@ async function salvarFornecedor(){
   try{
     if(id)await dbPatch('material_fornecedores',id,payload);
     else await dbPost('material_fornecedores',payload);
-    msg('fornMsg',id?'Atualizado!':'Fornecedor salvo!','ok');limparFornecedor();await carregarTudo();
+    msg('fornMsg',id?'Atualizado!':'Fornecedor salvo!','ok');limparFornecedor();fecharModal('modalFornecedor');await carregarTudo();
   }catch(e){msg('fornMsg','Erro: '+e.message,'err');}
 }
 function editarFornecedor(id){
@@ -1218,8 +1222,9 @@ function editarFornecedor(id){
   $('fornId').value=f.id;$('fornNome').value=f.nome||'';$('fornCnpj').value=f.cnpj||'';
   $('fornTel').value=f.telefone||'';$('fornEmail').value=f.email||'';
   $('fornContato').value=f.contato||'';$('fornObs').value=f.observacao||'';
-  $('fornTitulo').textContent='Editar fornecedor';window.scrollTo({top:0,behavior:'smooth'});
+  $('fornTitulo').textContent='Editar fornecedor';abrirModal('modalFornecedor');
 }
+function abrirNovoFornecedor(){limparFornecedor();abrirModal('modalFornecedor');}
 async function toggleFornecedor(id,ativar){
   try{await dbPatch('material_fornecedores',id,{ativo:ativar});toast(ativar?'Fornecedor ativado.':'Fornecedor inativado.');await carregarTudo();}
   catch(e){toast('Erro: '+e.message,'err');}

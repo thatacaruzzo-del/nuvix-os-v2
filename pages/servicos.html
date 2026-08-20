@@ -36,6 +36,15 @@
 .hero-recorrencia-bar-track{height:7px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden}
 .hero-recorrencia-bar-track>div{height:100%;background:#fff;border-radius:99px;transition:width .5s ease}
 .hero-recorrencia-desc{font-size:12px;opacity:.9;line-height:1.5}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal.modal-wide{max-width:920px}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions button{flex:1}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -44,6 +53,9 @@
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
@@ -158,28 +170,34 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="card">
-            <h2 id="catTitulo">Novo serviço</h2>
-            <input type="hidden" id="catId">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="field" style="grid-column:1/-1"><label>Nome do serviço</label><input id="catNome" placeholder="Ex: Manutenção preventiva"></div>
-              <div class="field"><label>Categoria</label><input id="catCategoria" placeholder="Ex: Técnica..."></div>
-              <div class="field"><label>Valor base</label><input id="catValor" type="number" step="0.01" placeholder="0,00"></div>
-              <div class="field"><label>Custo estimado</label><input id="catCusto" type="number" step="0.01" placeholder="0,00"></div>
-              <div class="field"><label>Tempo estimado</label><input id="catTempo" placeholder="Ex: 2h, 1 dia..."></div>
-              <div class="field"><label>Recorrente?</label><select id="catRecorrente"><option value="false">Não</option><option value="true">Sim</option></select></div>
-              <div class="field"><label>Status</label><select id="catAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-            </div>
-            <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="catDesc" rows="3" style="resize:vertical" placeholder="Descreva o serviço..."></textarea></div>
-            <div class="actions">
-              <button class="btn" onclick="salvarCatalogo()">Salvar serviço</button>
-              <button class="btn2" onclick="limparCatalogo()">Limpar</button>
-            </div>
-            <div id="catMsg" class="msg"></div>
-          </div>
-          <div class="card">
             <h2>Como usar</h2>
             <p class="muted" style="line-height:1.7"><b>1.</b> Cadastre os serviços que sua empresa oferece.<br><br><b>2.</b> Na aba <b>Orçamentos</b>, selecione cliente + serviço para criar uma proposta.<br><br><b>3.</b> Quando aprovado, a receita vai automaticamente para o Financeiro.<br><br><b>4.</b> Acompanhe o SLA em tempo real na aba <b>Em execução</b>.</p>
           </div>
+          <div class="card" style="display:flex;align-items:center;justify-content:center">
+            <button class="btn" onclick="abrirNovoCatalogo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo serviço</button>
+          </div>
+        </div>
+
+        <div class="modal-overlay" id="modalCatalogo">
+        <div class="modal">
+          <h3 id="catTitulo">Novo serviço</h3>
+          <input type="hidden" id="catId">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field" style="grid-column:1/-1"><label>Nome do serviço</label><input id="catNome" placeholder="Ex: Manutenção preventiva"></div>
+            <div class="field"><label>Categoria</label><input id="catCategoria" placeholder="Ex: Técnica..."></div>
+            <div class="field"><label>Valor base</label><input id="catValor" type="number" step="0.01" placeholder="0,00"></div>
+            <div class="field"><label>Custo estimado</label><input id="catCusto" type="number" step="0.01" placeholder="0,00"></div>
+            <div class="field"><label>Tempo estimado</label><input id="catTempo" placeholder="Ex: 2h, 1 dia..."></div>
+            <div class="field"><label>Recorrente?</label><select id="catRecorrente"><option value="false">Não</option><option value="true">Sim</option></select></div>
+            <div class="field"><label>Status</label><select id="catAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+          </div>
+          <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="catDesc" rows="3" style="resize:vertical" placeholder="Descreva o serviço..."></textarea></div>
+          <div class="modal-actions">
+            <button class="btn" onclick="salvarCatalogo()">Salvar serviço</button>
+            <button class="btn2" onclick="fecharModal('modalCatalogo')">Cancelar</button>
+          </div>
+          <div id="catMsg" class="msg"></div>
+        </div>
         </div>
         <div class="card" style="margin-top:4px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -191,8 +209,13 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       </div>
       <!-- ORÇAMENTOS -->
       <div id="pane-orcamentos" class="svc-pane">
-        <div class="card">
-          <h2 id="orcTitulo">Novo orçamento</h2>
+        <div class="card" style="display:flex;justify-content:flex-end">
+          <button class="btn" onclick="abrirNovoOrcamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo orçamento</button>
+        </div>
+
+        <div class="modal-overlay" id="modalOrcamento">
+        <div class="modal modal-wide">
+          <h3 id="orcTitulo">Novo orçamento</h3>
           <input type="hidden" id="orcId">
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Cliente</label><select id="orcCliente"></select></div>
@@ -234,11 +257,12 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px"><span>Desconto</span><span id="orcDescontoVal" style="color:var(--txt)">- R$ 0,00</span></div>
             <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;color:var(--p)"><span>Total</span><span id="orcTotalVal">R$ 0,00</span></div>
           </div>
-          <div class="actions" style="margin-top:14px">
+          <div class="modal-actions">
             <button class="btn" onclick="salvarOrcamento()">Salvar orçamento</button>
-            <button class="btn2" onclick="limparOrcamento()">Limpar</button>
+            <button class="btn2" onclick="fecharModal('modalOrcamento')">Cancelar</button>
           </div>
           <div id="orcMsg" class="msg"></div>
+        </div>
         </div>
         <div class="status-flow">
           <button class="status-btn active" onclick="filtrarOrc('',this)">Todos</button>
@@ -320,8 +344,9 @@ function renderRecorrenciaMensal(){
   const desc=$('recorrenciaDesc'); if(desc)desc.textContent=ativos.length?`${recorrentes} de ${ativos.length} serviços ativos são recorrentes (assinatura ou contrato).`:'Cadastre serviços no catálogo pra ver essa métrica.';
 }
 function renderIndicadores(){const orc=dados.orcamentos||[];const abertos=orc.filter(o=>['Rascunho','Enviado'].includes(o.status||'')).length,emExec=orc.filter(o=>o.status==='Em execução').length,total=orc.length,txConv=total>0?Math.round((orc.filter(o=>['Aprovado','Em execução','Finalizado'].includes(o.status||'')).length/total)*100):0,hj=hoje(),vencidos=orc.filter(o=>o.validade&&String(o.validade).slice(0,10)<hj&&!['Finalizado','Recusado'].includes(o.status||'')).length;setHTML('svcIndicadores',[{lbl:'Orçamentos abertos',val:abertos,cor:'var(--txt)',sub:'rascunho + enviado'},{lbl:'Em execução',val:emExec,cor:'var(--txt)',sub:'em andamento'},{lbl:'SLA vencido',val:vencidos,cor:vencidos>0?'var(--red)':'var(--green)',sub:'fora do prazo'},{lbl:'Taxa de conversão',val:txConv+'%',cor:'var(--txt)',sub:'aprovados'}].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor}">${c.val}</div><div class="muted">${c.sub}</div></div>`).join(''));}
-async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const id=val('catId');if(!temPermissao('servicos',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
-function editarCatalogo(id){const s=dados.catalogo.find(x=>x.id===id);if(!s)return;$('catId').value=s.id;$('catNome').value=s.nome||'';$('catCategoria').value=s.categoria||'';$('catDesc').value=s.descricao||'';$('catValor').value=s.valor_base||'';$('catCusto').value=s.custo_estimado||'';$('catTempo').value=s.tempo_estimado||'';$('catRecorrente').value=s.recorrente?'true':'false';$('catAtivo').value=s.ativo===false?'false':'true';$('catTitulo').textContent='Editar serviço';svcTab('catalogo');window.scrollTo({top:0,behavior:'smooth'});}
+async function salvarCatalogo(){if(!can('comercial')){toast('Sem permissão.','err');return;}const id=val('catId');if(!temPermissao('servicos',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('catNome').trim();if(!nome){msg('catMsg','Informe o nome.','err');return;}const payload=withEmpresa({nome,categoria:val('catCategoria').trim(),descricao:val('catDesc').trim(),valor_base:num('catValor'),custo_estimado:num('catCusto'),tempo_estimado:val('catTempo').trim(),recorrente:val('catRecorrente')==='true',ativo:val('catAtivo')!=='false'});try{if(id)await db.patch('servicos_catalogo',id,payload);else await db.post('servicos_catalogo',payload);msg('catMsg',id?'Serviço atualizado!':'Serviço cadastrado!','ok');limparCatalogo();fecharModal('modalCatalogo');await loadData();}catch(e){msg('catMsg','Erro: '+e.message,'err');}}
+function editarCatalogo(id){const s=dados.catalogo.find(x=>x.id===id);if(!s)return;$('catId').value=s.id;$('catNome').value=s.nome||'';$('catCategoria').value=s.categoria||'';$('catDesc').value=s.descricao||'';$('catValor').value=s.valor_base||'';$('catCusto').value=s.custo_estimado||'';$('catTempo').value=s.tempo_estimado||'';$('catRecorrente').value=s.recorrente?'true':'false';$('catAtivo').value=s.ativo===false?'false':'true';$('catTitulo').textContent='Editar serviço';svcTab('catalogo');abrirModal('modalCatalogo');}
+function abrirNovoCatalogo(){limparCatalogo();svcTab('catalogo');abrirModal('modalCatalogo');}
 async function excluirCatalogo(id){if(!temPermissao('servicos','excluir')){toast('Sem permissão para excluir.','err');return;}if(!await confirmarAcao('Excluir este serviço do catálogo?'))return;try{await db.delete('servicos_catalogo',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 function limparCatalogo(){['catId','catNome','catCategoria','catDesc','catValor','catCusto','catTempo'].forEach(id=>{if($(id))$(id).value=''});$('catRecorrente').value='false';$('catAtivo').value='true';$('catTitulo').textContent='Novo serviço';}
 function renderCatalogo(){const q=val('catBusca').toLowerCase();const lista=(dados.catalogo||[]).filter(s=>(s.nome||'').toLowerCase().includes(q)||(s.categoria||'').toLowerCase().includes(q));setHTML('catTable',lista.map(s=>`<div class="item-card">
@@ -350,7 +375,7 @@ async function salvarOrcamento(){if(!can('comercial')){toast('Sem permissão.','
 const orcRes=await db.get('servicos_orcamentos',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=1`);
 const orcId=id||orcRes[0]?.id;
 if(orcId&&itensMateriais.length)await salvarMateriaisOrcamento(orcId);
-msg('orcMsg',id?'Orçamento atualizado!':'Orçamento salvo!','ok');limparOrcamento();await loadData();}catch(e){msg('orcMsg','Erro: '+e.message,'err');}}
+msg('orcMsg',id?'Orçamento atualizado!':'Orçamento salvo!','ok');limparOrcamento();fecharModal('modalOrcamento');await loadData();}catch(e){msg('orcMsg','Erro: '+e.message,'err');}}
 async function mudarStatus(id,novoStatus){
   try{
     const orc=dados.orcamentos.find(x=>x.id===id);
@@ -457,7 +482,8 @@ async function darBaixaEstoque(servicoId){
     }
   }catch(e){console.warn('Erro ao dar baixa:',e.message);}
 }
-function editarOrcamento(id){const o=dados.orcamentos.find(x=>x.id===id);if(!o)return;$('orcId').value=o.id;$('orcCliente').value=o.cliente_id||'';$('orcServico').value=o.servico_id||'';$('orcQtd').value=o.quantidade||1;$('orcValor').value=o.valor_unitario||'';$('orcDesconto').value=o.desconto||0;$('orcValidade').value=o.validade?String(o.validade).slice(0,10):'';$('orcExecucao').value=o.data_execucao?String(o.data_execucao).slice(0,10):'';$('orcStatus').value=o.status||'Rascunho';$('orcObs').value=o.observacao||'';$('orcTitulo').textContent='Editar orçamento';calcularOrc();svcTab('orcamentos');carregarMateriaisOrcamento(o.id);window.scrollTo({top:0,behavior:'smooth'});}
+function editarOrcamento(id){const o=dados.orcamentos.find(x=>x.id===id);if(!o)return;$('orcId').value=o.id;$('orcCliente').value=o.cliente_id||'';$('orcServico').value=o.servico_id||'';$('orcQtd').value=o.quantidade||1;$('orcValor').value=o.valor_unitario||'';$('orcDesconto').value=o.desconto||0;$('orcValidade').value=o.validade?String(o.validade).slice(0,10):'';$('orcExecucao').value=o.data_execucao?String(o.data_execucao).slice(0,10):'';$('orcStatus').value=o.status||'Rascunho';$('orcObs').value=o.observacao||'';$('orcTitulo').textContent='Editar orçamento';calcularOrc();svcTab('orcamentos');carregarMateriaisOrcamento(o.id);abrirModal('modalOrcamento');}
+function abrirNovoOrcamento(){limparOrcamento();svcTab('orcamentos');abrirModal('modalOrcamento');}
 async function excluirOrcamento(id){
   if(!temPermissao('servicos','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir este orçamento?'))return;

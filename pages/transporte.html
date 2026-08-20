@@ -26,6 +26,15 @@
   .form-row,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr!important}
   #trKpis{grid-template-columns:1fr 1fr!important}
 }
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal.modal-wide{max-width:920px}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions button{flex:1}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -35,6 +44,9 @@
 
 <script>
 function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
@@ -136,8 +148,13 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ OPERAÇÕES ══ -->
       <div id="pane-operacoes" class="tr-pane active">
-        <div class="card">
-          <h2 id="opTitulo">Nova operação</h2>
+        <div class="card" style="display:flex;justify-content:flex-end">
+          <button class="btn" onclick="abrirNovaOperacao()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova operação</button>
+        </div>
+
+        <div class="modal-overlay" id="modalOperacao">
+        <div class="modal modal-wide">
+          <h3 id="opTitulo">Nova operação</h3>
           <input type="hidden" id="opId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Data saída</label><input id="opData" type="date"></div>
@@ -156,11 +173,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Observação</label><input id="opObs" placeholder="Observações sobre a entrega"></div>
-          <div class="actions">
+          <div class="modal-actions">
             <button class="btn" onclick="salvarOperacao()">Salvar operação</button>
-            <button class="btn2" onclick="limparOperacao()">Limpar</button>
+            <button class="btn2" onclick="fecharModal('modalOperacao')">Cancelar</button>
           </div>
           <div id="opMsg" class="msg"></div>
+        </div>
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -205,30 +223,36 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-rotas" class="tr-pane">
         <div class="grid-2" style="display:grid;gap:16px;margin-bottom:16px">
           <div class="card">
-            <h2 id="rotaTitulo">Nova rota</h2>
-            <input type="hidden" id="rotaId">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="field"><label>Apelido da rota</label><input id="rotaApelido" placeholder="Ex: SP → BH"></div>
-              <div class="field"><label>Origem</label><input id="rotaOrigem" placeholder="Cidade / UF"></div>
-              <div class="field"><label>Destino</label><input id="rotaDestino" placeholder="Cidade / UF"></div>
-              <div class="field"><label>Distância (km)</label><input id="rotaKm" type="number" step="0.1" placeholder="0"></div>
-              <div class="field"><label>Valor por km (R$)</label><input id="rotaValorKm" type="number" step="0.01" placeholder="0,00"></div>
-              <div class="field"><label>Pedágio estimado (R$)</label><input id="rotaPedagio" type="number" step="0.01" placeholder="0,00"></div>
-              <div class="field"><label>Preço fixo (R$)</label><input id="rotaPrecoFixo" type="number" step="0.01" placeholder="Opcional"></div>
-              <div class="field"><label>Tipo veículo</label>
-                <select id="rotaVeiculo"><option>Carro</option><option>Moto</option><option>Van</option><option>Caminhão leve</option><option>Caminhão médio</option><option>Caminhão pesado</option><option>Carreta</option></select>
-              </div>
-            </div>
-            <div class="actions">
-              <button class="btn" onclick="salvarRota()">Salvar rota</button>
-              <button class="btn2" onclick="limparRota()">Limpar</button>
-            </div>
-            <div id="rotaMsg" class="msg"></div>
-          </div>
-          <div class="card">
             <h2>Como usar</h2>
             <p class="muted" style="line-height:1.7">Cadastre as rotas frequentes da empresa.<br><br>Na aba <b>Operações</b>, ao selecionar uma rota, origem e destino preenchem automaticamente.<br><br>O sistema calcula o <b>lucro por rota</b> = receita − custo.</p>
           </div>
+          <div class="card" style="display:flex;align-items:center;justify-content:center">
+            <button class="btn" onclick="abrirNovaRota()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova rota</button>
+          </div>
+        </div>
+
+        <div class="modal-overlay" id="modalRota">
+        <div class="modal">
+          <h3 id="rotaTitulo">Nova rota</h3>
+          <input type="hidden" id="rotaId">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field"><label>Apelido da rota</label><input id="rotaApelido" placeholder="Ex: SP → BH"></div>
+            <div class="field"><label>Origem</label><input id="rotaOrigem" placeholder="Cidade / UF"></div>
+            <div class="field"><label>Destino</label><input id="rotaDestino" placeholder="Cidade / UF"></div>
+            <div class="field"><label>Distância (km)</label><input id="rotaKm" type="number" step="0.1" placeholder="0"></div>
+            <div class="field"><label>Valor por km (R$)</label><input id="rotaValorKm" type="number" step="0.01" placeholder="0,00"></div>
+            <div class="field"><label>Pedágio estimado (R$)</label><input id="rotaPedagio" type="number" step="0.01" placeholder="0,00"></div>
+            <div class="field"><label>Preço fixo (R$)</label><input id="rotaPrecoFixo" type="number" step="0.01" placeholder="Opcional"></div>
+            <div class="field"><label>Tipo veículo</label>
+              <select id="rotaVeiculo"><option>Carro</option><option>Moto</option><option>Van</option><option>Caminhão leve</option><option>Caminhão médio</option><option>Caminhão pesado</option><option>Carreta</option></select>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="salvarRota()">Salvar rota</button>
+            <button class="btn2" onclick="fecharModal('modalRota')">Cancelar</button>
+          </div>
+          <div id="rotaMsg" class="msg"></div>
+        </div>
         </div>
         <div class="card">
           <h2>Rotas cadastradas</h2>
@@ -244,32 +268,37 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ MOTORISTAS ══ -->
       <div id="pane-motoristas" class="tr-pane">
-        <div class="grid-2" style="display:grid;gap:16px;margin-bottom:16px">
-          <div class="card">
-            <h2 id="motTitulo">Novo motorista</h2>
-            <input type="hidden" id="motId">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="field" style="grid-column:1/-1"><label>Nome completo</label><input id="motNome" placeholder="Nome do motorista"></div>
-              <div class="field"><label>CPF</label><input id="motCpf" placeholder="000.000.000-00"></div>
-              <div class="field"><label>CNH (número)</label><input id="motCnh" placeholder="Número da CNH"></div>
-              <div class="field"><label>Categoria CNH</label><select id="motCategoria"><option>B</option><option>C</option><option>D</option><option>E</option></select></div>
-              <div class="field"><label>Vencimento CNH</label><input id="motCnhVenc" type="date"></div>
-              <div class="field" style="grid-column:1/-1"><label>ANTT — Registro (RNTRC)</label><input id="motAntt" placeholder="Número do registro ANTT/RNTRC"></div>
-              <div class="field"><label>Vencimento ANTT</label><input id="motAnttVenc" type="date"></div>
-              <div class="field"><label>Telefone / WhatsApp</label><input id="motTel" placeholder="(11) 99999-9999"></div>
-              <div class="field"><label>Chave Pix</label><input id="motPix" placeholder="CPF, e-mail ou telefone"></div>
-              <div class="field"><label>Veículo</label><input id="motVeiculo" placeholder="Ex: Caminhão Iveco"></div>
-              <div class="field"><label>Placa</label><input id="motPlaca" placeholder="ABC-1234"></div>
-              <div class="field"><label>Status</label><select id="motAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-            </div>
-            <div class="actions">
-              <button class="btn" onclick="salvarMotorista()">Salvar motorista</button>
-              <button class="btn2" onclick="limparMotorista()">Limpar</button>
-            </div>
-            <div id="motMsg" class="msg"></div>
+        <div class="card" style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn" onclick="abrirNovoMotorista()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo motorista</button>
+        </div>
+
+        <div class="modal-overlay" id="modalMotorista">
+        <div class="modal">
+          <h3 id="motTitulo">Novo motorista</h3>
+          <input type="hidden" id="motId">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field" style="grid-column:1/-1"><label>Nome completo</label><input id="motNome" placeholder="Nome do motorista"></div>
+            <div class="field"><label>CPF</label><input id="motCpf" placeholder="000.000.000-00"></div>
+            <div class="field"><label>CNH (número)</label><input id="motCnh" placeholder="Número da CNH"></div>
+            <div class="field"><label>Categoria CNH</label><select id="motCategoria"><option>B</option><option>C</option><option>D</option><option>E</option></select></div>
+            <div class="field"><label>Vencimento CNH</label><input id="motCnhVenc" type="date"></div>
+            <div class="field" style="grid-column:1/-1"><label>ANTT — Registro (RNTRC)</label><input id="motAntt" placeholder="Número do registro ANTT/RNTRC"></div>
+            <div class="field"><label>Vencimento ANTT</label><input id="motAnttVenc" type="date"></div>
+            <div class="field"><label>Telefone / WhatsApp</label><input id="motTel" placeholder="(11) 99999-9999"></div>
+            <div class="field"><label>Chave Pix</label><input id="motPix" placeholder="CPF, e-mail ou telefone"></div>
+            <div class="field"><label>Veículo</label><input id="motVeiculo" placeholder="Ex: Caminhão Iveco"></div>
+            <div class="field"><label>Placa</label><input id="motPlaca" placeholder="ABC-1234"></div>
+            <div class="field"><label>Status</label><select id="motAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
           </div>
-          <div class="card">
-            <h2>Motoristas cadastrados</h2>
+          <div class="modal-actions">
+            <button class="btn" onclick="salvarMotorista()">Salvar motorista</button>
+            <button class="btn2" onclick="fecharModal('modalMotorista')">Cancelar</button>
+          </div>
+          <div id="motMsg" class="msg"></div>
+        </div>
+        </div>
+        <div class="card">
+          <h2>Motoristas cadastrados</h2>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Nome</th><th>CNH</th><th>Cat.</th><th>Venc. CNH</th><th>ANTT</th><th>Venc. ANTT</th><th>Veículo</th><th>Placa</th><th>Status</th><th>Ação</th></tr></thead>
@@ -278,7 +307,6 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <div id="motTablePaginacao"></div>
             </div>
           </div>
-        </div>
       </div>
 
       <!-- ══ PAGAMENTOS ══ -->
@@ -435,10 +463,11 @@ async function salvarOperacao(){
       const receita=num('opReceita');if(receita>0)try{await db.post('financeiro',withEmpresa({tipo:'Receita',categoria:'Transporte / Frete',descricao:`Frete — ${cli?.nome||''} (${payload.origem||''}${payload.destino?' → '+payload.destino:''})`,valor:receita,data_lancamento:payload.data_lancamento||hoje(),vencimento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
       const custo=num('opCusto');if(custo>0)try{await db.post('financeiro',withEmpresa({tipo:'Despesa',categoria:'Combustível',descricao:`Custo frete — ${cli?.nome||''}`,valor:custo,data_lancamento:payload.data_lancamento||hoje(),vencimento:payload.data_lancamento||hoje(),status:'Pendente',forma_pagamento:'A combinar'}));}catch(e){console.warn(e);}
     }
-    msg('opMsg',id?'Operação atualizada!':'Operação salva e lançada no Financeiro!','ok');limparOperacao();await loadData();
+    msg('opMsg',id?'Operação atualizada!':'Operação salva e lançada no Financeiro!','ok');limparOperacao();fecharModal('modalOperacao');await loadData();
   }catch(e){msg('opMsg','Erro: '+e.message,'err');}
 }
-function editarOperacao(id){const o=dados.operacoes.find(x=>x.id===id);if(!o)return;$('opId').value=o.id;$('opData').value=o.data_lancamento?String(o.data_lancamento).slice(0,10):'';$('opPPE').value=o.ppe?String(o.ppe).slice(0,10):'';$('opCliente').value=o.cliente_id||'';$('opMotorista').value=o.motorista_id||'';$('opRota').value=o.rota_id||'';$('opOrigem').value=o.origem||'';$('opDestino').value=o.destino||'';$('opReceita').value=o.receita||'';$('opCusto').value=o.custo||'';$('opPeso').value=o.peso||'';$('opNF').value=o.numero_nf||'';$('opStatus').value=o.status||'No prazo';$('opObs').value=o.observacao||'';$('opTitulo').textContent='Editar operação';trTab('operacoes');window.scrollTo({top:0,behavior:'smooth'});}
+function editarOperacao(id){const o=dados.operacoes.find(x=>x.id===id);if(!o)return;$('opId').value=o.id;$('opData').value=o.data_lancamento?String(o.data_lancamento).slice(0,10):'';$('opPPE').value=o.ppe?String(o.ppe).slice(0,10):'';$('opCliente').value=o.cliente_id||'';$('opMotorista').value=o.motorista_id||'';$('opRota').value=o.rota_id||'';$('opOrigem').value=o.origem||'';$('opDestino').value=o.destino||'';$('opReceita').value=o.receita||'';$('opCusto').value=o.custo||'';$('opPeso').value=o.peso||'';$('opNF').value=o.numero_nf||'';$('opStatus').value=o.status||'No prazo';$('opObs').value=o.observacao||'';$('opTitulo').textContent='Editar operação';trTab('operacoes');abrirModal('modalOperacao');}
+function abrirNovaOperacao(){limparOperacao();trTab('operacoes');abrirModal('modalOperacao');}
 async function excluirOperacao(id){
   if(!temPermissao('transporte','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir esta operação?\n\nOs valores de custo, receita e lucro serão recalculados automaticamente.'))return;
@@ -502,14 +531,16 @@ function renderPPE(){
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma entrega neste filtro.</td></tr>');
 }
 
-async function salvarRota(){const id=val('rotaId');if(!temPermissao('transporte',id?'editar':'criar')){toast('Sem permissão.','err');return;}const apelido=val('rotaApelido').trim()||`${val('rotaOrigem')}→${val('rotaDestino')}`;const payload=withEmpresa({apelido,origem:val('rotaOrigem').trim(),destino:val('rotaDestino').trim(),distancia_km:num('rotaKm'),valor_km:num('rotaValorKm'),pedagio:num('rotaPedagio'),preco_fixo:num('rotaPrecoFixo')||null,tipo_veiculo:val('rotaVeiculo')});try{if(id)await db.patch('rotas',id,payload);else await db.post('rotas',payload);msg('rotaMsg',id?'Rota atualizada!':'Rota salva!','ok');limparRota();await loadData();}catch(e){msg('rotaMsg','Erro: '+e.message,'err');}}
-function editarRota(id){const r=dados.rotas.find(x=>x.id===id);if(!r)return;$('rotaId').value=r.id;$('rotaApelido').value=r.apelido||'';$('rotaOrigem').value=r.origem||'';$('rotaDestino').value=r.destino||'';$('rotaKm').value=r.distancia_km||'';$('rotaValorKm').value=r.valor_km||'';$('rotaPedagio').value=r.pedagio||'';$('rotaPrecoFixo').value=r.preco_fixo||'';$('rotaVeiculo').value=r.tipo_veiculo||'Van';$('rotaTitulo').textContent='Editar rota';}
+async function salvarRota(){const id=val('rotaId');if(!temPermissao('transporte',id?'editar':'criar')){toast('Sem permissão.','err');return;}const apelido=val('rotaApelido').trim()||`${val('rotaOrigem')}→${val('rotaDestino')}`;const payload=withEmpresa({apelido,origem:val('rotaOrigem').trim(),destino:val('rotaDestino').trim(),distancia_km:num('rotaKm'),valor_km:num('rotaValorKm'),pedagio:num('rotaPedagio'),preco_fixo:num('rotaPrecoFixo')||null,tipo_veiculo:val('rotaVeiculo')});try{if(id)await db.patch('rotas',id,payload);else await db.post('rotas',payload);msg('rotaMsg',id?'Rota atualizada!':'Rota salva!','ok');limparRota();fecharModal('modalRota');await loadData();}catch(e){msg('rotaMsg','Erro: '+e.message,'err');}}
+function editarRota(id){const r=dados.rotas.find(x=>x.id===id);if(!r)return;$('rotaId').value=r.id;$('rotaApelido').value=r.apelido||'';$('rotaOrigem').value=r.origem||'';$('rotaDestino').value=r.destino||'';$('rotaKm').value=r.distancia_km||'';$('rotaValorKm').value=r.valor_km||'';$('rotaPedagio').value=r.pedagio||'';$('rotaPrecoFixo').value=r.preco_fixo||'';$('rotaVeiculo').value=r.tipo_veiculo||'Van';$('rotaTitulo').textContent='Editar rota';abrirModal('modalRota');}
 async function excluirRota(id){if(!temPermissao('transporte','excluir')){toast('Sem permissão para excluir.','err');return;}if(!await confirmarAcao('Excluir esta rota?'))return;try{await db.delete('rotas',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 function limparRota(){['rotaId','rotaApelido','rotaOrigem','rotaDestino','rotaKm','rotaValorKm','rotaPedagio','rotaPrecoFixo'].forEach(id=>{if($(id))$(id).value=''});$('rotaTitulo').textContent='Nova rota';}
+function abrirNovaRota(){limparRota();abrirModal('modalRota');}
 function renderRotas(){const _lRotas=dados.rotas||[];renderPaginacao('rotaTable',_lRotas.length,'renderRotas');setHTML('rotaTable',paginar(_lRotas,'rotaTable').map(r=>`<tr><td><b>${esc(r.apelido||'')}</b></td><td>${esc(r.origem||'')}</td><td>${esc(r.destino||'')}</td><td>${r.distancia_km?r.distancia_km+' km':'—'}</td><td>${r.valor_km?money(r.valor_km)+'/km':'—'}</td><td>${r.pedagio?money(r.pedagio):'—'}</td><td>${r.preco_fixo?money(r.preco_fixo):'—'}</td><td>${esc(r.tipo_veiculo||'')}</td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarRota('${r.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirRota('${r.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma rota.</td></tr>');}
 
-async function salvarMotorista(){const id=val('motId');if(!temPermissao('transporte',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('motNome').trim();if(!nome){msg('motMsg','Informe o nome.','err');return;}const cpfMot=val('motCpf').trim();if(cpfMot&&!validarCPF(cpfMot)){msg('motMsg','CPF inválido, confira os números digitados.','err');return;}const hj=hoje(),cnhVenc=val('motCnhVenc'),anttVenc=val('motAnttVenc');if(cnhVenc&&cnhVenc<hj)toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> CNH vencida!','err');if(anttVenc&&anttVenc<hj)toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ANTT vencida!','err');const payload=withEmpresa({nome,cpf:val('motCpf').trim(),cnh:val('motCnh').trim(),categoria_cnh:val('motCategoria'),vencimento_cnh:cnhVenc||null,antt_rntrc:val('motAntt').trim(),vencimento_antt:anttVenc||null,telefone:val('motTel').trim(),pix_chave:val('motPix').trim(),veiculo:val('motVeiculo').trim(),placa:val('motPlaca').trim(),ativo:val('motAtivo')!=='false'});try{if(id)await db.patch('motoristas',id,payload);else await db.post('motoristas',payload);msg('motMsg',id?'Atualizado!':'Cadastrado!','ok');limparMotorista();await loadData();}catch(e){msg('motMsg','Erro: '+e.message,'err');}}
-function editarMotorista(id){const m=dados.motoristas.find(x=>x.id===id);if(!m)return;$('motId').value=m.id;$('motNome').value=m.nome||'';$('motCpf').value=m.cpf||'';$('motCnh').value=m.cnh||'';$('motCategoria').value=m.categoria_cnh||'B';$('motCnhVenc').value=m.vencimento_cnh?String(m.vencimento_cnh).slice(0,10):'';$('motAntt').value=m.antt_rntrc||'';$('motAnttVenc').value=m.vencimento_antt?String(m.vencimento_antt).slice(0,10):'';$('motTel').value=m.telefone||'';$('motPix').value=m.pix_chave||'';$('motVeiculo').value=m.veiculo||'';$('motPlaca').value=m.placa||'';$('motAtivo').value=m.ativo===false?'false':'true';$('motTitulo').textContent='Editar motorista';trTab('motoristas');window.scrollTo({top:0,behavior:'smooth'});}
+async function salvarMotorista(){const id=val('motId');if(!temPermissao('transporte',id?'editar':'criar')){toast('Sem permissão.','err');return;}const nome=val('motNome').trim();if(!nome){msg('motMsg','Informe o nome.','err');return;}const cpfMot=val('motCpf').trim();if(cpfMot&&!validarCPF(cpfMot)){msg('motMsg','CPF inválido, confira os números digitados.','err');return;}const hj=hoje(),cnhVenc=val('motCnhVenc'),anttVenc=val('motAnttVenc');if(cnhVenc&&cnhVenc<hj)toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> CNH vencida!','err');if(anttVenc&&anttVenc<hj)toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ANTT vencida!','err');const payload=withEmpresa({nome,cpf:val('motCpf').trim(),cnh:val('motCnh').trim(),categoria_cnh:val('motCategoria'),vencimento_cnh:cnhVenc||null,antt_rntrc:val('motAntt').trim(),vencimento_antt:anttVenc||null,telefone:val('motTel').trim(),pix_chave:val('motPix').trim(),veiculo:val('motVeiculo').trim(),placa:val('motPlaca').trim(),ativo:val('motAtivo')!=='false'});try{if(id)await db.patch('motoristas',id,payload);else await db.post('motoristas',payload);msg('motMsg',id?'Atualizado!':'Cadastrado!','ok');limparMotorista();fecharModal('modalMotorista');await loadData();}catch(e){msg('motMsg','Erro: '+e.message,'err');}}
+function editarMotorista(id){const m=dados.motoristas.find(x=>x.id===id);if(!m)return;$('motId').value=m.id;$('motNome').value=m.nome||'';$('motCpf').value=m.cpf||'';$('motCnh').value=m.cnh||'';$('motCategoria').value=m.categoria_cnh||'B';$('motCnhVenc').value=m.vencimento_cnh?String(m.vencimento_cnh).slice(0,10):'';$('motAntt').value=m.antt_rntrc||'';$('motAnttVenc').value=m.vencimento_antt?String(m.vencimento_antt).slice(0,10):'';$('motTel').value=m.telefone||'';$('motPix').value=m.pix_chave||'';$('motVeiculo').value=m.veiculo||'';$('motPlaca').value=m.placa||'';$('motAtivo').value=m.ativo===false?'false':'true';$('motTitulo').textContent='Editar motorista';trTab('motoristas');abrirModal('modalMotorista');}
+function abrirNovoMotorista(){limparMotorista();trTab('motoristas');abrirModal('modalMotorista');}
 async function excluirMotorista(id){if(!temPermissao('transporte','excluir')){toast('Sem permissão para excluir.','err');return;}if(!await confirmarAcao('Excluir este motorista?'))return;try{await db.delete('motoristas',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 function limparMotorista(){['motId','motNome','motCpf','motCnh','motCnhVenc','motAntt','motAnttVenc','motTel','motPix','motVeiculo','motPlaca'].forEach(id=>{if($(id))$(id).value=''});if($('motCategoria'))$('motCategoria').value='B';if($('motAtivo'))$('motAtivo').value='true';$('motTitulo').textContent='Novo motorista';}
 function renderMotoristas(){const hj=hoje();const _lMot=dados.motoristas||[];renderPaginacao('motTable',_lMot.length,'renderMotoristas');setHTML('motTable',paginar(_lMot,'motTable').map(m=>{const cnhV=String(m.vencimento_cnh||'').slice(0,10),anttV=String(m.vencimento_antt||'').slice(0,10);return`<tr><td><b>${esc(m.nome||'')}</b></td><td>${esc(m.cnh||'—')}</td><td>${esc(m.categoria_cnh||'')}</td><td style="color:${cnhV&&cnhV<hj?'var(--red)':''}">${cnhV&&cnhV<hj?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ':''}${fmtData(m.vencimento_cnh)}</td><td>${esc(m.antt_rntrc||'—')}</td><td style="color:${anttV&&anttV<hj?'var(--red)':''}">${anttV&&anttV<hj?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ':''}${fmtData(m.vencimento_antt)}</td><td>${esc(m.veiculo||'—')}</td><td>${esc(m.placa||'—')}</td><td><span class="badge ${m.ativo!==false?'ok':'bad'}">${m.ativo!==false?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px"><button class="btn2" onclick="editarMotorista('${m.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirMotorista('${m.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`;}).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhum motorista.</td></tr>');}

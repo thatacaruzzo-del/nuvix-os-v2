@@ -51,6 +51,15 @@
 .perf-bar-wrap{background:#f3f4f6;border-radius:99px;height:8px;margin-top:6px;overflow:hidden}
 .perf-bar{height:8px;border-radius:99px;background:var(--p)}
 @media(max-width:768px){#hambBtn{display:block!important}.form-row,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr!important}.grid-4{grid-template-columns:1fr 1fr!important}}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal.modal-wide{max-width:920px}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions button{flex:1}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -59,6 +68,9 @@
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 <script>
 function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
 function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
@@ -170,8 +182,14 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       </div>
       <!-- COLABORADORES -->
       <div id="pane-colaboradores" class="rh-pane active">
-        <div class="card">
-          <h2 id="colTitulo">Novo colaborador</h2>
+        <div class="card" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn" onclick="abrirNovoColaborador()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo colaborador</button>
+          <button class="btn2" onclick="exportarColaboradoresCSV()">Exportar CSV</button>
+        </div>
+
+        <div class="modal-overlay" id="modalColaborador">
+        <div class="modal modal-wide">
+          <h3 id="colTitulo">Novo colaborador</h3>
           <input type="hidden" id="colId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field" style="grid-column:1/-1"><label>Nome completo</label><input id="colNome" placeholder="Nome do colaborador"></div>
@@ -212,12 +230,12 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
               <div class="field"><label>Comissão (%)</label><input id="colComissao" type="number" step="0.01" value="0"></div>
             </div>
           </div>
-          <div class="actions">
+          <div class="modal-actions">
             <button class="btn" onclick="salvarColaborador()">Salvar colaborador</button>
-            <button class="btn2" onclick="limparColaborador()">Limpar</button>
-            <button class="btn2" onclick="exportarColaboradoresCSV()">Exportar CSV</button>
+            <button class="btn2" onclick="fecharModal('modalColaborador')">Cancelar</button>
           </div>
           <div id="colMsg" class="msg"></div>
+        </div>
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -402,8 +420,9 @@ function popularSelects(){
   if($('colLoja'))$('colLoja').innerHTML='<option value="">Não vinculado a uma loja</option>'+(dados.lojas||[]).map(l=>`<option value="${l.id}">${esc(l.nome||'')}</option>`).join('');
   if($('colUsuario'))$('colUsuario').innerHTML='<option value="">Sem login vinculado</option>'+(dados.usuarios||[]).map(u=>`<option value="${u.id}">${esc(u.nome||u.email||'')}</option>`).join('');
 }
-async function salvarColaborador(){if(!can('rh')){toast('Sem permissão.','err');return;}const id=val('colId');if(!temPermissao('rh',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' colaboradores.','err');return;}const nome=val('colNome').trim();if(!nome){msg('colMsg','Informe o nome.','err');return;}const cpfCol=val('colCpf').trim();if(cpfCol&&!validarCPF(cpfCol)){msg('colMsg','CPF inválido, confira os números digitados.','err');return;}const payload=withEmpresa({nome,cpf:val('colCpf').trim(),data_nascimento:val('colNasc')||null,telefone:val('colTel').trim(),email:val('colEmail').trim(),cargo:val('colCargo').trim(),departamento:val('colDept').trim(),loja_id:val('colLoja')||null,usuario_id:val('colUsuario')||null,salario:num('colSalario'),data_admissao:val('colAdmissao')||null,tipo_contrato:val('colContrato'),contrato:val('colContrato'),dependentes_irrf:num('colDeps'),pix_chave:val('colPix').trim(),banco:val('colBanco').trim(),agencia:val('colAgencia').trim(),conta:val('colConta').trim(),tipo_conta:val('colTipoConta'),vale_transporte:num('colVT'),vale_refeicao:num('colVR'),vale_alimentacao:num('colVA'),plano_saude:num('colSaude'),plano_odonto:num('colOdonto'),comissao_percentual:num('colComissao'),ativo:true});try{if(id)await db.patch('colaboradores',id,payload);else await db.post('colaboradores',payload);msg('colMsg',id?'Atualizado!':'Colaborador cadastrado!','ok');limparColaborador();await loadData();}catch(e){msg('colMsg','Erro: '+e.message,'err');}}
-function editarColaborador(id){const c=dados.colaboradores.find(x=>x.id===id);if(!c)return;$('colId').value=c.id;$('colNome').value=c.nome||'';$('colCpf').value=c.cpf||'';$('colNasc').value=c.data_nascimento?String(c.data_nascimento).slice(0,10):'';$('colTel').value=c.telefone||'';$('colEmail').value=c.email||'';$('colCargo').value=c.cargo||'';$('colDept').value=c.departamento||'';if($('colLoja'))$('colLoja').value=c.loja_id||'';if($('colUsuario'))$('colUsuario').value=c.usuario_id||'';$('colSalario').value=c.salario||'';$('colAdmissao').value=c.data_admissao?String(c.data_admissao).slice(0,10):'';$('colContrato').value=c.tipo_contrato||c.contrato||'CLT';$('colDeps').value=c.dependentes_irrf||0;$('colPix').value=c.pix_chave||'';$('colBanco').value=c.banco||'';$('colAgencia').value=c.agencia||'';$('colConta').value=c.conta||'';if($('colTipoConta'))$('colTipoConta').value=c.tipo_conta||'Conta corrente';$('colVT').value=c.vale_transporte||0;$('colVR').value=c.vale_refeicao||0;$('colVA').value=c.vale_alimentacao||0;$('colSaude').value=c.plano_saude||0;$('colOdonto').value=c.plano_odonto||0;$('colComissao').value=c.comissao_percentual||0;$('colTitulo').textContent='Editar colaborador';rhTab('colaboradores');window.scrollTo({top:0,behavior:'smooth'});}
+async function salvarColaborador(){if(!can('rh')){toast('Sem permissão.','err');return;}const id=val('colId');if(!temPermissao('rh',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' colaboradores.','err');return;}const nome=val('colNome').trim();if(!nome){msg('colMsg','Informe o nome.','err');return;}const cpfCol=val('colCpf').trim();if(cpfCol&&!validarCPF(cpfCol)){msg('colMsg','CPF inválido, confira os números digitados.','err');return;}const payload=withEmpresa({nome,cpf:val('colCpf').trim(),data_nascimento:val('colNasc')||null,telefone:val('colTel').trim(),email:val('colEmail').trim(),cargo:val('colCargo').trim(),departamento:val('colDept').trim(),loja_id:val('colLoja')||null,usuario_id:val('colUsuario')||null,salario:num('colSalario'),data_admissao:val('colAdmissao')||null,tipo_contrato:val('colContrato'),contrato:val('colContrato'),dependentes_irrf:num('colDeps'),pix_chave:val('colPix').trim(),banco:val('colBanco').trim(),agencia:val('colAgencia').trim(),conta:val('colConta').trim(),tipo_conta:val('colTipoConta'),vale_transporte:num('colVT'),vale_refeicao:num('colVR'),vale_alimentacao:num('colVA'),plano_saude:num('colSaude'),plano_odonto:num('colOdonto'),comissao_percentual:num('colComissao'),ativo:true});try{if(id)await db.patch('colaboradores',id,payload);else await db.post('colaboradores',payload);msg('colMsg',id?'Atualizado!':'Colaborador cadastrado!','ok');limparColaborador();fecharModal('modalColaborador');await loadData();}catch(e){msg('colMsg','Erro: '+e.message,'err');}}
+function editarColaborador(id){const c=dados.colaboradores.find(x=>x.id===id);if(!c)return;$('colId').value=c.id;$('colNome').value=c.nome||'';$('colCpf').value=c.cpf||'';$('colNasc').value=c.data_nascimento?String(c.data_nascimento).slice(0,10):'';$('colTel').value=c.telefone||'';$('colEmail').value=c.email||'';$('colCargo').value=c.cargo||'';$('colDept').value=c.departamento||'';if($('colLoja'))$('colLoja').value=c.loja_id||'';if($('colUsuario'))$('colUsuario').value=c.usuario_id||'';$('colSalario').value=c.salario||'';$('colAdmissao').value=c.data_admissao?String(c.data_admissao).slice(0,10):'';$('colContrato').value=c.tipo_contrato||c.contrato||'CLT';$('colDeps').value=c.dependentes_irrf||0;$('colPix').value=c.pix_chave||'';$('colBanco').value=c.banco||'';$('colAgencia').value=c.agencia||'';$('colConta').value=c.conta||'';if($('colTipoConta'))$('colTipoConta').value=c.tipo_conta||'Conta corrente';$('colVT').value=c.vale_transporte||0;$('colVR').value=c.vale_refeicao||0;$('colVA').value=c.vale_alimentacao||0;$('colSaude').value=c.plano_saude||0;$('colOdonto').value=c.plano_odonto||0;$('colComissao').value=c.comissao_percentual||0;$('colTitulo').textContent='Editar colaborador';rhTab('colaboradores');abrirModal('modalColaborador');}
+function abrirNovoColaborador(){limparColaborador();rhTab('colaboradores');abrirModal('modalColaborador');}
 async function inativarColaborador(id,ativo){try{await db.patch('colaboradores',id,{ativo:!ativo});toast(ativo?'Inativado.':'Reativado.','ok');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
 async function excluirColaborador(id){
   if(!temPermissao('rh','excluir')){toast('Sem permissão para excluir.','err');return;}

@@ -195,8 +195,14 @@ async function deleteRow(table,id,area){
 
     <!-- CLIENTES -->
     <div id="pg-clientes" class="nx-page page-content">
-      <div class="card">
-        <h2 id="cliTitulo">Novo cliente</h2>
+      <div class="card" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn" onclick="abrirNovoCliente()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo cliente</button>
+        <button class="btn2" onclick="exportCSV(dados.clientes,'clientes')">Exportar CSV</button>
+      </div>
+
+      <div class="modal-overlay" id="modalCliente">
+      <div class="modal">
+        <h3 id="cliTitulo">Novo cliente</h3>
         <input type="hidden" id="cliId">
         <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           <div class="field" style="grid-column:1/-1"><label>Nome / Razão social</label><input id="cliNome" placeholder="Nome do cliente"></div>
@@ -207,12 +213,12 @@ async function deleteRow(table,id,area){
           <div class="field"><label>Segmento</label><input id="cliSeg" placeholder="Ex: Varejo, Logística..."></div>
           <div class="field"><label>Observação</label><input id="cliObs"></div>
         </div>
-        <div class="actions">
+        <div class="modal-actions">
           <button class="btn" onclick="salvarCliente()">Salvar cliente</button>
-          <button class="btn2" onclick="limparCliente()">Limpar</button>
-          <button class="btn2" onclick="exportCSV(dados.clientes,'clientes')">Exportar CSV</button>
+          <button class="btn2" onclick="fecharModal('modalCliente')">Cancelar</button>
         </div>
         <div id="cliMsg" class="msg"></div>
+      </div>
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -453,10 +459,11 @@ async function salvarCliente() {
     if(Array.isArray(existente)&&existente.length>0){msg('cliMsg',`Já existe um cliente cadastrado com esse CPF/CNPJ: ${existente[0].nome||'sem nome'}.`,'err');return;}
   }
   const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim()});
-  try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
+  try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();fecharModal('modalCliente');await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
 }
-function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliTitulo').textContent='Editar cliente';window.scrollTo({top:0,behavior:'smooth'});}
+function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliTitulo').textContent='Editar cliente';abrirModal('modalCliente');}
 function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCidade','cliSeg','cliObs'].forEach(id=>{if($(id))$(id).value=''});$('cliTitulo').textContent='Novo cliente';}
+function abrirNovoCliente(){limparCliente();abrirModal('modalCliente');}
 
 // Histórico de compras do cliente — vendas feitas no Caixa com esse cliente_id, com
 // itens e forma de pagamento de cada uma. Cliente sem nenhuma venda não é erro, é normal

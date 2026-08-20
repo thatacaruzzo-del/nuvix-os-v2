@@ -85,6 +85,7 @@
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal.modal-wide{max-width:920px}
 .modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
 .modal-actions{display:flex;gap:10px;margin-top:20px}
 .modal-actions button{flex:1}
@@ -283,8 +284,15 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- LANÇAMENTOS -->
       <div id="pane-lancamentos" class="fin-pane active">
-        <div class="card">
-          <h2 id="lanTitulo">Novo lançamento</h2>
+        <div class="card" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn" onclick="abrirNovoLancamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo lançamento</button>
+          <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
+          <button class="btn2" onclick="abrirModalImportar()">Importar planilha</button>
+        </div>
+
+        <div class="modal-overlay" id="modalLancamento">
+        <div class="modal modal-wide">
+          <h3 id="lanTitulo">Novo lançamento</h3>
           <input type="hidden" id="lanId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Tipo</label>
@@ -347,13 +355,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               </div>
             </div>
           </div>
-          <div class="actions">
+          <div class="modal-actions">
             <button class="btn" onclick="salvarLancamento()">Salvar lançamento</button>
-            <button class="btn2" onclick="limparLancamento()">Limpar</button>
-            <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
-            <button class="btn2" onclick="abrirModalImportar()">Importar planilha</button>
+            <button class="btn2" onclick="fecharModal('modalLancamento')">Cancelar</button>
           </div>
           <div id="lanMsg" class="msg"></div>
+        </div>
         </div>
 
         <div class="card" style="margin-top:4px">
@@ -790,6 +797,7 @@ async function salvarLancamento(){
       msg('lanMsg','Lançamento salvo!','ok');
     }
     limparLancamento();
+    fecharModal('modalLancamento');
     await loadData();
   }catch(e){msg('lanMsg','Erro: '+e.message,'err');}
 }
@@ -855,8 +863,12 @@ function editarLancamento(id){
   $('lanObs').value=f.observacao||'';
   $('lanTitulo').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar lançamento';
   finTab('lancamentos');
-  const ms=document.querySelector('.main-scroll');
-  if(ms)ms.scrollTop=0;else window.scrollTo({top:0,behavior:'smooth'});
+  abrirModal('modalLancamento');
+}
+function abrirNovoLancamento(){
+  limparLancamento();
+  finTab('lancamentos');
+  abrirModal('modalLancamento');
 }
 
 // ── DETALHE MODAL ──
