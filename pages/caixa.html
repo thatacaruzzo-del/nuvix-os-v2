@@ -797,24 +797,36 @@ function atualizarLinhaPagamento(idx){
 }
 function renderPagamentos(){
   if(!pagamentos.length) pagamentos=[{forma:'Dinheiro',valor:totalCarrinho(),parcelas:null,recebido:null}];
+  // Guarda qual campo estava com foco (e a posição do cursor) antes de redesenhar, e
+  // devolve depois — proteção extra pra nunca "tirar" o campo de quem está digitando,
+  // mesmo se algum redesenho acontecer no meio da digitação por outro motivo.
+  const ativo=document.activeElement;
+  let foco=null;
+  if(ativo && $('pgtoLinhas')?.contains(ativo)){
+    foco={idx:ativo.dataset.pgIdx, campo:ativo.dataset.pgCampo, ini:ativo.selectionStart, fim:ativo.selectionEnd};
+  }
   $('pgtoLinhas').innerHTML=pagamentos.map((p,idx)=>{
     return `<div style="margin-bottom:8px">
       <div class="pgto-row" style="margin-bottom:${p.forma==='Dinheiro'?'4px':'0'}">
         <select onchange="pagamentos[${idx}].forma=this.value;renderTotais()">
           ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma===f?' selected':''}>${f}</option>`).join('')}
         </select>
-        <input type="text" inputmode="decimal" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);atualizarLinhaPagamento(${idx})">
-        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1);atualizarLinhaPagamento(${idx})" style="width:80px">`:''}
+        <input type="text" inputmode="decimal" data-pg-idx="${idx}" data-pg-campo="valor" value="${p.valor}" oninput="sanitizarDecimal(this);pagamentos[${idx}].valor=numBR(this.value);atualizarLinhaPagamento(${idx})">
+        ${p.forma==='Cartão Crédito'?`<input type="text" inputmode="numeric" data-pg-idx="${idx}" data-pg-campo="parcelas" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');pagamentos[${idx}].parcelas=Number(this.value||1);atualizarLinhaPagamento(${idx})" style="width:80px">`:''}
         ${pagamentos.length>1?`<button class="btn2" style="padding:6px 10px" onclick="pagamentos.splice(${idx},1);renderPagamentos()">✕</button>`:''}
       </div>
       <div id="pgtoHint-${idx}">${htmlHintParcela(p)}</div>
       ${p.forma==='Dinheiro'?`<div style="display:flex;gap:8px;align-items:center">
         <span style="font-size:12px;color:var(--muted);flex:1">Cliente pagou com quanto? (pra calcular o troco)</span>
-        <input type="text" inputmode="decimal" placeholder="Recebido" value="${p.recebido??''}" oninput="sanitizarDecimal(this);atualizarRecebido(${idx},this.value)" style="width:110px">
+        <input type="text" inputmode="decimal" data-pg-idx="${idx}" data-pg-campo="recebido" placeholder="Recebido" value="${p.recebido??''}" oninput="sanitizarDecimal(this);atualizarRecebido(${idx},this.value)" style="width:110px">
       </div>
       <div id="pgtoTroco-${idx}">${htmlHintTroco(p)}</div>`:''}
     </div>`;
   }).join('');
+  if(foco){
+    const el=$('pgtoLinhas').querySelector(`[data-pg-idx="${foco.idx}"][data-pg-campo="${foco.campo}"]`);
+    if(el){ el.focus(); try{ el.setSelectionRange(foco.ini,foco.fim); }catch(e){} }
+  }
   renderPagamentosRestante(Math.max(0,totalCarrinho()-valorDesconto(totalCarrinho())));
 }
 function renderPagamentosRestante(total){
@@ -1333,6 +1345,11 @@ function atualizarHintEdicaoPagamento(idx){
   const el=$('editPgtoHint-'+idx); if(el) el.innerHTML=htmlHintParcelaEdicao(linhasEdicaoPagamento[idx]);
 }
 function renderLinhasEdicaoPagamento(){
+  const ativo=document.activeElement;
+  let foco=null;
+  if(ativo && $('editPgtoLinhas')?.contains(ativo)){
+    foco={idx:ativo.dataset.pgIdx, ini:ativo.selectionStart, fim:ativo.selectionEnd};
+  }
   $('editPgtoLinhas').innerHTML=linhasEdicaoPagamento.map((p,idx)=>`
     <div style="margin-bottom:10px;padding-bottom:10px;${idx<linhasEdicaoPagamento.length-1?'border-bottom:1px solid var(--line)':''}">
       <div class="pgto-row">
@@ -1340,10 +1357,14 @@ function renderLinhasEdicaoPagamento(){
           ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma_pagamento===f?' selected':''}>${f}</option>`).join('')}
         </select>
         <span style="font-weight:700;padding:0 8px;white-space:nowrap">${money(p.valor)}</span>
-        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);atualizarHintEdicaoPagamento(${idx})" style="width:80px">`:''}
+        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" data-pg-idx="${idx}" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);atualizarHintEdicaoPagamento(${idx})" style="width:80px">`:''}
       </div>
       <div id="editPgtoHint-${idx}">${htmlHintParcelaEdicao(p)}</div>
     </div>`).join('');
+  if(foco){
+    const el=$('editPgtoLinhas').querySelector(`[data-pg-idx="${foco.idx}"]`);
+    if(el){ el.focus(); try{ el.setSelectionRange(foco.ini,foco.fim); }catch(e){} }
+  }
 }
 function pedirAprovacaoEdicaoPagamento(){
   $('editPgtoAprovEmail').value='';$('editPgtoAprovSenha').value='';$('editPgtoAprovMsg').textContent='';$('editPgtoAprovMsg').className='msg';
