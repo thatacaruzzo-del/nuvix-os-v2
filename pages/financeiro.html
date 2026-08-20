@@ -309,6 +309,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div class="field"><label>Forma de pagamento</label>
               <select id="lanForma"><option>Dinheiro</option><option>Pix</option><option>Boleto</option><option>Cartão débito</option><option>Cartão crédito</option><option>Transferência</option><option>Cheque</option></select>
             </div>
+            <div class="field"><label>Loja</label>
+              <select id="lanLoja"><option value="">Geral (sem loja específica)</option></select>
+            </div>
             <div class="field"><label>Centro de custo</label><input id="lanCentro" placeholder="Ex: Operacional, Admin..."></div>
             <div class="field"><label>Favorecido / Cliente</label><input id="lanFavorecido" placeholder="Nome de quem recebe/paga"></div>
             <div class="field"><label>Chave Pix / Banco</label><input id="lanPix" placeholder="CPF, e-mail, banco..."></div>
@@ -363,11 +366,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div><label>Status</label><select id="filtStatus" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Pendente</option><option>Pago</option><option>Recebido</option><option>Vencido</option></select></div>
             <div><label>Mês</label><input type="month" id="filtMes" onchange="renderLancamentos()" style="max-width:160px"></div>
             <div><label>Busca</label><input type="text" id="filtBusca" placeholder="Buscar..." oninput="renderLancamentos()" style="max-width:200px"></div>
+            <div id="filtLojaWrap" style="display:none"><label>Loja</label><select id="filtLoja" onchange="renderLancamentos()" style="max-width:160px"><option value="">Todas as lojas</option></select></div>
           </div>
           <div id="lanResumo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Pagamento</th><th>Status</th><th>Ação</th></tr></thead>
+              <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Loja</th><th>Valor</th><th>Vencimento</th><th>Pagamento</th><th>Status</th><th>Ação</th></tr></thead>
               <tbody id="lanTable"></tbody>
             </table>
           </div>
@@ -511,6 +515,7 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 
 const session = requireAuth();
 let financeiro = [];
+let lojas = [];
 let fluxoFiltro = 'todos';
 let fiscalAtivo = false; // true só depois que a Focus NFe for contratada e ativada em Configurações
 let nfseSimulacao = false; // true só em empresa de teste — simula o resultado em vez de chamar a Focus NFe de verdade
@@ -646,6 +651,13 @@ async function init(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
+    lojas=await db.get('lojas',`?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
+    const optsLoja='<option value="">Geral (sem loja específica)</option>'+lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+    if($('lanLoja'))$('lanLoja').innerHTML=optsLoja;
+    if($('filtLoja'))$('filtLoja').innerHTML='<option value="">Todas as lojas</option>'+lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+    if($('filtLojaWrap'))$('filtLojaWrap').style.display=lojas.length>1?'':'none';
+  }catch(e){lojas=[];}
+  try{
     // limit explícito: sem isso, passar de 1000 lançamentos (limite padrão do PostgREST) cortava
     // o histórico em silêncio — a consulta continuava "dando certo", só que incompleta.
     financeiro=await db.get('financeiro',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=5000`);
@@ -657,6 +669,7 @@ async function loadData(){
     nfseSimulacao=!!emp[0]?.nfse_simulacao;
   }catch(e){fiscalAtivo=false;nfseSimulacao=false;}
 }
+function nomeLoja(id){return lojas.find(l=>l.id===id)?.nome||'';}
 
 // ── HERO ──
 // Regra: só conta como "realizado" o que já foi confirmado (status Recebido/Pago).
@@ -734,6 +747,7 @@ async function salvarLancamento(){
   // Base payload
   const base=withEmpresa({
     tipo:val('lanTipo'),categoria:val('lanCat'),
+    loja_id:val('lanLoja')||null,
     data_lancamento:val('lanData')||hoje(),
     data_pagamento:pagamento||((['Pago','Recebido'].includes(status)&&!pagamento)?hoje():null),
     status:parcelado?'Pendente':status,
@@ -825,6 +839,7 @@ function editarLancamento(id){
   $('lanId').value=f.id;
   $('lanTipo').value=f.tipo||'Receita';
   $('lanCat').value=f.categoria||'Serviços';
+  if($('lanLoja'))$('lanLoja').value=f.loja_id||'';
   $('lanDesc').value=f.descricao||'';
   $('lanValor').value=f.valor||'';
   $('lanData').value=f.data_lancamento?String(f.data_lancamento).slice(0,10):'';
@@ -1245,6 +1260,7 @@ function limparLancamento(){
   if($('lanData'))$('lanData').value=hoje();
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
+  if($('lanLoja'))$('lanLoja').value='';
   if($('lanStatus'))$('lanStatus').value='Pendente';
   if($('lanForma'))$('lanForma').value='Dinheiro';
   if($('lanParcelas'))$('lanParcelas').value='2';
@@ -1269,7 +1285,7 @@ function limparFiltroDia(){
 
 // ── RENDER LANÇAMENTOS ──
 function renderLancamentos(){
-  const tipo=val('filtTipo'),status=val('filtStatus'),mes=val('filtMes'),busca=val('filtBusca').toLowerCase(),hj=hoje();
+  const tipo=val('filtTipo'),status=val('filtStatus'),mes=val('filtMes'),busca=val('filtBusca').toLowerCase(),loja=val('filtLoja'),hj=hoje();
   let lista=financeiro;
   if(filtroDiaURL){
     lista=lista.filter(f=>String(f.vencimento||'').slice(0,10)===filtroDiaURL);
@@ -1278,6 +1294,7 @@ function renderLancamentos(){
   }
   if(tipo)lista=lista.filter(f=>f.tipo===tipo);
   if(status)lista=lista.filter(f=>f.status===status);
+  if(loja)lista=lista.filter(f=>f.loja_id===loja);
   if(busca)lista=lista.filter(f=>(f.descricao||'').toLowerCase().includes(busca)||(f.categoria||'').toLowerCase().includes(busca)||(f.favorecido||'').toLowerCase().includes(busca));
   const totalRec=lista.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
   const totalDesp=lista.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
@@ -1297,6 +1314,7 @@ function renderLancamentos(){
       <td><span class="badge ${f.tipo==='Receita'?'ok':'bad'}">${f.tipo}</span></td>
       <td style="font-size:12px">${esc(f.categoria||'')}</td>
       <td><b>${esc(f.descricao||'')}</b>${f.parcela_total?`<span style="font-size:10px;background:var(--p-light);color:var(--p);border-radius:6px;padding:1px 6px;margin-left:4px;font-weight:700">${f.parcela_numero}/${f.parcela_total}</span>`:''} ${f.favorecido?`<div style="font-size:11px;color:var(--muted)">${esc(f.favorecido)}</div>`:''}</td>
+      <td>${f.loja_id?`<span class="badge">${esc(nomeLoja(f.loja_id))}</span>`:'<span style="color:var(--muted2);font-size:12px">—</span>'}</td>
       <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td style="${atrasado?'color:var(--red);font-weight:700':''}">${venc?fmtData(venc):'—'}</td>
       <td style="color:var(--muted);font-size:12px">${f.data_pagamento?fmtData(f.data_pagamento):'—'}</td>
@@ -1310,7 +1328,7 @@ function renderLancamentos(){
         </div>
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');
+  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhum lançamento ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');
 }
 
 // ── RENDER FLUXO ──

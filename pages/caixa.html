@@ -945,7 +945,7 @@ async function finalizarVenda(){
     // receber nunca fica sabendo que a venda aconteceu.
     const finLancamento=await dbPost('financeiro',withEmpresa({
       tipo:'Receita', categoria:'Vendas de Produtos',
-      descricao:descricaoVenda,
+      descricao:descricaoVenda, loja_id:lojaId,
       valor:total, data_lancamento:dataRef, data_pagamento:dataRef,
       status:'Recebido', forma_pagamento:formasTxt, favorecido:clienteNome,
       updated_at:new Date().toISOString(),
