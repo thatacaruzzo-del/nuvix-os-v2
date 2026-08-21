@@ -176,12 +176,13 @@ tr:hover td{background:#FAFAFF}
 .modulo-item.on .modulo-toggle::after{left:18px}
 
 /* ── PERMISSÕES TABLE ── */
-.perm-table{width:100%;border-collapse:collapse;font-size:12px}
-.perm-table th{padding:8px 10px;background:var(--p-light);color:var(--p);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:center}
+.perm-table{width:100%;border-collapse:collapse;font-size:13px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.perm-table th{padding:10px 12px;background:var(--p-light);color:var(--p2);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:center}
 .perm-table th:first-child{text-align:left}
-.perm-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:center}
+.perm-table td{padding:10px 12px;border-top:1px solid var(--line);text-align:center;color:var(--txt)}
 .perm-table td:first-child{text-align:left;font-weight:600}
-.perm-check{width:16px;height:16px;accent-color:var(--p);cursor:pointer}
+.perm-table tbody tr:hover{background:var(--bg)}
+.perm-check{width:17px;height:17px;accent-color:var(--p);cursor:pointer;border-radius:4px}
 
 /* ── Modelos de acesso (presets de permissão) ── */
 .papel-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:18px}
