@@ -280,7 +280,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <input id="prodConsignadoFornecedor" placeholder="Nome de quem consignou o produto">
   </div>
   <div style="display:flex;gap:12px">
-    <div class="field" style="flex:1"><label>Custo atual (automático)</label><input id="prodCusto" disabled style="background:#F7F7FA"><div class="field-hint">Só muda ao lançar uma compra em Contas a Pagar vinculada a este produto.</div></div>
+    <div class="field" style="flex:1"><label>Custo do produto</label><input id="prodCusto" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);atualizarPrecoSugerido()"><div class="field-hint">Quanto custou pra você. Usado pra calcular o preço sugerido.</div></div>
     <div class="field" style="flex:1"><label>Preço sugerido (automático)</label><input id="prodSugerido" disabled style="background:#F7F7FA"><div class="field-hint">Calculado pelo custo + markup da categoria — só uma referência.</div></div>
   </div>
   <div class="field">
@@ -429,9 +429,6 @@ function calcKpisProdutos(){
   const inativos = dados.produtos.length - ativos.length;
   const consignados = dados.produtos.filter(p=>p.is_consignado).length;
   const produtoPorId = {}; dados.produtos.forEach(p=>{produtoPorId[p.id]=p});
-  // Custo (custo_atual) só existe depois que uma compra é lançada no Financeiro —
-  // então, enquanto isso não acontece, o valor de venda (sempre preenchido no
-  // cadastro do produto) é o que reflete o que já está de fato registrado.
   const lojasAtivas = new Set(dados.lojas.filter(l=>l.ativo).map(l=>l.id));
   let valorCusto=0, valorVenda=0, zerados=0, abaixoMinimo=0;
   // Loja inativa não conta como alerta — se ela não está em uso, estoque zerado
@@ -519,7 +516,7 @@ function abrirModalProduto(){
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
   $('prodNcm').value=''; $('prodCest').value=''; $('prodCfop').value='5102'; $('prodUnidade').value='UN'; $('prodOrigem').value='0'; $('prodCstCsosn').value='';
   $('prodAliqIcms').value=''; $('prodAliqPis').value=''; $('prodAliqCofins').value='';
-  $('prodCusto').value=money(0); $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
+  $('prodCusto').value=''; $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('prodConsignado').checked=false; $('prodConsignadoFornecedor').value=''; toggleFornecedorConsignado();
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
@@ -539,20 +536,20 @@ function editarProduto(id){
   $('prodUnidade').value=p.unidade_medida||'UN';
   $('prodOrigem').value=p.origem_mercadoria||'0'; $('prodCstCsosn').value=p.csosn_cst||'';
   $('prodAliqIcms').value=p.aliquota_icms??''; $('prodAliqPis').value=p.aliquota_pis??''; $('prodAliqCofins').value=p.aliquota_cofins??'';
-  $('prodCusto').value=money(p.custo_atual); $('prodSugerido').value=money(p.preco_venda_sugerido);
+  $('prodCusto').value=p.custo_atual||'';
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
   $('prodConsignado').checked=!!p.is_consignado; $('prodConsignadoFornecedor').value=p.consignado_fornecedor||''; toggleFornecedorConsignado();
   $('prodEstoqueInicialWrap').style.display='none'; // na edição mostra o estoque atual, não o "inicial"
   $('prodEstoqueAtualWrap').style.display='block';
   renderEstoqueAtualCampos(id);
-  checarSobrescrito();
+  atualizarPrecoSugerido(); // recalcula com o custo real, em vez de reexibir o preço_venda_sugerido que ficava salvo zerado
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   abrirModal('modalProduto');
 }
 function atualizarPrecoSugerido(){
   const cat=dados.categorias.find(c=>c.id===val('prodCategoria'));
-  const custo=Number(val('prodId')?dados.produtos.find(p=>p.id===val('prodId'))?.custo_atual||0:0);
+  const custo=numBR('prodCusto');
   const markup=Number(cat?.markup_pct||50);
   const sugerido=Math.round(custo*(1+markup/100)*100)/100;
   $('prodSugerido').value=money(sugerido);
@@ -571,6 +568,7 @@ async function salvarProduto(){
   const precoFinal=numBR('prodPrecoFinal');
   if(!precoFinal){msg('produtoMsg','Informe o preço de venda final.','err');return;}
   if(precoFinal<0){msg('produtoMsg','O preço de venda não pode ser negativo.','err');return;}
+  if(numBR('prodCusto')<0){msg('produtoMsg','O custo não pode ser negativo.','err');return;}
   const id=val('prodId');
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);
@@ -581,7 +579,8 @@ async function salvarProduto(){
   }
   const payload={
     nome, categoria_id: val('prodCategoria')||null, sku: val('prodSku').trim()||null,
-    codigo_barras: codigoBarras, preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
+    codigo_barras: codigoBarras, custo_atual: numBR('prodCusto'), preco_venda_sugerido: sugerido,
+    preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
     ativo: $('prodAtivo').checked,
     is_consignado: $('prodConsignado').checked, consignado_fornecedor: $('prodConsignado').checked?(val('prodConsignadoFornecedor').trim()||null):null,
     ncm: val('prodNcm').trim()||null, cest: val('prodCest').trim()||null,
