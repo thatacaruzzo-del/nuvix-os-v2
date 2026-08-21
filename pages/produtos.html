@@ -433,13 +433,17 @@ function calcKpisProdutos(){
   let valorCusto=0, valorVenda=0, zerados=0, abaixoMinimo=0;
   // Loja inativa não conta como alerta — se ela não está em uso, estoque zerado
   // nela não é uma falta de verdade, só ruído (ex: loja criada por engano/teste).
-  dados.estoque.filter(e=>lojasAtivas.has(e.loja_id)).forEach(e=>{
+  // Produto inativo fica fora de tudo aqui — valor, zerado e abaixo do mínimo. Ele não
+  // está mais à venda, então nem "vale" nada em estoque nem precisa de alerta de reposição;
+  // contar ele só inflava o valor total e o número de alertas com coisa que não é acionável.
+  dados.estoque.filter(e=>{
+    const p=produtoPorId[e.produto_id];
+    return lojasAtivas.has(e.loja_id) && p && p.ativo!==false;
+  }).forEach(e=>{
     const qtd=Number(e.quantidade||0);
     const p=produtoPorId[e.produto_id];
-    if(p){
-      valorCusto += qtd*Number(p.custo_atual||0);
-      valorVenda += qtd*Number(p.preco_venda_final||0);
-    }
+    valorCusto += qtd*Number(p.custo_atual||0);
+    valorVenda += qtd*Number(p.preco_venda_final||0);
     if(qtd<=0) zerados++;
     else if(Number(e.estoque_minimo||0)>0 && qtd<Number(e.estoque_minimo||0)) abaixoMinimo++;
   });
