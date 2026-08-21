@@ -220,6 +220,9 @@ function renderFiltrosExtra(){
     </div>`).join(''));
 }
 
+let _relDadosBrutos = []; // fetch cru do módulo genérico atual (todas as colunas) — trocar coluna reaproveita sem bater no banco de novo
+let relColunasAtivas = {}; // {coluna: true/false} do módulo genérico atual — tudo ligado toda vez que gera um relatório novo
+
 async function gerarRelatorio(){
   const modulo=val('relModulo');
   if(!modulo){toast('Selecione um módulo.','err');return;}
@@ -258,17 +261,16 @@ async function gerarRelatorio(){
         return true;
       });
     }
-    _relDados = dados;
-    if(!_relDados.length){
+    _relDadosBrutos = dados;
+    if(!_relDadosBrutos.length){
+      _relDados=[];
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro encontrado.</div>');
       return;
     }
-    if(modulo==='financeiro') renderTotaisFinanceiro(_relDados);
-    else if(VALOR_COL_MODULO[modulo]) renderTotalGenerico(_relDados, VALOR_COL_MODULO[modulo]);
-    const cols = COLS_MODULO[modulo] || Object.keys(_relDados[0]).filter(k=>!['id','empresa_id'].includes(k));
+    const cols = COLS_MODULO[modulo] || Object.keys(_relDadosBrutos[0]).filter(k=>!['id','empresa_id'].includes(k));
     _relColsAtuais = cols;
+    relColunasAtivas = {}; cols.forEach(c=>relColunasAtivas[c]=true);
     paginaRelGenerico = 1;
-    setHTML('relInfo',`<b>${_relDados.length}</b> registros encontrados`);
     renderRelConteudoGenerico();
   }catch(e){
     toast('Erro: '+e.message,'err');
@@ -297,23 +299,62 @@ function renderTotalGenerico(linhas, coluna){
     <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Total do período</div><div class="metric-value" style="font-size:20px">${money(total)}</div></div>
   </div>`);
 }
-// Paginado — o relatório genérico busca até 500 registros de uma vez (_relDados,
-// usado inteiro na exportação), mas só mostra 20 por vez na tela pra não rolar infinito.
+// Paginado — o relatório genérico busca até 500 registros de uma vez (_relDadosBrutos),
+// mas só mostra 20 por vez na tela pra não rolar infinito. _relDados guarda só as colunas
+// marcadas nos chips (é o que vai pro CSV) — mesma regra do relatório de Vendas.
 let _relColsAtuais = [];
 let paginaRelGenerico = 1;
 const REL_GENERICO_POR_PAGINA = 20;
+function toggleColunaGenerica(col){ relColunasAtivas[col]=!relColunasAtivas[col]; renderRelConteudoGenerico(); }
 function renderRelConteudoGenerico(){
-  const cols = _relColsAtuais;
-  const totalPaginas = Math.max(1,Math.ceil(_relDados.length/REL_GENERICO_POR_PAGINA));
+  const modulo=val('relModulo');
+  const colsDisponiveis = _relColsAtuais;
+  const colunasAtivas = colsDisponiveis.filter(c=>relColunasAtivas[c]);
+
+  if(modulo==='financeiro') renderTotaisFinanceiro(_relDadosBrutos);
+  else if(VALOR_COL_MODULO[modulo]) renderTotalGenerico(_relDadosBrutos, VALOR_COL_MODULO[modulo]);
+  else setHTML('relTotais','');
+
+  setHTML('relInfo',`<b>${_relDadosBrutos.length}</b> registros encontrados`);
+
+  // Exporta exatamente as colunas marcadas — é o que "o cliente selecionou que quer no relatório".
+  _relDados = _relDadosBrutos.map(row=>{
+    const r={};
+    colunasAtivas.forEach(c=>{ r[LABELS[c]||c] = fmtVal(c,row[c]); });
+    return r;
+  });
+
+  const chipColuna=k=>`<div class="rel-chip${relColunasAtivas[k]?' active':''}" onclick="toggleColunaGenerica('${k}')"><span class="rel-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${esc(LABELS[k]||k)}</div>`;
+  const personalizarHTML = `
+    <div class="card" style="margin:0 0 20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div>
+          <h3 style="margin:0 0 4px">Personalizar relatório</h3>
+          <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
+        </div>
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+      </div>
+      <div class="rel-chip-grupo-lbl">Colunas</div>
+      <div class="rel-chips">${colsDisponiveis.map(chipColuna).join('')}</div>
+    </div>`;
+
+  const totalPaginas = Math.max(1,Math.ceil(_relDadosBrutos.length/REL_GENERICO_POR_PAGINA));
   if(paginaRelGenerico>totalPaginas) paginaRelGenerico=totalPaginas;
   const inicio=(paginaRelGenerico-1)*REL_GENERICO_POR_PAGINA;
-  const pagina=_relDados.slice(inicio,inicio+REL_GENERICO_POR_PAGINA);
+  const pagina=_relDadosBrutos.slice(inicio,inicio+REL_GENERICO_POR_PAGINA);
   const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginas},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaRelGenerico?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaRelGenerico(${p})">${p}</button>`).join('')}</div>` : '';
-  setHTML('relConteudo',`
-    <table>
-      <thead><tr>${cols.map(c=>`<th>${LABELS[c]||c}</th>`).join('')}</tr></thead>
-      <tbody>${pagina.map(row=>`<tr>${cols.map(c=>`<td>${fmtVal(c,row[c])}</td>`).join('')}</tr>`).join('')}</tbody>
-    </table>${paginacaoHTML}`);
+  const tabelaHTML = `
+    <div class="card" style="margin:0">
+      <div class="tablewrap">
+      <table>
+        <thead><tr>${colunasAtivas.map(c=>`<th>${esc(LABELS[c]||c)}</th>`).join('')||'<th>—</th>'}</tr></thead>
+        <tbody>${pagina.map(row=>`<tr>${colunasAtivas.length?colunasAtivas.map(c=>`<td>${fmtVal(c,row[c])}</td>`).join(''):'<td style="text-align:center;color:var(--muted)">Nenhuma coluna selecionada</td>'}</tr>`).join('')}</tbody>
+      </table>
+      </div>
+      ${paginacaoHTML}
+    </div>`;
+
+  setHTML('relConteudo', personalizarHTML + tabelaHTML);
 }
 function irParaPaginaRelGenerico(p){ paginaRelGenerico=p; renderRelConteudoGenerico(); }
 
