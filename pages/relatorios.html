@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nuvix — Relatórios</title>
 <link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.rel-chip-grupo-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.rel-chips{display:flex;flex-wrap:wrap;gap:8px}
+.rel-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:20px;border:1.5px solid var(--line);background:#fff;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none}
+.rel-chip:hover{border-color:var(--p3);color:var(--p)}
+.rel-chip.active{background:var(--p-light);border-color:var(--p);color:var(--p2)}
+.rel-chip-check{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;transition:all .15s}
+.rel-chip.active .rel-chip-check{background:var(--p);border-color:var(--p)}
+.rel-chip-check svg{width:11px;height:11px;stroke:#fff;stroke-width:3;opacity:0;transform:scale(.6);transition:all .15s}
+.rel-chip.active .rel-chip-check svg{opacity:1;transform:scale(1)}
+</style>
 </head>
 <body>
 <script>
@@ -402,25 +413,28 @@ function renderRelatorioVendas(){
     return row;
   });
 
+  const chipSecao=(k,lbl)=>`<div class="rel-chip${relVendasSecoes[k]?' active':''}" onclick="toggleSecaoVendas('${k}')"><span class="rel-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${lbl}</div>`;
+  const chipColuna=(k,lbl)=>`<div class="rel-chip${relVendasColunas[k]?' active':''}" onclick="toggleColunaVendas('${k}')"><span class="rel-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${lbl}</div>`;
   const personalizarHTML=`
     <div class="card" style="margin:0 0 20px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-        <h3 style="margin:0">Personalizar relatório</h3>
-        <button class="btn" onclick="exportarRelatorio()">⬇ Exportar CSV</button>
-      </div>
-      <div style="display:flex;gap:32px;flex-wrap:wrap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
         <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Seções</div>
-          ${Object.entries({resumo:'Resumo',forma:'Por forma de pagamento',produto:'Por produto',detalhe:'Lista de vendas'}).map(([k,lbl])=>
-            `<label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:7px;cursor:pointer"><input type="checkbox" ${relVendasSecoes[k]?'checked':''} onchange="toggleSecaoVendas('${k}')">${lbl}</label>`
-          ).join('')}
+          <h3 style="margin:0 0 4px">Personalizar relatório</h3>
+          <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
         </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Colunas da lista de vendas</div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:2px 20px">
-          ${Object.entries(COLUNAS_VENDAS_LABEL).map(([k,lbl])=>
-            `<label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:7px;cursor:pointer"><input type="checkbox" ${relVendasColunas[k]?'checked':''} onchange="toggleColunaVendas('${k}')">${lbl}</label>`
-          ).join('')}
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+      </div>
+      <div style="display:flex;gap:36px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div class="rel-chip-grupo-lbl">Seções</div>
+          <div class="rel-chips">
+            ${Object.entries({resumo:'Resumo',forma:'Por forma de pagamento',produto:'Por produto',detalhe:'Lista de vendas'}).map(([k,lbl])=>chipSecao(k,lbl)).join('')}
+          </div>
+        </div>
+        <div style="flex:2;min-width:320px">
+          <div class="rel-chip-grupo-lbl">Colunas da lista de vendas</div>
+          <div class="rel-chips">
+            ${Object.entries(COLUNAS_VENDAS_LABEL).map(([k,lbl])=>chipColuna(k,lbl)).join('')}
           </div>
         </div>
       </div>
