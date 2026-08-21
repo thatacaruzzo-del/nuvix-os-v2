@@ -337,6 +337,11 @@ async function deleteRow(table,id,area){
       <h3>Permissões — <span id="permFuncNome"></span></h3>
       <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Perfil: <b id="permFuncPerfil"></b> · Administrador tem acesso completo por padrão</p>
       <input type="hidden" id="permFuncUsuId">
+      <div class="field" id="limiteDescontoWrap" style="max-width:280px">
+        <label>Limite de desconto sem pedir aprovação (%)</label>
+        <input type="number" id="permFuncLimiteDesconto" min="0" max="100" step="0.5" placeholder="Padrão: 5%">
+        <div class="field-hint">Em branco usa o padrão do sistema (5%). Acima disso, a venda pede senha de um Administrador pra aprovar o desconto.</div>
+      </div>
       <div class="field" style="margin-bottom:4px"><label>Modelos de acesso — aplica de uma vez, você revisa e salva depois</label></div>
       <div class="papel-presets" id="papelPresets"></div>
       <div class="tablewrap">
@@ -434,7 +439,7 @@ function navegarSidebar(pagina, btnId) {
 async function loadData() {
   if(!session?.empresa_id) return;
   const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
-  const qUsuarios=`?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,created_at&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
+  const qUsuarios=`?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,created_at,limite_desconto_pct&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   try {
     [dados.clientes,dados.usuarios,dados.oportunidadesFechadas]=await Promise.all([
       db.get('clientes',q),
@@ -715,6 +720,9 @@ async function abrirPermissoesFuncionario(usuId){
   $('permFuncUsuId').value=usuId;
   $('permFuncNome').textContent=u.nome||u.email||'';
   $('permFuncPerfil').textContent=u.perfil||'Colaborador';
+  // Administrador já tem 100% fixo — o campo não faz sentido pra esse perfil.
+  if($('limiteDescontoWrap'))$('limiteDescontoWrap').style.display=u.perfil==='Administrador'?'none':'';
+  if($('permFuncLimiteDesconto'))$('permFuncLimiteDesconto').value=u.limite_desconto_pct??'';
   // Módulos que a própria empresa tem liberados no plano — não dá pra dar acesso
   // a um módulo que a empresa não contratou, então esses ficam bloqueados na tela.
   let modsEmp=[];
@@ -767,7 +775,12 @@ async function salvarPermissoesFuncionario(){
     for(const m of Object.values(modsMap)){
       await db.upsert('usuario_permissoes',m,'usuario_id,modulo');
     }
+    const limiteVal=val('permFuncLimiteDesconto').trim();
+    if($('limiteDescontoWrap')&&$('limiteDescontoWrap').style.display!=='none'){
+      await db.patch('usuarios',usuId,{limite_desconto_pct:limiteVal?Number(limiteVal):null});
+    }
     msg('permFuncMsg','Permissões salvas!','ok');
+    await loadData();
     setTimeout(()=>fecharModal('modalPermissoesFunc'),1500);
   }catch(e){msg('permFuncMsg','Erro: '+e.message,'err');}
 }

@@ -1239,6 +1239,11 @@ function aplicarPresetPapel(nome){
   <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Empresa: <b id="permUsuEmpresa"></b> · Perfil: <b id="permUsuPerfil"></b></p>
   <input type="hidden" id="permUsuId">
   <input type="hidden" id="permEmpId">
+  <div class="field" id="limiteDescontoWrap" style="max-width:280px">
+    <label>Limite de desconto sem pedir aprovação (%)</label>
+    <input type="number" id="permLimiteDesconto" min="0" max="100" step="0.5" placeholder="Padrão: 5%">
+    <div class="field-hint">Em branco usa o padrão do sistema (5%). Acima disso, a venda pede senha de um Administrador pra aprovar o desconto.</div>
+  </div>
   <div class="field" style="margin-bottom:4px"><label>Modelos de acesso — aplica de uma vez, você revisa e salva depois</label></div>
   <div class="papel-presets" id="papelPresets"></div>
   <div class="tablewrap">
@@ -1480,7 +1485,7 @@ async function carregarTudo(){
     const desde60d=new Date();desde60d.setDate(desde60d.getDate()-60);
     [empresas,usuarios,assinaturas,eventosConta,accessLogsPortfolio]=await Promise.all([
       dbGet('empresas','?select=*&order=created_at.desc'),
-      dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at&order=created_at.desc'),
+      dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at,limite_desconto_pct&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
       dbGet('eventos_conta','?select=empresa_id,tipo_evento,created_at').catch(()=>[]),
       dbGet('access_logs',`?select=empresa_id,modulo,created_at&created_at=gte.${desde60d.toISOString()}`).catch(()=>[]),
@@ -2298,6 +2303,8 @@ async function abrirPermissoes(usuId){
   $('permUsuNome').textContent=u.nome||u.email||'';
   $('permUsuEmpresa').textContent=emp?emp.fantasia||emp.razao:'—';
   $('permUsuPerfil').textContent=u.perfil||'Colaborador';
+  if($('limiteDescontoWrap'))$('limiteDescontoWrap').style.display=u.perfil==='Administrador'?'none':'';
+  if($('permLimiteDesconto'))$('permLimiteDesconto').value=u.limite_desconto_pct??'';
   // Carregar módulos liberados da empresa
   let modsEmp=[];
   if(u.empresa_id){
@@ -2353,6 +2360,10 @@ async function salvarPermissoes(){
   try{
     for(const m of Object.values(modsMap)){
       await dbUpsert('usuario_permissoes',m,'usuario_id,modulo');
+    }
+    const limiteVal=val('permLimiteDesconto').trim();
+    if($('limiteDescontoWrap')&&$('limiteDescontoWrap').style.display!=='none'){
+      await dbPatch('usuarios',usuId,{limite_desconto_pct:limiteVal?Number(limiteVal):null});
     }
     msgEl('permMsg','Permissões salvas!','ok');
     setTimeout(()=>fecharModal('modalPermissoes'),1500);

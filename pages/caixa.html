@@ -458,8 +458,14 @@ let aprovacaoDescontoUsuarioId = null;
 let pdvClienteId = null;
 let pdvClienteBusca = null; // promise da busca em andamento — finalizarVenda espera ela antes de decidir se cadastra cliente novo
 
-const LIMITE_DESCONTO_PADRAO_PCT = 5; // perfis que não são Administrador/SuperAdmin
-function limiteDescontoPct(){ return (session.perfil==='Administrador'||session.perfil==='SuperAdmin') ? 100 : LIMITE_DESCONTO_PADRAO_PCT; }
+const LIMITE_DESCONTO_PADRAO_PCT = 5; // perfis que não são Administrador/SuperAdmin, sem limite configurado
+function limiteDescontoPct(){
+  if(session.perfil==='Administrador'||session.perfil==='SuperAdmin') return 100;
+  // Limite configurado pra esse usuário específico (tela de Permissões) tem prioridade
+  // sobre o padrão do perfil — pra dar mais autonomia a quem fica sozinho na loja.
+  if(session.limite_desconto_pct!=null) return Number(session.limite_desconto_pct);
+  return LIMITE_DESCONTO_PADRAO_PCT;
+}
 
 function chaveUltimaLoja(){return `nuvix_caixa_loja_${session?.empresa_id||''}`}
 
