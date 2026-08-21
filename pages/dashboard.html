@@ -1514,6 +1514,10 @@ function trendBadge(atual, anterior, invertido, confiavel){
   if(!confiavel) return '';
   const pct = Math.round(((atual-anterior)/Math.abs(anterior))*100);
   if(pct===0) return '';
+  // Base quase zero (ex: R$1,99) também produz % sem sentido mesmo não sendo zero exato —
+  // achado real: R$16 mil hoje vs R$1,99 no início do histórico virava "804622%". Acima
+  // desse teto o número não comunica nada de útil, só assusta — melhor não mostrar.
+  if(Math.abs(pct)>=1000) return '';
   const bom = invertido ? pct<0 : pct>0;
   return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
 }
