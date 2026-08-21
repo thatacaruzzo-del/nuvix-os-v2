@@ -425,7 +425,9 @@ async function loadData(){
       db.get('ordens_servico',q+'&order=created_at.desc&select=*'),
       db.get('clientes',q+'&order=nome.asc&select=*').catch(()=>[]),
       db.get('materiais',q+'&status=eq.Ativo&order=nome.asc&select=id,nome,unidade,custo_compra').catch(()=>[]),
-      db.get('colaboradores',q+'&ativo=eq.true&order=nome.asc&select=id,nome,cargo').catch(()=>[]),
+      // vendedores_ativos: view enxuta (id/nome/cargo, sem dado sensível de RH) — assim
+      // o técnico responsável aparece pra qualquer funcionário, não só quem tem acesso a RH.
+      db.get('vendedores_ativos',q+'&order=nome.asc&select=id,nome,cargo').catch(()=>[]),
     ]);
     dados={os,clientes:cli,materiais:mats,colaboradores:cols};
     popularSelects();

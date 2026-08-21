@@ -505,11 +505,15 @@ async function carregarLojas(){
 }
 
 // "Vendedor" é quem atendeu o cliente — pode ser diferente de quem está logado
-// operando o caixa, então fica separado do session.id. Best-effort: se a busca falhar
-// (ex: usuário sem permissão em colaboradores), o campo só fica vazio, nunca trava a venda.
+// operando o caixa, então fica separado do session.id. Busca em `vendedores_ativos`
+// (view enxuta, só id/nome) em vez da tabela `colaboradores` direto — essa tem dado
+// sensível (salário, CPF, banco, PIX) e por isso um funcionário comum só enxerga a
+// própria linha nela; a view existe justamente pra qualquer um no Caixa ver a lista
+// completa de nomes pra atribuir a venda, sem abrir acesso a RH. Best-effort: se a
+// busca falhar mesmo assim, o campo só fica vazio, nunca trava a venda.
 async function carregarVendedores(){
   try{
-    dados.colaboradores=await dbGet('colaboradores',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome&order=nome.asc`);
+    dados.colaboradores=await dbGet('vendedores_ativos',`?select=id,nome&order=nome.asc`);
   }catch(e){ dados.colaboradores=[]; }
   const sel=$('pdvVendedor');
   if(sel) sel.innerHTML='<option value="">Selecione...</option>'+dados.colaboradores.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
