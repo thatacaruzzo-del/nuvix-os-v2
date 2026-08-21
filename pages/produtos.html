@@ -144,9 +144,12 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ CATEGORIAS ══ -->
       <div id="pane-categorias" class="pdv-pane">
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h2>Categorias e markup</h2>
-            <button class="btn" onclick="abrirModalCategoria()">+ Nova categoria</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Categorias e markup</h2>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input type="text" id="categoriasBusca" placeholder="Buscar categoria..." oninput="paginaCategorias=1;renderCategorias()" style="max-width:220px">
+              <button class="btn" onclick="abrirModalCategoria()">+ Nova categoria</button>
+            </div>
           </div>
           <p class="field-hint" style="margin-bottom:14px">O markup define o preço de venda sugerido de cada produto da categoria: custo × (1 + markup). Mudar aqui não recalcula produtos já cadastrados automaticamente.</p>
           <div class="tablewrap">
@@ -629,14 +632,16 @@ async function excluirProduto(id){
 
 // ══ CATEGORIAS ══
 function renderCategorias(){
-  paginaCategorias=renderPaginacao('categoriasPaginacao',dados.categorias.length,paginaCategorias,'irParaPaginaCategorias');
-  const _pagCategorias=paginar(dados.categorias,paginaCategorias);
-  $('categoriasTable').innerHTML=dados.categorias.length?_pagCategorias.map(c=>`
+  const q=val('categoriasBusca').trim().toLowerCase();
+  const lista=q?dados.categorias.filter(c=>(c.nome||'').toLowerCase().includes(q)):dados.categorias;
+  paginaCategorias=renderPaginacao('categoriasPaginacao',lista.length,paginaCategorias,'irParaPaginaCategorias');
+  const _pagCategorias=paginar(lista,paginaCategorias);
+  $('categoriasTable').innerHTML=lista.length?_pagCategorias.map(c=>`
     <tr>
       <td><b>${esc(c.nome)}</b></td>
       <td>${Number(c.markup_pct)}%</td>
       <td><button class="btn2" style="padding:6px 12px" onclick="editarCategoria('${c.id}')">Editar</button></td>
-    </tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--muted)">Nenhuma categoria cadastrada.</td></tr>';
+    </tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:var(--muted)">${q?'Nenhuma categoria encontrada.':'Nenhuma categoria cadastrada.'}</td></tr>`;
 }
 function abrirModalCategoria(){$('catId').value='';$('catNome').value='';$('catMarkup').value='';$('categoriaMsg').textContent='';$('categoriaMsg').className='msg';abrirModal('modalCategoria');}
 function editarCategoria(id){
