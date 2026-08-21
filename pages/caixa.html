@@ -512,7 +512,18 @@ async function carregarVendedores(){
 async function verificarCaixaAberto(){
   const lojaId=val('abrirLoja')||dados.lojas[0]?.id;
   if(!lojaId){ $('telaAbrirCaixa').style.display='block'; return; }
-  const abertos=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+  let abertos;
+  try{
+    abertos=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+  }catch(e){
+    // Nunca deixa cair silenciosamente na tela de "Abrir caixa" quando a checagem falhou —
+    // senão o funcionário pode acabar abrindo um caixa novo achando que não tinha nenhum
+    // aberto, e o caixa de verdade (com as vendas do dia) fica órfão, invisível pro sistema.
+    $('telaAbrirCaixa').style.display='none';
+    $('telaPdv').style.display='none';
+    toast('Não foi possível verificar se já existe um caixa aberto. Recarregue a página antes de continuar — não abra um novo caixa às cegas.','err');
+    return;
+  }
   if(abertos.length){
     sessaoAtual=abertos[0];
     await carregarProdutosLoja();
@@ -598,6 +609,19 @@ async function abrirCaixaSessao(){
   const lojaId=val('abrirLoja');
   if(!lojaId){msg('abrirCaixaMsg','Cadastre uma loja em Produtos → Lojas antes de abrir o caixa.','err');return;}
   try{
+    // Checagem de última hora antes de criar — evita duplicar caixa aberto pra mesma loja
+    // (ex: sessão expirou, funcionário logou de novo e a tela achou, por engano, que não
+    // tinha nenhum caixa aberto). Sem isso, um caixa de verdade com vendas do dia inteiro
+    // pode ficar órfão — invisível no sistema — enquanto um caixa vazio é criado por cima.
+    const jaAberto=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+    if(jaAberto.length){
+      sessaoAtual=jaAberto[0];
+      localStorage.setItem(chaveUltimaLoja(),lojaId);
+      await carregarProdutosLoja();
+      mostrarTelaPdv();
+      toast('Já existia um caixa aberto pra essa loja (desde '+fmtDataHora(jaAberto[0].aberto_em)+') — retomando ele em vez de abrir outro.','ok');
+      return;
+    }
     const nova=await dbPost('caixa_sessoes',withEmpresa({
       loja_id:lojaId, turno:val('abrirTurno').trim()||null, responsavel_abertura_id:session.id,
       fundo_troco:numBR('abrirFundoTroco'), status:'Aberto',
