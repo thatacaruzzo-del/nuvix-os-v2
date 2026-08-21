@@ -1202,8 +1202,11 @@ const FORMAS_FECHAMENTO=['Dinheiro','Cartão Débito','Cartão Crédito','Pix'];
 async function abrirTelaFechamento(){
   $('telaPdv').style.display='none';
   $('telaFechamento').style.display='block';
+  // status=eq.Concluída — sem isso, venda cancelada (ex: teste) continuava entrando no
+  // "esperado pelo sistema" do fechamento, mesmo já não aparecendo em lugar nenhum do
+  // histórico e com o estoque já devolvido.
   const [vendasDoTurno,movimentos]=await Promise.all([
-    dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&caixa_sessao_id=eq.${sessaoAtual.id}&select=id`),
+    dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&caixa_sessao_id=eq.${sessaoAtual.id}&status=eq.Concluída&select=id`),
     dbGet('caixa_movimentos',`?empresa_id=eq.${session.empresa_id}&caixa_sessao_id=eq.${sessaoAtual.id}`),
   ]);
   const ids=vendasDoTurno.map(v=>v.id);
