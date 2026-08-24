@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nuvix — Relatórios</title>
 <link rel="stylesheet" href="../css/nuvix.css">
+<script src="../js/vendor/exceljs.min.js"></script>
 <style>
 .rel-chip-grupo-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 .rel-chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -34,7 +35,23 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function toast(t,tp){document.querySelector('.nx-toast')?.remove();const el=document.createElement('div');el.className='nx-toast '+(tp||'ok');el.textContent=t;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0'},3000);setTimeout(()=>el.remove(),3400)}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
-function exportCSV(data,fn){if(!data?.length){toast('Nada para exportar.','err');return}const cols=Object.keys(data[0]);const csv=[cols.join(','),...data.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=fn+'_'+hoje()+'.csv';a.click()}
+async function exportXLSX(data,fn){
+  if(!data?.length){toast('Nada para exportar.','err');return}
+  const cols=Object.keys(data[0]);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Relatório');
+  ws.columns=cols.map(c=>({header:c,key:c,width:Math.max(12,Math.min(40,c.length+4))}));
+  ws.getRow(1).eachCell(cell=>{
+    cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF6343A4'}};
+  });
+  data.forEach(r=>ws.addRow(r));
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=fn+'_'+hoje()+'.xlsx';
+  a.click();
+}
 
 const SB='https://quullcxptbiqycyakzlc.supabase.co';
 const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
@@ -114,7 +131,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn" onclick="gerarRelatorio()" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Gerar</button>
-            <button class="btn2" onclick="exportarRelatorio()" style="padding:10px 14px" title="Exportar CSV">⬇</button>
+            <button class="btn2" onclick="exportarRelatorio()" style="padding:10px 14px" title="Exportar Excel">⬇</button>
           </div>
         </div>
         <div id="relFiltrosExtra" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
@@ -189,6 +206,7 @@ function fecharSidebar(){document.getElementById('sidebar').classList.remove('op
 
 const session = requireAuth();
 let _relDados = [];
+let _relDadosPorProduto = []; // cache do resumo "Por produto" do relatório de Vendas, pra exportar separado da lista de vendas
 
 const COLS_MODULO = {
   financeiro:['tipo','categoria','descricao','valor','data_lancamento','vencimento','data_pagamento','status','forma_pagamento','favorecido','centro_custo'],
@@ -389,7 +407,7 @@ function renderRelConteudoGenerico(){
           <h3 style="margin:0 0 4px">Personalizar relatório</h3>
           <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
         </div>
-        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</button>
       </div>
       <div class="rel-chip-grupo-lbl">Colunas</div>
       <div class="rel-chips">${colsDisponiveis.map(chipColuna).join('')}</div>
@@ -593,7 +611,7 @@ function renderRelatorioVendas(){
           <h3 style="margin:0 0 4px">Personalizar relatório</h3>
           <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
         </div>
-        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</button>
       </div>
       <div style="display:flex;gap:36px;flex-wrap:wrap">
         <div style="flex:1;min-width:220px">
@@ -639,9 +657,18 @@ function renderRelatorioVendas(){
     const inicioProduto=(paginaProdutoRel-1)*VENDAS_REL_POR_PAGINA;
     const paginaProdutos=produtosOrdenados.slice(inicioProduto,inicioProduto+VENDAS_REL_POR_PAGINA);
     const paginacaoProdutoHTML = totalPaginasProduto>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginasProduto},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaProdutoRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaProdutoRel(${p})">${p}</button>`).join('')}</div>` : '';
+    // Cache separado do _relDados (que é sempre a lista de vendas) — pra exportar
+    // "Por produto" com os dados atuais sem precisar refazer a agregação no clique.
+    _relDadosPorProduto = produtosOrdenados.map(([nome,d])=>({
+      Produto: nome, Consignado: d.isConsignado?'Sim':'Não', 'Qtd.': d.qtd, Faturamento: money(d.faturamento),
+      '% do total': (faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0')+'%',
+    }));
     produtoHTML = `
     <div class="card" style="margin:0 0 20px">
-      <h3 style="margin-bottom:12px">Por produto <span style="font-weight:400;color:var(--muted);font-size:13px">(${produtosOrdenados.length})</span></h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">Por produto <span style="font-weight:400;color:var(--muted);font-size:13px">(${produtosOrdenados.length})</span></h3>
+        <button class="btn2" style="padding:6px 12px;font-size:12px" onclick="exportarPorProduto()">⬇ Exportar Excel</button>
+      </div>
       <div class="tablewrap"><table>
         <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>% do total</th></tr></thead>
         <tbody>${paginaProdutos.map(([nome,d])=>`<tr><td>${esc(nome)}${d.isConsignado?` <span class="badge badge-amber" title="${esc(nomeConsignador[d.consignadorId]||'')}">Consignado</span>`:''}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
@@ -795,7 +822,7 @@ function renderRelatorioPonto(){
           <h3 style="margin:0 0 4px">Personalizar relatório</h3>
           <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
         </div>
-        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</button>
       </div>
       <div style="display:flex;gap:36px;flex-wrap:wrap;margin-bottom:16px">
         <div style="flex:1;min-width:220px">
@@ -870,7 +897,12 @@ function renderRelatorioPonto(){
 function exportarRelatorio(){
   if(!temPermissao('relatorios','exportar')){toast('Sem permissão para exportar.','err');return;}
   if(!_relDados.length){toast('Gere um relatório primeiro.','err');return;}
-  exportCSV(_relDados, val('relModulo')||'relatorio');
+  exportXLSX(_relDados, val('relModulo')||'relatorio');
+}
+function exportarPorProduto(){
+  if(!temPermissao('relatorios','exportar')){toast('Sem permissão para exportar.','err');return;}
+  if(!_relDadosPorProduto.length){toast('Gere um relatório primeiro.','err');return;}
+  exportXLSX(_relDadosPorProduto, 'vendas_por_produto');
 }
 
 function atualizarColunas(){
