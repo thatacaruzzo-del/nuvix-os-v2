@@ -96,6 +96,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <option value="financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Financeiro</option>
               <option value="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clientes</option>
               <option value="colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaboradores</option>
+              <option value="ponto">⏱️ Ponto</option>
               <option value="transporte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Transporte</option>
               <option value="materiais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Materiais</option>
               <option value="ordens_servico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Ordens de Serviço</option>
@@ -282,6 +283,7 @@ async function gerarRelatorio(){
   const modulo=val('relModulo');
   if(!modulo){toast('Selecione um módulo.','err');return;}
   if(modulo==='vendas'){ await gerarRelatorioVendas(); return; }
+  if(modulo==='ponto'){ await gerarRelatorioPonto(); return; }
   const de=val('relDe'), ate=val('relAte');
   const ehFinanceiro = modulo==='financeiro';
   // Financeiro usa vencimento como período do relatório, com data_lancamento como
@@ -697,6 +699,169 @@ function renderRelatorioVendas(){
   }
 
   setHTML('relConteudo', personalizarHTML + kpisHTML + formaHTML + produtoHTML + consignadoHTML + detalheHTML);
+}
+
+// ── Relatório de Ponto — usa a coluna `data` (dia trabalhado), não created_at, pelo
+// mesmo motivo de Vendas usar data_venda: ponto pode ser lançado/corrigido depois.
+// horas_trabalhadas e horas_extras já vêm calculadas e gravadas por salvarPonto() em
+// rh.html — aqui só SOMA essas colunas, nunca recalcula a partir de entrada/saída.
+let _pontoBrutos = null;
+let paginaPontoDetalheRel = 1, paginaPontoResumoRel = 1;
+const PONTO_REL_POR_PAGINA = 20;
+let relPontoSecoes = { resumo:true, porColaborador:true, detalhe:true };
+let relPontoColunasDetalhe = { colaborador:true, data:true, entrada:true, saida:true, horas:true, he:true, tipo:true };
+const PONTO_COLUNAS_DETALHE_LABEL = { colaborador:'Colaborador', data:'Data', entrada:'Entrada', saida:'Saída', horas:'Horas trabalhadas', he:'Horas extras', tipo:'Tipo' };
+let relPontoBuscaColaborador = '';
+
+async function gerarRelatorioPonto(){
+  const de=val('relDe'), ate=val('relAte');
+  if(!de||!ate){toast('Selecione o período.','err');return;}
+  setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Carregando...</div>');
+  setHTML('relInfo','');
+  try{
+    const registros=await db.get('ponto',`?select=*&empresa_id=eq.${session.empresa_id}&data=gte.${de}&data=lte.${ate}&order=data.desc`);
+    if(!registros.length){
+      _pontoBrutos=null; _relDados=[];
+      setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro de ponto nesse período.</div>');
+      return;
+    }
+    _pontoBrutos = { registros };
+    paginaPontoDetalheRel=1; paginaPontoResumoRel=1; relPontoBuscaColaborador='';
+    renderRelatorioPonto();
+  }catch(e){
+    toast('Erro: '+e.message,'err');
+    setHTML('relConteudo','');
+  }
+}
+
+function toggleSecaoPonto(chave){ relPontoSecoes[chave]=!relPontoSecoes[chave]; renderRelatorioPonto(); }
+function toggleColunaPontoDetalhe(chave){ relPontoColunasDetalhe[chave]=!relPontoColunasDetalhe[chave]; renderRelatorioPonto(); }
+function irParaPaginaPontoDetalheRel(p){ paginaPontoDetalheRel=p; renderRelatorioPonto(); }
+function irParaPaginaPontoResumoRel(p){ paginaPontoResumoRel=p; renderRelatorioPonto(); }
+function filtrarPontoColaborador(v){ relPontoBuscaColaborador=v; paginaPontoDetalheRel=1; paginaPontoResumoRel=1; renderRelatorioPonto(); }
+
+function renderRelatorioPonto(){
+  if(!_pontoBrutos){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro de ponto nesse período.</div>'); return; }
+  const { registros } = _pontoBrutos;
+
+  const busca=relPontoBuscaColaborador.toLowerCase();
+  const lista = busca ? registros.filter(r=>(r.colaborador_nome||'').toLowerCase().includes(busca)) : registros;
+
+  const colaboradoresComRegistro=new Set(lista.map(r=>r.colaborador_id)).size;
+  const totalHoras=lista.reduce((a,r)=>a+Number(r.horas_trabalhadas||0),0);
+  const totalHE=lista.reduce((a,r)=>a+Number(r.horas_extras||0),0);
+  // Mesma definição de "Faltas" já usada em renderPonto() no rh.html (só tipo==='Falta',
+  // sem misturar com 'Falta justificada') — mantém os números comparáveis entre as telas.
+  const totalFaltas=lista.filter(r=>r.tipo==='Falta').length;
+
+  const porColaborador={};
+  lista.forEach(r=>{
+    const id=r.colaborador_id||r.colaborador_nome;
+    if(!porColaborador[id]) porColaborador[id]={nome:r.colaborador_nome||'—',dias:0,horas:0,he:0,faltas:0,faltasJustificadas:0,atestados:0};
+    const c=porColaborador[id];
+    c.dias++;
+    c.horas+=Number(r.horas_trabalhadas||0);
+    c.he+=Number(r.horas_extras||0);
+    if(r.tipo==='Falta') c.faltas++;
+    if(r.tipo==='Falta justificada') c.faltasJustificadas++;
+    if(r.tipo==='Atestado') c.atestados++;
+  });
+  const porColaboradorOrdenado=Object.entries(porColaborador).sort((a,b)=>a[1].nome.localeCompare(b[1].nome,'pt-BR'));
+
+  setHTML('relInfo',`<b>${lista.length}</b> registros de ponto encontrados`);
+
+  // Exporta sempre o detalhe (uma linha por registro), nunca o resumo por colaborador —
+  // mesma regra de Vendas, só respeitando as colunas ligadas.
+  const colunasAtivas=Object.keys(relPontoColunasDetalhe).filter(c=>relPontoColunasDetalhe[c]);
+  const valorLinha={
+    colaborador:r=>r.colaborador_nome||'—', data:r=>fmtData(r.data), entrada:r=>r.entrada||'—', saida:r=>r.saida||'—',
+    horas:r=>r.horas_trabalhadas, he:r=>r.horas_extras, tipo:r=>r.tipo||'Normal',
+  };
+  _relDados = lista.map(r=>{
+    const row={};
+    colunasAtivas.forEach(c=>{ row[PONTO_COLUNAS_DETALHE_LABEL[c]] = valorLinha[c](r); });
+    return row;
+  });
+
+  const chipSecao=(k,lbl)=>`<div class="rel-chip${relPontoSecoes[k]?' active':''}" onclick="toggleSecaoPonto('${k}')"><span class="rel-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${lbl}</div>`;
+  const chipColuna=(k,lbl)=>`<div class="rel-chip${relPontoColunasDetalhe[k]?' active':''}" onclick="toggleColunaPontoDetalhe('${k}')"><span class="rel-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${lbl}</div>`;
+  const personalizarHTML=`
+    <div class="card" style="margin:0 0 20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div>
+          <h3 style="margin:0 0 4px">Personalizar relatório</h3>
+          <p class="muted" style="font-size:12.5px;margin:0">Escolha o que aparece na tela e no CSV exportado.</p>
+        </div>
+        <button class="btn" onclick="exportarRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+      </div>
+      <div style="display:flex;gap:36px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="flex:1;min-width:220px">
+          <div class="rel-chip-grupo-lbl">Seções</div>
+          <div class="rel-chips">
+            ${Object.entries({resumo:'Resumo',porColaborador:'Por colaborador',detalhe:'Detalhe'}).map(([k,lbl])=>chipSecao(k,lbl)).join('')}
+          </div>
+        </div>
+        <div style="flex:2;min-width:320px">
+          <div class="rel-chip-grupo-lbl">Colunas do detalhe</div>
+          <div class="rel-chips">
+            ${Object.entries(PONTO_COLUNAS_DETALHE_LABEL).map(([k,lbl])=>chipColuna(k,lbl)).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="field" style="margin:0;max-width:260px">
+        <label>Buscar colaborador</label>
+        <input type="text" placeholder="Buscar colaborador..." value="${esc(relPontoBuscaColaborador)}" oninput="filtrarPontoColaborador(this.value)">
+      </div>
+    </div>`;
+
+  const kpisHTML = relPontoSecoes.resumo ? `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Colaboradores com registro</div><div class="metric-value" style="font-size:20px">${colaboradoresComRegistro}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Horas trabalhadas</div><div class="metric-value" style="font-size:20px">${totalHoras.toFixed(1)}h</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Horas extras</div><div class="metric-value" style="font-size:20px">${totalHE.toFixed(1)}h</div></div>
+      <div class="card" style="margin:0;border-left:4px solid ${totalFaltas>0?'var(--red)':'var(--p)'}"><div class="metric-label">Faltas</div><div class="metric-value" style="font-size:20px;color:${totalFaltas>0?'var(--red)':'var(--txt)'}">${totalFaltas}</div></div>
+    </div>` : '';
+
+  let porColaboradorHTML='';
+  if(relPontoSecoes.porColaborador){
+    const totalPaginasResumo=Math.max(1,Math.ceil(porColaboradorOrdenado.length/PONTO_REL_POR_PAGINA));
+    if(paginaPontoResumoRel>totalPaginasResumo) paginaPontoResumoRel=totalPaginasResumo;
+    const inicioResumo=(paginaPontoResumoRel-1)*PONTO_REL_POR_PAGINA;
+    const paginaResumo=porColaboradorOrdenado.slice(inicioResumo,inicioResumo+PONTO_REL_POR_PAGINA);
+    const paginacaoResumoHTML = totalPaginasResumo>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginasResumo},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaPontoResumoRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaPontoResumoRel(${p})">${p}</button>`).join('')}</div>` : '';
+    porColaboradorHTML = `
+    <div class="card" style="margin:0 0 20px">
+      <h3 style="margin-bottom:12px">Por colaborador <span style="font-weight:400;color:var(--muted);font-size:13px">(${porColaboradorOrdenado.length})</span></h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Colaborador</th><th>Dias registrados</th><th>Horas trabalhadas</th><th>Horas extras</th><th>Faltas</th><th>Faltas justificadas</th><th>Atestados</th></tr></thead>
+        <tbody>${paginaResumo.map(([,c])=>`<tr><td><b>${esc(c.nome)}</b></td><td>${c.dias}</td><td>${c.horas.toFixed(1)}h</td><td>${c.he.toFixed(1)}h</td><td>${c.faltas}</td><td>${c.faltasJustificadas}</td><td>${c.atestados}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
+      </table></div>
+      ${paginacaoResumoHTML}
+    </div>`;
+  }
+
+  let detalheHTML='';
+  if(relPontoSecoes.detalhe){
+    const totalPaginasDetalhe=Math.max(1,Math.ceil(lista.length/PONTO_REL_POR_PAGINA));
+    if(paginaPontoDetalheRel>totalPaginasDetalhe) paginaPontoDetalheRel=totalPaginasDetalhe;
+    const inicioDetalhe=(paginaPontoDetalheRel-1)*PONTO_REL_POR_PAGINA;
+    const paginaDetalhe=lista.slice(inicioDetalhe,inicioDetalhe+PONTO_REL_POR_PAGINA);
+    const FMT_COL={ colaborador:r=>esc(r.colaborador_nome||'—'), data:r=>fmtData(r.data), entrada:r=>esc(r.entrada||'—'), saida:r=>esc(r.saida||'—'),
+      horas:r=>r.horas_trabalhadas?`<b>${Number(r.horas_trabalhadas).toFixed(1)}h</b>`:'—', he:r=>r.horas_extras?Number(r.horas_extras).toFixed(1)+'h':'—',
+      tipo:r=>`<span class="badge ${r.tipo==='Falta'?'badge-red':''}">${esc(r.tipo||'Normal')}</span>` };
+    const paginacaoDetalheHTML = totalPaginasDetalhe>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginasDetalhe},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaPontoDetalheRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaPontoDetalheRel(${p})">${p}</button>`).join('')}</div>` : '';
+    detalheHTML = `
+      <div class="card" style="margin:0">
+        <h3 style="margin-bottom:12px">Registros de ponto <span style="font-weight:400;color:var(--muted);font-size:13px">(${lista.length})</span></h3>
+        <div class="tablewrap"><table>
+          <thead><tr>${colunasAtivas.map(c=>`<th>${PONTO_COLUNAS_DETALHE_LABEL[c]}</th>`).join('')||'<th>—</th>'}</tr></thead>
+          <tbody>${paginaDetalhe.map(r=>`<tr>${colunasAtivas.length?colunasAtivas.map(c=>`<td>${FMT_COL[c](r)}</td>`).join(''):'<td style="text-align:center;color:var(--muted)">Nenhuma coluna selecionada</td>'}</tr>`).join('')}</tbody>
+        </table></div>
+        ${paginacaoDetalheHTML}
+      </div>`;
+  }
+
+  setHTML('relConteudo', personalizarHTML + kpisHTML + porColaboradorHTML + detalheHTML);
 }
 
 function exportarRelatorio(){
