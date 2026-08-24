@@ -488,8 +488,11 @@ function renderRelatorioVendas(){
   const porProduto={};
   itens.forEach(i=>{
     const nome=i.produto_nome||'—';
-    if(!porProduto[nome]) porProduto[nome]={qtd:0,faturamento:0};
+    if(!porProduto[nome]) porProduto[nome]={qtd:0,faturamento:0,isConsignado:false,consignadorId:null};
     porProduto[nome].qtd+=Number(i.quantidade||0);
+    // Marca o produto como consignado se QUALQUER item vendido dele veio marcado assim —
+    // mesma leitura usada no resto do relatório (is_consignado no item, não no cadastro).
+    if(i.is_consignado){ porProduto[nome].isConsignado=true; porProduto[nome].consignadorId=i.consignador_id; }
     // Desconta proporcionalmente o desconto da venda — senão um item com desconto (ou
     // 100% grátis) entrava no "Por produto" como se tivesse faturado o valor cheio.
     const venda=vendaPorIdRel[i.venda_id];
@@ -641,7 +644,7 @@ function renderRelatorioVendas(){
       <h3 style="margin-bottom:12px">Por produto <span style="font-weight:400;color:var(--muted);font-size:13px">(${produtosOrdenados.length})</span></h3>
       <div class="tablewrap"><table>
         <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>% do total</th></tr></thead>
-        <tbody>${paginaProdutos.map(([nome,d])=>`<tr><td>${esc(nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
+        <tbody>${paginaProdutos.map(([nome,d])=>`<tr><td>${esc(nome)}${d.isConsignado?` <span class="badge badge-amber" title="${esc(nomeConsignador[d.consignadorId]||'')}">Consignado</span>`:''}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${faturamentoTotal?((d.faturamento/faturamentoTotal)*100).toFixed(1):'0'}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem dados</td></tr>'}</tbody>
       </table></div>
       ${paginacaoProdutoHTML}
     </div>`;
