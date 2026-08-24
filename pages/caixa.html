@@ -448,7 +448,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[] };
+let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[], consignadores:[] };
 let carrinho = [];
 let pagamentos = [];
 let sessaoAtual = null;
@@ -546,11 +546,12 @@ async function verificarCaixaAberto(){
 
 async function carregarProdutosLoja(lojaIdOverride){
   const lojaId=lojaIdOverride||sessaoAtual.loja_id;
-  const [produtos,estoque]=await Promise.all([
-    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
+  const [produtos,estoque,consignadores]=await Promise.all([
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,consignador_id,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
     dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
+    dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,percentual_repasse`).catch(()=>[]),
   ]);
-  dados.produtos=produtos; dados.estoque=estoque;
+  dados.produtos=produtos; dados.estoque=estoque; dados.consignadores=consignadores;
 }
 
 function mostrarTelaPdv(){
@@ -665,7 +666,7 @@ function adicionarAoCarrinho(produto){
   const qtdAtual=item?item.quantidade:0;
   if(qtdAtual+1>disp){ toast(`Estoque disponível insuficiente (${disp} un.).`,'err'); return; }
   if(item){ item.quantidade+=1; } else {
-    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,estoque_disponivel:disp});
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,consignador_id:produto.consignador_id||null,estoque_disponivel:disp});
   }
   renderCarrinho();
 }
@@ -995,9 +996,14 @@ async function finalizarVenda(){
     const vendaRow=Array.isArray(venda)?venda[0]:venda;
     const vendaId=vendaRow.id;
 
+    // consignador_id/percentual_repasse_snapshot: grava quem era o consignador e qual era
+    // o % combinado NA HORA da venda — se o % mudar depois no cadastro, essa venda já feita
+    // não muda de valor retroativamente (mesmo motivo do custo_unitario_snapshot).
     await dbPost('itens_venda', carrinho.map(i=>withEmpresa({
       venda_id:vendaId, produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
       valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, is_consignado:!!i.is_consignado,
+      consignador_id:i.is_consignado?(i.consignador_id||null):null,
+      percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
       subtotal:i.quantidade*i.valor_unitario,
     })));
 

@@ -369,7 +369,7 @@ let _vendasBrutas = null;
 let paginaVendasRel = 1;
 let paginaProdutoRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
-let relVendasSecoes = { resumo:true, forma:true, produto:true, detalhe:true };
+let relVendasSecoes = { resumo:true, forma:true, produto:true, consignado:true, detalhe:true };
 let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
 const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', vendedor:'Vendedor', cliente:'Cliente', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total', retroativa:'Retroativa' };
 
@@ -386,13 +386,15 @@ async function gerarRelatorioVendas(){
       return;
     }
     const ids=vendas.map(v=>v.id);
-    const [itens,formas,lojas]=await Promise.all([
-      db.get('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado`),
+    const [itens,formas,lojas,consignadores]=await Promise.all([
+      db.get('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado,consignador_id,percentual_repasse_snapshot`),
       db.get('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento,valor`),
       db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
+      db.get('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,nome`).catch(()=>[]),
     ]);
     const nomeLoja={}; lojas.forEach(l=>{nomeLoja[l.id]=l.nome;});
-    _vendasBrutas = { vendas, itens, formas, nomeLoja };
+    const nomeConsignador={}; consignadores.forEach(c=>{nomeConsignador[c.id]=c.nome;});
+    _vendasBrutas = { vendas, itens, formas, nomeLoja, nomeConsignador };
     paginaVendasRel = 1;
     renderRelatorioVendas();
   }catch(e){
@@ -408,7 +410,7 @@ function irParaPaginaProdutoRel(p){ paginaProdutoRel=p; renderRelatorioVendas();
 
 function renderRelatorioVendas(){
   if(!_vendasBrutas){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>'); return; }
-  const { vendas, itens, formas, nomeLoja } = _vendasBrutas;
+  const { vendas, itens, formas, nomeLoja, nomeConsignador } = _vendasBrutas;
 
   const faturamentoTotal=vendas.reduce((a,v)=>a+Number(v.total||0),0);
   const qtdVendas=vendas.length;
@@ -435,6 +437,22 @@ function renderRelatorioVendas(){
     porProduto[nome].faturamento+=bruto*fator;
   });
   const produtosOrdenados=Object.entries(porProduto).sort((a,b)=>b[1].faturamento-a[1].faturamento);
+
+  // Por consignador — só itens marcados como consignado, agrupados por quem era o
+  // consignador NA HORA da venda (consignador_id/percentual_repasse_snapshot gravados no
+  // item, não o cadastro atual do produto — se o % mudar depois, vendas antigas não mudam).
+  const porConsignador={};
+  itens.filter(i=>i.is_consignado&&i.consignador_id).forEach(i=>{
+    const id=i.consignador_id;
+    if(!porConsignador[id]) porConsignador[id]={nome:nomeConsignador[id]||'—',qtd:0,faturamento:0,percentual:i.percentual_repasse_snapshot};
+    porConsignador[id].qtd+=Number(i.quantidade||0);
+    const venda=vendaPorIdRel[i.venda_id];
+    const bruto=Number(i.quantidade||0)*Number(i.valor_unitario||0);
+    const subtotalVd=Number(venda?.subtotal||0);
+    const fator=venda&&subtotalVd>0?Number(venda.total||0)/subtotalVd:1;
+    porConsignador[id].faturamento+=bruto*fator;
+  });
+  const consignadoresOrdenados=Object.entries(porConsignador).sort((a,b)=>b[1].faturamento-a[1].faturamento);
 
   const formasPorVenda={};
   formas.forEach(f=>{ (formasPorVenda[f.venda_id]=formasPorVenda[f.venda_id]||[]).push(f.forma_pagamento); });
@@ -469,7 +487,7 @@ function renderRelatorioVendas(){
         <div style="flex:1;min-width:220px">
           <div class="rel-chip-grupo-lbl">Seções</div>
           <div class="rel-chips">
-            ${Object.entries({resumo:'Resumo',forma:'Por forma de pagamento',produto:'Por produto',detalhe:'Lista de vendas'}).map(([k,lbl])=>chipSecao(k,lbl)).join('')}
+            ${Object.entries({resumo:'Resumo',forma:'Por forma de pagamento',produto:'Por produto',consignado:'Por consignador',detalhe:'Lista de vendas'}).map(([k,lbl])=>chipSecao(k,lbl)).join('')}
           </div>
         </div>
         <div style="flex:2;min-width:320px">
@@ -520,6 +538,24 @@ function renderRelatorioVendas(){
     </div>`;
   }
 
+  let consignadoHTML = '';
+  if(relVendasSecoes.consignado){
+    const totalRepasse=consignadoresOrdenados.reduce((a,[,d])=>a+d.faturamento*Number(d.percentual||0)/100,0);
+    consignadoHTML = `
+    <div class="card" style="margin:0 0 20px">
+      <h3 style="margin-bottom:12px">Por consignador <span style="font-weight:400;color:var(--muted);font-size:13px">(${consignadoresOrdenados.length})</span></h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Consignador</th><th>Qtd.</th><th>Faturamento</th><th>% repasse</th><th>Valor a repassar</th></tr></thead>
+        <tbody>${consignadoresOrdenados.map(([,d])=>{
+          const pct=Number(d.percentual||0);
+          const repasse=d.faturamento*pct/100;
+          return `<tr><td>${esc(d.nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${pct}%</td><td><b>${money(repasse)}</b></td></tr>`;
+        }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum produto consignado vendido nesse período</td></tr>'}</tbody>
+      </table></div>
+      ${consignadoresOrdenados.length?`<div style="margin-top:12px;text-align:right;font-size:14px;color:var(--txt)"><b>Total a repassar no período: ${money(totalRepasse)}</b></div>`:''}
+    </div>`;
+  }
+
   let detalheHTML = '';
   if(relVendasSecoes.detalhe){
     const totalPaginas=Math.max(1,Math.ceil(vendas.length/VENDAS_REL_POR_PAGINA));
@@ -543,7 +579,7 @@ function renderRelatorioVendas(){
       </div>`;
   }
 
-  setHTML('relConteudo', personalizarHTML + kpisHTML + formaHTML + produtoHTML + detalheHTML);
+  setHTML('relConteudo', personalizarHTML + kpisHTML + formaHTML + produtoHTML + consignadoHTML + detalheHTML);
 }
 
 function exportarRelatorio(){

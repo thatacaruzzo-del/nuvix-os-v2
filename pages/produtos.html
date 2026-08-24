@@ -122,6 +122,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <button class="pdv-tab" id="tabBtnEstoque" onclick="abaTab('estoque',this)">Estoque por loja</button>
         <button class="pdv-tab" onclick="abaTab('transferencias',this)">Transferências</button>
         <button class="pdv-tab" onclick="abaTab('lojas',this)">Lojas</button>
+        <button class="pdv-tab" onclick="abaTab('consignadores',this)">Consignadores</button>
       </div>
 
       <!-- ══ PRODUTOS ══ -->
@@ -224,8 +225,40 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div id="lojasPaginacao"></div>
         </div>
       </div>
+
+      <!-- ══ CONSIGNADORES ══ -->
+      <div id="pane-consignadores" class="pdv-pane">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <p class="field-hint" style="margin:0">Pessoas ou empresas que deixam produto consignado com você. O % de repasse é o quanto delas recebe sobre o valor de venda quando o item é vendido.</p>
+            <button class="btn" onclick="abrirModalConsignador()">+ Novo consignador</button>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Telefone</th><th>% de repasse</th><th>Status</th><th></th></tr></thead>
+              <tbody id="consignadoresTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- MODAL CONSIGNADOR -->
+<div class="modal-overlay" id="modalConsignador">
+<div class="modal" style="max-width:420px">
+  <h3 id="modalConsignadorTitulo">Novo consignador</h3>
+  <input type="hidden" id="consId">
+  <div class="field"><label>Nome *</label><input id="consNome" placeholder="Nome de quem consigna"></div>
+  <div class="field"><label>Telefone</label><input id="consTelefone" placeholder="(11) 99999-9999"></div>
+  <div class="field"><label>% de repasse *</label><input id="consPercentual" type="text" inputmode="decimal" placeholder="Ex: 50" oninput="sanitizarDecimal(this)"><div class="field-hint">Quanto ele recebe de cada venda dos produtos dele. O resto fica com você.</div></div>
+  <div id="consignadorMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalConsignador')">Cancelar</button>
+    <button class="btn" onclick="salvarConsignador()">Salvar</button>
+  </div>
+</div>
 </div>
 
 <!-- MODAL PRODUTO -->
@@ -276,8 +309,12 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label>
   </div>
   <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
-    <label>Fornecedor / consignante</label>
-    <input id="prodConsignadoFornecedor" placeholder="Nome de quem consignou o produto">
+    <label>Consignador *</label>
+    <div style="display:flex;gap:8px">
+      <select id="prodConsignador" style="flex:1"></select>
+      <button type="button" class="btn2" onclick="abrirModalConsignador(true)" style="white-space:nowrap">+ Novo</button>
+    </div>
+    <div class="field-hint">De quem é esse produto — define quanto repassar quando ele vender.</div>
   </div>
   <div style="display:flex;gap:12px">
     <div class="field" style="flex:1"><label>Custo do produto</label><input id="prodCusto" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);atualizarPrecoSugerido()"><div class="field-hint">Quanto custou pra você. Usado pra calcular o preço sugerido.</div></div>
@@ -357,7 +394,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[] };
+let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[] };
 const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
 // ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
@@ -400,14 +437,15 @@ async function init(){
 async function carregarTudo(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos,categorias,lojas,estoque,transferencias]=await Promise.all([
+    const [produtos,categorias,lojas,estoque,transferencias,consignadores]=await Promise.all([
       dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=*`),
       dbGet('transferencias_estoque',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=100`),
+      dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
     ]);
-    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias;
+    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores;
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
   // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
   // cadastro novo) — cria uma loja padrão sozinho, pra estoque/PDV já funcionarem
@@ -419,7 +457,7 @@ async function carregarTudo(){
       toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
-  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos();
+  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores();
   popularSelectsComuns();
 }
 
@@ -469,6 +507,7 @@ function abaTab(id,btn){
 
 function nomeCategoria(id){return dados.categorias.find(c=>c.id===id)?.nome||'—'}
 function nomeLoja(id){return dados.lojas.find(l=>l.id===id)?.nome||'—'}
+function nomeConsignador(id){return dados.consignadores.find(c=>c.id===id)?.nome||'—'}
 function estoqueTotalProduto(produtoId){return dados.estoque.filter(e=>e.produto_id===produtoId).reduce((a,e)=>a+Number(e.quantidade||0),0)}
 
 // ══ PRODUTOS ══
@@ -480,7 +519,7 @@ function renderProdutos(){
   $('produtosTable').innerHTML=pagina.length?pagina.map(p=>{
     const sobrescrito=p.preco_sobrescrito&&Number(p.preco_venda_final)!==Number(p.preco_venda_sugerido);
     return `<tr>
-      <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}${p.is_consignado?' <span class="badge badge-amber" title="'+esc(p.consignado_fornecedor||'')+'">Consignado</span>':''}</td>
+      <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}${p.is_consignado?' <span class="badge badge-amber" title="'+esc(nomeConsignador(p.consignador_id))+'">Consignado</span>':''}</td>
       <td>${esc(nomeCategoria(p.categoria_id))}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
       <td>${money(p.custo_atual)}</td>
@@ -522,7 +561,7 @@ function abrirModalProduto(){
   $('prodAliqIcms').value=''; $('prodAliqPis').value=''; $('prodAliqCofins').value='';
   $('prodCusto').value=''; $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
-  $('prodConsignado').checked=false; $('prodConsignadoFornecedor').value=''; toggleFornecedorConsignado();
+  $('prodConsignado').checked=false; if($('prodConsignador'))$('prodConsignador').value=''; toggleFornecedorConsignado();
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   $('prodEstoqueInicialWrap').style.display='block';
   $('prodEstoqueAtualWrap').style.display='none';
@@ -543,7 +582,7 @@ function editarProduto(id){
   $('prodCusto').value=p.custo_atual||'';
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
-  $('prodConsignado').checked=!!p.is_consignado; $('prodConsignadoFornecedor').value=p.consignado_fornecedor||''; toggleFornecedorConsignado();
+  $('prodConsignado').checked=!!p.is_consignado; if($('prodConsignador'))$('prodConsignador').value=p.consignador_id||''; toggleFornecedorConsignado();
   $('prodEstoqueInicialWrap').style.display='none'; // na edição mostra o estoque atual, não o "inicial"
   $('prodEstoqueAtualWrap').style.display='block';
   renderEstoqueAtualCampos(id);
@@ -573,6 +612,7 @@ async function salvarProduto(){
   if(!precoFinal){msg('produtoMsg','Informe o preço de venda final.','err');return;}
   if(precoFinal<0){msg('produtoMsg','O preço de venda não pode ser negativo.','err');return;}
   if(numBR('prodCusto')<0){msg('produtoMsg','O custo não pode ser negativo.','err');return;}
+  if($('prodConsignado').checked&&!val('prodConsignador')){msg('produtoMsg','Selecione o consignador desse produto.','err');return;}
   const id=val('prodId');
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);
@@ -586,7 +626,7 @@ async function salvarProduto(){
     codigo_barras: codigoBarras, custo_atual: numBR('prodCusto'), preco_venda_sugerido: sugerido,
     preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
     ativo: $('prodAtivo').checked,
-    is_consignado: $('prodConsignado').checked, consignado_fornecedor: $('prodConsignado').checked?(val('prodConsignadoFornecedor').trim()||null):null,
+    is_consignado: $('prodConsignado').checked, consignador_id: $('prodConsignado').checked?(val('prodConsignador')||null):null,
     ncm: val('prodNcm').trim()||null, cest: val('prodCest').trim()||null,
     cfop_padrao: val('prodCfop').trim()||'5102', unidade_medida: val('prodUnidade').trim()||'UN',
     origem_mercadoria: val('prodOrigem')||'0', csosn_cst: val('prodCstCsosn').trim()||null,
@@ -839,6 +879,60 @@ async function alternarAtivoLoja(id,novoAtivo){
   catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
+// ══ CONSIGNADORES ══
+function renderConsignadores(){
+  $('consignadoresTable').innerHTML=dados.consignadores.length?dados.consignadores.map(c=>`
+    <tr>
+      <td><b>${esc(c.nome)}</b></td>
+      <td>${esc(c.telefone||'—')}</td>
+      <td>${Number(c.percentual_repasse)}%</td>
+      <td>${c.ativo!==false?'<span class="badge badge-green">Ativo</span>':'<span class="badge badge-muted">Inativo</span>'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn2" style="padding:6px 12px" onclick="abrirModalConsignador(false,'${c.id}')">Editar</button>
+        <button class="btn2" style="padding:6px 12px" onclick="alternarAtivoConsignador('${c.id}',${c.ativo===false})">${c.ativo!==false?'Desativar':'Ativar'}</button>
+      </td>
+    </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum consignador cadastrado.</td></tr>';
+}
+// abrirModalConsignador(true) — atalho de dentro do form de Produto ("+ Novo"), fecha
+// direto pro select do produto sem trocar de aba. abrirModalConsignador(false,id) — edita.
+let _consignadorAbertoDoProduto=false;
+function abrirModalConsignador(doProduto,id){
+  _consignadorAbertoDoProduto=!!doProduto;
+  const c=id?dados.consignadores.find(x=>x.id===id):null;
+  $('modalConsignadorTitulo').textContent=c?'Editar consignador':'Novo consignador';
+  $('consId').value=c?.id||'';
+  $('consNome').value=c?.nome||'';
+  $('consTelefone').value=c?.telefone||'';
+  $('consPercentual').value=c?.percentual_repasse??'';
+  $('consignadorMsg').textContent='';$('consignadorMsg').className='msg';
+  abrirModal('modalConsignador');
+}
+async function salvarConsignador(){
+  const nome=val('consNome').trim();
+  if(!nome){msg('consignadorMsg','Informe o nome.','err');return;}
+  const percentual=numBR('consPercentual');
+  if(!val('consPercentual')||percentual<0||percentual>100){msg('consignadorMsg','Informe um % de repasse entre 0 e 100.','err');return;}
+  const id=val('consId');
+  const payload=withEmpresa({nome, telefone:val('consTelefone').trim()||null, percentual_repasse:percentual, ativo:true});
+  try{
+    let novoId=id;
+    if(id) await dbPatch('consignadores',id,payload);
+    else{
+      const nova=await dbPost('consignadores',payload);
+      novoId=Array.isArray(nova)?nova[0]?.id:nova?.id;
+    }
+    await carregarTudo();
+    fecharModal('modalConsignador');
+    // Veio do "+ Novo" dentro do form de Produto — já seleciona o consignador recém-criado.
+    if(_consignadorAbertoDoProduto && $('prodConsignador') && novoId){ $('prodConsignador').value=novoId; }
+    toast(id?'Consignador atualizado!':'Consignador cadastrado!','ok');
+  }catch(e){msg('consignadorMsg','Erro: '+e.message,'err');}
+}
+async function alternarAtivoConsignador(id,novoAtivo){
+  try{ await dbPatch('consignadores',id,{ativo:novoAtivo}); await carregarTudo(); }
+  catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
 function popularSelectsComuns(){
   const catOpts='<option value="">Sem categoria</option>'+dados.categorias.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
   $('prodCategoria').innerHTML=catOpts;
@@ -846,6 +940,7 @@ function popularSelectsComuns(){
   $('estoqueLojaFiltro').innerHTML='<option value="">Todas</option>'+lojaOpts;
   $('trfOrigem').innerHTML=lojaOpts; $('trfDestino').innerHTML=lojaOpts;
   $('trfProduto').innerHTML=dados.produtos.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
+  if($('prodConsignador'))$('prodConsignador').innerHTML='<option value="">Selecione...</option>'+dados.consignadores.filter(c=>c.ativo!==false).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
