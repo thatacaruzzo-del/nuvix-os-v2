@@ -252,6 +252,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <input type="hidden" id="consId">
   <div class="field"><label>Nome *</label><input id="consNome" placeholder="Nome de quem consigna"></div>
   <div class="field"><label>Telefone</label><input id="consTelefone" placeholder="(11) 99999-9999"></div>
+  <div class="field"><label>Markup informado pelo consignador (%)</label><input id="consMarkup" type="text" inputmode="decimal" placeholder="Ex: 250" oninput="sanitizarDecimal(this);calcularRepassePorMarkup()"><div class="field-hint">Se ele só passou o preço de venda e disse algo como "boto 250% em cima do custo", preencha aqui — calculamos o % de repasse equivalente (100 ÷ (1 + markup/100)) no campo abaixo, que continua editável.</div></div>
   <div class="field"><label>% de repasse *</label><input id="consPercentual" type="text" inputmode="decimal" placeholder="Ex: 50" oninput="sanitizarDecimal(this)"><div class="field-hint">Quanto ele recebe de cada venda dos produtos dele. O resto fica com você.</div></div>
   <div id="consignadorMsg" class="msg"></div>
   <div class="modal-actions">
@@ -903,9 +904,19 @@ function abrirModalConsignador(doProduto,id){
   $('consId').value=c?.id||'';
   $('consNome').value=c?.nome||'';
   $('consTelefone').value=c?.telefone||'';
+  $('consMarkup').value='';
   $('consPercentual').value=c?.percentual_repasse??'';
   $('consignadorMsg').textContent='';$('consignadorMsg').className='msg';
   abrirModal('modalConsignador');
+}
+// Converte o markup que o consignador informou (ex: "boto 250% em cima do custo") pro %
+// de repasse equivalente sobre o preço de venda — custo = venda ÷ (1+markup/100).
+function calcularRepassePorMarkup(){
+  if(!val('consMarkup'))return;
+  const markup=numBR('consMarkup');
+  if(markup<0)return;
+  const percentual=Math.round((100/(1+markup/100))*100)/100;
+  $('consPercentual').value=String(percentual).replace('.',',');
 }
 async function salvarConsignador(){
   const nome=val('consNome').trim();

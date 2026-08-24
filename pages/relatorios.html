@@ -15,6 +15,11 @@
 .rel-chip.active .rel-chip-check{background:var(--p);border-color:var(--p)}
 .rel-chip-check svg{width:11px;height:11px;stroke:#fff;stroke-width:3;opacity:0;transform:scale(.6);transition:all .15s}
 .rel-chip.active .rel-chip-check svg{opacity:1;transform:scale(1)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions button{flex:1}
 </style>
 </head>
 <body>
@@ -127,7 +132,57 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   </div>
 </div>
 
+<!-- MODAL DETALHE DO CONSIGNADOR -->
+<div class="modal-overlay" id="modalDetalheConsignador">
+<div class="modal" style="max-width:620px">
+  <h3 id="detConsignadorTitulo">Produtos consignados</h3>
+  <div id="detConsignadorConteudo"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalDetalheConsignador')">Fechar</button>
+  </div>
+</div>
+</div>
+
 <script>
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})});
+
+function abrirDetalheConsignador(id){
+  const d=_porConsignadorAtual[id];
+  if(!d)return;
+  const produtosVendidos=Object.entries(d.produtosVendidos).sort((a,b)=>b[1].faturamento-a[1].faturamento);
+  const produtosEstoque=Object.entries(d.produtosEstoque).sort((a,b)=>b[1].valor-a[1].valor);
+  $('detConsignadorTitulo').textContent=d.nome;
+  setHTML('detConsignadorConteudo',`
+    <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px;background:var(--bg);border-radius:12px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Já vendido — a repassar (${d.pct}%)</div>
+        <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(d.repasseVendido)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${d.qtd} itens vendidos no período</div>
+      </div>
+      <div style="flex:1;min-width:180px;background:var(--p-light);border-radius:12px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:var(--p2);text-transform:uppercase;letter-spacing:.05em">Em estoque — repasse se vender tudo</div>
+        <div style="font-size:22px;font-weight:900;color:var(--p2)">${money(d.repassePotencial)}</div>
+        <div style="font-size:12px;color:var(--p2);margin-top:2px">${d.qtdEstoque} itens parados agora</div>
+      </div>
+    </div>
+
+    <h4 style="margin:0 0 10px;font-size:13px">Vendido no período</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th><th>Valor a repassar</th></tr></thead>
+      <tbody>${produtosVendidos.map(([nome,p])=>`<tr><td>${esc(nome)}</td><td>${p.qtd}</td><td>${money(p.faturamento)}</td><td><b>${money(p.faturamento*d.pct/100)}</b></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nada vendido nesse período</td></tr>'}</tbody>
+    </table></div>
+
+    <h4 style="margin:18px 0 10px;font-size:13px">Ainda em estoque, não vendido</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Produto</th><th>Qtd.</th><th>Valor em estoque</th><th>Repasse projetado</th></tr></thead>
+      <tbody>${produtosEstoque.map(([nome,p])=>`<tr><td>${esc(nome)}</td><td>${p.qtd}</td><td>${money(p.valor)}</td><td><b>${money(p.valor*d.pct/100)}</b></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sem estoque parado</td></tr>'}</tbody>
+    </table></div>
+  `);
+  abrirModal('modalDetalheConsignador');
+}
+
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 
@@ -366,6 +421,7 @@ function irParaPaginaRelGenerico(p){ paginaRelGenerico=p; renderRelConteudoGener
 // seção/coluna/página só re-renderiza a partir do cache (renderRelatorioVendas), sem
 // bater no banco de novo — sensação instantânea ao personalizar o relatório.
 let _vendasBrutas = null;
+let _porConsignadorAtual = {};
 let paginaVendasRel = 1;
 let paginaProdutoRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
@@ -386,15 +442,19 @@ async function gerarRelatorioVendas(){
       return;
     }
     const ids=vendas.map(v=>v.id);
-    const [itens,formas,lojas,consignadores]=await Promise.all([
+    const [itens,formas,lojas,consignadores,produtosConsignados,estoqueConsignados]=await Promise.all([
       db.get('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado,consignador_id,percentual_repasse_snapshot`),
       db.get('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento,valor`),
       db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
-      db.get('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,nome`).catch(()=>[]),
+      db.get('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,nome,percentual_repasse,ativo`).catch(()=>[]),
+      // Estoque parado de consignados é independente do período do relatório — é "agora",
+      // não "nesse mês" — por isso busca à parte, sem filtro de data.
+      db.get('produtos',`?empresa_id=eq.${session.empresa_id}&is_consignado=eq.true&select=id,nome,consignador_id,preco_venda_final`).catch(()=>[]),
+      db.get('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade,loja_id`).catch(()=>[]),
     ]);
     const nomeLoja={}; lojas.forEach(l=>{nomeLoja[l.id]=l.nome;});
     const nomeConsignador={}; consignadores.forEach(c=>{nomeConsignador[c.id]=c.nome;});
-    _vendasBrutas = { vendas, itens, formas, nomeLoja, nomeConsignador };
+    _vendasBrutas = { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad:consignadores, produtosConsignados, estoqueConsignados };
     paginaVendasRel = 1;
     renderRelatorioVendas();
   }catch(e){
@@ -410,7 +470,7 @@ function irParaPaginaProdutoRel(p){ paginaProdutoRel=p; renderRelatorioVendas();
 
 function renderRelatorioVendas(){
   if(!_vendasBrutas){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>'); return; }
-  const { vendas, itens, formas, nomeLoja, nomeConsignador } = _vendasBrutas;
+  const { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad, produtosConsignados, estoqueConsignados } = _vendasBrutas;
 
   const faturamentoTotal=vendas.reduce((a,v)=>a+Number(v.total||0),0);
   const qtdVendas=vendas.length;
@@ -444,15 +504,62 @@ function renderRelatorioVendas(){
   const porConsignador={};
   itens.filter(i=>i.is_consignado&&i.consignador_id).forEach(i=>{
     const id=i.consignador_id;
-    if(!porConsignador[id]) porConsignador[id]={nome:nomeConsignador[id]||'—',qtd:0,faturamento:0,percentual:i.percentual_repasse_snapshot};
+    if(!porConsignador[id]) porConsignador[id]={nome:nomeConsignador[id]||'—',qtd:0,faturamento:0,percentual:i.percentual_repasse_snapshot,produtos:{}};
     porConsignador[id].qtd+=Number(i.quantidade||0);
     const venda=vendaPorIdRel[i.venda_id];
     const bruto=Number(i.quantidade||0)*Number(i.valor_unitario||0);
     const subtotalVd=Number(venda?.subtotal||0);
     const fator=venda&&subtotalVd>0?Number(venda.total||0)/subtotalVd:1;
-    porConsignador[id].faturamento+=bruto*fator;
+    const valorLiquido=bruto*fator;
+    porConsignador[id].faturamento+=valorLiquido;
+    // Quebra por produto — pra saber, dentro do total a repassar, quais itens
+    // especificamente compõem esse valor (não só o agregado por consignador).
+    const nomeProd=i.produto_nome||'—';
+    if(!porConsignador[id].produtos[nomeProd]) porConsignador[id].produtos[nomeProd]={qtd:0,faturamento:0};
+    porConsignador[id].produtos[nomeProd].qtd+=Number(i.quantidade||0);
+    porConsignador[id].produtos[nomeProd].faturamento+=valorLiquido;
   });
-  const consignadoresOrdenados=Object.entries(porConsignador).sort((a,b)=>b[1].faturamento-a[1].faturamento);
+  // Estoque parado por consignador — produtos consignados que AINDA não venderam.
+  // Somado por produto (todas as lojas juntas), no valor de venda atual — é o que
+  // ainda falta vender, e por isso o valor a repassar aqui é só uma projeção (o %
+  // atual do cadastro, não um snapshot, porque a venda ainda não aconteceu).
+  const estoquePorProduto={};
+  estoqueConsignados.forEach(e=>{ estoquePorProduto[e.produto_id]=(estoquePorProduto[e.produto_id]||0)+Number(e.quantidade||0); });
+  const estoquePorConsignador={};
+  produtosConsignados.filter(p=>p.consignador_id).forEach(p=>{
+    const qtd=estoquePorProduto[p.id]||0;
+    if(qtd<=0) return;
+    const id=p.consignador_id;
+    if(!estoquePorConsignador[id]) estoquePorConsignador[id]={qtd:0,valor:0,produtos:{}};
+    const valor=qtd*Number(p.preco_venda_final||0);
+    estoquePorConsignador[id].qtd+=qtd;
+    estoquePorConsignador[id].valor+=valor;
+    const nomeProd=p.nome||'—';
+    if(!estoquePorConsignador[id].produtos[nomeProd]) estoquePorConsignador[id].produtos[nomeProd]={qtd:0,valor:0};
+    estoquePorConsignador[id].produtos[nomeProd].qtd+=qtd;
+    estoquePorConsignador[id].produtos[nomeProd].valor+=valor;
+  });
+
+  const nomeConsignadorCad={}; const pctConsignadorCad={};
+  consignadoresCad.forEach(c=>{ nomeConsignadorCad[c.id]=c.nome; pctConsignadorCad[c.id]=c.percentual_repasse; });
+  // União: um consignador entra na lista se vendeu no período OU tem estoque parado
+  // agora — hoje quem só tem estoque parado (nenhuma venda) nem aparecia no relatório.
+  const idsConsignador=new Set([...Object.keys(porConsignador),...Object.keys(estoquePorConsignador)]);
+  const consignadoresOrdenados=[...idsConsignador].map(id=>{
+    const vend=porConsignador[id];
+    const est=estoquePorConsignador[id];
+    const pct=Number(vend?.percentual ?? pctConsignadorCad[id] ?? 0);
+    const faturamento=vend?.faturamento||0;
+    const qtdEstoque=est?.qtd||0;
+    const valorEstoque=est?.valor||0;
+    return [id,{
+      nome: nomeConsignadorCad[id]||nomeConsignador[id]||'—',
+      pct, qtd:vend?.qtd||0, faturamento, repasseVendido:faturamento*pct/100,
+      qtdEstoque, valorEstoque, repassePotencial:valorEstoque*pct/100,
+      produtosVendidos: vend?.produtos||{}, produtosEstoque: est?.produtos||{},
+    }];
+  }).sort((a,b)=>(b[1].repasseVendido+b[1].repassePotencial)-(a[1].repasseVendido+a[1].repassePotencial));
+  _porConsignadorAtual=Object.fromEntries(consignadoresOrdenados);
 
   const formasPorVenda={};
   formas.forEach(f=>{ (formasPorVenda[f.venda_id]=formasPorVenda[f.venda_id]||[]).push(f.forma_pagamento); });
@@ -540,19 +647,29 @@ function renderRelatorioVendas(){
 
   let consignadoHTML = '';
   if(relVendasSecoes.consignado){
-    const totalRepasse=consignadoresOrdenados.reduce((a,[,d])=>a+d.faturamento*Number(d.percentual||0)/100,0);
+    const totalRepasseVendido=consignadoresOrdenados.reduce((a,[,d])=>a+d.repasseVendido,0);
+    const totalRepassePotencial=consignadoresOrdenados.reduce((a,[,d])=>a+d.repassePotencial,0);
     consignadoHTML = `
     <div class="card" style="margin:0 0 20px">
       <h3 style="margin-bottom:12px">Por consignador <span style="font-weight:400;color:var(--muted);font-size:13px">(${consignadoresOrdenados.length})</span></h3>
+      <p class="muted" style="font-size:12px;margin:0 0 10px">Clique num consignador pra ver o detalhe por produto — o que já vendeu e o que ainda está parado no estoque. <b>Vendido</b> respeita o período selecionado; <b>Em estoque</b> é sempre a posição de hoje.</p>
       <div class="tablewrap"><table>
-        <thead><tr><th>Consignador</th><th>Qtd.</th><th>Faturamento</th><th>% repasse</th><th>Valor a repassar</th></tr></thead>
-        <tbody>${consignadoresOrdenados.map(([,d])=>{
-          const pct=Number(d.percentual||0);
-          const repasse=d.faturamento*pct/100;
-          return `<tr><td>${esc(d.nome)}</td><td>${d.qtd}</td><td>${money(d.faturamento)}</td><td>${pct}%</td><td><b>${money(repasse)}</b></td></tr>`;
-        }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum produto consignado vendido nesse período</td></tr>'}</tbody>
+        <thead><tr><th>Consignador</th><th>% repasse</th><th>Vendido no período</th><th>A repassar (vendido)</th><th>Em estoque</th><th>Repasse se vender tudo</th></tr></thead>
+        <tbody>${consignadoresOrdenados.map(([id,d])=>{
+          return `<tr style="cursor:pointer" onclick="abrirDetalheConsignador('${id}')">
+            <td>${esc(d.nome)}</td>
+            <td>${d.pct}%</td>
+            <td>${d.qtd} ${d.qtd===1?'item':'itens'} · ${money(d.faturamento)}</td>
+            <td><b>${money(d.repasseVendido)}</b></td>
+            <td>${d.qtdEstoque?`${d.qtdEstoque} ${d.qtdEstoque===1?'item':'itens'} · ${money(d.valorEstoque)}`:'<span class="muted">Sem estoque parado</span>'}</td>
+            <td>${d.qtdEstoque?money(d.repassePotencial):'—'}</td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum consignador com venda ou estoque nesse período</td></tr>'}</tbody>
       </table></div>
-      ${consignadoresOrdenados.length?`<div style="margin-top:12px;text-align:right;font-size:14px;color:var(--txt)"><b>Total a repassar no período: ${money(totalRepasse)}</b></div>`:''}
+      ${consignadoresOrdenados.length?`<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:24px;flex-wrap:wrap">
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Já vendido, a repassar</div><div style="font-size:16px;font-weight:800">${money(totalRepasseVendido)}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Ainda em estoque (potencial)</div><div style="font-size:16px;font-weight:800;color:var(--p)">${money(totalRepassePotencial)}</div></div>
+      </div>`:''}
     </div>`;
   }
 
