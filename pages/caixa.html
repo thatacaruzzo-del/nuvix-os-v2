@@ -1283,7 +1283,7 @@ async function carregarHistoricoVendas(){
     const ids=vendas.map(v=>v.id);
     const [itens,formas]=await Promise.all([
       ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado`):[],
-      ids.length?dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento`):[],
+      ids.length?dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento,valor,parcelas`):[],
     ]);
     renderHistoricoVendas(vendas,itens,formas);
   }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
@@ -1327,9 +1327,24 @@ function renderHistoricoVendas(vendas,itens,formas){
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
       <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
-      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
+      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+}
+// Reimprime o cupom de uma venda já concluída, reconstruindo o mesmo formato usado na
+// hora da venda a partir do que já está carregado no histórico (sem round-trip extra).
+function reimprimirRecibo(vendaId){
+  const {vendas,itens,formas}=_ultimoHistorico;
+  const venda=vendas.find(v=>v.id===vendaId);
+  if(!venda){toast('Venda não encontrada.','err');return;}
+  const dadosVenda={
+    itens: itens.filter(i=>i.venda_id===vendaId).map(i=>({nome:i.produto_nome,quantidade:Number(i.quantidade||0),valor_unitario:Number(i.valor_unitario||0)})),
+    desconto: Number(venda.desconto_total||0),
+    total: Number(venda.total||0),
+    pagamentos: formas.filter(f=>f.venda_id===vendaId).map(f=>({forma:f.forma_pagamento,valor:Number(f.valor||0),parcelas:Number(f.parcelas||1)})),
+    clienteNome: venda.cliente_nome||'',
+  };
+  emitirCupom(dadosVenda);
 }
 // Cancelar reflete em tudo: devolve o estoque (com histórico), apaga a receita que a
 // venda tinha gerado no Financeiro, e marca a venda como Cancelada (não apaga a
