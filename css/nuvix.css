@@ -645,8 +645,27 @@ tr:hover td { background: #FAF9FE; }
 @media (max-width: 500px) {
   .fin-strip, .dash-cards { grid-template-columns: 1fr; }
   .main-scroll, .page { padding: 16px; }
-  .topbar { padding: 0 16px; }
+  .topbar { padding: 0 12px; }
   .login-card { grid-template-columns: 1fr; }
   .login-left { display: none; }
   .login-right { padding: 36px 24px; }
+
+  /* Topbar no celular: nome da empresa + saudação, avatar e badge de teste grátis
+     competiam pelo mesmo espaço estreito e o texto quebrava em 3 linhas embolhado.
+     Simplifica pra título + avatar, e devolve o botão de menu a um alvo de toque
+     de verdade (era um ícone de 14px sem área de clique, quase impossível de acertar). */
+  .page-breadcrumb { display: none; }
+  .topbar-title, .topbar h1 { font-size: 14px; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-breadcrumb, .topbar-sub { display: none; }
+  .topbar-username, .topbar-user { display: none; }
+  .trial-badge { display: none !important; }
+  .topbar-right { gap: 8px; }
+  .btn-logout, .logout-btn { padding: 6px 10px; font-size: 11px; }
+  #hambBtn {
+    display: flex !important; align-items: center; justify-content: center;
+    width: 36px !important; height: 36px !important; margin: -8px 0;
+    border-radius: 10px !important; flex-shrink: 0;
+  }
+  #hambBtn:active { background: var(--p-light) !important; }
+  #hambBtn svg { width: 20px !important; height: 20px !important; }
 }
