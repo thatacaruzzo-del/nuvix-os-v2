@@ -729,12 +729,19 @@ function renderStrip(){
   if(finP.length===0) finP = financeiro;
   const recPeriodo=finP.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finStrip',[
-    {lbl:'Entrou hoje',val:money(entHoje),cor:entHoje>0?'var(--green)':'var(--muted)',sub:'receitas realizadas'},
-    {lbl:'A receber hoje',val:money(aRecHoje),cor:aRecHoje>0?'var(--amber)':'var(--muted)',sub:'vence hoje'},
+    // corGrad: os 2 primeiros cards têm fundo em gradiente roxo (ver .fin-strip .fin-card:first-child
+    // e :nth-child(2) no <style>) — nesse fundo, o --green/--amber padrão (calibrados pra fundo
+    // branco) ficam escuros demais e o número não se destaca. corGrad é o mesmo semáforo, só que
+    // num tom claro que contrasta bem no roxo.
+    {lbl:'Entrou hoje',val:money(entHoje),cor:entHoje>0?'var(--green)':'var(--muted)',corGrad:entHoje>0?'#7CF2B0':'rgba(255,255,255,.6)',sub:'receitas realizadas'},
+    {lbl:'A receber hoje',val:money(aRecHoje),cor:aRecHoje>0?'var(--amber)':'var(--muted)',corGrad:aRecHoje>0?'#FFD966':'rgba(255,255,255,.6)',sub:'vence hoje'},
     {lbl:'A pagar hoje',val:money(aPagHoje),cor:aPagHoje>0?'var(--red)':'var(--muted)',sub:'vence hoje'},
     {lbl:'A pagar amanhã',val:money(aPagAm),cor:aPagAm>0?'var(--amber)':'var(--muted)',sub:'próximo dia'},
     {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)',sub:'segue o filtro acima'},
-  ].map(c=>`<div class="fin-card" style="border-left:4px solid ${c.cor==='var(--txt)'||c.cor==='var(--muted)'?'var(--p)':c.cor}"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join(''));
+  ].map((c,idx)=>{
+    const corVal=idx<2?c.corGrad:c.cor;
+    return `<div class="fin-card" style="border-left:4px solid ${c.cor==='var(--txt)'||c.cor==='var(--muted)'?'var(--p)':c.cor}"><div class="lbl">${c.lbl}</div><div class="val" style="color:${corVal}">${c.val}</div><div class="sub">${c.sub}</div></div>`;
+  }).join(''));
 }
 
 // ── SALVAR (nunca substitui — sempre insere novo ou atualiza pelo ID) ──
