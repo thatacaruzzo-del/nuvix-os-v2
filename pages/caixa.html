@@ -1187,6 +1187,13 @@ async function reconectarImpressoraSalva(){
     }
   }catch(e){ /* silencioso — não bloqueia o uso do caixa */ }
 }
+// Impressoras térmicas ESC/POS falam uma tabela de 1 byte (CP437/CP850/Win-1252...), não
+// UTF-8 — e como o modelo varia de loja pra loja, não dá pra fixar uma codepage e confiar
+// que bate em todas. Tirar o acento antes de imprimir evita o texto sair corrompido.
+function semAcentoParaImpressora(s){
+  const marcasDiacriticas=new RegExp('[̀-ͯ]','g');
+  return String(s).normalize('NFD').replace(marcasDiacriticas,'').replace(/[^\x00-\x7E]/g,'?');
+}
 async function imprimirCupomTermico(d){
   const enc=new TextEncoder();
   let txt='';
@@ -1199,7 +1206,7 @@ async function imprimirCupomTermico(d){
   txt+=`TOTAL: ${money(d.total)}\n`;
   d.pagamentos.filter(p=>p.valor>0).forEach(p=>{ txt+=`${p.forma}: ${money(p.valor)}\n`; });
   txt+='\n\n\n';
-  const bytes=new Uint8Array([0x1B,0x40, ...enc.encode(txt), 0x1D,0x56,0x00]);
+  const bytes=new Uint8Array([0x1B,0x40, ...enc.encode(semAcentoParaImpressora(txt)), 0x1D,0x56,0x00]);
   await impressoraDevice.transferOut(1,bytes);
 }
 
