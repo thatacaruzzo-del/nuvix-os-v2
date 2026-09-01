@@ -242,6 +242,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         <div class="modal">
           <h3 id="jornadaTitulo">Jornada de trabalho</h3>
           <input type="hidden" id="jornColaboradorId">
+          <input type="hidden" id="jornAtualId">
           <div id="jornadaAtualBox" class="card" style="margin:0 0 16px;background:var(--p-light);border:1px solid #DDD6FE;padding:14px"></div>
           <div class="form-row" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
             <div class="field"><label>Horário de entrada</label><input id="jornEntrada" type="time" onchange="atualizarPreviewJornada()"></div>
@@ -268,8 +269,10 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             </div>
           </div>
           <div id="jornadaPreview" class="field-hint" style="margin-top:12px;font-weight:700;color:var(--p)"></div>
+          <div class="field-hint" style="margin-top:10px">Editar corrige a jornada vigente (ex: ajustar tolerância, corrigir um dado errado) sem mexer no histórico. Salvar como nova encerra a vigência atual e começa uma nova a partir da data escolhida — use quando o horário do colaborador realmente mudou.</div>
           <div class="modal-actions">
-            <button class="btn" onclick="salvarJornada()">Salvar nova jornada</button>
+            <button class="btn2" id="btnEditarJornadaVigente" onclick="editarJornadaVigente()" style="display:none">Editar jornada vigente</button>
+            <button class="btn" onclick="salvarJornada()">Salvar como nova vigência</button>
             <button class="btn2" onclick="fecharModal('modalJornada')">Fechar</button>
           </div>
           <div id="jornadaMsg" class="msg"></div>
@@ -541,6 +544,8 @@ function abrirModalJornada(colaboradorId){
   const c=dados.colaboradores.find(x=>x.id===colaboradorId);
   $('jornadaTitulo').textContent='Jornada de trabalho'+(c?' — '+c.nome:'');
   const atual=jornadaVigenteEm(colaboradorId,hoje());
+  $('jornAtualId').value=atual?atual.id:'';
+  if($('btnEditarJornadaVigente'))$('btnEditarJornadaVigente').style.display=atual?'':'none';
   $('jornadaAtualBox').innerHTML = atual
     ? `<b>Jornada vigente</b><div style="margin-top:6px;font-size:13px">${atual.horario_entrada.slice(0,5)}–${atual.horario_saida.slice(0,5)} · intervalo ${atual.intervalo_minutos}min · desde ${fmtData(atual.vigencia_inicio)}</div>`
     : `<b>Sem jornada cadastrada</b><div style="margin-top:6px;font-size:13px;color:var(--muted)">O cálculo de HE usa o padrão da empresa (${P.jornada_diaria_horas||8}h/dia) até você cadastrar uma jornada aqui.</div>`;
@@ -551,7 +556,10 @@ function abrirModalJornada(colaboradorId){
   $('jornPctDiaUtil').value=atual?atual.percentual_he_dia_util:50;
   $('jornPctDomFer').value=atual?atual.percentual_he_domingo_feriado:100;
   $('jornTolerancia').value=atual?atual.tolerancia_minutos:5;
-  $('jornVigenciaInicio').value=hoje();
+  // Edição da vigente parte da data que ela já tem (senão "editar tolerância" mudaria
+  // a data de início sem querer); nova vigência parte de hoje, e o usuário troca pra
+  // a data real da mudança de horário.
+  $('jornVigenciaInicio').value=atual?String(atual.vigencia_inicio).slice(0,10):hoje();
   DIAS_SEMANA_CAMPOS.forEach((id,i)=>{ if($(id)) $(id).checked = atual ? !!atual[DIAS_SEMANA_COLS[i]] : (i!==0); });
   atualizarPreviewJornada();
   renderHistoricoJornadas(colaboradorId);
@@ -590,6 +598,39 @@ async function salvarJornada(){
     await db.post('jornadas_trabalho',payload);
     msg('jornadaMsg','Jornada cadastrada!','ok');
     await loadData();
+    renderHistoricoJornadas(colaboradorId);
+    const atual=jornadaVigenteEm(colaboradorId,hoje());
+    $('jornAtualId').value=atual?atual.id:'';
+    if($('btnEditarJornadaVigente'))$('btnEditarJornadaVigente').style.display=atual?'':'none';
+    if(atual&&$('jornadaAtualBox'))$('jornadaAtualBox').innerHTML=`<b>Jornada vigente</b><div style="margin-top:6px;font-size:13px">${atual.horario_entrada.slice(0,5)}–${atual.horario_saida.slice(0,5)} · intervalo ${atual.intervalo_minutos}min · desde ${fmtData(atual.vigencia_inicio)}</div>`;
+  }catch(e){ msg('jornadaMsg','Erro: '+e.message,'err'); }
+}
+// Edita a jornada VIGENTE no lugar (PATCH), sem criar um novo período — pra corrigir
+// um parâmetro (tolerância, percentual, um horário digitado errado) sem gerar uma
+// vigência nova espúria no histórico. Pra mudança real de turno, usa "Salvar como
+// nova vigência" em vez desta.
+async function editarJornadaVigente(){
+  const atualId=val('jornAtualId');
+  if(!atualId)return;
+  if(!temPermissao('rh','editar')){toast('Sem permissão para editar jornada.','err');return;}
+  const entrada=val('jornEntrada'),saida=val('jornSaida');
+  if(!entrada||!saida){msg('jornadaMsg','Informe entrada e saída.','err');return;}
+  if(saida<=entrada){msg('jornadaMsg','A saída precisa ser depois da entrada.','err');return;}
+  const payload={
+    vigencia_inicio:val('jornVigenciaInicio')||hoje(),
+    horario_entrada:entrada, horario_saida:saida,
+    intervalo_minutos:num('jornIntervalo'),
+    intervalo_flexivel: val('jornIntervaloFlex')==='true',
+    percentual_he_dia_util:num('jornPctDiaUtil'),
+    percentual_he_domingo_feriado:num('jornPctDomFer'),
+    tolerancia_minutos:num('jornTolerancia'),
+  };
+  DIAS_SEMANA_CAMPOS.forEach((id,i)=>{ payload[DIAS_SEMANA_COLS[i]] = !!$(id)?.checked; });
+  try{
+    await db.patch('jornadas_trabalho',atualId,payload);
+    msg('jornadaMsg','Jornada vigente atualizada!','ok');
+    await loadData();
+    const colaboradorId=val('jornColaboradorId');
     renderHistoricoJornadas(colaboradorId);
     const atual=jornadaVigenteEm(colaboradorId,hoje());
     if(atual&&$('jornadaAtualBox'))$('jornadaAtualBox').innerHTML=`<b>Jornada vigente</b><div style="margin-top:6px;font-size:13px">${atual.horario_entrada.slice(0,5)}–${atual.horario_saida.slice(0,5)} · intervalo ${atual.intervalo_minutos}min · desde ${fmtData(atual.vigencia_inicio)}</div>`;
