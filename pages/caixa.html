@@ -120,6 +120,10 @@ function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const o
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
+// Chama uma função Postgres via PostgREST (/rpc/<nome>) — usado quando a operação
+// precisa ser atômica (tudo grava ou nada grava), em vez de vários POSTs separados
+// que podem falhar no meio e deixar dado órfão (ver finalizarVenda).
+async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -976,62 +980,50 @@ async function finalizarVenda(){
     const descricaoVenda=modoRetroativo
       ? `Venda retroativa (${fmtData(dataRef)}) — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`
       : `Venda PDV — ${n} ${n===1?'item':'itens'}${clienteNome?' — '+clienteNome:''}`;
-    // Toda venda vira uma Receita no Financeiro — sem isso, o fluxo de caixa/contas a
-    // receber nunca fica sabendo que a venda aconteceu.
-    const finLancamento=await dbPost('financeiro',withEmpresa({
-      tipo:'Receita', categoria:'Vendas de Produtos',
-      descricao:descricaoVenda, loja_id:lojaId,
-      valor:total, data_lancamento:dataRef, data_pagamento:dataRef,
-      status:'Recebido', forma_pagamento:formasTxt, favorecido:clienteNome,
-      updated_at:new Date().toISOString(),
-    }));
-    const financeiroId=Array.isArray(finLancamento)?finLancamento[0]?.id:finLancamento?.id;
-
-    const venda=await dbPost('vendas',withEmpresa({
-      loja_id:lojaId, caixa_sessao_id:caixaSessaoId, cliente_id:clienteId, cliente_nome:clienteNome, financeiro_id:financeiroId,
+    // Tudo abaixo (financeiro + venda + itens + formas de pagamento + desconto +
+    // baixa de estoque) roda numa transação única no banco (finalizar_venda) — ou
+    // tudo grava, ou nada grava. Antes eram vários POSTs sequenciais separados: se
+    // um deles falhasse no meio (rede, timeout), o que já tinha gravado ficava
+    // órfão — foi assim que 3 vendas concluídas em ago/2026 nunca entraram no
+    // Financeiro, sem ninguém perceber até uma auditoria manual.
+    const resultado=await dbRpc('finalizar_venda',{p:{
+      empresa_id:session.empresa_id, loja_id:lojaId, caixa_sessao_id:caixaSessaoId,
+      cliente_id:clienteId, cliente_nome:clienteNome,
       vendedor_id:vendedorId, vendedor_nome:vendedorNome,
-      subtotal, desconto_total:desconto, total, status:'Concluída',
-      data_venda:dataRef, retroativa:!!modoRetroativo, motivo_retroativo:modoRetroativo?motivoRetro:null,
-    }));
-    const vendaRow=Array.isArray(venda)?venda[0]:venda;
-    const vendaId=vendaRow.id;
-
-    // consignador_id/percentual_repasse_snapshot: grava quem era o consignador e qual era
-    // o % combinado NA HORA da venda — se o % mudar depois no cadastro, essa venda já feita
-    // não muda de valor retroativamente (mesmo motivo do custo_unitario_snapshot).
-    await dbPost('itens_venda', carrinho.map(i=>withEmpresa({
-      venda_id:vendaId, produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
-      valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario, is_consignado:!!i.is_consignado,
-      consignador_id:i.is_consignado?(i.consignador_id||null):null,
-      percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
-      subtotal:i.quantidade*i.valor_unitario,
-    })));
-
-    await dbPost('venda_formas_pagamento', pagamentos.filter(p=>p.valor>0).map(p=>withEmpresa({
-      venda_id:vendaId, forma_pagamento:p.forma, valor:p.valor, parcelas:p.forma==='Cartão Crédito'?(p.parcelas||1):null,
-    })));
-
-    if(desconto>0){
-      await dbPost('descontos_aplicados',withEmpresa({
-        venda_id:vendaId, tipo:val('descTipo'), valor_desconto:desconto, motivo:val('descMotivo'),
+      subtotal, desconto_total:desconto, total, data_venda:dataRef,
+      retroativa:!!modoRetroativo, motivo_retroativo:modoRetroativo?motivoRetro:null,
+      forma_pagamento_txt:formasTxt, descricao:descricaoVenda,
+      motivo_estoque:modoRetroativo?`Venda retroativa (${fmtData(dataRef)}) — ${motivoRetro}`:'Venda PDV',
+      usuario_id:session.id,
+      // consignador_id/percentual_repasse_snapshot: grava quem era o consignador e
+      // qual era o % combinado NA HORA da venda — se o % mudar depois no cadastro,
+      // essa venda já feita não muda de valor retroativamente (mesmo motivo do
+      // custo_unitario_snapshot).
+      itens:carrinho.map(i=>({
+        produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
+        valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
+        is_consignado:!!i.is_consignado,
+        consignador_id:i.is_consignado?(i.consignador_id||null):null,
+        percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
+        avulso:!!i.avulso,
+      })),
+      formas_pagamento:pagamentos.filter(p=>p.valor>0).map(p=>({
+        forma_pagamento:p.forma, valor:p.valor, parcelas:p.forma==='Cartão Crédito'?(p.parcelas||1):null,
+      })),
+      desconto:desconto>0?{
+        tipo:val('descTipo'), valor_desconto:desconto, motivo:val('descMotivo'),
         aplicado_por_id:session.id, requer_aprovacao:pctEquiv>limiteDescontoPct(),
         aprovado_por_id:aprovacaoDescontoUsuarioId, aprovado_em:aprovacaoDescontoUsuarioId?new Date().toISOString():null,
-      }));
-    }
+      }:null,
+    }});
+    const vendaId=resultado.venda_id;
 
+    // Atualização otimista do cache local de estoque (o banco já baixou de verdade
+    // dentro da transação) — evita esperar um reload completo pra refletir na tela.
     for(const item of carrinho){
-      if(item.avulso)continue; // sem cadastro = nada pra baixar no estoque
+      if(item.avulso)continue;
       const linhaEstoque=dados.estoque.find(e=>e.produto_id===item.produto_id);
-      const estAnt=Number(linhaEstoque?.quantidade||0);
-      const estPost=estAnt-item.quantidade;
-      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:estPost,updated_at:new Date().toISOString()});
-      await dbPost('estoque_movimentacoes',withEmpresa({
-        produto_id:item.produto_id, loja_id:lojaId, tipo:'saida', quantidade:item.quantidade,
-        estoque_anterior:estAnt, estoque_posterior:estPost,
-        motivo:modoRetroativo?`Venda retroativa (${fmtData(dataRef)}) — ${motivoRetro}`:'Venda PDV',
-        referencia_tipo:'venda', referencia_id:vendaId, usuario_id:session.id,
-      }));
-      linhaEstoque.quantidade=estPost;
+      if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-item.quantidade;
     }
 
     toast(modoRetroativo?`Venda retroativa registrada — ${money(total)}`:`Venda finalizada — ${money(total)}`,'ok');
