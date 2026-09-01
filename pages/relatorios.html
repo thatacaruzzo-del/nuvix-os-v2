@@ -303,7 +303,11 @@ const FILTROS_MODULO = {
     {campo:'tipo', label:'Tipo', opcoes:['Sangria','Suprimento'], todos:'Sangria e suprimento'},
   ],
   caixa_fechamento_formas: [
-    {campo:'status_conciliacao', label:'Conciliação', opcoes:['Conciliado','Pendente','Divergente'], todos:'Todos'},
+    // Valores reais gravados por confirmarFechamentoCaixa() (pages/caixa.html): Dinheiro
+    // sempre "Não se aplica" (conferido na hora, na própria tela de fechamento); as
+    // outras formas ficam "Aguardando" — hoje não existe tela nenhuma que altere isso
+    // depois (sem fluxo de conciliação de cartão/Pix contra extrato ainda).
+    {campo:'status_conciliacao', label:'Conciliação', opcoes:['Aguardando','Não se aplica'], todos:'Todos'},
   ],
   folha_pagamentos: [
     {campo:'status', label:'Status', opcoes:['Lançado'], todos:'Todos os status'},
