@@ -474,12 +474,27 @@ function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
   const [eh,em]=entrada.split(':').map(Number), [sh,sm]=saida.split(':').map(Number);
   const horasBrutas=Math.max(0,((sh*60+sm)-(eh*60+em))/60);
   const temIntervaloBatido=!!(ponto.saida_almoco&&ponto.retorno_almoco);
+  // Bug real (achado com a Clara, horista, em ago/2026): antes só usava o intervalo
+  // realmente batido quando existia jornada cadastrada com intervalo_flexivel=true —
+  // sem jornada (comum pra Horista, que não precisa de uma), caía sempre nos 60min
+  // fixos e ignorava o horário de almoço de verdade que a pessoa bateu. O dado batido
+  // é sempre mais preciso que uma suposição, então agora só ignora ele quando a
+  // empresa configurou explicitamente um desconto fixo (jornada.intervalo_flexivel
+  // === false) — sem jornada, ou com intervalo_flexivel true/não definido, usa o
+  // horário real sempre que ele existir.
   let intervaloRealMin;
-  if(jornada&&jornada.intervalo_flexivel&&temIntervaloBatido){
+  if(temIntervaloBatido && (!jornada || jornada.intervalo_flexivel!==false)){
     const [sah,sam]=ponto.saida_almoco.split(':').map(Number), [rah,ram]=ponto.retorno_almoco.split(':').map(Number);
     intervaloRealMin=(rah*60+ram)-(sah*60+sam);
+  }else if(jornada){
+    intervaloRealMin=jornada.intervalo_minutos;
   }else{
-    intervaloRealMin=jornada?jornada.intervalo_minutos:60;
+    // Sem jornada E sem intervalo batido — não tem dado nenhum pra confiar. Pra quem
+    // usa jornada (CLT/PJ com HE), mantém os 60min de compatibilidade de sempre, pra
+    // não mudar de repente o cálculo de folha de quem ainda não foi migrado. Pra quem
+    // não usa jornada (Horista/PJ sem HE — não tem "regra" nenhuma pra assumir),
+    // não desconta nada em vez de inventar um número.
+    intervaloRealMin=aplicaJornada?60:0;
   }
   const horasLiquidas=Math.max(0,horasBrutas-intervaloRealMin/60);
   // PJ e Horista: só interessa quanto foi trabalhado, sem HE/falta (não existe
@@ -641,7 +656,7 @@ function abrirModalJornada(colaboradorId){
   $('jornEntrada').value=atual?atual.horario_entrada.slice(0,5):'';
   $('jornSaida').value=atual?atual.horario_saida.slice(0,5):'';
   $('jornIntervalo').value=atual?atual.intervalo_minutos:60;
-  $('jornIntervaloFlex').value=atual?String(!!atual.intervalo_flexivel):'false';
+  $('jornIntervaloFlex').value=atual?String(!!atual.intervalo_flexivel):'true';
   $('jornPctDiaUtil').value=atual?atual.percentual_he_dia_util:50;
   $('jornPctDomFer').value=atual?atual.percentual_he_domingo_feriado:100;
   $('jornTolerancia').value=atual?atual.tolerancia_minutos:5;
