@@ -1316,19 +1316,20 @@ async function carregarHistoricoVendas(){
     // de fato pertencem, não no dia em que foram digitadas no sistema.
     const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${sessaoAtual.loja_id}&data_venda=eq.${data}&select=*&order=created_at.desc`);
     const ids=vendas.map(v=>v.id);
-    const [itens,formas]=await Promise.all([
+    const [itens,formas,devolucoes]=await Promise.all([
       ids.length?dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado`):[],
       ids.length?dbGet('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento,valor,parcelas`):[],
+      ids.length?dbGet('devolucoes',`?venda_id=in.(${ids.join(',')})&select=venda_id,valor_total`):[],
     ]);
-    renderHistoricoVendas(vendas,itens,formas);
+    renderHistoricoVendas(vendas,itens,formas,devolucoes);
   }catch(e){toast('Erro ao carregar histórico: '+e.message,'err');}
 }
-let _ultimoHistorico={vendas:[],itens:[],formas:[]};
-function renderHistoricoVendas(vendas,itens,formas){
+let _ultimoHistorico={vendas:[],itens:[],formas:[],devolucoes:[]};
+function renderHistoricoVendas(vendas,itens,formas,devolucoes){
   // Paginação chama de novo sem argumentos (irParaPagina só sabe invocar a função,
   // não tem como reenviar os dados) — cacheia a última carga pra reusar nesse caso.
-  if(vendas===undefined){ ({vendas,itens,formas}=_ultimoHistorico); }
-  else{ _ultimoHistorico={vendas,itens,formas}; }
+  if(vendas===undefined){ ({vendas,itens,formas,devolucoes}=_ultimoHistorico); }
+  else{ _ultimoHistorico={vendas,itens,formas,devolucoes}; }
   // Resumo próprio x consignado do dia — só conta vendas concluídas (canceladas não entram).
   let fatProprio=0, fatConsignado=0;
   itens.forEach(i=>{
@@ -1350,10 +1351,19 @@ function renderHistoricoVendas(vendas,itens,formas){
     const qtdItens=seusItens.reduce((a,i)=>a+Number(i.quantidade||0),0);
     const suasFormas=formas.filter(f=>f.venda_id===v.id).map(f=>f.forma_pagamento).join(' + ')||'—';
     const cancelada=v.status==='Cancelada';
+    const totalDevolvido=(devolucoes||[]).filter(d=>d.venda_id===v.id).reduce((a,d)=>a+Number(d.valor_total||0),0);
+    const devolvidaTotal=totalDevolvido>0 && totalDevolvido>=Number(v.total||0)-0.01;
     const itensTxt=seusItens.map(i=>esc(i.produto_nome)+(i.is_consignado?' <span class="badge badge-amber">consig.</span>':'')).join(', ');
     const horaOuRetroativa=v.retroativa
       ? '<span class="badge badge-blue" title="Lançada depois, fora do fluxo normal do PDV">Retroativa</span>'
       : new Date(v.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+    const badgeStatus=cancelada
+      ? '<span class="badge badge-red">Cancelada</span>'
+      : devolvidaTotal
+      ? `<span class="badge badge-red" title="Devolvido: ${money(totalDevolvido)}">Devolvida</span>`
+      : totalDevolvido>0
+      ? `<span class="badge badge-amber" title="Devolvido: ${money(totalDevolvido)}">Devolução parcial</span>`
+      : '<span class="badge badge-green">Concluída</span>';
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
       <td>${horaOuRetroativa}</td>
       <td>${esc(v.vendedor_nome||'—')}</td>
@@ -1361,7 +1371,7 @@ function renderHistoricoVendas(vendas,itens,formas){
       <td>${qtdItens} (${itensTxt})</td>
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
-      <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
+      <td>${badgeStatus}</td>
       <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
