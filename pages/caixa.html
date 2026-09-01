@@ -406,6 +406,25 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 </div>
 </div>
 
+<!-- MODAL DEVOLUÇÃO -->
+<div class="modal-overlay" id="modalDevolucao">
+<div class="modal" style="max-width:560px">
+  <h3>Devolver itens da venda</h3>
+  <p class="field-hint" style="margin-bottom:12px">Venda continua no histórico como Concluída — a devolução fica registrada à parte, com estorno na data de hoje.</p>
+  <input type="hidden" id="devVendaId">
+  <div id="devItensLista" style="margin-bottom:14px"></div>
+  <div class="field"><label>Motivo *</label><select id="devMotivo"><option value="Arrependimento">Arrependimento</option><option value="Defeito">Defeito</option><option value="Troca">Troca</option><option value="Outro">Outro</option></select></div>
+  <div class="field"><label>Forma de reembolso *</label><select id="devFormaReembolso"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Estorno cartão">Estorno cartão</option><option value="Crédito na loja">Crédito na loja</option></select></div>
+  <div class="field"><label>Observação</label><input id="devObservacao" placeholder="Opcional"></div>
+  <div style="text-align:right;font-weight:700;margin-bottom:10px">Total a devolver: <span id="devTotal">R$ 0,00</span></div>
+  <div id="devMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalDevolucao')">Cancelar</button>
+    <button class="btn" onclick="confirmarDevolucao()">Confirmar devolução</button>
+  </div>
+</div>
+</div>
+
 <!-- MODAL APROVAÇÃO DE DESCONTO -->
 <div class="modal-overlay" id="modalAprovacao">
 <div class="modal" style="max-width:420px">
@@ -1343,7 +1362,7 @@ function renderHistoricoVendas(vendas,itens,formas){
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
       <td>${cancelada?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Concluída</span>'}</td>
-      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
+      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
@@ -1397,6 +1416,72 @@ async function cancelarVenda(vendaId){
   }catch(e){toast('Erro ao cancelar: '+e.message,'err');}
 }
 
+// ══ DEVOLUÇÃO DE ITENS (diferente de cancelar: a venda já é fato histórico, pode já
+// ter entrado num fechamento — não apaga nada, registra o estorno por cima via
+// registrar_devolucao, numa transação só. Permite devolução parcial. ══
+let _devItensVenda=[];
+async function abrirModalDevolucao(vendaId){
+  if(!temPermissao('vendas','editar')){toast('Sem permissão para devolver itens de venda.','err');return;}
+  $('devVendaId').value=vendaId;
+  $('devObservacao').value=''; $('devMsg').textContent=''; $('devMsg').className='msg';
+  $('devItensLista').innerHTML='<p class="field-hint">Carregando itens…</p>';
+  abrirModal('modalDevolucao');
+  try{
+    const itens=await dbGet('itens_venda',`?venda_id=eq.${vendaId}&select=*`);
+    const ids=itens.map(i=>i.id).join(',')||'00000000-0000-0000-0000-000000000000';
+    const devolvidos=await dbGet('itens_devolvidos',`?item_venda_id=in.(${ids})&select=item_venda_id,quantidade_devolvida`);
+    _devItensVenda=itens.map(i=>{
+      const jaDevolvido=devolvidos.filter(d=>d.item_venda_id===i.id).reduce((a,d)=>a+Number(d.quantidade_devolvida||0),0);
+      return {...i, disponivelDevolucao:Number(i.quantidade||0)-jaDevolvido};
+    });
+    renderItensDevolucao();
+  }catch(e){$('devItensLista').innerHTML=`<p class="field-hint" style="color:var(--red)">Erro ao carregar itens: ${esc(e.message)}</p>`;}
+}
+function renderItensDevolucao(){
+  $('devItensLista').innerHTML=_devItensVenda.map((i,idx)=>{
+    if(i.disponivelDevolucao<=0) return `<div class="field-hint" style="padding:6px 0">${esc(i.produto_nome)} — já devolvido integralmente.</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;font-size:13px">${esc(i.produto_nome)}<div class="field-hint">${money(i.valor_unitario)}/un · comprado ${i.quantidade}, disponível pra devolver ${i.disponivelDevolucao}</div></div>
+      <input type="number" min="0" max="${i.disponivelDevolucao}" step="1" value="0" style="width:64px" id="devQtd_${idx}" oninput="atualizarTotalDevolucao()">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap"><input type="checkbox" id="devVolta_${idx}" checked style="width:auto"> volta ao estoque</label>
+    </div>`;
+  }).join('')||'<p class="field-hint">Sem itens disponíveis pra devolução.</p>';
+  atualizarTotalDevolucao();
+}
+function atualizarTotalDevolucao(){
+  let total=0;
+  _devItensVenda.forEach((i,idx)=>{
+    const qtd=Number($('devQtd_'+idx)?.value||0);
+    total+=qtd*Number(i.valor_unitario||0);
+  });
+  $('devTotal').textContent=money(total);
+}
+async function confirmarDevolucao(){
+  const vendaId=val('devVendaId');
+  const motivo=val('devMotivo');
+  const formaReembolso=val('devFormaReembolso');
+  const observacao=val('devObservacao').trim()||null;
+  const itens=_devItensVenda.map((i,idx)=>({
+    item_venda_id:i.id, produto_id:i.produto_id, produto_nome:i.produto_nome,
+    quantidade_devolvida:Number($('devQtd_'+idx)?.value||0),
+    valor_unitario:Number(i.valor_unitario||0),
+    volta_estoque:!!$('devVolta_'+idx)?.checked,
+  })).filter(i=>i.quantidade_devolvida>0);
+  if(!itens.length){msg('devMsg','Informe a quantidade de ao menos um item pra devolver.','err');return;}
+  const btn=document.querySelector('#modalDevolucao .btn');
+  if(btn){btn.disabled=true;btn.textContent='Confirmando...';}
+  try{
+    await dbRpc('registrar_devolucao',{p:{
+      empresa_id:session.empresa_id, venda_id:vendaId, motivo, forma_reembolso:formaReembolso,
+      usuario_id:session.id, observacao, itens,
+    }});
+    toast('Devolução registrada — estoque e financeiro atualizados.','ok');
+    fecharModal('modalDevolucao');
+    await carregarProdutosLoja();
+    await carregarHistoricoVendas();
+  }catch(e){msg('devMsg','Erro: '+e.message,'err');}
+  finally{ if(btn){btn.disabled=false;btn.textContent='Confirmar devolução';} }
+}
 // ══ EDITAR FORMA DE PAGAMENTO DE VENDA JÁ CONCLUÍDA ══
 // Só forma_pagamento e parcelas — nunca o valor, pra não desalinhar com o total já
 // lançado no Financeiro. Exige senha de Administrador porque venda_formas_pagamento é
