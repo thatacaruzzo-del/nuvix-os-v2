@@ -661,6 +661,10 @@ function renderPonto(){
     }
     return {...p,horasCalc:Number(p.horas_trabalhadas||0),heCalc:Number(p.horas_extras||0)};
   });
+  // A busca vem ordenada por created_at (quando a linha foi gravada), não pela data do
+  // ponto em si — um lançamento feito fora de ordem (backfill, correção) bagunçava a
+  // tabela. Ordena aqui pela data do ponto, mais recente primeiro.
+  listaCalc.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))||String(b.entrada||'').localeCompare(String(a.entrada||'')));
   const totalHoras=listaCalc.reduce((a,p)=>a+p.horasCalc,0),totalHE=listaCalc.reduce((a,p)=>a+p.heCalc,0),faltas=lista.filter(p=>p.tipo==='Falta').length,faltasJustificadas=lista.filter(p=>p.tipo==='Falta justificada').length,atestados=lista.filter(p=>p.tipo==='Atestado').length;
   setHTML('pontoResumo',[{lbl:'Horas trabalhadas',val:totalHoras.toFixed(1)+'h',cor:'var(--txt)'},{lbl:'Horas extras',val:totalHE.toFixed(1)+'h',cor:'var(--txt)'},{lbl:'Faltas',val:faltas,cor:faltas>0?'var(--red)':'var(--green)'},{lbl:'Faltas justificadas',val:faltasJustificadas,cor:'var(--amber)'},{lbl:'Atestados',val:atestados,cor:'var(--txt)'}].map(c=>`<div class="card" style="margin:0;padding:12px;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div style="font-size:18px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
   renderPaginacao('pontoTable',listaCalc.length,'renderPonto');
