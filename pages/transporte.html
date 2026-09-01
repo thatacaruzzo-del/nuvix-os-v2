@@ -173,6 +173,63 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Observação</label><input id="opObs" placeholder="Observações sobre a entrega"></div>
+
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+            <button type="button" class="btn2" onclick="toggleSecaoCte()" id="cteToggleBtn" style="font-size:12px">Dados fiscais para CT-e (opcional) ▾</button>
+            <div id="cteSecao" style="display:none;margin-top:12px">
+              <div class="notice" style="margin-bottom:12px">Preencha só se for emitir CT-e desta operação. O CT-e exige remetente, destinatário e contratante do frete (podem ser a mesma parte), além de o motorista ter RNTRC cadastrado em Motoristas.</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+                <div class="field"><label>Modal</label><select id="opModal"><option value="01">Rodoviário</option><option value="02">Aéreo</option><option value="03">Aquaviário</option><option value="04">Ferroviário</option><option value="05">Dutoviário</option><option value="06">Multimodal</option></select></div>
+                <div class="field"><label>Produto predominante</label><input id="opProdutoPredominante" placeholder="Ex: Carga geral"></div>
+                <div class="field"></div>
+                <div class="field"><label>UF origem</label><input id="opUfOrigem" maxlength="2" placeholder="SP" style="text-transform:uppercase"></div>
+                <div class="field"><label>Cód. IBGE município origem</label><input id="opCodMunOrigem" placeholder="3550308"></div>
+                <div class="field"></div>
+                <div class="field"><label>UF destino</label><input id="opUfDestino" maxlength="2" placeholder="MG" style="text-transform:uppercase"></div>
+                <div class="field"><label>Cód. IBGE município destino</label><input id="opCodMunDestino" placeholder="3106200"></div>
+                <div class="field"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+                <div>
+                  <div style="font-weight:700;font-size:12px;color:var(--muted);margin-bottom:8px">Remetente (quem despacha a carga)</div>
+                  <div class="field"><label>CNPJ</label><input id="opRemCnpj"></div>
+                  <div class="field"><label>Nome</label><input id="opRemNome"></div>
+                  <div class="field"><label>Logradouro</label><input id="opRemLog"></div>
+                  <div class="field"><label>Número</label><input id="opRemNum"></div>
+                  <div class="field"><label>Bairro</label><input id="opRemBairro"></div>
+                  <div class="field"><label>Município</label><input id="opRemMun"></div>
+                  <div class="field"><label>Cód. IBGE município</label><input id="opRemCodMun"></div>
+                  <div class="field"><label>CEP</label><input id="opRemCep"></div>
+                  <div class="field"><label>UF</label><input id="opRemUf" maxlength="2" style="text-transform:uppercase"></div>
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:12px;color:var(--muted);margin-bottom:8px">Destinatário (quem recebe a carga)</div>
+                  <div class="field"><label>CNPJ</label><input id="opDestCnpj"></div>
+                  <div class="field"><label>Nome</label><input id="opDestNome"></div>
+                  <div class="field"><label>Logradouro</label><input id="opDestLog"></div>
+                  <div class="field"><label>Número</label><input id="opDestNum"></div>
+                  <div class="field"><label>Bairro</label><input id="opDestBairro"></div>
+                  <div class="field"><label>Município</label><input id="opDestMun"></div>
+                  <div class="field"><label>Cód. IBGE município</label><input id="opDestCodMun"></div>
+                  <div class="field"><label>CEP</label><input id="opDestCep"></div>
+                  <div class="field"><label>UF</label><input id="opDestUf" maxlength="2" style="text-transform:uppercase"></div>
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:12px;color:var(--muted);margin-bottom:8px">Contratante (quem paga o frete)</div>
+                  <div class="field"><label>CNPJ</label><input id="opContCnpj"></div>
+                  <div class="field"><label>Nome</label><input id="opContNome"></div>
+                  <div class="field"><label>Logradouro</label><input id="opContLog"></div>
+                  <div class="field"><label>Número</label><input id="opContNum"></div>
+                  <div class="field"><label>Bairro</label><input id="opContBairro"></div>
+                  <div class="field"><label>Município</label><input id="opContMun"></div>
+                  <div class="field"><label>Cód. IBGE município</label><input id="opContCodMun"></div>
+                  <div class="field"><label>CEP</label><input id="opContCep"></div>
+                  <div class="field"><label>UF</label><input id="opContUf" maxlength="2" style="text-transform:uppercase"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="modal-actions">
             <button class="btn" onclick="salvarOperacao()">Salvar operação</button>
             <button class="btn2" onclick="fecharModal('modalOperacao')">Cancelar</button>
@@ -190,7 +247,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Data</th><th>PPE</th><th>SLA</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Receita</th><th>Lucro</th><th>Status</th><th>Ação</th></tr></thead>
+              <thead><tr><th>Data</th><th>PPE</th><th>SLA</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Receita</th><th>Lucro</th><th>Status</th><th>CT-e</th><th>Ação</th></tr></thead>
               <tbody id="opTable"></tbody>
             </table>
           </div>
@@ -370,7 +427,7 @@ function abrirSidebar(){document.getElementById('sidebar').classList.add('open')
 function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 
 const session = requireAuth();
-let dados = { operacoes:[], rotas:[], motoristas:[], clientes:[], pagamentos:[] };
+let dados = { operacoes:[], rotas:[], motoristas:[], clientes:[], pagamentos:[], ctes:[] };
 let ppeFiltro = 'hoje';
 
 async function init() {
@@ -392,7 +449,9 @@ async function loadData() {
   const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   try {
     const [op,rot,mot,cli,pag] = await Promise.all([db.get('transporte',q),db.get('rotas',q),db.get('motoristas',q),db.get('clientes',q),db.get('pagamentos_motorista',q)]);
-    dados={operacoes:op,rotas:rot,motoristas:mot,clientes:cli,pagamentos:pag};
+    let ctes=[];
+    try{ctes=await db.get('notas_fiscais_cte',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);}catch(e){console.warn('CT-e indisponível:',e);}
+    dados={operacoes:op,rotas:rot,motoristas:mot,clientes:cli,pagamentos:pag,ctes};
     renderTudo(); updateDashboardTransporte();
   } catch(e) { toast('Erro ao carregar: '+e.message,'err'); }
 }
@@ -456,7 +515,13 @@ async function salvarOperacao(){
   const cli=dados.clientes.find(x=>x.id===cliId);
   const motId=val('opMotorista'),mot=dados.motoristas.find(x=>x.id===motId);
   const rotId=val('opRota'),rot=dados.rotas.find(x=>x.id===rotId);
-  const payload=withEmpresa({data_lancamento:val('opData')||hoje(),ppe:val('opPPE')||null,cliente_id:cliId,cliente_nome:cli?.nome||'',motorista_id:motId||null,motorista_nome:mot?.nome||'',rota_id:rotId||null,origem:val('opOrigem').trim()||rot?.origem||'',destino:val('opDestino').trim()||rot?.destino||'',receita:num('opReceita'),custo:num('opCusto'),peso:num('opPeso')||null,numero_nf:val('opNF').trim()||null,status:val('opStatus'),observacao:val('opObs').trim()||null});
+  const payload=withEmpresa({data_lancamento:val('opData')||hoje(),ppe:val('opPPE')||null,cliente_id:cliId,cliente_nome:cli?.nome||'',motorista_id:motId||null,motorista_nome:mot?.nome||'',rota_id:rotId||null,origem:val('opOrigem').trim()||rot?.origem||'',destino:val('opDestino').trim()||rot?.destino||'',receita:num('opReceita'),custo:num('opCusto'),peso:num('opPeso')||null,numero_nf:val('opNF').trim()||null,status:val('opStatus'),observacao:val('opObs').trim()||null,
+    modal:val('opModal')||'01',produto_predominante:val('opProdutoPredominante').trim()||null,
+    uf_origem:val('opUfOrigem').trim().toUpperCase()||null,codigo_municipio_origem_ibge:val('opCodMunOrigem').trim()||null,
+    uf_destino:val('opUfDestino').trim().toUpperCase()||null,codigo_municipio_destino_ibge:val('opCodMunDestino').trim()||null,
+    remetente_cnpj:val('opRemCnpj').trim()||null,remetente_nome:val('opRemNome').trim()||null,remetente_logradouro:val('opRemLog').trim()||null,remetente_numero:val('opRemNum').trim()||null,remetente_bairro:val('opRemBairro').trim()||null,remetente_municipio:val('opRemMun').trim()||null,remetente_codigo_municipio_ibge:val('opRemCodMun').trim()||null,remetente_cep:val('opRemCep').trim()||null,remetente_uf:val('opRemUf').trim().toUpperCase()||null,
+    destinatario_cnpj:val('opDestCnpj').trim()||null,destinatario_nome:val('opDestNome').trim()||null,destinatario_logradouro:val('opDestLog').trim()||null,destinatario_numero:val('opDestNum').trim()||null,destinatario_bairro:val('opDestBairro').trim()||null,destinatario_municipio:val('opDestMun').trim()||null,destinatario_codigo_municipio_ibge:val('opDestCodMun').trim()||null,destinatario_cep:val('opDestCep').trim()||null,destinatario_uf:val('opDestUf').trim().toUpperCase()||null,
+    contratante_cnpj:val('opContCnpj').trim()||null,contratante_nome:val('opContNome').trim()||null,contratante_logradouro:val('opContLog').trim()||null,contratante_numero:val('opContNum').trim()||null,contratante_bairro:val('opContBairro').trim()||null,contratante_municipio:val('opContMun').trim()||null,contratante_codigo_municipio_ibge:val('opContCodMun').trim()||null,contratante_cep:val('opContCep').trim()||null,contratante_uf:val('opContUf').trim().toUpperCase()||null});
   try{
     if(id){await db.patch('transporte',id,payload);}else{
       await db.post('transporte',payload);
@@ -466,8 +531,16 @@ async function salvarOperacao(){
     msg('opMsg',id?'Operação atualizada!':'Operação salva e lançada no Financeiro!','ok');limparOperacao();fecharModal('modalOperacao');await loadData();
   }catch(e){msg('opMsg','Erro: '+e.message,'err');}
 }
-function editarOperacao(id){const o=dados.operacoes.find(x=>x.id===id);if(!o)return;$('opId').value=o.id;$('opData').value=o.data_lancamento?String(o.data_lancamento).slice(0,10):'';$('opPPE').value=o.ppe?String(o.ppe).slice(0,10):'';$('opCliente').value=o.cliente_id||'';$('opMotorista').value=o.motorista_id||'';$('opRota').value=o.rota_id||'';$('opOrigem').value=o.origem||'';$('opDestino').value=o.destino||'';$('opReceita').value=o.receita||'';$('opCusto').value=o.custo||'';$('opPeso').value=o.peso||'';$('opNF').value=o.numero_nf||'';$('opStatus').value=o.status||'No prazo';$('opObs').value=o.observacao||'';$('opTitulo').textContent='Editar operação';trTab('operacoes');abrirModal('modalOperacao');}
+function editarOperacao(id){const o=dados.operacoes.find(x=>x.id===id);if(!o)return;$('opId').value=o.id;$('opData').value=o.data_lancamento?String(o.data_lancamento).slice(0,10):'';$('opPPE').value=o.ppe?String(o.ppe).slice(0,10):'';$('opCliente').value=o.cliente_id||'';$('opMotorista').value=o.motorista_id||'';$('opRota').value=o.rota_id||'';$('opOrigem').value=o.origem||'';$('opDestino').value=o.destino||'';$('opReceita').value=o.receita||'';$('opCusto').value=o.custo||'';$('opPeso').value=o.peso||'';$('opNF').value=o.numero_nf||'';$('opStatus').value=o.status||'No prazo';$('opObs').value=o.observacao||'';
+  $('opModal').value=o.modal||'01';$('opProdutoPredominante').value=o.produto_predominante||'';
+  $('opUfOrigem').value=o.uf_origem||'';$('opCodMunOrigem').value=o.codigo_municipio_origem_ibge||'';
+  $('opUfDestino').value=o.uf_destino||'';$('opCodMunDestino').value=o.codigo_municipio_destino_ibge||'';
+  $('opRemCnpj').value=o.remetente_cnpj||'';$('opRemNome').value=o.remetente_nome||'';$('opRemLog').value=o.remetente_logradouro||'';$('opRemNum').value=o.remetente_numero||'';$('opRemBairro').value=o.remetente_bairro||'';$('opRemMun').value=o.remetente_municipio||'';$('opRemCodMun').value=o.remetente_codigo_municipio_ibge||'';$('opRemCep').value=o.remetente_cep||'';$('opRemUf').value=o.remetente_uf||'';
+  $('opDestCnpj').value=o.destinatario_cnpj||'';$('opDestNome').value=o.destinatario_nome||'';$('opDestLog').value=o.destinatario_logradouro||'';$('opDestNum').value=o.destinatario_numero||'';$('opDestBairro').value=o.destinatario_bairro||'';$('opDestMun').value=o.destinatario_municipio||'';$('opDestCodMun').value=o.destinatario_codigo_municipio_ibge||'';$('opDestCep').value=o.destinatario_cep||'';$('opDestUf').value=o.destinatario_uf||'';
+  $('opContCnpj').value=o.contratante_cnpj||'';$('opContNome').value=o.contratante_nome||'';$('opContLog').value=o.contratante_logradouro||'';$('opContNum').value=o.contratante_numero||'';$('opContBairro').value=o.contratante_bairro||'';$('opContMun').value=o.contratante_municipio||'';$('opContCodMun').value=o.contratante_codigo_municipio_ibge||'';$('opContCep').value=o.contratante_cep||'';$('opContUf').value=o.contratante_uf||'';
+  $('opTitulo').textContent='Editar operação';trTab('operacoes');abrirModal('modalOperacao');}
 function abrirNovaOperacao(){limparOperacao();trTab('operacoes');abrirModal('modalOperacao');}
+function toggleSecaoCte(){const sec=$('cteSecao');const aberto=sec.style.display!=='none';sec.style.display=aberto?'none':'block';$('cteToggleBtn').textContent='Dados fiscais para CT-e (opcional) '+(aberto?'▾':'▴');}
 async function excluirOperacao(id){
   if(!temPermissao('transporte','excluir')){toast('Sem permissão para excluir.','err');return;}
   if(!await confirmarAcao('Excluir esta operação?\n\nOs valores de custo, receita e lucro serão recalculados automaticamente.'))return;
@@ -507,7 +580,7 @@ async function marcarEntregue(id){
     await loadData();
   }catch(e){toast('Erro: '+e.message,'err');}
 }
-function limparOperacao(){['opId','opData','opPPE','opOrigem','opDestino','opReceita','opCusto','opPeso','opNF','opObs'].forEach(id=>{if($(id))$(id).value=''});if($('opCliente'))$('opCliente').value='';if($('opMotorista'))$('opMotorista').value='';if($('opRota'))$('opRota').value='';if($('opStatus'))$('opStatus').value='No prazo';$('opTitulo').textContent='Nova operação';}
+function limparOperacao(){['opId','opData','opPPE','opOrigem','opDestino','opReceita','opCusto','opPeso','opNF','opObs','opProdutoPredominante','opUfOrigem','opCodMunOrigem','opUfDestino','opCodMunDestino','opRemCnpj','opRemNome','opRemLog','opRemNum','opRemBairro','opRemMun','opRemCodMun','opRemCep','opRemUf','opDestCnpj','opDestNome','opDestLog','opDestNum','opDestBairro','opDestMun','opDestCodMun','opDestCep','opDestUf','opContCnpj','opContNome','opContLog','opContNum','opContBairro','opContMun','opContCodMun','opContCep','opContUf'].forEach(id=>{if($(id))$(id).value=''});if($('opCliente'))$('opCliente').value='';if($('opMotorista'))$('opMotorista').value='';if($('opRota'))$('opRota').value='';if($('opStatus'))$('opStatus').value='No prazo';if($('opModal'))$('opModal').value='01';if($('cteSecao')){$('cteSecao').style.display='none';$('cteToggleBtn').textContent='Dados fiscais para CT-e (opcional) ▾';}$('opTitulo').textContent='Nova operação';}
 
 function renderOperacoes(){
   const filtroSt=val('opFiltroStatus'),filtroMes=val('opFiltroMes');
@@ -516,8 +589,63 @@ function renderOperacoes(){
   if(filtroMes)lista=lista.filter(o=>String(o.data_lancamento||'').slice(0,7)===filtroMes);
   renderPaginacao('opTable',lista.length,'renderOperacoes');
   setHTML('opTable',paginar(lista,'opTable').map(o=>{const{badge}=slaInfo(o.ppe,o.status);const lucro=Number(o.receita||0)-Number(o.custo||0);
-    return`<tr><td>${fmtData(o.data_lancamento)}</td><td>${o.ppe?fmtData(o.ppe):'—'}</td><td>${badge}</td><td><b>${esc(o.cliente_nome||'')}</b></td><td>${esc(o.motorista_nome||'—')}</td><td>${esc(o.origem||'')}${o.destino?' → '+esc(o.destino):''}</td><td style="color:var(--txt);font-weight:700">${money(o.receita)}</td><td style="color:${lucro>=0?'var(--green)':'var(--red)'};font-weight:700">${money(lucro)}</td><td><span class="badge ${o.status==='Entregue'?'ok':o.status==='Ocorrência'||o.status==='Atrasado'?'bad':''}">${o.status||''}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap">${o.status!=='Entregue'?`<button class="btn2" onclick="marcarEntregue('${o.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Entregue</button>`:''}<button class="btn2" onclick="editarOperacao('${o.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirOperacao('${o.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhuma operação.</td></tr>');
+    return`<tr><td>${fmtData(o.data_lancamento)}</td><td>${o.ppe?fmtData(o.ppe):'—'}</td><td>${badge}</td><td><b>${esc(o.cliente_nome||'')}</b></td><td>${esc(o.motorista_nome||'—')}</td><td>${esc(o.origem||'')}${o.destino?' → '+esc(o.destino):''}</td><td style="color:var(--txt);font-weight:700">${money(o.receita)}</td><td style="color:${lucro>=0?'var(--green)':'var(--red)'};font-weight:700">${money(lucro)}</td><td><span class="badge ${o.status==='Entregue'?'ok':o.status==='Ocorrência'||o.status==='Atrasado'?'bad':''}">${o.status||''}</span></td><td>${cteBadgeAcao(o.id)}</td><td><div style="display:flex;gap:4px;flex-wrap:wrap">${o.status!=='Entregue'?`<button class="btn2" onclick="marcarEntregue('${o.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Entregue</button>`:''}<button class="btn2" onclick="editarOperacao('${o.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirOperacao('${o.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`;
+  }).join('')||'<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">Nenhuma operação.</td></tr>');
+}
+
+const CTE_STATUS_LABEL={nao_emitida:'Não emitida',processando:'Processando',autorizada:'Autorizada',erro:'Erro',cancelada:'Cancelada'};
+const CTE_STATUS_CLASSE={autorizada:'ok',erro:'bad',cancelada:'bad'};
+function cteDaOperacao(opId){return (dados.ctes||[]).find(c=>c.transporte_id===opId);}
+function cteBadgeAcao(opId){
+  const nota=cteDaOperacao(opId);
+  if(!nota){
+    return `<button class="btn2" onclick="emitirCte('${opId}')" style="font-size:11px;padding:5px 8px">Emitir CT-e</button>`;
+  }
+  const status=nota.status||'processando';
+  const badge=`<span class="badge ${CTE_STATUS_CLASSE[status]||''}" title="${esc(nota.mensagem_erro||'')}">${CTE_STATUS_LABEL[status]||status}</span>`;
+  const acoes=[];
+  if(status==='erro'||status==='nao_emitida') acoes.push(`<button class="btn2" onclick="emitirCte('${opId}')" style="font-size:11px;padding:4px 6px">Reemitir</button>`);
+  if(status==='processando') acoes.push(`<button class="btn2" onclick="consultarCte('${opId}')" style="font-size:11px;padding:4px 6px">Consultar</button>`);
+  if(status==='autorizada'){
+    if(nota.link_pdf) acoes.push(`<a class="btn2" href="${esc(nota.link_pdf)}" target="_blank" style="font-size:11px;padding:4px 6px;text-decoration:none">PDF</a>`);
+    acoes.push(`<button class="danger" onclick="cancelarCte('${opId}')" style="font-size:11px;padding:4px 6px">Cancelar</button>`);
+  }
+  return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${badge}<div style="display:flex;gap:4px;flex-wrap:wrap">${acoes.join('')}</div></div>`;
+}
+async function chamarEdgeCte(body){
+  const token=tokenAtual();
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/emitir-cte`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(token||SUPABASE_KEY),'apikey':SUPABASE_KEY},body:JSON.stringify(body)});
+  let data;try{data=await r.json();}catch(e){throw new Error('Resposta inválida do serviço fiscal.');}
+  return data;
+}
+async function emitirCte(opId){
+  if(!temPermissao('transporte','editar')){toast('Sem permissão para emitir CT-e.','err');return;}
+  toast('Enviando CT-e para a Focus NFe...');
+  try{
+    const data=await chamarEdgeCte({acao:'emitir',transporte_id:opId});
+    if(data.ok){toast('CT-e enviado! Acompanhe o status na lista.');}
+    else{
+      const codigo=data.erro;
+      const mensagens={fiscal_nao_configurado:'Configuração fiscal de CT-e pendente — confirme certificado digital na Focus NFe e ative o CT-e para esta empresa.',rntrc_ausente:'Motorista sem RNTRC (ANTT) cadastrado. Preencha em Transporte → Motoristas.',motorista_ausente:'Selecione um motorista para esta operação antes de emitir o CT-e.'};
+      toast(mensagens[typeof codigo==='string'?codigo:'']||('Erro ao emitir CT-e: '+(data?.erro?.mensagem||JSON.stringify(data.erro))),'err');
+    }
+  }catch(e){toast('Erro ao emitir CT-e: '+e.message,'err');}
+  await loadData();
+}
+async function consultarCte(opId){
+  try{const data=await chamarEdgeCte({acao:'consultar',transporte_id:opId});if(!data.ok)toast('Erro ao consultar: '+(data.erro||''),'err');}catch(e){toast('Erro: '+e.message,'err');}
+  await loadData();
+}
+async function cancelarCte(opId){
+  if(!temPermissao('transporte','excluir')){toast('Sem permissão para cancelar CT-e.','err');return;}
+  const justificativa=prompt('Justificativa do cancelamento (mínimo 15 caracteres):');
+  if(!justificativa)return;
+  if(justificativa.trim().length<15){toast('Justificativa precisa ter pelo menos 15 caracteres.','err');return;}
+  try{
+    const data=await chamarEdgeCte({acao:'cancelar',transporte_id:opId,justificativa:justificativa.trim()});
+    toast(data.ok?'CT-e cancelado.':'Erro ao cancelar: '+(data.erro||''),data.ok?'ok':'err');
+  }catch(e){toast('Erro: '+e.message,'err');}
+  await loadData();
 }
 
 function filtroPPE(tipo,btn){ppeFiltro=tipo;document.querySelectorAll('.ppe-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderPPE();}
