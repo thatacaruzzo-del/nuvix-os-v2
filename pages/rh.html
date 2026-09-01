@@ -366,7 +366,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
           </div>
           <div id="pontoResumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
           <div class="tablewrap">
-            <table><thead><tr><th>Colaborador</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Horas</th><th>HE</th><th>Tipo</th><th>Ação</th></tr></thead><tbody id="pontoTable"></tbody></table><div id="pontoTablePaginacao"></div>
+            <table><thead><tr><th>Colaborador</th><th>Data</th><th>Dia</th><th>Entrada</th><th>Saída intervalo</th><th>Retorno intervalo</th><th>Saída</th><th>Horas trabalhadas</th><th>Jornada prevista</th><th>HE 50%</th><th>HE 100%</th><th>Tipo de hora</th><th>Valor HE 50%</th><th>Valor HE 100%</th><th>Ação</th></tr></thead><tbody id="pontoTable"></tbody></table><div id="pontoTablePaginacao"></div>
           </div>
         </div>
       </div>
@@ -465,14 +465,47 @@ function comissaoVigenteEm(colaboradorId,data){
 // naquela data — nunca de um valor editável à parte (era essa a causa da
 // inconsistência no fechamento de agosto/2026 da YUP: o mesmo turno 14:00-22:00
 // virava 7.0h, 6.8h ou 1.0h de HE dependendo de quem editou o quê).
+//
+// HE é por JANELA, não por total do dia (achado no fechamento de ago/2026 do
+// Antonio): compara o horário efetivamente batido contra a janela contratual
+// daquele dia da semana — período trabalhado antes do início da janela ou depois
+// do fim é sempre HE, mesmo que o total do dia pareça "quase normal" comparado a
+// uma jornada diária fixa (ex: bater 13:40 num turno de sábado 10:00-18:00 e sair
+// só às 22:00 gera 4h de HE de saída, não "20min de excedente sobre 7h").
+// Tudo calculado em MINUTOS inteiros — só vira decimal na hora de guardar/mostrar,
+// pra não acumular erro de arredondamento (20min é 0.3333h, não uma dízima truncada).
+//
 // Sem jornada cadastrada (colaborador ainda não migrado) cai no parâmetro global
 // antigo da empresa — modo compatibilidade, pra não quebrar folha de quem falta migrar.
+const DIAS_SEMANA_KEYS=['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
+function hhmmParaMin(hhmm){ if(!hhmm) return null; const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
+function minParaHoras(min){ return Math.round(min/60*10000)/10000; }
+// "4h18min" em vez de "4.3h" — ver item 7: apresentar em horas/minutos, decimal só
+// internamente (usado por folha/relatórios/cálculo de proventos, que precisam do número).
+function minParaTexto(min){ if(min==null) return '—'; const sinal=min<0?'-':''; const abs=Math.round(Math.abs(min)); const h=Math.floor(abs/60), m=abs%60; return `${sinal}${h}h${String(m).padStart(2,'0')}min`; }
+function horasParaTexto(horasDecimais){ return minParaTexto(horasDecimais==null?null:Math.round(horasDecimais*60)); }
+// Janela {entrada,saida} (strings "HH:MM") do dia da semana pra uma jornada, ou null se
+// não é dia de trabalho previsto. Prioriza jornada.janelas (horário por dia — permite
+// sábado diferente de segunda, por exemplo); sem isso, cai no par único
+// horario_entrada/horario_saida + trabalha_X (jornadas antigas, mesmo horário todo dia
+// marcado — continuam funcionando exatamente como sempre, só que agora com o motor de
+// janela também, em vez do motor antigo de "total menos jornada esperada").
+function janelaDoDia(jornada,diaSemana){
+  if(!jornada||diaSemana==null) return null;
+  const key=DIAS_SEMANA_KEYS[diaSemana];
+  if(jornada.janelas){
+    const j=jornada.janelas[key];
+    return (j&&j.entrada&&j.saida) ? j : null;
+  }
+  if(!jornada[`trabalha_${key}`]) return null;
+  return (jornada.horario_entrada&&jornada.horario_saida) ? {entrada:jornada.horario_entrada.slice(0,5),saida:jornada.horario_saida.slice(0,5)} : null;
+}
 function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
   if(aplicaJornada===undefined)aplicaJornada=true;
   const entrada=ponto.entrada,saida=ponto.saida;
   if(!entrada||!saida) return {horasLiquidas:0,horasExtras:0,percentualAplicado:0,faltaParcial:0,domingoOuFeriado:false};
-  const [eh,em]=entrada.split(':').map(Number), [sh,sm]=saida.split(':').map(Number);
-  const horasBrutas=Math.max(0,((sh*60+sm)-(eh*60+em))/60);
+  const entradaMin=hhmmParaMin(entrada), saidaMin=hhmmParaMin(saida);
+  const horasBrutasMin=Math.max(0,saidaMin-entradaMin);
   const temIntervaloBatido=!!(ponto.saida_almoco&&ponto.retorno_almoco);
   // Bug real (achado com a Clara, horista, em ago/2026): antes só usava o intervalo
   // realmente batido quando existia jornada cadastrada com intervalo_flexivel=true —
@@ -482,52 +515,62 @@ function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
   // empresa configurou explicitamente um desconto fixo (jornada.intervalo_flexivel
   // === false) — sem jornada, ou com intervalo_flexivel true/não definido, usa o
   // horário real sempre que ele existir.
-  let intervaloRealMin;
+  let intervaloMin;
   if(temIntervaloBatido && (!jornada || jornada.intervalo_flexivel!==false)){
-    const [sah,sam]=ponto.saida_almoco.split(':').map(Number), [rah,ram]=ponto.retorno_almoco.split(':').map(Number);
-    intervaloRealMin=(rah*60+ram)-(sah*60+sam);
+    intervaloMin=hhmmParaMin(ponto.retorno_almoco)-hhmmParaMin(ponto.saida_almoco);
   }else if(jornada){
-    intervaloRealMin=jornada.intervalo_minutos;
+    intervaloMin=jornada.intervalo_minutos;
   }else{
     // Sem jornada E sem intervalo batido — não tem dado nenhum pra confiar. Pra quem
     // usa jornada (CLT/PJ com HE), mantém os 60min de compatibilidade de sempre, pra
     // não mudar de repente o cálculo de folha de quem ainda não foi migrado. Pra quem
     // não usa jornada (Horista/PJ sem HE — não tem "regra" nenhuma pra assumir),
     // não desconta nada em vez de inventar um número.
-    intervaloRealMin=aplicaJornada?60:0;
+    intervaloMin=aplicaJornada?60:0;
   }
-  const horasLiquidas=Math.max(0,horasBrutas-intervaloRealMin/60);
+  const liquidoMin=Math.max(0,horasBrutasMin-intervaloMin);
   // PJ e Horista: só interessa quanto foi trabalhado, sem HE/falta (não existe
   // "jornada esperada" pra comparar) — ver regimeUsaJornada.
-  if(!aplicaJornada) return {horasLiquidas:Math.round(horasLiquidas*100)/100,horasExtras:0,percentualAplicado:0,faltaParcial:0,domingoOuFeriado:false};
+  if(!aplicaJornada) return {horasLiquidas:minParaHoras(liquidoMin),horasExtras:0,percentualAplicado:0,faltaParcial:0,domingoOuFeriado:false};
 
   const diaSemana=ponto.data?new Date(String(ponto.data).slice(0,10)+'T12:00:00').getDay():null; // meio-dia evita virar o dia por fuso
-  const diasSemanaKey=['trabalha_domingo','trabalha_segunda','trabalha_terca','trabalha_quarta','trabalha_quinta','trabalha_sexta','trabalha_sabado'];
   const dataStr=String(ponto.data||'').slice(0,10);
   const domingoOuFeriado = diaSemana===0 || ponto.tipo==='Feriado' || (feriados||[]).some(f=>String(f.data||'').slice(0,10)===dataStr);
 
-  let jornadaEsperada;
-  if(jornada){
-    const trabalhaEsseDia = diaSemana!=null ? !!jornada[diasSemanaKey[diaSemana]] : true;
-    if(!trabalhaEsseDia){ jornadaEsperada=0; }
-    else{
-      const [eeh,eem]=jornada.horario_entrada.split(':').map(Number), [seh,sem2]=jornada.horario_saida.split(':').map(Number);
-      jornadaEsperada=Math.max(0,((seh*60+sem2)-(eeh*60+eem)-jornada.intervalo_minutos)/60);
-    }
-  }else{
-    jornadaEsperada=Number(P.jornada_diaria_horas||8);
+  // Domingo/feriado: todo o líquido trabalhado é HE (não tem "janela normal" nesse
+  // dia — ninguém deveria estar escalado, então qualquer minuto trabalhado é extra).
+  if(domingoOuFeriado){
+    const percentual=jornada?Number(jornada.percentual_he_domingo_feriado):100;
+    return {horasLiquidas:minParaHoras(liquidoMin),horasExtras:minParaHoras(liquidoMin),percentualAplicado:liquidoMin>0?percentual:0,faltaParcial:0,domingoOuFeriado:true};
   }
 
-  const toleranciaHoras=(jornada?jornada.tolerancia_minutos:5)/60;
-  const diferenca=horasLiquidas-jornadaEsperada;
-  let horasExtras=0,percentualAplicado=0,faltaParcial=0;
-  if(diferenca>toleranciaHoras){
-    horasExtras=diferenca;
-    percentualAplicado=jornada?(domingoOuFeriado?Number(jornada.percentual_he_domingo_feriado):Number(jornada.percentual_he_dia_util)):(domingoOuFeriado?100:Number(P.percentual_hora_extra||50));
-  }else if(diferenca<-toleranciaHoras && jornadaEsperada>0){
-    faltaParcial=Math.abs(diferenca);
+  const janela=janelaDoDia(jornada,diaSemana);
+  if(!janela){
+    // Dia sem janela prevista (não é dia de trabalho configurado, ex: folga no meio
+    // da semana) mas também não é domingo/feriado: sem "jornada esperada" pra
+    // comparar, todo o líquido vira HE no percentual de dia útil.
+    const percentual=jornada?Number(jornada.percentual_he_dia_util):Number(P.percentual_hora_extra||50);
+    return {horasLiquidas:minParaHoras(liquidoMin),horasExtras:minParaHoras(liquidoMin),percentualAplicado:liquidoMin>0?percentual:0,faltaParcial:0,domingoOuFeriado:false};
   }
-  return {horasLiquidas:Math.round(horasLiquidas*100)/100,horasExtras:Math.round(horasExtras*100)/100,percentualAplicado,faltaParcial:Math.round(faltaParcial*100)/100,domingoOuFeriado};
+
+  const janelaInicioMin=hhmmParaMin(janela.entrada), janelaFimMin=hhmmParaMin(janela.saida);
+  const antesMin=Math.max(0,janelaInicioMin-entradaMin);   // trabalhou antes da janela abrir
+  const depoisMin=Math.max(0,saidaMin-janelaFimMin);       // trabalhou depois da janela fechar
+  const heMin=Math.min(liquidoMin,antesMin+depoisMin);
+  const normalMin=liquidoMin-heMin;
+  const percentual=jornada?Number(jornada.percentual_he_dia_util):Number(P.percentual_hora_extra||50);
+  // Falta parcial: chegou depois do início e/ou saiu antes do fim, sem cobrir a
+  // janela inteira e sem gerar HE nenhuma — o "buraco" dentro da janela.
+  const janelaLiquidaMin=Math.max(0,janelaFimMin-janelaInicioMin-intervaloMin);
+  const faltaParcialMin = heMin===0 ? Math.max(0,janelaLiquidaMin-normalMin) : 0;
+
+  return {
+    horasLiquidas:minParaHoras(liquidoMin),
+    horasExtras:minParaHoras(heMin),
+    percentualAplicado:heMin>0?percentual:0,
+    faltaParcial:minParaHoras(faltaParcialMin),
+    domingoOuFeriado:false,
+  };
 }
 // Preenche a sugestão de HE ao bater o ponto. Diferente de antes, o campo fica
 // travado (read-only) sempre que há entrada+saída — o motor é a única fonte de
@@ -549,10 +592,16 @@ function atualizarHorasExtrasSugeridas(){
   const pontoTemp={entrada,saida,saida_almoco:val('pontoSaidaAlmoco'),retorno_almoco:val('pontoRetornoAlmoco'),data,tipo:val('pontoTipo')};
   const r=calcularHorasPonto(pontoTemp,jornada,P.feriados,aplicaJornada);
   if(heInput){heInput.value=r.horasExtras;heInput.readOnly=true;heInput.style.background='var(--bg)';}
+  const diaSemanaHint=data?new Date(data+'T12:00:00').getDay():null;
+  const janelaHint=jornada?janelaDoDia(jornada,diaSemanaHint):null;
   if(hint)hint.textContent = !aplicaJornada
-    ? `${(c?.tipo_contrato||c?.contrato)} não calcula hora extra — ${r.horasLiquidas}h trabalhadas ${(c?.tipo_contrato||c?.contrato)==='Horista'?'entram no valor a pagar por hora':'apenas ficam registradas'}.`
+    ? `${(c?.tipo_contrato||c?.contrato)} não calcula hora extra — ${horasParaTexto(r.horasLiquidas)} trabalhadas ${(c?.tipo_contrato||c?.contrato)==='Horista'?'entram no valor a pagar por hora':'apenas ficam registradas'}.`
     : jornada
-    ? `Calculado pela jornada cadastrada (${jornada.horario_entrada.slice(0,5)}–${jornada.horario_saida.slice(0,5)})${r.horasExtras>0?` — ${r.percentualAplicado}% de adicional`:''}. Travado enquanto houver entrada/saída.`
+    ? (r.domingoOuFeriado
+        ? `Domingo/feriado — toda a hora trabalhada é HE ${r.percentualAplicado}%. Travado enquanto houver entrada/saída.`
+        : janelaHint
+        ? `Calculado pela janela desse dia (${janelaHint.entrada}–${janelaHint.saida})${r.horasExtras>0?` — ${r.percentualAplicado}% de adicional`:''}. Travado enquanto houver entrada/saída.`
+        : `Sem janela prevista pra esse dia da semana nessa jornada — toda a hora trabalhada é HE ${r.percentualAplicado}%. Travado enquanto houver entrada/saída.`)
     : `Sem jornada cadastrada — usando padrão da empresa (${P.jornada_diaria_horas||8}h/dia). Configure em Colaboradores → Jornada pra um cálculo preciso.`;
 }
 async function init(){
@@ -913,7 +962,7 @@ function imprimirFolhaPonto(){
   const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const linhas=registrosCalc.map(p=>{
     const diaSemana=p.data?new Date(String(p.data).slice(0,10)+'T12:00:00').getDay():null;
-    return `<tr><td>${fmtData(p.data)}</td><td>${diaSemana!=null?dias[diaSemana]:'—'}</td><td>${p.entrada||'—'}</td><td>${p.saida_almoco||'—'}</td><td>${p.retorno_almoco||'—'}</td><td>${p.saida||'—'}</td><td>${p.horasCalc?p.horasCalc.toFixed(1)+'h':'—'}</td><td>${p.heCalc?p.heCalc.toFixed(1)+'h':'—'}</td><td>${esc(p.tipo||'Normal')}</td></tr>`;
+    return `<tr><td>${fmtData(p.data)}</td><td>${diaSemana!=null?dias[diaSemana]:'—'}</td><td>${p.entrada||'—'}</td><td>${p.saida_almoco||'—'}</td><td>${p.retorno_almoco||'—'}</td><td>${p.saida||'—'}</td><td>${p.horasCalc?horasParaTexto(p.horasCalc):'—'}</td><td>${p.heCalc?horasParaTexto(p.heCalc):'—'}</td><td>${esc(p.tipo||'Normal')}</td></tr>`;
   }).join('');
   const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Folha de ponto — ${esc(c.nome||'')}</title>
   <style>
@@ -951,8 +1000,8 @@ function imprimirFolhaPonto(){
     <tbody>${linhas||'<tr><td colspan="9" style="padding:16px">Nenhum registro neste mês.</td></tr>'}</tbody>
   </table>
   <div class="totais">
-    <div>Horas trabalhadas<b>${totalHoras.toFixed(1)}h</b></div>
-    <div>Horas extras<b>${totalHE.toFixed(1)}h</b></div>
+    <div>Horas trabalhadas<b>${horasParaTexto(totalHoras)}</b></div>
+    <div>Horas extras<b>${horasParaTexto(totalHE)}</b></div>
     <div>Faltas<b>${faltas}</b></div>
     <div>Faltas justif.<b>${faltasJust}</b></div>
     <div>Atestados<b>${atestados}</b></div>
@@ -978,23 +1027,37 @@ function renderPonto(){
   if(filtCol)lista=lista.filter(p=>p.colaborador_id===filtCol);
   if(filtMes)lista=lista.filter(p=>String(p.data||'').slice(0,7)===filtMes);
   if(busca)lista=lista.filter(p=>(p.colaborador_nome||'').toLowerCase().includes(busca));
+  const DIAS_NOMES_CURTOS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const listaCalc=lista.map(p=>{
+    const c=dados.colaboradores.find(x=>x.id===p.colaborador_id);
+    const diaSemana=p.data?new Date(String(p.data).slice(0,10)+'T12:00:00').getDay():null;
+    const diaTxt=diaSemana!=null?DIAS_NOMES_CURTOS[diaSemana]:'—';
+    let horasCalc,heCalc,percentualAplicado=0,domingoOuFeriado=false,jornada=null,aplicaJornada=false;
     if(p.entrada&&p.saida){
-      const aplicaJornada=regimeUsaJornada(dados.colaboradores.find(x=>x.id===p.colaborador_id));
-      const jornada=aplicaJornada?jornadaVigenteEm(p.colaborador_id,p.data):null;
+      aplicaJornada=regimeUsaJornada(c);
+      jornada=aplicaJornada?jornadaVigenteEm(p.colaborador_id,p.data):null;
       const r=calcularHorasPonto(p,jornada,P.feriados,aplicaJornada);
-      return {...p,horasCalc:r.horasLiquidas,heCalc:r.horasExtras};
+      horasCalc=r.horasLiquidas; heCalc=r.horasExtras; percentualAplicado=r.percentualAplicado; domingoOuFeriado=r.domingoOuFeriado;
+    }else{
+      horasCalc=Number(p.horas_trabalhadas||0); heCalc=Number(p.horas_extras||0);
     }
-    return {...p,horasCalc:Number(p.horas_trabalhadas||0),heCalc:Number(p.horas_extras||0)};
+    const he50=percentualAplicado===50?heCalc:0, he100=percentualAplicado===100?heCalc:0;
+    const janela=(jornada&&diaSemana!=null)?janelaDoDia(jornada,diaSemana):null;
+    const jornadaTxt=domingoOuFeriado?'Domingo/feriado':janela?`${janela.entrada}–${janela.saida}`:(aplicaJornada?'—':'Sem HE');
+    const tipoHoraTxt=p.tipo&&p.tipo!=='Normal'?p.tipo:(he100>0?'HE 100%':he50>0?'HE 50%':'Normal');
+    const valorHora=c?Number(c.salario||0)/220:0;
+    const valorHE50=aplicaJornada&&he50>0?Math.round(valorHora*1.5*he50*100)/100:null;
+    const valorHE100=aplicaJornada&&he100>0?Math.round(valorHora*2*he100*100)/100:null;
+    return {...p,horasCalc,heCalc,he50,he100,diaTxt,jornadaTxt,tipoHoraTxt,valorHE50,valorHE100};
   });
   // A busca vem ordenada por created_at (quando a linha foi gravada), não pela data do
   // ponto em si — um lançamento feito fora de ordem (backfill, correção) bagunçava a
   // tabela. Ordena aqui pela data do ponto, mais recente primeiro.
   listaCalc.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))||String(b.entrada||'').localeCompare(String(a.entrada||'')));
   const totalHoras=listaCalc.reduce((a,p)=>a+p.horasCalc,0),totalHE=listaCalc.reduce((a,p)=>a+p.heCalc,0),faltas=lista.filter(p=>p.tipo==='Falta').length,faltasJustificadas=lista.filter(p=>p.tipo==='Falta justificada').length,atestados=lista.filter(p=>p.tipo==='Atestado').length;
-  setHTML('pontoResumo',[{lbl:'Horas trabalhadas',val:totalHoras.toFixed(1)+'h',cor:'var(--txt)'},{lbl:'Horas extras',val:totalHE.toFixed(1)+'h',cor:'var(--txt)'},{lbl:'Faltas',val:faltas,cor:faltas>0?'var(--red)':'var(--green)'},{lbl:'Faltas justificadas',val:faltasJustificadas,cor:'var(--amber)'},{lbl:'Atestados',val:atestados,cor:'var(--txt)'}].map(c=>`<div class="card" style="margin:0;padding:12px;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div style="font-size:18px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
+  setHTML('pontoResumo',[{lbl:'Horas trabalhadas',val:horasParaTexto(totalHoras),cor:'var(--txt)'},{lbl:'Horas extras',val:horasParaTexto(totalHE),cor:'var(--txt)'},{lbl:'Faltas',val:faltas,cor:faltas>0?'var(--red)':'var(--green)'},{lbl:'Faltas justificadas',val:faltasJustificadas,cor:'var(--amber)'},{lbl:'Atestados',val:atestados,cor:'var(--txt)'}].map(c=>`<div class="card" style="margin:0;padding:12px;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div style="font-size:18px;font-weight:800;color:${c.cor};margin-top:6px">${c.val}</div></div>`).join(''));
   renderPaginacao('pontoTable',listaCalc.length,'renderPonto');
-  setHTML('pontoTable',paginar(listaCalc,'pontoTable').map(p=>`<tr><td><b>${esc(p.colaborador_nome||'')}</b></td><td>${fmtData(p.data)}</td><td>${p.entrada||'—'}</td><td>${p.saida||'—'}</td><td style="font-weight:700">${p.horasCalc?p.horasCalc.toFixed(1)+'h':'—'}</td><td style="color:var(--txt)">${p.heCalc?p.heCalc.toFixed(1)+'h':'—'}</td><td><span class="badge ${p.tipo==='Falta'?'bad':p.tipo==='Normal'?'ok':''}">${p.tipo||'Normal'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="editarPonto('${p.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirPonto('${p.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum registro.</td></tr>');
+  setHTML('pontoTable',paginar(listaCalc,'pontoTable').map(p=>`<tr><td><b>${esc(p.colaborador_nome||'')}</b></td><td>${fmtData(p.data)}</td><td>${p.diaTxt}</td><td>${p.entrada||'—'}</td><td>${p.saida_almoco||'—'}</td><td>${p.retorno_almoco||'—'}</td><td>${p.saida||'—'}</td><td style="font-weight:700">${p.horasCalc?horasParaTexto(p.horasCalc):'—'}</td><td class="muted" style="font-size:12px">${p.jornadaTxt}</td><td style="color:var(--txt)">${p.he50?horasParaTexto(p.he50):'—'}</td><td style="color:var(--txt)">${p.he100?horasParaTexto(p.he100):'—'}</td><td><span class="badge ${p.tipo==='Falta'?'bad':p.tipoHoraTxt==='Normal'?'ok':''}">${p.tipoHoraTxt}</span></td><td>${p.valorHE50!=null?money(p.valorHE50):'—'}</td><td>${p.valorHE100!=null?money(p.valorHE100):'—'}</td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="editarPonto('${p.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="danger" onclick="excluirPonto('${p.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:20px">Nenhum registro.</td></tr>');
 }
 function calcularFerias(){const colId=val('ferCol');const c=dados.colaboradores.find(x=>x.id===colId);if(!c)return;const salario=Number(c.salario||0),dias=Number(val('ferDias')||30),deps=Number(val('ferDeps')||0),abonoDias=Number(val('ferAbono')||0);const valorDiario=salario/30,valorFerias=valorDiario*dias,umTerco=valorFerias/3,valorAbono=abonoDias>0?valorDiario*abonoDias:0,totalBruto=valorFerias+umTerco+valorAbono,inssFerias=calcINSS(valorFerias+umTerco),baseIRRF=valorFerias+umTerco-inssFerias,irrfFerias=calcIRRF(baseIRRF,deps),liquidoFerias=totalBruto-inssFerias-irrfFerias;const el=$('ferResultado');if(!el)return;el.innerHTML=`<div style="background:linear-gradient(135deg,#533294,#6343A4);color:#fff;border-radius:18px;padding:24px;margin-bottom:16px"><div style="font-size:12px;font-weight:700;text-transform:uppercase;opacity:.8;margin-bottom:8px">Férias — ${esc(c.nome)}</div><div style="font-size:36px;font-weight:800">${money(liquidoFerias)}</div><div style="opacity:.8;font-size:13px;margin-top:6px">Líquido a receber · ${dias} dias</div></div><div class="card"><div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--green);font-weight:600">+ Salário de férias</span><b style="color:var(--green)">${money(valorFerias)}</b></div><div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--green);font-weight:600">+ 1/3 constitucional</span><b style="color:var(--green)">${money(umTerco)}</b></div>${abonoDias>0?`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--green);font-weight:600">+ Abono pecuniário</span><b style="color:var(--green)">${money(valorAbono)}</b></div>`:''}<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--red)">- INSS</span><b style="color:var(--red)">- ${money(inssFerias)}</b></div><div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--red)">- IRRF</span><b style="color:var(--red)">- ${money(irrfFerias)}</b></div><div style="display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:800"><span>Férias líquidas</span><b style="color:var(--p)">${money(liquidoFerias)}</b></div><div style="background:#F1EFF7;border-radius:10px;padding:12px;font-size:12px;color:var(--txt);margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Valores estimados. Consulte um contador.</div></div>`;}
 // CLT não paga hora extra igual pra tudo: domingo e feriado trabalhado é 100% de
@@ -1181,10 +1244,10 @@ async function calcularFolha(){
       return{nome:c.nome,cargo:c.cargo,salarioFixo,comissaoInfo,valorComissao,baseComissao,totalPagar,pix:c.pix_chave,semLoja:comissaoInfo?.base_calculo==='faturamento_loja_total'&&!c.loja_id};
     });
 
-    setHTML('folhaKpis',[{lbl:'Total bruto',val:money(totalBruto)},{lbl:'Horas extras no mês',val:totalHE.toFixed(1)+'h'},{lbl:`Adiantamento (dia ${diaAdiant})`,val:money(totalAdiant)},{lbl:'Saldo (dia 30)',val:money(totalLiquido-totalAdiant)}].map(c=>`<div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px">${c.val}</div></div>`).join(''));
-    const htmlClt=folhaData.length?folhaData.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.liquido)}</div><div class="muted" style="font-size:11px">líquido total</div></div></div><div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Salário bruto</span><b style="color:var(--green)">${money(c.salario)}</b></div>${c.horas50>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras (${c.horas50.toFixed(1)}h × ${Math.round(c.percentual50)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE50)}</b></div>`:''}${c.horas100>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras domingo/feriado (${c.horas100.toFixed(1)}h × ${Math.round(c.percentual100)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE100)}</b></div>`:''}${c.valorComissao>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Comissão (${c.comissaoInfo.percentual}% sobre ${money(c.baseComissao)})</span><b style="color:var(--green)">${money(c.valorComissao)}</b></div>`:''}<div class="holerite-linha"><span style="color:var(--red)">- INSS</span><b style="color:var(--red)">- ${money(c.inss)}</b></div><div class="holerite-linha"><span style="color:var(--red)">- IRRF</span><b style="color:var(--red)">- ${money(c.irrf)}</b></div>${c.vt_desc>0?`<div class="holerite-linha"><span style="color:var(--red)">- Vale-transporte</span><b style="color:var(--red)">- ${money(c.vt_desc)}</b></div>`:''}<div class="holerite-total"><span>Salário líquido</span><b style="color:var(--p)">${money(c.liquido)}</b></div>${c.adiant>0?`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><div class="holerite-linha"><span style="color:var(--amber);font-weight:700">- Adiantamento (dia ${diaAdiant})</span><b style="color:var(--amber)">- ${money(c.adiant)}</b></div><div style="display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:800"><span>Saldo (dia 30)</span><b style="color:var(--blue)">${money(c.saldo)}</b></div></div>`:`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><span class="badge badge-blue">Pagamento único — sem adiantamento</span></div>`}<div style="margin-top:12px;font-size:11px;color:var(--muted)">FGTS: ${money(c.fgts)} · Custo total empresa: <b style="color:var(--amber)">${money(c.custo)}</b></div></div>`).join(''):'<div class="card" style="text-align:center;padding:32px"><p class="muted">Nenhum colaborador CLT ativo.</p></div>';
+    setHTML('folhaKpis',[{lbl:'Total bruto',val:money(totalBruto)},{lbl:'Horas extras no mês',val:horasParaTexto(totalHE)},{lbl:`Adiantamento (dia ${diaAdiant})`,val:money(totalAdiant)},{lbl:'Saldo (dia 30)',val:money(totalLiquido-totalAdiant)}].map(c=>`<div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px">${c.val}</div></div>`).join(''));
+    const htmlClt=folhaData.length?folhaData.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.liquido)}</div><div class="muted" style="font-size:11px">líquido total</div></div></div><div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Salário bruto</span><b style="color:var(--green)">${money(c.salario)}</b></div>${c.horas50>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras (${horasParaTexto(c.horas50)} × ${Math.round(c.percentual50)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE50)}</b></div>`:''}${c.horas100>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras domingo/feriado (${horasParaTexto(c.horas100)} × ${Math.round(c.percentual100)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE100)}</b></div>`:''}${c.valorComissao>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Comissão (${c.comissaoInfo.percentual}% sobre ${money(c.baseComissao)})</span><b style="color:var(--green)">${money(c.valorComissao)}</b></div>`:''}<div class="holerite-linha"><span style="color:var(--red)">- INSS</span><b style="color:var(--red)">- ${money(c.inss)}</b></div><div class="holerite-linha"><span style="color:var(--red)">- IRRF</span><b style="color:var(--red)">- ${money(c.irrf)}</b></div>${c.vt_desc>0?`<div class="holerite-linha"><span style="color:var(--red)">- Vale-transporte</span><b style="color:var(--red)">- ${money(c.vt_desc)}</b></div>`:''}<div class="holerite-total"><span>Salário líquido</span><b style="color:var(--p)">${money(c.liquido)}</b></div>${c.adiant>0?`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><div class="holerite-linha"><span style="color:var(--amber);font-weight:700">- Adiantamento (dia ${diaAdiant})</span><b style="color:var(--amber)">- ${money(c.adiant)}</b></div><div style="display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:800"><span>Saldo (dia 30)</span><b style="color:var(--blue)">${money(c.saldo)}</b></div></div>`:`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><span class="badge badge-blue">Pagamento único — sem adiantamento</span></div>`}<div style="margin-top:12px;font-size:11px;color:var(--muted)">FGTS: ${money(c.fgts)} · Custo total empresa: <b style="color:var(--amber)">${money(c.custo)}</b></div></div>`).join(''):'<div class="card" style="text-align:center;padding:32px"><p class="muted">Nenhum colaborador CLT ativo.</p></div>';
     // Bloco separado do CLT — sem INSS/IRRF/FGTS/adiantamento, só horas × valor/hora.
-    const htmlHorista=folhaDataHorista.length?`<div style="margin-top:24px;padding-top:20px;border-top:2px solid var(--line)"><div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Horistas — ${money(totalPagarHorista)} no total (${totalHorasHorista.toFixed(1)}h)</div>${folhaDataHorista.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.valorPagar)}</div><div class="muted" style="font-size:11px">a pagar</div></div></div><div class="holerite-linha"><span>Horas trabalhadas no mês</span><b>${c.horas.toFixed(1)}h</b></div><div class="holerite-linha"><span>Valor por hora</span><b>${money(c.valorHora)}</b></div><div class="holerite-total"><span>Total a pagar</span><b style="color:var(--p)">${money(c.valorPagar)}</b></div><div style="margin-top:12px;font-size:11px;color:var(--muted)">Horista — sem hora extra, sem falta, sem INSS/IRRF/FGTS calculados por aqui.</div></div>`).join('')}</div>`:'';
+    const htmlHorista=folhaDataHorista.length?`<div style="margin-top:24px;padding-top:20px;border-top:2px solid var(--line)"><div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Horistas — ${money(totalPagarHorista)} no total (${horasParaTexto(totalHorasHorista)})</div>${folhaDataHorista.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.valorPagar)}</div><div class="muted" style="font-size:11px">a pagar</div></div></div><div class="holerite-linha"><span>Horas trabalhadas no mês</span><b>${horasParaTexto(c.horas)}</b></div><div class="holerite-linha"><span>Valor por hora</span><b>${money(c.valorHora)}</b></div><div class="holerite-total"><span>Total a pagar</span><b style="color:var(--p)">${money(c.valorPagar)}</b></div><div style="margin-top:12px;font-size:11px;color:var(--muted)">Horista — sem hora extra, sem falta, sem INSS/IRRF/FGTS calculados por aqui.</div></div>`).join('')}</div>`:'';
     // Bloco PJ comissionado — mesmo princípio do Horista (sem encargos), mas com
     // salário fixo + comissão em vez de horas × valor/hora.
     const htmlPJ=folhaDataPJ.length?`<div style="margin-top:24px;padding-top:20px;border-top:2px solid var(--line)"><div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">PJ comissionado — ${money(totalPagarPJ)} no total</div>${folhaDataPJ.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.totalPagar)}</div><div class="muted" style="font-size:11px">a pagar</div></div></div>${c.salarioFixo>0?`<div class="holerite-linha"><span>Salário fixo</span><b>${money(c.salarioFixo)}</b></div>`:''}${c.valorComissao>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Comissão (${c.comissaoInfo.percentual}% sobre ${money(c.baseComissao)})</span><b style="color:var(--green)">${money(c.valorComissao)}</b></div>`:''}<div class="holerite-total"><span>Total a pagar</span><b style="color:var(--p)">${money(c.totalPagar)}</b></div>${c.semLoja?'<div style="margin-top:8px;font-size:11px;color:var(--red)">Sem loja vinculada no cadastro — comissão por faturamento da loja não calculou.</div>':''}<div style="margin-top:12px;font-size:11px;color:var(--muted)">PJ — sem hora extra, sem INSS/IRRF/FGTS calculados por aqui (pago por nota fiscal).</div></div>`).join('')}</div>`:'';
