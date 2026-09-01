@@ -352,6 +352,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             <button class="btn" onclick="confirmarFolha()" style="background:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Confirmar e lançar no Financeiro</button>
             <button class="btn2" onclick="exportarFolha()">Exportar CSV</button>
           </div>
+          <div id="folhaSelecaoColaboradores"></div>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="folhaKpis"></div>
           <div id="folhaTabela"></div>
         </div>
@@ -398,6 +399,8 @@ const session = requireAuth();
 let dados = { colaboradores:[], ponto:[], lojas:[], usuarios:[], jornadas:[] };
 let folhaData = [];
 let folhaDataHorista = [];
+let folhaSelecionados = new Set();
+let folhaSelecaoInicializada = false;
 let modoSoPonto = false;
 let meuColaborador = null;
 function permPonto(tipo){return modoSoPonto?temPermissao('folha_ponto',tipo):temPermissao('rh',tipo);}
@@ -533,7 +536,7 @@ async function loadData(){
   const qUsuarios=`?select=id,nome,email,perfil,ativo&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`;
   const qLojas=`?select=id,nome,ativo&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`;
   try{[dados.colaboradores,dados.ponto,dados.usuarios,dados.lojas,dados.jornadas]=await Promise.all([db.get('colaboradores',q),db.get('ponto',q),db.get('usuarios',qUsuarios).catch(()=>[]),db.get('lojas',qLojas).catch(()=>[]),db.get('jornadas_trabalho',q).catch(()=>[])]);renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
-function renderTudo(){if(!modoSoPonto)renderKpis();renderColaboradores();renderPonto();popularSelects();if(!modoSoPonto)renderAvisoSemJornada();}
+function renderTudo(){if(!modoSoPonto)renderKpis();renderColaboradores();renderPonto();popularSelects();if(!modoSoPonto){renderAvisoSemJornada();renderSelecaoFolha();}}
 function ativarModoSoPonto(){
   ['rhTabsCompleto','rhTabsCompleto2','rhKpis','avisoParams'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
   rhTab('ponto');
@@ -924,6 +927,40 @@ function horasTrabalhadasDoMesHorista(colaboradorId,mes){
     return total+Number(p.horas_trabalhadas||0);
   },0);
 }
+// Nem toda folha inclui todo mundo — pode ter gente com data de pagamento diferente,
+// ou que já foi paga à parte. folhaSelecionados guarda quem entra NESTA rodada de
+// cálculo; começa com todo mundo marcado (é o caso comum) e a pessoa desmarca quem
+// não deve entrar. Reaproveitado tanto por Calcular folha quanto por Confirmar e
+// lançar no Financeiro (que usa folhaData/folhaDataHorista já filtrados).
+function colaboradoresElegiveisFolha(){
+  return (dados.colaboradores||[]).filter(c=>c.ativo!==false&&['CLT','Horista'].includes(c.tipo_contrato||c.contrato));
+}
+function renderSelecaoFolha(){
+  const elegiveis=colaboradoresElegiveisFolha();
+  if(!folhaSelecaoInicializada){ elegiveis.forEach(c=>folhaSelecionados.add(c.id)); folhaSelecaoInicializada=true; }
+  const idsElegiveis=new Set(elegiveis.map(c=>c.id));
+  [...folhaSelecionados].forEach(id=>{ if(!idsElegiveis.has(id)) folhaSelecionados.delete(id); });
+  setHTML('folhaSelecaoColaboradores', elegiveis.length ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em">Quem entra nesta folha (${folhaSelecionados.size} de ${elegiveis.length})</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn2" style="font-size:11px;padding:4px 10px" onclick="selecionarTodosFolha(true)">Selecionar todos</button>
+        <button class="btn2" style="font-size:11px;padding:4px 10px" onclick="selecionarTodosFolha(false)">Nenhum</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+      ${elegiveis.map(c=>`<label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:99px;font-size:12.5px;font-weight:600;background:${folhaSelecionados.has(c.id)?'var(--p-light)':'#fff'};border:1px solid ${folhaSelecionados.has(c.id)?'var(--p)':'var(--line)'};color:var(--txt);padding:6px 12px"><input type="checkbox" style="width:auto;accent-color:var(--p)" ${folhaSelecionados.has(c.id)?'checked':''} onchange="toggleColaboradorFolha('${c.id}',this.checked)"> ${esc(c.nome||'')}</label>`).join('')}
+    </div>
+  ` : '<div class="muted" style="font-size:12px;margin-bottom:16px">Nenhum colaborador CLT ou Horista ativo.</div>');
+}
+function toggleColaboradorFolha(id,checked){
+  if(checked) folhaSelecionados.add(id); else folhaSelecionados.delete(id);
+  renderSelecaoFolha();
+}
+function selecionarTodosFolha(todos){
+  folhaSelecionados = new Set(todos?colaboradoresElegiveisFolha().map(c=>c.id):[]);
+  renderSelecaoFolha();
+}
 // Antes a folha só olhava pro salário cadastrado — o ponto registrava hora extra, mas
 // nada nunca somava aquilo na hora de calcular quanto pagar. Agora soma as horas extras
 // do mês de referência (dados.ponto) por colaborador, calcula o valor por alíquota
@@ -932,7 +969,7 @@ function horasTrabalhadasDoMesHorista(colaboradorId,mes){
 // base de tudo isso.
 function calcularFolha(){
   const mes = val('folhaMes') || hoje().slice(0,7);
-  const lista=dados.colaboradores.filter(c=>c.ativo!==false&&(c.tipo_contrato||c.contrato||'CLT')==='CLT');
+  const lista=dados.colaboradores.filter(c=>c.ativo!==false&&(c.tipo_contrato||c.contrato||'CLT')==='CLT'&&folhaSelecionados.has(c.id));
   const adiantPct=Number(val('folhaAdiantPct')||40)/100,diaAdiant=Number(val('folhaDiaAdiant')||15);
   let totalBruto=0,totalLiquido=0,totalAdiant=0,totalCusto=0,totalHE=0;
   folhaData=lista.map(c=>{
@@ -954,7 +991,7 @@ function calcularFolha(){
   });
   // Horista não entra no bloco CLT acima (sem INSS/IRRF/FGTS/HE — pago só pelas horas
   // batidas × valor/hora, sem encargos calculados aqui). Mostrado à parte na Folha.
-  const listaHorista=dados.colaboradores.filter(c=>c.ativo!==false&&(c.tipo_contrato||c.contrato)==='Horista');
+  const listaHorista=dados.colaboradores.filter(c=>c.ativo!==false&&(c.tipo_contrato||c.contrato)==='Horista'&&folhaSelecionados.has(c.id));
   let totalHorasHorista=0,totalPagarHorista=0;
   folhaDataHorista=listaHorista.map(c=>{
     const horas=Math.round(horasTrabalhadasDoMesHorista(c.id,mes)*100)/100;
