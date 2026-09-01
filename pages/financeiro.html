@@ -442,6 +442,11 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Detalhes do lançamento</h3>
   <input type="hidden" id="detId">
   <div id="detConteudo"></div>
+  <div class="field" id="detNotaServicoWrap" style="display:none;margin-top:8px">
+    <label>Serviço do catálogo (opcional)</label>
+    <select id="detNotaServico"><option value="">Nenhum — usa a classificação fiscal padrão da empresa</option></select>
+    <div class="field-hint">Se esse lançamento corresponde a um serviço do catálogo, escolha aqui pra usar a classificação fiscal (ISS/reforma) cadastrada nele em vez do padrão da empresa.</div>
+  </div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
     <button class="btn2" id="detEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
@@ -518,6 +523,7 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 const session = requireAuth();
 let financeiro = [];
 let lojas = [];
+let servicosCatalogo = [];
 let fluxoFiltro = 'todos';
 let fiscalAtivo = false; // true só depois que a Focus NFe for contratada e ativada em Configurações
 let nfseSimulacao = false; // true só em empresa de teste — simula o resultado em vez de chamar a Focus NFe de verdade
@@ -659,6 +665,11 @@ async function loadData(){
     if($('filtLoja'))$('filtLoja').innerHTML='<option value="">Todas as lojas</option>'+lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
     if($('filtLojaWrap'))$('filtLojaWrap').style.display=lojas.length>1?'':'none';
   }catch(e){lojas=[];}
+  try{
+    // Só pra popular o seletor opcional de "serviço do catálogo" na emissão de NFS-e
+    // (classificação fiscal por serviço, em vez de um valor fixo pra empresa inteira).
+    servicosCatalogo=await db.get('servicos_catalogo',`?select=id,nome,codigo_tributacao_nacional,aliquota_iss,cst_ibs_cbs,cclasstrib&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
+  }catch(e){servicosCatalogo=[];}
   try{
     // limit explícito: sem isso, passar de 1000 lançamentos (limite padrão do PostgREST) cortava
     // o histórico em silêncio — a consulta continuava "dando certo", só que incompleta.
@@ -915,9 +926,12 @@ function verDetalhe(id){
   }
   if(f.tipo==='Receita'){
     $('detNotaBtn').style.display='block';
+    if($('detNotaServico'))$('detNotaServico').innerHTML='<option value="">Nenhum — usa a classificação fiscal padrão da empresa</option>'+servicosCatalogo.map(s=>`<option value="${s.id}">${esc(s.nome)}</option>`).join('');
+    if($('detNotaServicoWrap'))$('detNotaServicoWrap').style.display=fiscalAtivo?'block':'none';
     carregarStatusNota(f);
   } else {
     $('detNotaBtn').style.display='none';
+    if($('detNotaServicoWrap'))$('detNotaServicoWrap').style.display='none';
     notaAtual=null;
   }
   abrirModal('modalDetalhe');
@@ -985,6 +999,13 @@ async function emitirNotaFiscal(f){
           if(!seguir){$('detNotaBtn').disabled=false;return;}
         }
       }
+      // Serviço do catálogo escolhido (opcional) — snapshot da classificação fiscal
+      // dele NA HORA de emitir, mesmo princípio de custo_unitario_snapshot em
+      // itens_venda: editar o serviço no catálogo depois não reescreve nota já
+      // emitida. Sem escolha nenhuma, fica null e emitir-nfse usa o padrão da
+      // empresa (parametros_empresa), igual sempre foi.
+      const servicoId=val('detNotaServico');
+      const servicoEscolhido=servicoId?servicosCatalogo.find(s=>s.id===servicoId):null;
       const criada=await db.post('notas_fiscais',withEmpresa({
         financeiro_id:f.id,
         cliente_nome:f.favorecido||null,
@@ -992,6 +1013,11 @@ async function emitirNotaFiscal(f){
         descricao_servico:f.descricao,
         valor:f.valor,
         data_competencia:f.data_lancamento||hoje(),
+        servico_catalogo_id:servicoEscolhido?.id||null,
+        codigo_tributacao_nacional:servicoEscolhido?.codigo_tributacao_nacional||null,
+        aliquota_iss:servicoEscolhido?.aliquota_iss??null,
+        cst_ibs_cbs:servicoEscolhido?.cst_ibs_cbs||null,
+        cclasstrib:servicoEscolhido?.cclasstrib||null,
       }));
       nota=criada[0];
       notaAtual=nota;
