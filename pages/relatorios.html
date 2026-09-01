@@ -1170,8 +1170,18 @@ init();
     const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','produtos.html':'produtos','caixa.html':'caixa'};
     const permsUser = d.user?.usuario_permissoes || [];
     const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    // Módulos liberados pra ESSA EMPRESA (painel Nuvix Admin → Módulos, tabela
+    // empresa_modulos) — módulo sem linha aqui (ex: ordens_servico/servicos/
+    // notas_fiscais/cotacao, que ainda não fazem parte desse sistema) conta como
+    // liberado, mesma regra fail-open já usada pra permissão de usuário abaixo.
+    const modulosEmpresa = d.empresa?.modulos_liberados || [];
+    function podeVerModuloEmpresa(modId){
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const m=modulosEmpresa.find(x=>x.modulo===id);return m?!!m.liberado:true;});
+    }
     function podeVerModulo(modId){
       if(isAdminUser) return true;
+      if(!podeVerModuloEmpresa(modId)) return false;
       const ids = Array.isArray(modId)?modId:[modId];
       return ids.some(id=>{const p=permsUser.find(x=>x.modulo===id);return p?!!p.pode_ver:true;});
     }
@@ -1182,6 +1192,24 @@ init();
     nav.querySelectorAll('.sb-group').forEach(g=>{
       if(g.style.marginTop) return;
       if(!g.querySelector('.sb-btn')) g.remove();
+    });
+
+    // Mesma regra aplicada no dropdown "Módulo" do gerador de relatório — não faz
+    // sentido oferecer relatório de Transporte pra quem não tem esse módulo liberado.
+    // Módulo do relatório (opção do <select>, ex: 'ordens_servico') pode ter um nome
+    // diferente do módulo em empresa_modulos (ex: relatório 'colaboradores' ↔ módulo
+    // 'rh') — esse mapa faz a ponte.
+    const MODULO_DO_RELATORIO = {
+      vendas:'vendas', financeiro:'financeiro', clientes:'crm', colaboradores:'rh',
+      ponto:'folha_ponto', transporte:'transporte', materiais:'materiais',
+      ordens_servico:'ordens_servico', servicos_orcamentos:'servicos', crm_oportunidades:'crm',
+      devolucoes:'vendas', comissoes_colaborador:'rh', estoque_por_loja:'estoque',
+      caixa_movimentos:'caixa', caixa_fechamento_formas:'caixa', folha_pagamentos:'folha_pagamento',
+    };
+    document.querySelectorAll('#relModulo option[value]').forEach(opt=>{
+      if(!opt.value) return;
+      const modId = MODULO_DO_RELATORIO[opt.value];
+      if(modId && !podeVerModuloEmpresa(modId)) opt.remove();
     });
 
     // Mark active page
