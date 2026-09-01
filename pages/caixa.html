@@ -302,7 +302,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div id="fechamentoMsg" class="msg"></div>
           <div class="modal-actions">
             <button class="btn2" onclick="fecharTelaFechamento()">Voltar</button>
-            <button class="btn" onclick="confirmarFechamentoCaixa()">Confirmar fechamento</button>
+            <button class="btn" id="btnConfirmarFechamento" onclick="confirmarFechamentoCaixa()">Confirmar fechamento</button>
           </div>
         </div>
       </div>
@@ -1251,11 +1251,23 @@ function atualizarDiferencaFechamento(forma){
   hint.innerHTML=dif===0?'<span style="color:var(--green)">Confere.</span>':(dif>0?`<span style="color:var(--p)">Sobra de ${money(dif)}</span>`:`<span style="color:var(--red)">Falta ${money(-dif)}</span>`);
 }
 function fecharTelaFechamento(){ $('telaFechamento').style.display='none'; $('telaPdv').style.display='block'; }
+let fechamentoEmAndamento=false;
 async function confirmarFechamentoCaixa(){
   const dinheiroEl=$('fech_Dinheiro');
   if(!dinheiroEl.value){ msg('fechamentoMsg','Informe a contagem física de dinheiro antes de fechar.','err'); return; }
+  // Trava contra duplo clique/corrida: sem isso, duas execuções em paralelo tentam
+  // inserir as mesmas linhas em caixa_fechamento_formas e colidem em "duplicate key".
+  if(fechamentoEmAndamento) return;
+  fechamentoEmAndamento=true;
+  const btn=$('btnConfirmarFechamento');
+  btn.disabled=true;
   try{
+    // Retry após falha parcial não pode reinserir forma já gravada por uma tentativa
+    // anterior (mesmo caixa_sessao_id) — por isso busca o que já existe antes de tentar.
+    const jaGravadas=await dbGet('caixa_fechamento_formas',`?caixa_sessao_id=eq.${sessaoAtual.id}&select=forma_pagamento`);
+    const formasExistentes=new Set(jaGravadas.map(f=>f.forma_pagamento));
     for(const forma of FORMAS_FECHAMENTO){
+      if(formasExistentes.has(forma)) continue;
       const el=$('fech_'+forma.replace(/\s/g,''));
       const esperado=el?Number(el.dataset.esperado||0):0;
       const contado=forma==='Dinheiro'?numBR(el.value):null;
@@ -1270,7 +1282,12 @@ async function confirmarFechamentoCaixa(){
     sessaoAtual=null;
     $('telaFechamento').style.display='none';
     await verificarCaixaAberto();
-  }catch(e){msg('fechamentoMsg','Erro ao fechar caixa: '+e.message,'err');}
+  }catch(e){
+    msg('fechamentoMsg','Erro ao fechar caixa: '+e.message,'err');
+  }finally{
+    fechamentoEmAndamento=false;
+    btn.disabled=false;
+  }
 }
 
 // ══ HISTÓRICO DE VENDAS (do dia) — e cancelamento ══
