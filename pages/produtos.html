@@ -275,7 +275,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   </div>
   <div class="field">
     <label>Dados fiscais (NFC-e)</label>
-    <div class="field-hint" style="margin-bottom:8px">Só é obrigatório se a empresa emitir NFC-e. Os campos da reforma tributária (IBS/CBS) ainda vão ser adicionados aqui assim que a Focus NFe publicar o nome final.</div>
+    <div class="field-hint" style="margin-bottom:8px">Só é obrigatório se a empresa emitir NFC-e. Pra venda comum, sem isenção, deixe CST IBS/CBS "000" e cClassTrib "000001" (valores já preenchidos por padrão).</div>
     <div style="display:flex;gap:12px;margin-bottom:8px">
       <div class="field" style="flex:1;margin-bottom:0"><label>NCM</label><input id="prodNcm" placeholder="Ex: 22021000" maxlength="8"></div>
       <div class="field" style="flex:1;margin-bottom:0"><label>CEST</label><input id="prodCest" placeholder="Opcional"></div>
@@ -304,6 +304,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div class="field" style="flex:1;margin-bottom:0"><label>Alíquota PIS (%)</label><input id="prodAliqPis" type="text" inputmode="decimal" placeholder="Opcional" oninput="sanitizarDecimal(this)"></div>
       <div class="field" style="flex:1;margin-bottom:0"><label>Alíquota COFINS (%)</label><input id="prodAliqCofins" type="text" inputmode="decimal" placeholder="Opcional" oninput="sanitizarDecimal(this)"></div>
     </div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <div class="field" style="flex:1;margin-bottom:0"><label>CST IBS/CBS (Reforma)</label><input id="prodCstIbsCbs" placeholder="000" maxlength="3"></div>
+      <div class="field" style="flex:2;margin-bottom:0"><label>cClassTrib (Reforma)</label><input id="prodCclasstrib" placeholder="000001" maxlength="6"></div>
+    </div>
+    <div class="field-hint" style="margin-top:4px">Reforma Tributária (IBS/CBS) — "000" + "000001" é a classificação padrão de venda tributada normalmente, sem isenção/redução. Só muda se o produto tiver uma regra especial (cesta básica, medicamento etc.) — confirme com a contabilidade antes de alterar.</div>
   </div>
   <div style="display:flex;gap:20px;margin-bottom:14px">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label>
@@ -560,6 +565,7 @@ function abrirModalProduto(){
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
   $('prodNcm').value=''; $('prodCest').value=''; $('prodCfop').value='5102'; $('prodUnidade').value='UN'; $('prodOrigem').value='0'; $('prodCstCsosn').value='';
   $('prodAliqIcms').value=''; $('prodAliqPis').value=''; $('prodAliqCofins').value='';
+  $('prodCstIbsCbs').value='000'; $('prodCclasstrib').value='000001';
   $('prodCusto').value=''; $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('prodConsignado').checked=false; if($('prodConsignador'))$('prodConsignador').value=''; toggleFornecedorConsignado();
@@ -580,6 +586,7 @@ function editarProduto(id){
   $('prodUnidade').value=p.unidade_medida||'UN';
   $('prodOrigem').value=p.origem_mercadoria||'0'; $('prodCstCsosn').value=p.csosn_cst||'';
   $('prodAliqIcms').value=p.aliquota_icms??''; $('prodAliqPis').value=p.aliquota_pis??''; $('prodAliqCofins').value=p.aliquota_cofins??'';
+  $('prodCstIbsCbs').value=p.cst_ibs_cbs||'000'; $('prodCclasstrib').value=p.cclasstrib||'000001';
   $('prodCusto').value=p.custo_atual||'';
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
@@ -634,6 +641,7 @@ async function salvarProduto(){
     aliquota_icms: val('prodAliqIcms')?numBR('prodAliqIcms'):null,
     aliquota_pis: val('prodAliqPis')?numBR('prodAliqPis'):null,
     aliquota_cofins: val('prodAliqCofins')?numBR('prodAliqCofins'):null,
+    cst_ibs_cbs: val('prodCstIbsCbs').trim()||null, cclasstrib: val('prodCclasstrib').trim()||null,
     updated_at: new Date().toISOString(),
   };
   try{
