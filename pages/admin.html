@@ -1163,6 +1163,14 @@ function aplicarPresetPapel(nome){
         <input type="checkbox" id="editEmpNfceSimulacao" style="width:16px;height:16px">
         <label style="margin:0" for="editEmpNfceSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade — só pra testar a tela. Nunca deixar ligado em cliente real)</label>
       </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpCteAtivo" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpCteAtivo">Emissão de CT-e ativa pra esta empresa (Transporte)</label>
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpCteSimulacao" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpCteSimulacao">Modo simulação CT-e (NÃO chama a Focus NFe de verdade. Nunca deixar ligado em cliente real)</label>
+      </div>
     </div>
   </div>
   <div id="editEmpMsg" class="msg"></div>
@@ -2045,6 +2053,8 @@ function editarEmpresa(id){
   $('editEmpNfseSimulacao').checked=!!e.nfse_simulacao;
   $('editEmpNfceAtivo').checked=!!e.nfce_ativo;
   $('editEmpNfceSimulacao').checked=!!e.nfce_simulacao;
+  $('editEmpCteAtivo').checked=!!e.cte_ativo;
+  $('editEmpCteSimulacao').checked=!!e.cte_simulacao;
   abrirModal('modalEditEmp');
 }
 
@@ -2082,6 +2092,8 @@ async function salvarEdicaoEmpresa(){
       nfse_simulacao:$('editEmpNfseSimulacao').checked,
       nfce_ativo:$('editEmpNfceAtivo').checked,
       nfce_simulacao:$('editEmpNfceSimulacao').checked,
+      cte_ativo:$('editEmpCteAtivo').checked,
+      cte_simulacao:$('editEmpCteSimulacao').checked,
     });
     msgEl('editEmpMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvo! O cliente precisa fazer logout e login novamente.','ok');
     setTimeout(()=>fecharModal('modalEditEmp'),1800);
