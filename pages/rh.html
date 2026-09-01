@@ -1219,7 +1219,7 @@ async function calcularFolha(){
       const adiant=c.recebe_adiantamento===false?0:Math.round(salario*adiantPct*100)/100,liquido=salarioBruto-inss-irrf-vtDesc,saldo=liquido-adiant;
       const patronal=salarioBruto*(P.patronal_inss/100),custoTotal=salarioBruto+fgts+patronal;
       totalBruto+=salarioBruto;totalLiquido+=liquido;totalAdiant+=adiant;totalCusto+=custoTotal;totalHE+=he.total;
-      return{nome:c.nome,cargo:c.cargo,salario,horasExtras:he.total,horas50:he.horas50,horas100:he.horas100,percentual50:he.percentual50,percentual100:he.percentual100,pagamentoHE50,pagamentoHE100,pagamentoHE,comissaoInfo,valorComissao,baseComissao,salarioBruto,inss,irrf,vt_desc:vtDesc,fgts,adiant,liquido,saldo,custo:custoTotal,pix:c.pix_chave,vr,va};
+      return{id:c.id,nome:c.nome,cargo:c.cargo,salario,horasExtras:he.total,horas50:he.horas50,horas100:he.horas100,percentual50:he.percentual50,percentual100:he.percentual100,pagamentoHE50,pagamentoHE100,pagamentoHE,comissaoInfo,valorComissao,baseComissao,salarioBruto,inss,irrf,vt_desc:vtDesc,fgts,adiant,liquido,saldo,custo:custoTotal,pix:c.pix_chave,vr,va};
     });
     // Horista não entra no bloco CLT acima (sem INSS/IRRF/FGTS/HE — pago só pelas horas
     // batidas × valor/hora, sem encargos calculados aqui). Mostrado à parte na Folha.
@@ -1351,26 +1351,34 @@ async function confirmarFolha(){
       }));
     }
 
-    // 5. Registrar holerites individuais na tabela folha_pagamentos
+    // 5. Registrar holerites individuais na tabela folha_pagamentos — nome/cargo
+    // gravados como estavam NESTE momento (snapshot, mesmo princípio do
+    // custo_unitario_snapshot em itens_venda): editar o colaborador depois não
+    // reescreve holerites já lançados.
     for(const col of folhaData){
       try{
         await db.post('folha_pagamentos', withEmpresa({
-          mes_referencia: mes,
+          colaborador_id: col.id,
+          competencia: mes,
           colaborador_nome: col.nome,
           cargo: col.cargo,
-          salario_bruto: col.salario,
+          salario_base: col.salario,
+          beneficios: (col.vr||0)+(col.va||0),
+          comissoes: col.valorComissao||0,
+          horas_extras: col.horasExtras||0,
+          vt_desconto: col.vt_desc,
+          descontos: col.inss+col.irrf+col.vt_desc,
           inss: col.inss,
           irrf: col.irrf,
           fgts: col.fgts,
-          vt_desconto: col.vt_desc,
-          salario_liquido: col.liquido,
+          liquido: col.liquido,
           adiantamento: col.adiant,
           saldo: col.saldo,
           custo_empresa: col.custo,
           pix_chave: col.pix||null,
           status: 'Lançado',
         }));
-      }catch(e){ console.warn('folha_pagamentos não existe, ignorando:', e.message); }
+      }catch(e){ console.warn('Erro ao gravar holerite de', col.nome, ':', e.message); }
     }
 
     toast(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Folha de ${mesNome}/${ano} lançada no financeiro! ${folhaData.length} colaboradores.`);

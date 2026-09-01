@@ -119,6 +119,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <option value="ordens_servico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Ordens de Serviço</option>
               <option value="servicos_orcamentos">Orçamentos</option>
               <option value="crm_oportunidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Comercial</option>
+              <option value="devolucoes">↩️ Devoluções</option>
+              <option value="comissoes_colaborador">💰 Comissões</option>
+              <option value="estoque_por_loja">📦 Estoque</option>
+              <option value="caixa_movimentos">🧾 Caixa — Sangria/Suprimento</option>
+              <option value="caixa_fechamento_formas">🔒 Caixa — Fechamentos</option>
+              <option value="folha_pagamentos">📄 Folha de Pagamento</option>
             </select>
           </div>
           <div class="field" style="margin:0">
@@ -217,6 +223,12 @@ const COLS_MODULO = {
   ordens_servico:['numero','cliente_nome','servico','status','prioridade','tecnico_nome','data_abertura','data_agendada','data_conclusao','valor_total'],
   servicos_orcamentos:['servico_nome','cliente_nome','status','valor_total','data_lancamento','validade'],
   crm_oportunidades:['nome','empresa','status','valor_previsto','responsavel','created_at'],
+  devolucoes:['data_devolucao','venda_data','venda_total','motivo','forma_reembolso','valor_total','observacao'],
+  comissoes_colaborador:['colaborador_nome','percentual','base_calculo','incide_sobre','vigencia_inicio','vigencia_fim'],
+  estoque_por_loja:['produto_nome','loja_nome','categoria_nome','quantidade','estoque_minimo','abaixo_minimo'],
+  caixa_movimentos:['created_at','tipo','valor','motivo','responsavel_nome'],
+  caixa_fechamento_formas:['data_fechamento','loja_nome','forma_pagamento','valor_esperado','valor_contado','diferenca','status_conciliacao'],
+  folha_pagamentos:['colaborador_nome','cargo','competencia','salario_base','comissoes','horas_extras','beneficios','vt_desconto','descontos','inss','irrf','fgts','liquido','adiantamento','saldo','custo_empresa','status'],
 };
 
 const LABELS = {
@@ -236,13 +248,26 @@ const LABELS = {
   data_conclusao:'Conclusão', valor_total:'Total', servico_nome:'Serviço',
   validade:'Validade', empresa:'Empresa', valor_previsto:'Valor previsto',
   responsavel:'Responsável',
+  data_devolucao:'Data', venda_id:'Venda', motivo:'Motivo', forma_reembolso:'Reembolso',
+  valor_total:'Valor', observacao:'Observação', venda_data:'Data da venda', venda_total:'Total da venda',
+  colaborador_nome:'Colaborador', percentual:'Percentual', base_calculo:'Base de cálculo',
+  incide_sobre:'Incide sobre', vigencia_inicio:'Vigência início', vigencia_fim:'Vigência fim',
+  produto_nome:'Produto', loja_nome:'Loja', categoria_nome:'Categoria', quantidade:'Quantidade',
+  estoque_minimo:'Estoque mínimo', abaixo_minimo:'Abaixo do mínimo',
+  responsavel_nome:'Responsável', data_fechamento:'Data do fechamento',
+  valor_esperado:'Esperado', valor_contado:'Contado', diferenca:'Diferença',
+  status_conciliacao:'Conciliação',
+  competencia:'Competência', salario_base:'Salário base', comissoes:'Comissões',
+  beneficios:'Benefícios', vt_desconto:'Desc. VT', descontos:'Descontos', inss:'INSS', irrf:'IRRF', fgts:'FGTS',
+  liquido:'Líquido', adiantamento:'Adiantamento', saldo:'Saldo', custo_empresa:'Custo empresa',
 };
 
 function fmtVal(k, v){
   if(v===null||v===undefined)return'—';
   if(typeof v==='boolean')return v?'Sim':'Não';
-  if(k.includes('valor')||k==='salario'||k==='receita'||k==='custo_frete')return money(v);
+  if(k.includes('valor')||k==='salario'||k==='receita'||k==='custo_frete'||k==='diferenca'||k==='venda_total'||['salario_base','comissoes','beneficios','vt_desconto','descontos','inss','irrf','fgts','liquido','adiantamento','saldo','custo_empresa'].includes(k))return money(v);
   if(k.includes('data')||k==='created_at'||k==='ppe'||k==='validade')return fmtData(v);
+  if(k==='percentual')return `${v}%`;
   return esc(String(v));
 }
 
@@ -274,11 +299,82 @@ const FILTROS_MODULO = {
   crm_oportunidades: [
     {campo:'status', label:'Status', opcoes:['Novo','Contato feito','Proposta enviada','Negociando','Fechado','Perdido'], todos:'Todos os status'},
   ],
+  caixa_movimentos: [
+    {campo:'tipo', label:'Tipo', opcoes:['Sangria','Suprimento'], todos:'Sangria e suprimento'},
+  ],
+  caixa_fechamento_formas: [
+    {campo:'status_conciliacao', label:'Conciliação', opcoes:['Conciliado','Pendente','Divergente'], todos:'Todos'},
+  ],
+  folha_pagamentos: [
+    {campo:'status', label:'Status', opcoes:['Lançado'], todos:'Todos os status'},
+  ],
 };
 // Coluna de valor pra somar no total, quando o módulo tem uma.
 const VALOR_COL_MODULO = {
   financeiro:'valor', ordens_servico:'valor_total', servicos_orcamentos:'valor_total',
-  crm_oportunidades:'valor_previsto', transporte:'receita',
+  crm_oportunidades:'valor_previsto', transporte:'receita', devolucoes:'valor_total',
+  caixa_movimentos:'valor', caixa_fechamento_formas:'diferenca', folha_pagamentos:'liquido',
+};
+// Campo usado pro filtro de período — default 'created_at'; null = tabela sem data
+// (snapshot, ex: estoque atual) e não filtra por período nenhum; qualquer outro nome
+// usa esse campo em vez de created_at (mesmo princípio do fallback de Financeiro).
+// folha_pagamentos não tem período no sentido de data — competência (mês) é texto,
+// não intervalo de datas — então não filtra por período aqui (ficaria confuso).
+const CAMPO_DATA_MODULO = {
+  devolucoes:'data_devolucao', estoque_por_loja:null, caixa_fechamento_formas:null, folha_pagamentos:null,
+};
+// Módulos cujas colunas não vêm prontas do banco (referência por id, não por nome) —
+// busca as tabelas relacionadas uma vez e devolve as linhas já com nome/campos extras.
+const ENRIQUECER_MODULO = {
+  async devolucoes(linhas){
+    const ids=[...new Set(linhas.map(l=>l.venda_id).filter(Boolean))];
+    const vendas=ids.length?await db.get('vendas',`?id=in.(${ids.join(',')})&select=id,data_venda,total`):[];
+    const porId={}; vendas.forEach(v=>porId[v.id]=v);
+    return linhas.map(l=>{
+      const venda=porId[l.venda_id];
+      return {...l, venda_data:venda?.data_venda||null, venda_total:venda?.total??null};
+    });
+  },
+  async comissoes_colaborador(linhas){
+    const colabs=await db.get('colaboradores',`?empresa_id=eq.${session.empresa_id}&select=id,nome`);
+    const porId={}; colabs.forEach(c=>porId[c.id]=c.nome);
+    return linhas.map(l=>({...l, colaborador_nome:porId[l.colaborador_id]||'—'}));
+  },
+  async estoque_por_loja(linhas){
+    const [produtos,lojas,categorias]=await Promise.all([
+      db.get('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
+      db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
+      db.get('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
+    ]);
+    const produtoPorId={}; produtos.forEach(p=>produtoPorId[p.id]=p);
+    const lojaPorId={}; lojas.forEach(l=>lojaPorId[l.id]=l.nome);
+    const categoriaPorId={}; categorias.forEach(c=>categoriaPorId[c.id]=c.nome);
+    return linhas.map(l=>{
+      const produto=produtoPorId[l.produto_id];
+      return {...l,
+        produto_nome:produto?.nome||'—', loja_nome:lojaPorId[l.loja_id]||'—',
+        categoria_nome:produto?categoriaPorId[produto.categoria_id]||'—':'—',
+        abaixo_minimo:Number(l.quantidade||0)<Number(l.estoque_minimo||0),
+      };
+    });
+  },
+  async caixa_movimentos(linhas){
+    const ids=[...new Set(linhas.map(l=>l.responsavel_id).filter(Boolean))];
+    const usuarios=ids.length?await db.get('usuarios',`?id=in.(${ids.join(',')})&select=id,nome`):[];
+    const porId={}; usuarios.forEach(u=>porId[u.id]=u.nome);
+    return linhas.map(l=>({...l, responsavel_nome:porId[l.responsavel_id]||'—'}));
+  },
+  async caixa_fechamento_formas(linhas){
+    const ids=[...new Set(linhas.map(l=>l.caixa_sessao_id).filter(Boolean))];
+    const sessoes=ids.length?await db.get('caixa_sessoes',`?id=in.(${ids.join(',')})&select=id,loja_id,fechado_em`):[];
+    const lojas=await db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`);
+    const lojaPorId={}; lojas.forEach(l=>lojaPorId[l.id]=l.nome);
+    const sessaoPorId={}; sessoes.forEach(s=>sessaoPorId[s.id]=s);
+    return linhas.map(l=>{
+      const sessao=sessaoPorId[l.caixa_sessao_id];
+      return {...l, loja_nome:sessao?lojaPorId[sessao.loja_id]||'—':'—', data_fechamento:sessao?.fechado_em||null};
+    });
+  },
 };
 
 function renderFiltrosExtra(){
@@ -304,6 +400,10 @@ async function gerarRelatorio(){
   if(modulo==='ponto'){ await gerarRelatorioPonto(); return; }
   const de=val('relDe'), ate=val('relAte');
   const ehFinanceiro = modulo==='financeiro';
+  // Nem toda tabela tem created_at (ex: estoque_por_loja é uma foto do agora, não um
+  // lançamento no tempo) — CAMPO_DATA_MODULO diz qual campo usar, ou null pra não
+  // filtrar por período nenhum nesse módulo.
+  const campoData = CAMPO_DATA_MODULO.hasOwnProperty(modulo) ? CAMPO_DATA_MODULO[modulo] : 'created_at';
   // Financeiro usa vencimento como período do relatório, com data_lancamento como
   // reserva quando não tem vencimento — mesma regra de fallback já usada na tela
   // Financeiro. Achado real: boa parte dos lançamentos não tem vencimento preenchido —
@@ -311,10 +411,12 @@ async function gerarRelatorio(){
   // não importa qual período fosse escolhido. Por isso busca tudo (sem filtro de data na
   // consulta) e filtra depois, já aplicando o fallback — não dá pra fazer isso só com
   // query string simples no banco.
-  let q=`?select=*&empresa_id=eq.${session.empresa_id}&order=${ehFinanceiro?'vencimento':'created_at'}.desc&limit=${ehFinanceiro?5000:500}`;
-  if(!ehFinanceiro){
-    if(de) q+=`&created_at=gte.${de}`;
-    if(ate) q+=`&created_at=lte.${ate}T23:59:59`;
+  let q=`?select=*&empresa_id=eq.${session.empresa_id}&limit=${ehFinanceiro?5000:500}`;
+  if(ehFinanceiro) q+=`&order=vencimento.desc`;
+  else if(campoData){
+    q+=`&order=${campoData}.desc`;
+    if(de) q+=`&${campoData}=gte.${de}`;
+    if(ate) q+=`&${campoData}=lte.${ate}${campoData==='created_at'?'T23:59:59':''}`;
   }
   (FILTROS_MODULO[modulo]||[]).forEach(f=>{
     const v=val('filtro_'+f.campo);
@@ -330,6 +432,18 @@ async function gerarRelatorio(){
     if(ehFinanceiro && (de||ate)){
       dados=dados.filter(f=>{
         const campo=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+        if(!campo)return false;
+        if(de&&campo<de)return false;
+        if(ate&&campo>ate)return false;
+        return true;
+      });
+    }
+    if(ENRIQUECER_MODULO[modulo]) dados=await ENRIQUECER_MODULO[modulo](dados);
+    // caixa_fechamento_formas não tem data própria — a data é a do fechamento da sessão
+    // (só descoberta depois de enriquecer com o join em caixa_sessoes), então filtra aqui.
+    if(modulo==='caixa_fechamento_formas' && (de||ate)){
+      dados=dados.filter(f=>{
+        const campo=String(f.data_fechamento||'').slice(0,10);
         if(!campo)return false;
         if(de&&campo<de)return false;
         if(ate&&campo>ate)return false;
