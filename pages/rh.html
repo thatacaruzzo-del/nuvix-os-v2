@@ -327,6 +327,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
               <input type="text" id="pontoBuscaCol" placeholder="Buscar colaborador..." oninput="renderPonto()" style="max-width:200px">
               <select id="pontoFiltroCol" onchange="renderPonto()" style="max-width:200px"><option value="">Todos colaboradores</option></select>
               <input type="month" id="pontoFiltroMes" onchange="renderPonto()" style="max-width:160px">
+              <button class="btn2" onclick="imprimirFolhaPonto()">Imprimir folha de ponto</button>
             </div>
           </div>
           <div id="pontoResumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
@@ -716,6 +717,87 @@ function cancelarEdicaoPonto(){
   if($('btnPontoCancelar'))$('btnPontoCancelar').style.display='none';
 }
 async function excluirPonto(id){if(!permPonto('excluir')){toast('Sem permissão para excluir.','err');return;}if(!await confirmarAcao('Excluir este registro de ponto?'))return;try{await db.delete('ponto',id);toast('Excluído.');await loadData();}catch(e){toast('Erro: '+e.message,'err');}}
+// Espelho de ponto — não é obrigatório assinatura física com ponto eletrônico
+// (Portaria 671/2021), mas é prática comum de RH como comprovante extra pro
+// colaborador conferir e assinar. Usa os mesmos filtros de colaborador+mês da
+// tabela e o mesmo motor de cálculo (calcularHorasPonto), pra nunca imprimir um
+// número diferente do que aparece na tela ou na folha de pagamento.
+function imprimirFolhaPonto(){
+  if(!temPermissao('rh','exportar')){toast('Sem permissão para exportar.','err');return;}
+  const colId=val('pontoFiltroCol');
+  const mes=val('pontoFiltroMes');
+  if(!colId){toast('Selecione um colaborador no filtro antes de imprimir.','err');return;}
+  if(!mes){toast('Selecione o mês no filtro antes de imprimir.','err');return;}
+  const c=dados.colaboradores.find(x=>x.id===colId);
+  if(!c){toast('Colaborador não encontrado.','err');return;}
+  const registrosCalc=(dados.ponto||[]).filter(p=>p.colaborador_id===colId&&String(p.data||'').slice(0,7)===mes).map(p=>{
+    if(p.entrada&&p.saida){
+      const jornada=jornadaVigenteEm(colId,p.data);
+      const r=calcularHorasPonto(p,jornada,P.feriados);
+      return {...p,horasCalc:r.horasLiquidas,heCalc:r.horasExtras};
+    }
+    return {...p,horasCalc:Number(p.horas_trabalhadas||0),heCalc:Number(p.horas_extras||0)};
+  }).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')));
+  const totalHoras=registrosCalc.reduce((a,p)=>a+p.horasCalc,0),totalHE=registrosCalc.reduce((a,p)=>a+p.heCalc,0),faltas=registrosCalc.filter(p=>p.tipo==='Falta').length,faltasJust=registrosCalc.filter(p=>p.tipo==='Falta justificada').length,atestados=registrosCalc.filter(p=>p.tipo==='Atestado').length;
+  const emp=session.empresa||{};
+  const [ano,mesNum]=mes.split('-');
+  const nomeMes=new Date(Number(ano),Number(mesNum)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const linhas=registrosCalc.map(p=>{
+    const diaSemana=p.data?new Date(String(p.data).slice(0,10)+'T12:00:00').getDay():null;
+    return `<tr><td>${fmtData(p.data)}</td><td>${diaSemana!=null?dias[diaSemana]:'—'}</td><td>${p.entrada||'—'}</td><td>${p.saida_almoco||'—'}</td><td>${p.retorno_almoco||'—'}</td><td>${p.saida||'—'}</td><td>${p.horasCalc?p.horasCalc.toFixed(1)+'h':'—'}</td><td>${p.heCalc?p.heCalc.toFixed(1)+'h':'—'}</td><td>${esc(p.tipo||'Normal')}</td></tr>`;
+  }).join('');
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Folha de ponto — ${esc(c.nome||'')}</title>
+  <style>
+    @media print{@page{size:A4;margin:14mm}.btn-imprimir{display:none}}
+    body{font-family:'Hanken Grotesk',Arial,sans-serif;max-width:760px;margin:0 auto;padding:24px;color:#1B1B1D}
+    .cabecalho{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1B1B1D;padding-bottom:12px;margin-bottom:16px}
+    .cabecalho h1{font-size:18px;margin:0 0 4px}
+    .cabecalho .sub{font-size:12px;color:#494551}
+    .titulo-doc{font-size:14px;font-weight:700;text-align:right}
+    .info-colaborador{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:13px;margin-bottom:18px}
+    .info-colaborador div{display:flex;justify-content:space-between;border-bottom:1px dotted #E4E1EB;padding-bottom:3px}
+    table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:18px}
+    th,td{border:1px solid #E4E1EB;padding:5px 6px;text-align:center}
+    th{background:#F3EAFF;font-weight:700}
+    .totais{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:32px;font-size:12px}
+    .totais div{border:1px solid #E4E1EB;border-radius:8px;padding:8px;text-align:center}
+    .totais b{display:block;font-size:16px;margin-top:2px}
+    .assinatura{margin-top:50px;display:flex;justify-content:space-between;gap:40px}
+    .linha-assinatura{flex:1;text-align:center;font-size:12px}
+    .linha-assinatura .linha{border-top:1px solid #1B1B1D;margin-bottom:6px;padding-top:6px}
+    .btn-imprimir{display:block;width:100%;margin-top:20px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+  </style></head><body>
+  <div class="cabecalho">
+    <div><h1>${esc(emp.fantasia||emp.razao||'')}</h1><div class="sub">${esc(emp.cnpj||'')}</div></div>
+    <div class="titulo-doc">Folha de Ponto<br><span style="font-weight:400;text-transform:capitalize">${esc(nomeMes)}</span></div>
+  </div>
+  <div class="info-colaborador">
+    <div><span>Colaborador</span><b>${esc(c.nome||'')}</b></div>
+    <div><span>Cargo</span><b>${esc(c.cargo||'—')}</b></div>
+    <div><span>CPF</span><b>${esc(c.cpf||'—')}</b></div>
+    <div><span>Admissão</span><b>${fmtData(c.data_admissao)}</b></div>
+  </div>
+  <table>
+    <thead><tr><th>Data</th><th>Dia</th><th>Entrada</th><th>Saída almoço</th><th>Retorno almoço</th><th>Saída</th><th>Horas</th><th>HE</th><th>Tipo</th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="9" style="padding:16px">Nenhum registro neste mês.</td></tr>'}</tbody>
+  </table>
+  <div class="totais">
+    <div>Horas trabalhadas<b>${totalHoras.toFixed(1)}h</b></div>
+    <div>Horas extras<b>${totalHE.toFixed(1)}h</b></div>
+    <div>Faltas<b>${faltas}</b></div>
+    <div>Faltas justif.<b>${faltasJust}</b></div>
+    <div>Atestados<b>${atestados}</b></div>
+  </div>
+  <div class="assinatura">
+    <div class="linha-assinatura"><div class="linha">${esc(c.nome||'Colaborador')}</div>Assinatura do colaborador</div>
+    <div class="linha-assinatura"><div class="linha">${esc(emp.fantasia||emp.razao||'Empresa')}</div>Assinatura do responsável</div>
+  </div>
+  <button class="btn-imprimir" onclick="window.print()">Imprimir</button>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
 // A tabela de ponto não pode mostrar um número diferente do que a folha vai pagar
 // no fim do mês — por isso recalcula pelo mesmo motor (calcularHorasPonto) sempre
 // que há entrada/saída, usando a jornada vigente na data de cada registro, em vez
