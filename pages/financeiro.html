@@ -446,6 +446,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
     <label>Serviço do catálogo (opcional)</label>
     <select id="detNotaServico"><option value="">Nenhum — usa a classificação fiscal padrão da empresa</option></select>
     <div class="field-hint">Se esse lançamento corresponde a um serviço do catálogo, escolha aqui pra usar a classificação fiscal (ISS/reforma) cadastrada nele em vez do padrão da empresa.</div>
+    <label style="margin-top:8px;display:block">Cliente é consumidor final? (reforma)</label>
+    <select id="detNotaIndFinal"><option value="1">Sim — consumidor final</option><option value="0">Não — insumo de outra atividade</option><option value="2">Não informar</option></select>
+    <div class="field-hint">Pré-preenchido com o padrão cadastrado do cliente — pode trocar só pra esta nota.</div>
   </div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
@@ -928,6 +931,7 @@ function verDetalhe(id){
     $('detNotaBtn').style.display='block';
     if($('detNotaServico'))$('detNotaServico').innerHTML='<option value="">Nenhum — usa a classificação fiscal padrão da empresa</option>'+servicosCatalogo.map(s=>`<option value="${s.id}">${esc(s.nome)}</option>`).join('');
     if($('detNotaServicoWrap'))$('detNotaServicoWrap').style.display=fiscalAtivo?'block':'none';
+    if($('detNotaIndFinal')){$('detNotaIndFinal').value='1';buscarIndicadorConsumoFinalCliente(f.favorecido).then(v=>{if($('detNotaIndFinal'))$('detNotaIndFinal').value=v;});}
     carregarStatusNota(f);
   } else {
     $('detNotaBtn').style.display='none';
@@ -982,6 +986,15 @@ async function buscarDocumentoCliente(nome){
     return match[0]?.documento||null;
   }catch(e){return null;}
 }
+// Indicador de consumo final (indFinal, reforma) — é sobre o cliente, não o
+// lançamento, então busca o padrão dele pra sugerir na hora de emitir a nota.
+async function buscarIndicadorConsumoFinalCliente(nome){
+  if(!nome)return '1';
+  try{
+    const match=await db.get('clientes',`?select=indicador_consumo_final&empresa_id=eq.${session.empresa_id}&nome=ilike.${encodeURIComponent(nome)}&limit=1`);
+    return match[0]?.indicador_consumo_final||'1';
+  }catch(e){return '1';}
+}
 
 async function emitirNotaFiscal(f){
   if(!fiscalAtivo){toast('Emissão de nota fiscal ainda não configurada.','err');return;}
@@ -1018,6 +1031,7 @@ async function emitirNotaFiscal(f){
         aliquota_iss:servicoEscolhido?.aliquota_iss??null,
         cst_ibs_cbs:servicoEscolhido?.cst_ibs_cbs||null,
         cclasstrib:servicoEscolhido?.cclasstrib||null,
+        indicador_consumo_final:val('detNotaIndFinal')||'1',
       }));
       nota=criada[0];
       notaAtual=nota;

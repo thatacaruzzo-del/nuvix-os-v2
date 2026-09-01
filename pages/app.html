@@ -215,6 +215,7 @@ async function deleteRow(table,id,area){
           <div class="field"><label>Cidade / UF</label><input id="cliCidade"></div>
           <div class="field"><label>Segmento</label><input id="cliSeg" placeholder="Ex: Varejo, Logística..."></div>
           <div class="field"><label>Observação</label><input id="cliObs"></div>
+          <div class="field"><label>Consumidor final? (NFS-e/reforma)</label><select id="cliIndConsumoFinal"><option value="1">Sim — consumidor final</option><option value="0">Não — insumo de outra atividade</option><option value="2">Não informar</option></select></div>
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="salvarCliente()">Salvar cliente</button>
@@ -487,11 +488,11 @@ async function salvarCliente() {
     const existente=await db.get('clientes',q).catch(()=>[]);
     if(Array.isArray(existente)&&existente.length>0){msg('cliMsg',`Já existe um cliente cadastrado com esse CPF/CNPJ: ${existente[0].nome||'sem nome'}.`,'err');return;}
   }
-  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim()});
+  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim(),indicador_consumo_final:val('cliIndConsumoFinal')||'1'});
   try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();fecharModal('modalCliente');await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
 }
-function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliTitulo').textContent='Editar cliente';abrirModal('modalCliente');}
-function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCidade','cliSeg','cliObs'].forEach(id=>{if($(id))$(id).value=''});$('cliTitulo').textContent='Novo cliente';}
+function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliIndConsumoFinal').value=c.indicador_consumo_final||'1';$('cliTitulo').textContent='Editar cliente';abrirModal('modalCliente');}
+function limparCliente(){['cliId','cliNome','cliEmail','cliTel','cliDoc','cliCidade','cliSeg','cliObs'].forEach(id=>{if($(id))$(id).value=''});$('cliIndConsumoFinal').value='1';$('cliTitulo').textContent='Novo cliente';}
 function abrirNovoCliente(){limparCliente();abrirModal('modalCliente');}
 
 // Histórico de compras do cliente — vendas feitas no Caixa com esse cliente_id, com
