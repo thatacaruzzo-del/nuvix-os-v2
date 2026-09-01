@@ -208,8 +208,9 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             <div class="field"><label>Salário base (R$)</label><input id="colSalario" type="number" step="0.01" placeholder="0,00"></div>
             <div class="field"><label>Data de admissão</label><input id="colAdmissao" type="date"></div>
             <div class="field"><label>Tipo de contrato</label>
-              <select id="colContrato"><option>CLT</option><option>PJ</option><option>Temporário</option><option>Estágio</option><option>Autônomo</option></select>
+              <select id="colContrato" onchange="atualizarCamposPorRegime()"><option>CLT</option><option>PJ</option><option>Horista</option><option>Temporário</option><option>Estágio</option><option>Autônomo</option></select>
             </div>
+            <div class="field" id="campoValorHora" style="display:none"><label>Valor por hora (R$)</label><input id="colValorHora" type="number" step="0.01" placeholder="0,00"></div>
             <div class="field"><label>Nº dependentes (IRRF)</label><input id="colDeps" type="number" value="0" min="0"></div>
             <div class="field"><label>Recebe adiantamento?</label>
               <select id="colRecebeAdiantamento"><option value="true">Sim — folha em duas parcelas</option><option value="false">Não — pagamento único</option></select>
@@ -293,7 +294,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             <div style="display:flex;gap:8px">
               <input type="text" id="colBusca" placeholder="Buscar..." oninput="renderColaboradores()" style="max-width:220px">
               <select id="colFiltroContrato" onchange="renderColaboradores()" style="max-width:140px">
-                <option value="">Todos</option><option>CLT</option><option>PJ</option><option>Temporário</option><option>Estágio</option>
+                <option value="">Todos</option><option>CLT</option><option>PJ</option><option>Horista</option><option>Temporário</option><option>Estágio</option>
               </select>
             </div>
           </div>
@@ -396,6 +397,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 const session = requireAuth();
 let dados = { colaboradores:[], ponto:[], lojas:[], usuarios:[], jornadas:[] };
 let folhaData = [];
+let folhaDataHorista = [];
 let modoSoPonto = false;
 let meuColaborador = null;
 function permPonto(tipo){return modoSoPonto?temPermissao('folha_ponto',tipo):temPermissao('rh',tipo);}
@@ -404,6 +406,14 @@ function calcINSS(s){let d=0;for(const f of P.tabela_inss){if(s>f.de)d+=(Math.mi
 function calcIRRF(b,deps=0){const x=b-189.59*deps;if(x<=0)return 0;for(const f of [...P.tabela_irrf].reverse()){if(x>f.de)return Math.max(0,x*(f.aliquota/100)-f.deducao)}return 0;}
 function calcFGTS(s){return Math.round(s*(P.fgts/100)*100)/100;}
 function calcVT(s,vt){return Math.min(vt,Math.round(s*(P.vt_desconto/100)*100)/100);}
+// PJ e Horista não têm jornada fixa no sentido CLT — não faz sentido calcular hora
+// extra/falta pra eles (PJ é contratado por entrega, não por horário; Horista é pago
+// pela hora corrida, sem "jornada esperada" pra comparar). Usado tanto pra decidir se
+// mostra o aviso "sem jornada" quanto pra decidir se o motor de HE roda ou não.
+function regimeUsaJornada(c){
+  const t=c?.tipo_contrato||c?.contrato||'';
+  return t!=='PJ'&&t!=='Horista';
+}
 // Busca a jornada vigente de um colaborador numa data (histórico por vigência —
 // mudar a jornada hoje não reescreve o cálculo de pontos já registrados no passado).
 function jornadaVigenteEm(colaboradorId,data){
@@ -417,7 +427,8 @@ function jornadaVigenteEm(colaboradorId,data){
 // virava 7.0h, 6.8h ou 1.0h de HE dependendo de quem editou o quê).
 // Sem jornada cadastrada (colaborador ainda não migrado) cai no parâmetro global
 // antigo da empresa — modo compatibilidade, pra não quebrar folha de quem falta migrar.
-function calcularHorasPonto(ponto,jornada,feriados){
+function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
+  if(aplicaJornada===undefined)aplicaJornada=true;
   const entrada=ponto.entrada,saida=ponto.saida;
   if(!entrada||!saida) return {horasLiquidas:0,horasExtras:0,percentualAplicado:0,faltaParcial:0,domingoOuFeriado:false};
   const [eh,em]=entrada.split(':').map(Number), [sh,sm]=saida.split(':').map(Number);
@@ -431,6 +442,9 @@ function calcularHorasPonto(ponto,jornada,feriados){
     intervaloRealMin=jornada?jornada.intervalo_minutos:60;
   }
   const horasLiquidas=Math.max(0,horasBrutas-intervaloRealMin/60);
+  // PJ e Horista: só interessa quanto foi trabalhado, sem HE/falta (não existe
+  // "jornada esperada" pra comparar) — ver regimeUsaJornada.
+  if(!aplicaJornada) return {horasLiquidas:Math.round(horasLiquidas*100)/100,horasExtras:0,percentualAplicado:0,faltaParcial:0,domingoOuFeriado:false};
 
   const diaSemana=ponto.data?new Date(String(ponto.data).slice(0,10)+'T12:00:00').getDay():null; // meio-dia evita virar o dia por fuso
   const diasSemanaKey=['trabalha_domingo','trabalha_segunda','trabalha_terca','trabalha_quarta','trabalha_quinta','trabalha_sexta','trabalha_sabado'];
@@ -473,12 +487,16 @@ function atualizarHorasExtrasSugeridas(){
     return;
   }
   const colId=modoSoPonto?(meuColaborador?.id||''):val('pontoCol');
+  const c=dados.colaboradores.find(x=>x.id===colId);
+  const aplicaJornada=regimeUsaJornada(c);
   const data=val('pontoData')||hoje();
-  const jornada=colId?jornadaVigenteEm(colId,data):null;
+  const jornada=(colId&&aplicaJornada)?jornadaVigenteEm(colId,data):null;
   const pontoTemp={entrada,saida,saida_almoco:val('pontoSaidaAlmoco'),retorno_almoco:val('pontoRetornoAlmoco'),data,tipo:val('pontoTipo')};
-  const r=calcularHorasPonto(pontoTemp,jornada,P.feriados);
+  const r=calcularHorasPonto(pontoTemp,jornada,P.feriados,aplicaJornada);
   if(heInput){heInput.value=r.horasExtras;heInput.readOnly=true;heInput.style.background='var(--bg)';}
-  if(hint)hint.textContent = jornada
+  if(hint)hint.textContent = !aplicaJornada
+    ? `${(c?.tipo_contrato||c?.contrato)} não calcula hora extra — ${r.horasLiquidas}h trabalhadas ${(c?.tipo_contrato||c?.contrato)==='Horista'?'entram no valor a pagar por hora':'apenas ficam registradas'}.`
+    : jornada
     ? `Calculado pela jornada cadastrada (${jornada.horario_entrada.slice(0,5)}–${jornada.horario_saida.slice(0,5)})${r.horasExtras>0?` — ${r.percentualAplicado}% de adicional`:''}. Travado enquanto houver entrada/saída.`
     : `Sem jornada cadastrada — usando padrão da empresa (${P.jornada_diaria_horas||8}h/dia). Configure em Colaboradores → Jornada pra um cálculo preciso.`;
 }
@@ -535,8 +553,33 @@ function popularSelects(){
   if($('colLoja'))$('colLoja').innerHTML='<option value="">Não vinculado a uma loja</option>'+(dados.lojas||[]).map(l=>`<option value="${l.id}">${esc(l.nome||'')}</option>`).join('');
   if($('colUsuario'))$('colUsuario').innerHTML='<option value="">Sem login vinculado</option>'+(dados.usuarios||[]).map(u=>`<option value="${u.id}">${esc(u.nome||u.email||'')}</option>`).join('');
 }
-async function salvarColaborador(){if(!can('rh')){toast('Sem permissão.','err');return;}const id=val('colId');if(!temPermissao('rh',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' colaboradores.','err');return;}const nome=val('colNome').trim();if(!nome){msg('colMsg','Informe o nome.','err');return;}const cpfCol=val('colCpf').trim();if(cpfCol&&!validarCPF(cpfCol)){msg('colMsg','CPF inválido, confira os números digitados.','err');return;}const payload=withEmpresa({nome,cpf:val('colCpf').trim(),data_nascimento:val('colNasc')||null,telefone:val('colTel').trim(),email:val('colEmail').trim(),cargo:val('colCargo').trim(),departamento:val('colDept').trim(),loja_id:val('colLoja')||null,usuario_id:val('colUsuario')||null,salario:num('colSalario'),data_admissao:val('colAdmissao')||null,tipo_contrato:val('colContrato'),contrato:val('colContrato'),dependentes_irrf:num('colDeps'),recebe_adiantamento:val('colRecebeAdiantamento')!=='false',pix_chave:val('colPix').trim(),banco:val('colBanco').trim(),agencia:val('colAgencia').trim(),conta:val('colConta').trim(),tipo_conta:val('colTipoConta'),vale_transporte:num('colVT'),vale_refeicao:num('colVR'),vale_alimentacao:num('colVA'),plano_saude:num('colSaude'),plano_odonto:num('colOdonto'),comissao_percentual:num('colComissao'),ativo:true});try{if(id)await db.patch('colaboradores',id,payload);else await db.post('colaboradores',payload);msg('colMsg',id?'Atualizado!':'Colaborador cadastrado!','ok');limparColaborador();fecharModal('modalColaborador');await loadData();}catch(e){msg('colMsg','Erro: '+e.message,'err');}}
-function editarColaborador(id){const c=dados.colaboradores.find(x=>x.id===id);if(!c)return;$('colId').value=c.id;$('colNome').value=c.nome||'';$('colCpf').value=c.cpf||'';$('colNasc').value=c.data_nascimento?String(c.data_nascimento).slice(0,10):'';$('colTel').value=c.telefone||'';$('colEmail').value=c.email||'';$('colCargo').value=c.cargo||'';$('colDept').value=c.departamento||'';if($('colLoja'))$('colLoja').value=c.loja_id||'';if($('colUsuario'))$('colUsuario').value=c.usuario_id||'';$('colSalario').value=c.salario||'';$('colAdmissao').value=c.data_admissao?String(c.data_admissao).slice(0,10):'';$('colContrato').value=c.tipo_contrato||c.contrato||'CLT';$('colDeps').value=c.dependentes_irrf||0;if($('colRecebeAdiantamento'))$('colRecebeAdiantamento').value=c.recebe_adiantamento===false?'false':'true';$('colPix').value=c.pix_chave||'';$('colBanco').value=c.banco||'';$('colAgencia').value=c.agencia||'';$('colConta').value=c.conta||'';if($('colTipoConta'))$('colTipoConta').value=c.tipo_conta||'Conta corrente';$('colVT').value=c.vale_transporte||0;$('colVR').value=c.vale_refeicao||0;$('colVA').value=c.vale_alimentacao||0;$('colSaude').value=c.plano_saude||0;$('colOdonto').value=c.plano_odonto||0;$('colComissao').value=c.comissao_percentual||0;$('colTitulo').textContent='Editar colaborador';rhTab('colaboradores');abrirModal('modalColaborador');}
+// Mostra "Valor por hora" só pra Horista — jornada fixa (aba Jornada) e HE/falta
+// não se aplicam a esse regime, então o valor/hora é a única remuneração que
+// precisa ficar visível aqui. A trava de verdade (obrigar valor_hora só quando
+// Horista) está no banco (colaboradores_valor_hora_coerente), isso aqui é só UX.
+function atualizarCamposPorRegime(){
+  const horista=val('colContrato')==='Horista';
+  if($('campoValorHora'))$('campoValorHora').style.display=horista?'':'none';
+}
+async function salvarColaborador(){
+  if(!can('rh')){toast('Sem permissão.','err');return;}
+  const id=val('colId');
+  if(!temPermissao('rh',id?'editar':'criar')){toast('Sem permissão para '+(id?'editar':'criar')+' colaboradores.','err');return;}
+  const nome=val('colNome').trim();
+  if(!nome){msg('colMsg','Informe o nome.','err');return;}
+  const cpfCol=val('colCpf').trim();
+  if(cpfCol&&!validarCPF(cpfCol)){msg('colMsg','CPF inválido, confira os números digitados.','err');return;}
+  const contrato=val('colContrato'),horista=contrato==='Horista';
+  if(horista&&num('colValorHora')<=0){msg('colMsg','Informe o valor por hora do colaborador horista.','err');return;}
+  const payload=withEmpresa({nome,cpf:val('colCpf').trim(),data_nascimento:val('colNasc')||null,telefone:val('colTel').trim(),email:val('colEmail').trim(),cargo:val('colCargo').trim(),departamento:val('colDept').trim(),loja_id:val('colLoja')||null,usuario_id:val('colUsuario')||null,salario:num('colSalario'),data_admissao:val('colAdmissao')||null,tipo_contrato:contrato,contrato:contrato,valor_hora:horista?num('colValorHora'):null,dependentes_irrf:num('colDeps'),recebe_adiantamento:val('colRecebeAdiantamento')!=='false',pix_chave:val('colPix').trim(),banco:val('colBanco').trim(),agencia:val('colAgencia').trim(),conta:val('colConta').trim(),tipo_conta:val('colTipoConta'),vale_transporte:num('colVT'),vale_refeicao:num('colVR'),vale_alimentacao:num('colVA'),plano_saude:num('colSaude'),plano_odonto:num('colOdonto'),comissao_percentual:num('colComissao'),ativo:true});
+  try{
+    if(id)await db.patch('colaboradores',id,payload);
+    else await db.post('colaboradores',payload);
+    msg('colMsg',id?'Atualizado!':'Colaborador cadastrado!','ok');
+    limparColaborador();fecharModal('modalColaborador');await loadData();
+  }catch(e){msg('colMsg','Erro: '+e.message,'err');}
+}
+function editarColaborador(id){const c=dados.colaboradores.find(x=>x.id===id);if(!c)return;$('colId').value=c.id;$('colNome').value=c.nome||'';$('colCpf').value=c.cpf||'';$('colNasc').value=c.data_nascimento?String(c.data_nascimento).slice(0,10):'';$('colTel').value=c.telefone||'';$('colEmail').value=c.email||'';$('colCargo').value=c.cargo||'';$('colDept').value=c.departamento||'';if($('colLoja'))$('colLoja').value=c.loja_id||'';if($('colUsuario'))$('colUsuario').value=c.usuario_id||'';$('colSalario').value=c.salario||'';$('colAdmissao').value=c.data_admissao?String(c.data_admissao).slice(0,10):'';$('colContrato').value=c.tipo_contrato||c.contrato||'CLT';if($('colValorHora'))$('colValorHora').value=c.valor_hora||'';atualizarCamposPorRegime();$('colDeps').value=c.dependentes_irrf||0;if($('colRecebeAdiantamento'))$('colRecebeAdiantamento').value=c.recebe_adiantamento===false?'false':'true';$('colPix').value=c.pix_chave||'';$('colBanco').value=c.banco||'';$('colAgencia').value=c.agencia||'';$('colConta').value=c.conta||'';if($('colTipoConta'))$('colTipoConta').value=c.tipo_conta||'Conta corrente';$('colVT').value=c.vale_transporte||0;$('colVR').value=c.vale_refeicao||0;$('colVA').value=c.vale_alimentacao||0;$('colSaude').value=c.plano_saude||0;$('colOdonto').value=c.plano_odonto||0;$('colComissao').value=c.comissao_percentual||0;$('colTitulo').textContent='Editar colaborador';rhTab('colaboradores');abrirModal('modalColaborador');}
 function abrirNovoColaborador(){limparColaborador();rhTab('colaboradores');abrirModal('modalColaborador');}
 const DIAS_SEMANA_CAMPOS=['jornDom','jornSeg','jornTer','jornQua','jornQui','jornSex','jornSab'];
 const DIAS_SEMANA_COLS=['trabalha_domingo','trabalha_segunda','trabalha_terca','trabalha_quarta','trabalha_quinta','trabalha_sexta','trabalha_sabado'];
@@ -650,7 +693,7 @@ function renderHistoricoJornadas(colaboradorId){
 // se repetiria em silêncio, um colaborador de cada vez.
 function renderAvisoSemJornada(){
   const el=$('avisoSemJornada'); if(!el) return;
-  const ativos=(dados.colaboradores||[]).filter(c=>c.ativo!==false && (c.tipo_contrato||c.contrato)!=='PJ');
+  const ativos=(dados.colaboradores||[]).filter(c=>c.ativo!==false && regimeUsaJornada(c));
   const semJornada=ativos.filter(c=>!jornadaVigenteEm(c.id,hoje()));
   if(semJornada.length===0){el.style.display='none';return;}
   el.style.display='block';
@@ -666,8 +709,8 @@ async function excluirColaborador(id){
     await db.delete('colaboradores',id);toast('Excluído.');await loadData();
   }catch(e){toast('Erro: '+e.message,'err');}
 }
-function limparColaborador(){['colId','colNome','colCpf','colNasc','colTel','colEmail','colCargo','colDept','colLoja','colUsuario','colSalario','colAdmissao','colPix','colBanco','colAgencia','colConta'].forEach(id=>{if($(id))$(id).value=''});['colVT','colVR','colVA','colSaude','colOdonto','colComissao','colDeps'].forEach(id=>{if($(id))$(id).value=0});if($('colContrato'))$('colContrato').value='CLT';if($('colRecebeAdiantamento'))$('colRecebeAdiantamento').value='true';$('colTitulo').textContent='Novo colaborador';}
-function renderColaboradores(){const busca=val('colBusca').toLowerCase(),contrato=val('colFiltroContrato');let lista=dados.colaboradores||[];if(busca)lista=lista.filter(c=>(c.nome||'').toLowerCase().includes(busca)||(c.cargo||'').toLowerCase().includes(busca));if(contrato)lista=lista.filter(c=>(c.tipo_contrato||c.contrato||'')===contrato);renderPaginacao('colTable',lista.length,'renderColaboradores');setHTML('colTable',paginar(lista,'colTable').map(c=>{const ativo=c.ativo!==false;let tempoEmp='—';if(c.data_admissao){const meses=Math.floor((new Date()-new Date(c.data_admissao))/2592e6);tempoEmp=meses>=12?`${Math.floor(meses/12)}a ${meses%12}m`:`${meses}m`;}const temJornada=!!jornadaVigenteEm(c.id,hoje());return`<tr style="${!ativo?'opacity:.6':''}"><td><b>${esc(c.nome||'')}</b>${!c.usuario_id?' <span class="badge" style="font-size:9.5px;padding:2px 7px;background:var(--amber-bg);color:var(--amber)">sem login vinculado</span>':''}${!temJornada?' <span class="badge" style="font-size:9.5px;padding:2px 7px;background:var(--amber-bg);color:var(--amber)">sem jornada</span>':''}${c.pix_chave?`<div class="muted" style="font-size:11px">Pix: ${esc(c.pix_chave)}</div>`:''}${c.banco?`<div class="muted" style="font-size:11px">${esc(c.banco)} · Ag:${esc(c.agencia||'—')} · CC:${esc(c.conta||'—')}</div>`:''}</td><td>${esc(c.cargo||'—')}</td><td>${esc(c.departamento||'—')}</td><td><span class="badge">${esc(c.tipo_contrato||c.contrato||'CLT')}</span></td><td style="font-weight:700">${money(c.salario)}</td><td style="font-size:12px">${fmtData(c.data_admissao)}<div class="muted" style="font-size:11px">${tempoEmp}</div></td><td><span class="badge ${ativo?'ok':'bad'}">${ativo?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="editarColaborador('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="btn2" onclick="abrirModalJornada('${c.id}')" style="font-size:11px;padding:5px 8px">Jornada</button><button class="btn2" onclick="inativarColaborador('${c.id}',${ativo})" style="font-size:11px;padding:5px 8px">${ativo?'Inativar':'Ativar'}</button><button class="danger" onclick="excluirColaborador('${c.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum colaborador ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');}
+function limparColaborador(){['colId','colNome','colCpf','colNasc','colTel','colEmail','colCargo','colDept','colLoja','colUsuario','colSalario','colAdmissao','colPix','colBanco','colAgencia','colConta'].forEach(id=>{if($(id))$(id).value=''});['colVT','colVR','colVA','colSaude','colOdonto','colComissao','colDeps'].forEach(id=>{if($(id))$(id).value=0});if($('colContrato'))$('colContrato').value='CLT';if($('colValorHora'))$('colValorHora').value='';atualizarCamposPorRegime();if($('colRecebeAdiantamento'))$('colRecebeAdiantamento').value='true';$('colTitulo').textContent='Novo colaborador';}
+function renderColaboradores(){const busca=val('colBusca').toLowerCase(),contrato=val('colFiltroContrato');let lista=dados.colaboradores||[];if(busca)lista=lista.filter(c=>(c.nome||'').toLowerCase().includes(busca)||(c.cargo||'').toLowerCase().includes(busca));if(contrato)lista=lista.filter(c=>(c.tipo_contrato||c.contrato||'')===contrato);renderPaginacao('colTable',lista.length,'renderColaboradores');setHTML('colTable',paginar(lista,'colTable').map(c=>{const ativo=c.ativo!==false;let tempoEmp='—';if(c.data_admissao){const meses=Math.floor((new Date()-new Date(c.data_admissao))/2592e6);tempoEmp=meses>=12?`${Math.floor(meses/12)}a ${meses%12}m`:`${meses}m`;}const usaJornada=regimeUsaJornada(c);const temJornada=usaJornada&&!!jornadaVigenteEm(c.id,hoje());const horista=(c.tipo_contrato||c.contrato)==='Horista';return`<tr style="${!ativo?'opacity:.6':''}"><td><b>${esc(c.nome||'')}</b>${!c.usuario_id?' <span class="badge" style="font-size:9.5px;padding:2px 7px;background:var(--amber-bg);color:var(--amber)">sem login vinculado</span>':''}${usaJornada&&!temJornada?' <span class="badge" style="font-size:9.5px;padding:2px 7px;background:var(--amber-bg);color:var(--amber)">sem jornada</span>':''}${c.pix_chave?`<div class="muted" style="font-size:11px">Pix: ${esc(c.pix_chave)}</div>`:''}${c.banco?`<div class="muted" style="font-size:11px">${esc(c.banco)} · Ag:${esc(c.agencia||'—')} · CC:${esc(c.conta||'—')}</div>`:''}</td><td>${esc(c.cargo||'—')}</td><td>${esc(c.departamento||'—')}</td><td><span class="badge">${esc(c.tipo_contrato||c.contrato||'CLT')}</span></td><td style="font-weight:700">${horista?money(c.valor_hora)+'/h':money(c.salario)}</td><td style="font-size:12px">${fmtData(c.data_admissao)}<div class="muted" style="font-size:11px">${tempoEmp}</div></td><td><span class="badge ${ativo?'ok':'bad'}">${ativo?'Ativo':'Inativo'}</span></td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" onclick="editarColaborador('${c.id}')" style="font-size:11px;padding:5px 8px">Editar</button><button class="btn2" onclick="abrirModalJornada('${c.id}')" style="font-size:11px;padding:5px 8px">Jornada</button><button class="btn2" onclick="inativarColaborador('${c.id}',${ativo})" style="font-size:11px;padding:5px 8px">${ativo?'Inativar':'Ativar'}</button><button class="danger" onclick="excluirColaborador('${c.id}')" style="font-size:11px;padding:5px 8px">Excluir</button></div></td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum colaborador ainda. Use o formulário acima para cadastrar o primeiro.</td></tr>');}
 async function salvarPonto(){
   const editId=val('pontoEditId');
   if(!permPonto(editId?'editar':'criar')){toast('Sem permissão para '+(editId?'editar':'registrar')+' ponto.','err');return;}
@@ -677,8 +720,9 @@ async function salvarPonto(){
   const c=dados.colaboradores.find(x=>x.id===colId),entrada=val('pontoEntrada'),saida=val('pontoSaida'),data=val('pontoData')||hoje();
   // Horas trabalhadas e extras vêm do mesmo motor determinístico usado na sugestão em
   // tempo real (calcularHorasPonto) — nunca de um cálculo duplicado só na hora de salvar.
-  const jornada=jornadaVigenteEm(colId,data);
-  const r=calcularHorasPonto({entrada,saida,saida_almoco:val('pontoSaidaAlmoco'),retorno_almoco:val('pontoRetornoAlmoco'),data,tipo:val('pontoTipo')},jornada,P.feriados);
+  const aplicaJornada=regimeUsaJornada(c);
+  const jornada=aplicaJornada?jornadaVigenteEm(colId,data):null;
+  const r=calcularHorasPonto({entrada,saida,saida_almoco:val('pontoSaidaAlmoco'),retorno_almoco:val('pontoRetornoAlmoco'),data,tipo:val('pontoTipo')},jornada,P.feriados,aplicaJornada);
   const payload={colaborador_id:colId,colaborador_nome:c?.nome||'',data,entrada:entrada||null,saida_almoco:val('pontoSaidaAlmoco')||null,retorno_almoco:val('pontoRetornoAlmoco')||null,saida:saida||null,horas_trabalhadas:r.horasLiquidas,horas_extras:(entrada&&saida)?r.horasExtras:num('pontoHE'),tipo:val('pontoTipo'),observacao:val('pontoObs').trim()||null};
   try{
     if(editId) await db.patch('ponto',editId,payload);
@@ -733,10 +777,11 @@ function imprimirFolhaPonto(){
   if(!mes){toast('Selecione o mês no filtro antes de imprimir.','err');return;}
   const c=dados.colaboradores.find(x=>x.id===colId);
   if(!c){toast('Colaborador não encontrado.','err');return;}
+  const aplicaJornadaImpressao=regimeUsaJornada(c);
   const registrosCalc=(dados.ponto||[]).filter(p=>p.colaborador_id===colId&&String(p.data||'').slice(0,7)===mes).map(p=>{
     if(p.entrada&&p.saida){
-      const jornada=jornadaVigenteEm(colId,p.data);
-      const r=calcularHorasPonto(p,jornada,P.feriados);
+      const jornada=aplicaJornadaImpressao?jornadaVigenteEm(colId,p.data):null;
+      const r=calcularHorasPonto(p,jornada,P.feriados,aplicaJornadaImpressao);
       return {...p,horasCalc:r.horasLiquidas,heCalc:r.horasExtras};
     }
     return {...p,horasCalc:Number(p.horas_trabalhadas||0),heCalc:Number(p.horas_extras||0)};
@@ -815,8 +860,9 @@ function renderPonto(){
   if(busca)lista=lista.filter(p=>(p.colaborador_nome||'').toLowerCase().includes(busca));
   const listaCalc=lista.map(p=>{
     if(p.entrada&&p.saida){
-      const jornada=jornadaVigenteEm(p.colaborador_id,p.data);
-      const r=calcularHorasPonto(p,jornada,P.feriados);
+      const aplicaJornada=regimeUsaJornada(dados.colaboradores.find(x=>x.id===p.colaborador_id));
+      const jornada=aplicaJornada?jornadaVigenteEm(p.colaborador_id,p.data):null;
+      const r=calcularHorasPonto(p,jornada,P.feriados,aplicaJornada);
       return {...p,horasCalc:r.horasLiquidas,heCalc:r.horasExtras};
     }
     return {...p,horasCalc:Number(p.horas_trabalhadas||0),heCalc:Number(p.horas_extras||0)};
@@ -846,13 +892,14 @@ function calcularFerias(){const colId=val('ferCol');const c=dados.colaboradores.
 // útil / domingo-feriado) é a média ponderada pelas horas — normalmente uniforme
 // (todo mundo com a mesma jornada), mas cobre o caso de percentual mudar no meio do mês.
 function horasExtrasDoMes(colaboradorId,mes){
+  const aplicaJornada=regimeUsaJornada(dados.colaboradores.find(x=>x.id===colaboradorId));
   const registros=(dados.ponto||[]).filter(p=>p.colaborador_id===colaboradorId&&String(p.data||'').slice(0,7)===mes);
   let horas50=0,horas100=0,peso50=0,peso100=0;
   registros.forEach(p=>{
     let he,percentual,domingoOuFeriado;
     if(p.entrada&&p.saida){
-      const jornada=jornadaVigenteEm(colaboradorId,p.data);
-      const r=calcularHorasPonto(p,jornada,P.feriados);
+      const jornada=aplicaJornada?jornadaVigenteEm(colaboradorId,p.data):null;
+      const r=calcularHorasPonto(p,jornada,P.feriados,aplicaJornada);
       he=r.horasExtras; percentual=r.percentualAplicado; domingoOuFeriado=r.domingoOuFeriado;
     }else{
       he=Number(p.horas_extras||0);
@@ -867,6 +914,15 @@ function horasExtrasDoMes(colaboradorId,mes){
     else { horas50+=he; peso50+=he*percentual; }
   });
   return {horas50,horas100,total:horas50+horas100,percentual50:horas50>0?peso50/horas50:50,percentual100:horas100>0?peso100/horas100:100};
+}
+// Horista não tem HE/falta (regimeUsaJornada=false) — só soma horas líquidas
+// trabalhadas no mês, pelo mesmo motor (calcularHorasPonto com aplicaJornada=false).
+function horasTrabalhadasDoMesHorista(colaboradorId,mes){
+  const registros=(dados.ponto||[]).filter(p=>p.colaborador_id===colaboradorId&&String(p.data||'').slice(0,7)===mes);
+  return registros.reduce((total,p)=>{
+    if(p.entrada&&p.saida) return total+calcularHorasPonto(p,null,P.feriados,false).horasLiquidas;
+    return total+Number(p.horas_trabalhadas||0);
+  },0);
 }
 // Antes a folha só olhava pro salário cadastrado — o ponto registrava hora extra, mas
 // nada nunca somava aquilo na hora de calcular quanto pagar. Agora soma as horas extras
@@ -896,8 +952,22 @@ function calcularFolha(){
     totalBruto+=salarioBruto;totalLiquido+=liquido;totalAdiant+=adiant;totalCusto+=custoTotal;totalHE+=he.total;
     return{nome:c.nome,cargo:c.cargo,salario,horasExtras:he.total,horas50:he.horas50,horas100:he.horas100,percentual50:he.percentual50,percentual100:he.percentual100,pagamentoHE50,pagamentoHE100,pagamentoHE,salarioBruto,inss,irrf,vt_desc:vtDesc,fgts,adiant,liquido,saldo,custo:custoTotal,pix:c.pix_chave,vr,va};
   });
+  // Horista não entra no bloco CLT acima (sem INSS/IRRF/FGTS/HE — pago só pelas horas
+  // batidas × valor/hora, sem encargos calculados aqui). Mostrado à parte na Folha.
+  const listaHorista=dados.colaboradores.filter(c=>c.ativo!==false&&(c.tipo_contrato||c.contrato)==='Horista');
+  let totalHorasHorista=0,totalPagarHorista=0;
+  folhaDataHorista=listaHorista.map(c=>{
+    const horas=Math.round(horasTrabalhadasDoMesHorista(c.id,mes)*100)/100;
+    const valorHora=Number(c.valor_hora||0);
+    const valorPagar=Math.round(horas*valorHora*100)/100;
+    totalHorasHorista+=horas;totalPagarHorista+=valorPagar;
+    return{nome:c.nome,cargo:c.cargo,valorHora,horas,valorPagar,pix:c.pix_chave};
+  });
   setHTML('folhaKpis',[{lbl:'Total bruto',val:money(totalBruto)},{lbl:'Horas extras no mês',val:totalHE.toFixed(1)+'h'},{lbl:`Adiantamento (dia ${diaAdiant})`,val:money(totalAdiant)},{lbl:'Saldo (dia 30)',val:money(totalLiquido-totalAdiant)}].map(c=>`<div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px">${c.val}</div></div>`).join(''));
-  setHTML('folhaTabela',folhaData.length?folhaData.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.liquido)}</div><div class="muted" style="font-size:11px">líquido total</div></div></div><div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Salário bruto</span><b style="color:var(--green)">${money(c.salario)}</b></div>${c.horas50>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras (${c.horas50.toFixed(1)}h × ${Math.round(c.percentual50)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE50)}</b></div>`:''}${c.horas100>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras domingo/feriado (${c.horas100.toFixed(1)}h × ${Math.round(c.percentual100)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE100)}</b></div>`:''}<div class="holerite-linha"><span style="color:var(--red)">- INSS</span><b style="color:var(--red)">- ${money(c.inss)}</b></div><div class="holerite-linha"><span style="color:var(--red)">- IRRF</span><b style="color:var(--red)">- ${money(c.irrf)}</b></div>${c.vt_desc>0?`<div class="holerite-linha"><span style="color:var(--red)">- Vale-transporte</span><b style="color:var(--red)">- ${money(c.vt_desc)}</b></div>`:''}<div class="holerite-total"><span>Salário líquido</span><b style="color:var(--p)">${money(c.liquido)}</b></div>${c.adiant>0?`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><div class="holerite-linha"><span style="color:var(--amber);font-weight:700">- Adiantamento (dia ${diaAdiant})</span><b style="color:var(--amber)">- ${money(c.adiant)}</b></div><div style="display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:800"><span>Saldo (dia 30)</span><b style="color:var(--blue)">${money(c.saldo)}</b></div></div>`:`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><span class="badge badge-blue">Pagamento único — sem adiantamento</span></div>`}<div style="margin-top:12px;font-size:11px;color:var(--muted)">FGTS: ${money(c.fgts)} · Custo total empresa: <b style="color:var(--amber)">${money(c.custo)}</b></div></div>`).join(''):'<div class="card" style="text-align:center;padding:32px"><p class="muted">Nenhum colaborador CLT ativo.</p></div>');
+  const htmlClt=folhaData.length?folhaData.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.liquido)}</div><div class="muted" style="font-size:11px">líquido total</div></div></div><div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Salário bruto</span><b style="color:var(--green)">${money(c.salario)}</b></div>${c.horas50>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras (${c.horas50.toFixed(1)}h × ${Math.round(c.percentual50)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE50)}</b></div>`:''}${c.horas100>0?`<div class="holerite-linha"><span style="color:var(--green);font-weight:600">+ Horas extras domingo/feriado (${c.horas100.toFixed(1)}h × ${Math.round(c.percentual100)}%)</span><b style="color:var(--green)">${money(c.pagamentoHE100)}</b></div>`:''}<div class="holerite-linha"><span style="color:var(--red)">- INSS</span><b style="color:var(--red)">- ${money(c.inss)}</b></div><div class="holerite-linha"><span style="color:var(--red)">- IRRF</span><b style="color:var(--red)">- ${money(c.irrf)}</b></div>${c.vt_desc>0?`<div class="holerite-linha"><span style="color:var(--red)">- Vale-transporte</span><b style="color:var(--red)">- ${money(c.vt_desc)}</b></div>`:''}<div class="holerite-total"><span>Salário líquido</span><b style="color:var(--p)">${money(c.liquido)}</b></div>${c.adiant>0?`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><div class="holerite-linha"><span style="color:var(--amber);font-weight:700">- Adiantamento (dia ${diaAdiant})</span><b style="color:var(--amber)">- ${money(c.adiant)}</b></div><div style="display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:800"><span>Saldo (dia 30)</span><b style="color:var(--blue)">${money(c.saldo)}</b></div></div>`:`<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--line)"><span class="badge badge-blue">Pagamento único — sem adiantamento</span></div>`}<div style="margin-top:12px;font-size:11px;color:var(--muted)">FGTS: ${money(c.fgts)} · Custo total empresa: <b style="color:var(--amber)">${money(c.custo)}</b></div></div>`).join(''):'<div class="card" style="text-align:center;padding:32px"><p class="muted">Nenhum colaborador CLT ativo.</p></div>';
+  // Bloco separado do CLT — sem INSS/IRRF/FGTS/adiantamento, só horas × valor/hora.
+  const htmlHorista=folhaDataHorista.length?`<div style="margin-top:24px;padding-top:20px;border-top:2px solid var(--line)"><div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Horistas — ${money(totalPagarHorista)} no total (${totalHorasHorista.toFixed(1)}h)</div>${folhaDataHorista.map(c=>`<div class="holerite"><div class="holerite-header"><div><div class="holerite-nome">${esc(c.nome||'')}</div><div class="holerite-cargo">${esc(c.cargo||'')}${c.pix?' · Pix: '+esc(c.pix):''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--p)">${money(c.valorPagar)}</div><div class="muted" style="font-size:11px">a pagar</div></div></div><div class="holerite-linha"><span>Horas trabalhadas no mês</span><b>${c.horas.toFixed(1)}h</b></div><div class="holerite-linha"><span>Valor por hora</span><b>${money(c.valorHora)}</b></div><div class="holerite-total"><span>Total a pagar</span><b style="color:var(--p)">${money(c.valorPagar)}</b></div><div style="margin-top:12px;font-size:11px;color:var(--muted)">Horista — sem hora extra, sem falta, sem INSS/IRRF/FGTS calculados por aqui.</div></div>`).join('')}</div>`:'';
+  setHTML('folhaTabela',htmlClt+htmlHorista);
 }
 function exportarColaboradoresCSV(){if(!temPermissao('rh','exportar')){toast('Sem permissão para exportar.','err');return;}exportCSV(dados.colaboradores,'colaboradores');}
 function exportarFolha(){if(!temPermissao('rh','exportar')){toast('Sem permissão para exportar.','err');return;}if(!folhaData.length){calcularFolha();}exportCSV(folhaData.map(c=>({Nome:c.nome,Cargo:c.cargo,'Salário Base':c.salario,'Horas Extras 50%':c.horas50.toFixed(1),'Valor Horas Extras 50%':c.pagamentoHE50,'Horas Extras 100% (Dom./Feriado)':c.horas100.toFixed(1),'Valor Horas Extras 100%':c.pagamentoHE100,'Salário Bruto Total':c.salarioBruto,INSS:c.inss,IRRF:c.irrf,FGTS:c.fgts,'Salário Líquido':c.liquido,'Custo Empresa':c.custo,Pix:c.pix||''})),'folha_pagamento');}
