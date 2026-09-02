@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Integrações</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+@media(max-width:768px){
+  #hambBtn{display:block!important}
+  .form-row,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr!important}
+}
+</style>
+<script src="../js/nuvix-logs.js"></script>
+<script src="../js/token-refresh.js"></script>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+
+<script>
+function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(ev){if(ev.target===this)this.classList.remove('open')})})});
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+const PAGINACAO_POR_PAGINA=20;
+const _paginaAtual={};
+function paginar(lista,chave){const p=_paginaAtual[chave]||1;const ini=(p-1)*PAGINACAO_POR_PAGINA;return lista.slice(ini,ini+PAGINACAO_POR_PAGINA);}
+function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
+  let p=_paginaAtual[chave]||1;
+  const totalPaginas=Math.max(1,Math.ceil(totalItens/PAGINACAO_POR_PAGINA));
+  if(p>totalPaginas)p=totalPaginas;
+  _paginaAtual[chave]=p;
+  const container=chave+'Paginacao';
+  if(totalPaginas<=1){setHTML(container,'');return;}
+  const btns=[];
+  for(let i=1;i<=totalPaginas;i++){
+    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  }
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+}
+function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const _h={'apikey':SUPABASE_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SUPABASE_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+const db={
+  get:async(t,q='')=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  post:async(t,d)=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
+  patch:async(t,id,d)=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j},
+  delete:async(t,id)=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:_h});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true},
+};
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+function can(area){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;return s.perfil?.toLowerCase()===area}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
+</script>
+
+<!-- ══ SIDEBAR NOVA ══ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <img src="../assets/logo.png" alt="NuvixHub" width="46" height="46">
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <!-- ══ MAIN ══ -->
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Integrações <span style="color:var(--line)">/</span> <b>Mercado Livre</b></div>
+          <div class="topbar-title">Integrações</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+
+      <!-- ══ MERCADO LIVRE — STATUS DE CONEXÃO ══ -->
+      <div class="card" id="mlCard">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:14px;align-items:center">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--p-light);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--p2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            </div>
+            <div>
+              <h2 style="margin:0">Mercado Livre</h2>
+              <p class="muted" style="margin:2px 0 0">Importe pedidos e sincronize estoque automaticamente com seus anúncios.</p>
+            </div>
+          </div>
+          <span class="badge off" id="mlStatusBadge">Verificando…</span>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div id="mlDetalhe" class="muted" style="font-size:12.5px">Carregando status da conexão...</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="mlBtnConectar" onclick="conectarML()" style="display:none">Conectar Mercado Livre</button>
+            <button class="danger" id="mlBtnDesconectar" onclick="desconectarML()" style="display:none">Desconectar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ LOJA DE REFERÊNCIA DE ESTOQUE ══ -->
+      <div class="card">
+        <h2>Loja de referência de estoque</h2>
+        <p class="muted" style="line-height:1.6;margin-bottom:12px">Qual loja do Nuvix representa o estoque anunciado no Mercado Livre? A quantidade dessa loja é o que será sincronizado com seus anúncios.</p>
+        <div class="field" style="max-width:360px">
+          <label>Loja</label>
+          <select id="mlLojaEstoque" onchange="salvarLojaEstoque()"><option value="">Selecione...</option></select>
+        </div>
+      </div>
+
+      <!-- ══ MAPEAMENTO DE PRODUTOS ══ -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Mapeamento de produtos</h2>
+          <input id="mlBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamento()" style="max-width:280px">
+        </div>
+        <p class="muted" style="margin-bottom:14px">Informe o ID do anúncio no Mercado Livre (ex: MLB1234567890) para cada produto vendido por lá. Sem esse vínculo, o produto não sincroniza estoque nem recebe pedidos automaticamente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Produto</th><th>SKU / Código</th><th>ID do anúncio (ML)</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="mlProdutosTable"></tbody>
+          </table>
+        </div>
+        <div id="mlProdutosTablePaginacao"></div>
+      </div>
+
+      <!-- ══ PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
+      <div class="card" id="mlErrosCard" style="display:none">
+        <h2>Pedidos pendentes de revisão</h2>
+        <p class="muted" style="margin-bottom:14px">O Mercado Livre notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e o próximo reenvio do Mercado Livre processa normalmente; ou marque como resolvido se já tratou manualmente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Pedido ML</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <tbody id="mlErrosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const session = requireAuth();
+let dados = { produtos:[], lojas:[], empresaAtual:{} };
+
+async function init() {
+  if (!session) return;
+  if (!guardModulo('integracoes')) return;
+  $('userName').textContent = session.nome||'';
+  $('userAvatar').textContent = initials(session.nome||'');
+  const emp = session.empresa;
+  if (emp) {
+    $('topbarSub').textContent = (emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+  }
+  tratarRetornoOAuth();
+  await loadData();
+  $('pageLoader')?.classList.add('hide');
+}
+
+// Depois do redirect de volta do ml-oauth-callback, a URL carrega ?ml=conectado|
+// erro|cancelado&motivo=... — mostra o toast certo e limpa a URL pra um F5 não
+// repetir a mensagem.
+function tratarRetornoOAuth(){
+  const params = new URLSearchParams(location.search);
+  const ml = params.get('ml');
+  if (!ml) return;
+  const MENSAGENS_ERRO = {
+    parametros_ausentes: 'O Mercado Livre não retornou os dados esperados.',
+    state_invalido: 'Não foi possível confirmar a autenticidade da conexão. Tente conectar novamente.',
+    state_expirado: 'O link de conexão expirou. Clique em "Conectar Mercado Livre" novamente.',
+    ml_nao_configurado: 'A Nuvix ainda não configurou o aplicativo do Mercado Livre para esta conta. Fale com o suporte.',
+    troca_token_falhou: 'O Mercado Livre recusou a autorização. Tente novamente.',
+    erro_interno: 'Erro inesperado ao conectar. Tente novamente.',
+  };
+  if (ml === 'conectado') toast('Mercado Livre conectado com sucesso!', 'ok');
+  else if (ml === 'cancelado') toast('Conexão cancelada.', 'err');
+  else toast(MENSAGENS_ERRO[params.get('motivo')] || 'Erro ao conectar ao Mercado Livre.', 'err');
+  history.replaceState({}, '', location.pathname);
+}
+
+async function loadData(){
+  if(!session?.empresa_id)return;
+  try{
+    const [produtos, lojas, empresaRows] = await Promise.all([
+      db.get('produtos', `?select=id,nome,sku,codigo_barras,ml_item_id,ml_sync_status,ml_sync_erro&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
+      db.get('lojas', `?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
+      db.get('empresas', `?select=id,ml_loja_estoque_id&id=eq.${session.empresa_id}`),
+    ]);
+    dados.produtos = produtos;
+    dados.lojas = lojas;
+    dados.empresaAtual = empresaRows?.[0] || {};
+    renderLojaEstoque();
+    renderMapeamento();
+  }catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
+  await carregarStatusML();
+  await carregarErrosPedidos();
+}
+
+// ══ Pedidos com erro de importação ══
+async function carregarErrosPedidos(){
+  try{
+    const erros = await db.get('ml_pedidos_erro', `?select=id,ml_order_id,erro,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.false&order=created_at.desc`);
+    const card=$('mlErrosCard');
+    if(!erros.length){ card.style.display='none'; return; }
+    card.style.display='block';
+    setHTML('mlErrosTable', erros.map(e=>`<tr>
+      <td><b>${esc(e.ml_order_id)}</b></td>
+      <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+      <td>${fmtData(e.created_at)}</td>
+      <td><button class="btn2" onclick="resolverErroPedido('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button></td>
+    </tr>`).join(''));
+  }catch(e){ console.warn('Erro ao carregar pedidos pendentes:', e); }
+}
+async function resolverErroPedido(id){
+  try{
+    await db.patch('ml_pedidos_erro', id, { resolvido:true });
+    toast('Marcado como resolvido.');
+    await carregarErrosPedidos();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Conexão OAuth ══
+async function chamarEdgeML(slug, body){
+  const token = tokenAtual();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${slug}`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY, 'Authorization':'Bearer '+(token||SUPABASE_KEY) },
+    body: JSON.stringify(body||{}),
+  });
+  let data; try { data = await r.json(); } catch(e) { throw new Error('Resposta inválida do serviço de integração.'); }
+  return data;
+}
+
+async function carregarStatusML(){
+  try{
+    const data = await chamarEdgeML('ml-status', {});
+    if (!data.ok) { renderStatusML({conectado:false}); return; }
+    renderStatusML(data);
+  }catch(e){
+    $('mlStatusBadge').textContent='Erro ao verificar';
+    $('mlStatusBadge').className='badge bad';
+    $('mlDetalhe').textContent='Não foi possível verificar o status da conexão: '+e.message;
+  }
+}
+
+function renderStatusML(data){
+  const badge=$('mlStatusBadge');
+  if (data.conectado){
+    badge.textContent='Conectado';
+    badge.className='badge ok';
+    $('mlDetalhe').textContent = `Vendedor ML: ${esc(data.ml_user_id||'—')} · conectado em ${fmtData(data.conectado_em)}`;
+    $('mlBtnConectar').style.display='none';
+    $('mlBtnDesconectar').style.display='inline-flex';
+  } else {
+    badge.textContent='Não conectado';
+    badge.className='badge off';
+    $('mlDetalhe').textContent='Conecte a conta vendedora do Mercado Livre desta empresa para começar.';
+    $('mlBtnConectar').style.display='inline-flex';
+    $('mlBtnDesconectar').style.display='none';
+  }
+}
+
+async function conectarML(){
+  if(!temPermissao('integracoes','criar')&&!temPermissao('integracoes','editar')){toast('Sem permissão para conectar integrações.','err');return;}
+  const btn=$('mlBtnConectar'); btn.disabled=true; btn.textContent='Redirecionando...';
+  try{
+    const data = await chamarEdgeML('ml-conectar', {});
+    if (data.ok && data.url){ window.location.href = data.url; return; }
+    const MENSAGENS = { ml_nao_configurado: 'A Nuvix ainda não configurou o aplicativo do Mercado Livre para esta conta. Fale com o suporte.' };
+    toast(MENSAGENS[data.erro] || ('Erro ao conectar: '+(data.erro||'')), 'err');
+  }catch(e){ toast('Erro ao conectar: '+e.message,'err'); }
+  btn.disabled=false; btn.textContent='Conectar Mercado Livre';
+}
+
+async function desconectarML(){
+  if(!temPermissao('integracoes','excluir')&&!temPermissao('integracoes','editar')){toast('Sem permissão para desconectar integrações.','err');return;}
+  if(!await confirmarAcao('Desconectar o Mercado Livre desta empresa? A sincronização de estoque e a importação de pedidos param até reconectar.',{labelOk:'Desconectar'}))return;
+  try{
+    const data = await chamarEdgeML('ml-desconectar', {});
+    if (!data.ok) throw new Error(data.erro || 'Erro desconhecido');
+    toast('Mercado Livre desconectado.');
+    await carregarStatusML();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Loja de referência de estoque ══
+function renderLojaEstoque(){
+  const sel=$('mlLojaEstoque');
+  const atual=dados.empresaAtual?.ml_loja_estoque_id||'';
+  sel.innerHTML='<option value="">Selecione...</option>'+dados.lojas.map(l=>`<option value="${l.id}" ${l.id===atual?'selected':''}>${esc(l.nome)}</option>`).join('');
+}
+async function salvarLojaEstoque(){
+  const id=val('mlLojaEstoque');
+  try{
+    await db.patch('empresas', session.empresa_id, { ml_loja_estoque_id: id||null });
+    dados.empresaAtual.ml_loja_estoque_id = id||null;
+    toast('Loja de referência salva!');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Mapeamento de produtos ══
+const ML_SYNC_LABEL = { ok:'Sincronizado', pendente:'Pendente', erro:'Erro' };
+const ML_SYNC_CLASSE = { ok:'ok', pendente:'warn', erro:'bad' };
+function renderMapeamento(){
+  const q=(val('mlBusca')||'').toLowerCase();
+  const lista=(dados.produtos||[]).filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  renderPaginacao('mlProdutosTable', lista.length, 'renderMapeamento');
+  setHTML('mlProdutosTable', paginar(lista,'mlProdutosTable').map(p=>{
+    const badge = p.ml_item_id
+      ? `<span class="badge ${ML_SYNC_CLASSE[p.ml_sync_status]||'off'}" title="${esc(p.ml_sync_erro||'')}">${ML_SYNC_LABEL[p.ml_sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem anúncio</span>';
+    return `<tr>
+      <td><b>${esc(p.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
+      <td><input id="mlItem_${p.id}" value="${esc(p.ml_item_id||'')}" placeholder="MLB..." style="max-width:170px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarMlItemId('${p.id}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhum produto encontrado.</td></tr>');
+}
+async function salvarMlItemId(id){
+  const campo=$('mlItem_'+id);
+  const v=(campo?.value||'').trim();
+  try{
+    await db.patch('produtos', id, { ml_item_id: v||null, ml_sync_status: v?'pendente':null, ml_sync_erro:null });
+    toast(v?'Vinculação salva!':'Vinculação removida.');
+    const p=dados.produtos.find(x=>x.id===id);
+    if(p){ p.ml_item_id=v||null; p.ml_sync_status=v?'pendente':null; p.ml_sync_erro=null; }
+    renderMapeamento();
+    // Sem isso, o produto só sincronizaria no PRÓXIMO movimento de estoque (a
+    // trigger do banco só dispara quando a quantidade muda) — dispara aqui pra
+    // não deixar o vínculo novo esperando uma venda pra valer.
+    if(v) await sincronizarEstoqueAgora(id);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueAgora(produtoId){
+  const lojaId = dados.empresaAtual?.ml_loja_estoque_id;
+  if(!lojaId) return; // sem loja de referência configurada ainda — nada pra sincronizar
+  try{
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${produtoId}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/ml-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produto_id: produtoId, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
+  await loadData();
+}
+
+init();
+</script>
+<script>
+// ── Sidebar dinâmica por segmento ──
+(function(){
+  try{
+    const raw = sessionStorage.getItem('nuvix_v2_session');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    const seg = (d.empresa?.segmento || d.empresa?.tipo || '').toLowerCase();
+    const nav = document.getElementById('sidebar');
+    if(!nav) return;
+
+    // Ponto x RH — funcionário que só bate ponto (permissão "folha_ponto" liberada
+    // e "rh" explicitamente negada) não deve ver "RH" no menu, só "Ponto". Mesma
+    // regra "fail-open" do resto do sistema: sem linha de permissão pro módulo,
+    // conta como liberado — então por padrão continua mostrando RH normalmente.
+    const _perfil = d.user?.perfil;
+    const _perms = d.user?.usuario_permissoes || [];
+    const temPerm = (mod,tipo) => {
+      if(_perfil==='Administrador'||_perfil==='SuperAdmin') return true;
+      const p = _perms.find(x=>x.modulo===mod);
+      return p ? !!p[`pode_${tipo}`] : true;
+    };
+    const soPonto = !temPerm('rh','ver') && temPerm('folha_ponto','ver');
+    const linkPessoasRH = soPonto
+      ? '<a class="sb-btn" href="rh.html" data-tip="Bater ponto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Ponto</span></a>'
+      : '<a class="sb-btn" href="rh.html" data-tip="RH e Colaboradores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>RH</span></a>';
+
+    const logo = nav.querySelector('.sidebar-logo');
+    const configBtn = nav.querySelector('[href="parametros.html"]')?.closest('.sb-group');
+
+    // Determine which groups to show
+    const isTransporte = seg.includes('transporte');
+    const isServico = seg.includes('serviço') || seg.includes('servico') || seg.includes('serviços') || seg.includes('prestação');
+    const isVarejo = seg.includes('venda de produto');
+    const isMista = seg.includes('mista');
+
+    // Hide all dynamic groups (keep logo and config)
+    nav.querySelectorAll('.sb-group').forEach(g => {
+      if(!g.style.marginTop) g.style.display = 'none';
+    });
+
+    // Build groups based on segment
+    let html = '';
+
+    // PRINCIPAL - always
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Principal</div>
+      <a class="sb-btn" href="dashboard.html" data-tip="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Painel</span></a>
+      <a class="sb-btn" href="financeiro.html" data-tip="Financeiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
+      <a class="sb-btn" href="notas-fiscais.html" data-tip="Notas Fiscais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>Notas Fiscais</span></a>
+      <a class="sb-btn" href="crm.html" data-tip="Comercial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Comercial</span></a>
+    </div>`;
+
+    // SERVIÇOS
+    if(isServico || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Serviços</div>
+        <a class="sb-btn" href="os.html" data-tip="Ordens de Serviço"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span>Ordens de Serviço</span></a>
+        <a class="sb-btn" href="servicos.html" data-tip="Serviços e Orçamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Serviços</span></a>
+        <a class="sb-btn" href="materiais.html" data-tip="Materiais e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Materiais</span></a>
+      </div>`;
+    }
+
+    // TRANSPORTE
+    if(isTransporte || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Transporte</div>
+        <a class="sb-btn" href="transporte.html" data-tip="Operações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Transporte</span></a>
+        <a class="sb-btn" href="cotacao.html" data-tip="Cotação de Frete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Cotação</span></a>
+      </div>`;
+    }
+
+    // VENDA DE PRODUTO — segmento isolado de propósito: não compartilha grupo com
+    // Serviços nem Transporte (só se sobrepõe pra "Mista", que faz tudo por natureza).
+    if(isVarejo || isMista){
+      html += `<div class="sb-group">
+        <div class="sb-group-label">Produtos</div>
+        <a class="sb-btn" href="produtos.html" data-tip="Produtos e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Produtos</span></a>
+        <a class="sb-btn" href="caixa.html" data-tip="Caixa (PDV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Caixa</span></a>
+        <a class="sb-btn" href="integracoes.html" data-tip="Integrações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Integrações</span></a>
+      </div>`;
+    }
+
+    // PESSOAS - always
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Pessoas</div>
+      <a class="sb-btn" href="app.html" data-tip="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></a>
+      ${linkPessoasRH}
+    </div>`;
+
+    // ANÁLISE - always
+    html += `<div class="sb-group">
+      <div class="sb-group-label">Análise</div>
+      <a class="sb-btn" href="relatorios.html" data-tip="Relatórios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Relatórios</span></a>
+    </div>`;
+
+    // Insert after logo
+    logo.insertAdjacentHTML('afterend', html);
+
+    // Filtro por permissão do funcionário — some da sidebar o módulo que o
+    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
+    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
+    // (não trava ninguém por permissão que nunca foi definida).
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','produtos.html':'produtos','caixa.html':'caixa','integracoes.html':'integracoes'};
+    const permsUser = d.user?.usuario_permissoes || [];
+    const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
+    // Módulos liberados pra ESSA EMPRESA (painel Nuvix Admin → Módulos, tabela
+    // empresa_modulos) — módulo sem linha aqui (ex: ordens_servico/servicos/
+    // notas_fiscais/cotacao, que ainda não fazem parte desse sistema) conta como
+    // liberado, mesma regra fail-open já usada pra permissão de usuário abaixo.
+    const modulosEmpresa = d.empresa?.modulos_liberados || [];
+    function podeVerModuloEmpresa(modId){
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const m=modulosEmpresa.find(x=>x.modulo===id);return m?!!m.liberado:true;});
+    }
+    function podeVerModulo(modId){
+      if(isAdminUser) return true;
+      if(!podeVerModuloEmpresa(modId)) return false;
+      const ids = Array.isArray(modId)?modId:[modId];
+      return ids.some(id=>{const p=permsUser.find(x=>x.modulo===id);return p?!!p.pode_ver:true;});
+    }
+    nav.querySelectorAll('.sb-btn').forEach(btn=>{
+      const modId = HREF_MODULO[btn.getAttribute('href')];
+      if(modId && !podeVerModulo(modId)) btn.remove();
+    });
+    nav.querySelectorAll('.sb-group').forEach(g=>{
+      if(g.style.marginTop) return;
+      if(!g.querySelector('.sb-btn')) g.remove();
+    });
+
+    // Mark active page
+    const current = window.location.pathname.split('/').pop();
+    nav.querySelectorAll('.sb-btn').forEach(btn => {
+      if(btn.getAttribute('href') === current){
+        btn.classList.add('active');
+      }
+    });
+
+  }catch(e){ console.warn('Sidebar error:', e); }
+})();
+</script>
+<script src="../js/alerta-sidebar.js"></script>
+</body>
+</html>
