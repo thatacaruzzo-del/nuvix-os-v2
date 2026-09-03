@@ -130,9 +130,16 @@ async function buscarScriptsParaEmbutir() {
 }
 async function embutirScripts(html: string): Promise<string> {
   const { jquery, qrcode } = await buscarScriptsParaEmbutir();
+  // O 2º argumento de .replace() vira uma FUNÇÃO, não uma string — isso importa de verdade.
+  // O jQuery minificado contém a sequência "$&" no próprio código dele (parte da função de
+  // escape de regex interna). Quando o 2º argumento de .replace() é uma STRING, "$&" nela é
+  // tratado como padrão especial ("cole aqui o trecho encontrado") — colava a tag <script
+  // src=...> original bem no meio do jQuery embutido, quebrando a página ali (o navegador via
+  // aquilo como fechamento de tag e o resto virava texto solto). Função como 2º argumento não
+  // tem esse problema: o valor retornado entra literal, sem nenhuma substituição de $.
   return html
-    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/jquery\.js["'][^>]*><\/script>/i, jquery ? `<script>${jquery}</script>` : '')
-    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/qrcode\.min\.js["'][^>]*><\/script>/i, qrcode ? `<script>${qrcode}</script>` : '');
+    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/jquery\.js["'][^>]*><\/script>/i, () => jquery ? `<script>${jquery}</script>` : '')
+    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/qrcode\.min\.js["'][^>]*><\/script>/i, () => qrcode ? `<script>${qrcode}</script>` : '');
 }
 
 // Injeta um botão flutuante "Imprimir" + CSS de impressão no HTML do DANFCE antes de
