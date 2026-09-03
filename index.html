@@ -353,37 +353,31 @@ async function entrar(){
       return;
     }
     if(!claims?.empresa_id){showErr('Conta sem empresa vinculada. Contate o suporte.');return;}
-    const rEmp=await fetch(`${SUPABASE_URL}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
+    const authHeaders={apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token};
+    // Empresa, permissões do usuário, limite de desconto e módulos liberados não dependem
+    // uma da outra (só do token já decodificado) — buscadas em paralelo em vez de em série.
+    // Isso é o que fazia o login demorar mais que o necessário: eram 5 chamadas de rede em
+    // fila, cada uma esperando a anterior terminar pra começar.
+    const [rEmp,usuario_permissoes,limitePct,modulos_liberados]=await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:authHeaders}),
+      // Administrador/SuperAdmin não depende de permissões (acesso completo por padrão),
+      // então erro de rede aqui não trava o login — degrada pra lista vazia.
+      fetch(`${SUPABASE_URL}/rest/v1/usuario_permissoes?usuario_id=eq.${claims.sub}&select=modulo,pode_ver,pode_criar,pode_editar,pode_excluir,pode_exportar`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      // null usa o padrão do perfil (ver limiteDescontoPct no Caixa).
+      fetch(`${SUPABASE_URL}/rest/v1/usuarios?id=eq.${claims.sub}&select=limite_desconto_pct`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      // Módulo sem linha aqui (ex: ordens_servico/servicos/notas_fiscais/cotacao, que ainda
+      // não fazem parte desse sistema) conta como liberado — mesma regra fail-open.
+      fetch(`${SUPABASE_URL}/rest/v1/empresa_modulos?empresa_id=eq.${claims.empresa_id}&select=modulo,liberado`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
     const empresa=(await rEmp.json())?.[0];
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
-    // Permissões por módulo do usuário — carregadas uma vez aqui pra não precisar
-    // buscar de novo em cada tela. Administrador/SuperAdmin não depende disso (tem
-    // acesso completo por padrão), então o erro de rede aqui não trava o login.
-    let usuario_permissoes=[];
-    try{
-      const rPerm=await fetch(`${SUPABASE_URL}/rest/v1/usuario_permissoes?usuario_id=eq.${claims.sub}&select=modulo,pode_ver,pode_criar,pode_editar,pode_excluir,pode_exportar`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
-      if(rPerm.ok)usuario_permissoes=await rPerm.json();
-    }catch(e){}
-    // Limite de desconto sem aprovação — null usa o padrão do perfil (ver limiteDescontoPct
-    // no Caixa). Buscado aqui, uma vez, junto com as permissões, pelo mesmo motivo.
-    let limite_desconto_pct=null;
-    try{
-      const rLim=await fetch(`${SUPABASE_URL}/rest/v1/usuarios?id=eq.${claims.sub}&select=limite_desconto_pct`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
-      if(rLim.ok)limite_desconto_pct=(await rLim.json())?.[0]?.limite_desconto_pct??null;
-    }catch(e){}
-    // Módulos liberados PRA ESSA EMPRESA (painel Nuvix Admin → aba Módulos, empresa_modulos)
-    // — até agora nenhuma tela consultava isso, só a permissão do usuário. Módulo sem linha
-    // aqui (ex: ordens_servico/servicos/notas_fiscais/cotacao, que ainda não fazem parte
-    // desse sistema) conta como liberado — mesma regra fail-open já usada pra permissão.
-    let modulos_liberados=[];
-    try{
-      const rMod=await fetch(`${SUPABASE_URL}/rest/v1/empresa_modulos?empresa_id=eq.${claims.empresa_id}&select=modulo,liberado`,{headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token}});
-      if(rMod.ok)modulos_liberados=await rMod.json();
-    }catch(e){}
     empresa.modulos_liberados=modulos_liberados;
+    const limite_desconto_pct=limitePct?.[0]?.limite_desconto_pct??null;
     const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix,usuario_permissoes,limite_desconto_pct};
     sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
-    await fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
+    // Log de acesso é best-effort (auditoria) e não deve atrasar o redirect — dispara sem
+    // esperar a resposta, ao contrário de antes que travava mais uma chamada antes de entrar.
+    fetch(`${SUPABASE_URL}/rest/v1/access_logs`,{method:'POST',headers:{...authHeaders,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:user.id,empresa_id:empresa.id,usuario_nome:user.nome||user.email,empresa_nome:empresa.fantasia||empresa.razao||'',modulo:'login',acao:'Login realizado',user_agent:navigator.userAgent?.slice(0,200)||null})}).catch(()=>{});
     window.location.href='pages/dashboard.html';
   }catch(e){showErr('Erro de conexão. Tente novamente.');}
   finally{btn.textContent='Entrar na Plataforma';btn.style.opacity='1';btn.disabled=false;}
