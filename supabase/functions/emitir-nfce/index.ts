@@ -107,10 +107,38 @@ async function baixarBytes(url: string, authHeader?: string) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
+// A página do DANFCE que a Focus NFe devolve carrega jQuery e qrcode.min.js de um CDN
+// deles (cloudfront.net). Em pelo menos um ambiente real de cliente, isso fazia o
+// antivírus (proteção web mais agressiva — comum em Kaspersky, ESET, Avast) "desarmar"
+// a página inteira, mostrando o HTML como texto em vez de renderizar — provavelmente por
+// carregar script de um domínio de terceiros não reconhecido. Busca os dois scripts uma
+// vez (aqui no servidor, não no navegador do cliente) e embute o conteúdo direto no HTML,
+// sem nenhum <script src> externo sobrando. Cache no módulo — só busca nos dois de novo
+// se essa instância da função for reiniciada (cold start), não a cada nota.
+let _scriptsCache: { jquery: string; qrcode: string } | null = null;
+async function buscarScriptsParaEmbutir() {
+  if (_scriptsCache) return _scriptsCache;
+  const [jq, qr] = await Promise.all([
+    baixarBytes('https://df0b2gxkwzojk.cloudfront.net/javascripts/jquery.js'),
+    baixarBytes('https://df0b2gxkwzojk.cloudfront.net/javascripts/qrcode.min.js'),
+  ]);
+  _scriptsCache = {
+    jquery: jq ? new TextDecoder().decode(jq) : '',
+    qrcode: qr ? new TextDecoder().decode(qr) : '',
+  };
+  return _scriptsCache;
+}
+async function embutirScripts(html: string): Promise<string> {
+  const { jquery, qrcode } = await buscarScriptsParaEmbutir();
+  return html
+    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/jquery\.js["'][^>]*><\/script>/i, jquery ? `<script>${jquery}</script>` : '')
+    .replace(/<script[^>]*src=["']https:\/\/df0b2gxkwzojk\.cloudfront\.net\/javascripts\/qrcode\.min\.js["'][^>]*><\/script>/i, qrcode ? `<script>${qrcode}</script>` : '');
+}
+
 // Injeta um botão flutuante "Imprimir" + CSS de impressão no HTML do DANFCE antes de
 // arquivar — a página original da Focus NFe é cross-origin, não dá pra adicionar isso
 // via JS depois; precisa entrar no HTML antes de subir pro nosso Storage.
-function injetarBotaoImprimir(html: string): string {
+async function injetarBotaoImprimir(html: string): Promise<string> {
   const bloco = `
 <style>
   #nx-imprimir-btn{position:fixed;top:12px;right:12px;z-index:9999;background:#111827;color:#fff;
@@ -121,8 +149,8 @@ function injetarBotaoImprimir(html: string): string {
 </style>
 <button id="nx-imprimir-btn" onclick="window.print()">Imprimir</button>
 `;
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${bloco}</body>`);
-  return html + bloco;
+  const comBotao = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${bloco}</body>`) : html + bloco;
+  return await embutirScripts(comBotao);
 }
 
 async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
@@ -152,7 +180,7 @@ async function arquivarDanfce(notaId: string, empresaId: string, focusData: any,
   if (focusData?.caminho_danfe) {
     const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
     if (!htmlBytes) return null;
-    const htmlComBotao = injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
+    const htmlComBotao = await injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
     await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
     // Não usa a URL direta do Storage — ela serve como text/plain (ver ver-danfce/index.ts).
     return urlVerDanfce(notaId);
