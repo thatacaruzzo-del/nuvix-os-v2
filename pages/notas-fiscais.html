@@ -490,18 +490,18 @@ async function simularErroTeste(nota){
   });
 }
 
-// Busca o HTML por fetch() e escreve direto na aba nova, em vez de navegar (window.open
-// direto pra URL) — uma navegação de página inteira passa por filtros de rede/antivírus
-// que às vezes tratam esse tipo de link diferente de uma chamada comum do sistema,
-// mostrando o código em vez da página renderizada. Mesmo motivo em pages/caixa.html.
+// Busca o HTML por fetch() e navega a aba nova pra uma Blob URL (URL.createObjectURL) —
+// não document.write(), que se mostrou pouco confiável em navegadores embutidos de app
+// (testado: WhatsApp in-app browser mostrava o HTML como texto cru em vez de renderizar,
+// mesmo com o conteúdo certo chegando). Mesmo motivo em pages/caixa.html.
 async function abrirDanfce(url){
   const janela=window.open('','_blank');
   try{
     const r=await fetch(url);
     const html=await r.text();
-    janela.document.open();
-    janela.document.write(html);
-    janela.document.close();
+    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    if(janela) janela.location.href=blobUrl;
+    else window.open(blobUrl,'_blank');
   }catch(e){
     if(janela)janela.location.href=url;
   }
