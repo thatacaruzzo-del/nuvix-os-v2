@@ -131,6 +131,18 @@ com a NFC-e autorizada corretamente.
   `empresas.inscricao_estadual`/`cnae_principal` a cada nota (a hipótese
   estava certa). Ficam configurados uma vez no cadastro do CNPJ no painel
   da Focus NFe, junto do certificado/CSC.
+- **Arquivamento local do DANFCE/XML**: estava falhando silenciosamente —
+  `sbUpload()` em `emitir-nfce/index.ts` mandava só o header `Authorization`,
+  sem `apikey`, e o gateway do Supabase rejeitava o upload antes de chegar
+  no Storage. Corrigido. A cópia que arquivamos do DANFCE (HTML) agora sai
+  com um botão "Imprimir" injetado antes de subir pro Storage — a página
+  original da Focus NFe é cross-origin, não dava pra editar depois.
+- **Cancelar venda com NFC-e emitida**: `cancelarVenda()` em `pages/caixa.html`
+  agora verifica se a venda tem NFC-e autorizada antes de mexer em
+  estoque/Financeiro. Se tiver, pede a justificativa e cancela a nota via
+  Focus NFe/SEFAZ primeiro — se a SEFAZ rejeitar (ex: prazo de cancelamento
+  expirado), a venda não é cancelada, pra nunca sobrar nota fiscal válida
+  sem venda por trás.
 
 ## Pontos em aberto — confirmar antes do primeiro teste real numa empresa NOVA
 
