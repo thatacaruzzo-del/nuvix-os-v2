@@ -138,11 +138,15 @@ com a NFC-e autorizada corretamente.
   com um botão "Imprimir" injetado antes de subir pro Storage — a página
   original da Focus NFe é cross-origin, não dava pra editar depois.
 - **Cancelar venda com NFC-e emitida**: `cancelarVenda()` em `pages/caixa.html`
-  agora verifica se a venda tem NFC-e autorizada antes de mexer em
-  estoque/Financeiro. Se tiver, pede a justificativa e cancela a nota via
-  Focus NFe/SEFAZ primeiro — se a SEFAZ rejeitar (ex: prazo de cancelamento
-  expirado), a venda não é cancelada, pra nunca sobrar nota fiscal válida
-  sem venda por trás.
+  agora verifica se a venda tem NFC-e autorizada e, se tiver, pergunta ao
+  operador (modal de 3 saídas) o que fazer: cancelar a nota junto (pede
+  justificativa, chama Focus NFe/SEFAZ — só funciona até 30min da
+  autorização, prazo padrão nacional do Ajuste SINIEF 07/18) ou cancelar só
+  a venda no sistema, deixando a nota autorizada como está (útil quando o
+  prazo de 30min já passou, ou quando a nota vai ser resolvida depois com a
+  contabilidade via cancelamento extemporâneo direto na SEFAZ). Se a SEFAZ
+  rejeitar o cancelamento da nota, pergunta se quer cancelar a venda mesmo
+  assim.
 
 ## Pontos em aberto — confirmar antes do primeiro teste real numa empresa NOVA
 
