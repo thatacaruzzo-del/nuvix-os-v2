@@ -92,6 +92,10 @@ const FORMA_PAGAMENTO_SEFAZ: Record<string, string> = {
 
 const ARQUIVOS_BUCKET = 'notas-fiscais-arquivos';
 
+function arred2(v: number) {
+  return Math.round((v + Number.EPSILON) * 100) / 100;
+}
+
 async function baixarBytes(url: string, authHeader?: string) {
   const r = await fetch(url, authHeader ? { headers: { Authorization: authHeader } } : undefined);
   if (!r.ok) return null;
@@ -114,7 +118,12 @@ async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
 async function arquivarDocumentos(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
   try {
     const updates: Record<string, unknown> = {};
-    if (focusData?.url) {
+    // NFC-e devolve o DANFCE como página HTML (caminho_danfe), não PDF direto como
+    // a NFS-e — confirmado direto na resposta real da Focus NFe.
+    if (focusData?.caminho_danfe) {
+      const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
+      if (htmlBytes) updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.html`, htmlBytes, 'text/html');
+    } else if (focusData?.url) {
       const pdfBytes = await baixarBytes(focusData.url);
       if (pdfBytes) updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.pdf`, pdfBytes, 'application/pdf');
     }
@@ -140,8 +149,16 @@ async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData
     numero: focusData?.numero || null,
     serie: focusData?.serie || null,
     chave_acesso: focusData?.chave_nfe || focusData?.chave_acesso || null,
-    link_pdf: focusData?.url || null,
+    // NFC-e não devolve um "url" direto de PDF como a NFS-e — o DANFCE vem como
+    // página HTML em caminho_danfe (confirmado direto na API: campo documentado
+    // como "url" não existe pra NFC-e, causava link_pdf sempre null).
+    link_pdf: focusData?.caminho_danfe ? `${base}${focusData.caminho_danfe}` : focusData?.url || null,
     link_xml: focusData?.caminho_xml_nota_fiscal ? `${base}${focusData.caminho_xml_nota_fiscal}` : null,
+    // URL completa do QR Code (com hash de segurança) — a impressão térmica do cupom
+    // fiscal precisa dela pra imprimir o QR de verdade, não dá pra reconstruir só com
+    // a chave de acesso (falta a versão do QR e o hash).
+    qrcode_url: focusData?.qrcode_url || null,
+    protocolo: focusData?.protocolo || null,
     mensagem_erro:
       focusData?.status === 'erro_autorizacao'
         ? focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
@@ -190,7 +207,17 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
     // adicionar aqui usando os nomes exatos da doc.
     indicador_inscricao_estadual_destinatario: 9, // 9 = não contribuinte (consumidor final)
     valor_desconto: nota.desconto_total || undefined,
-    items: itens.map((it, idx) => ({
+    items: itens.map((it, idx) => {
+      // IBS/CBS (Reforma Tributária) — base × alíquota/100, calculado aqui porque a
+      // Focus NFe exige o VALOR já pronto junto da alíquota (cbs_valor/ibs_uf_valor/
+      // ibs_mun_valor), não recalcula sozinha a partir só da alíquota. Confirmado em
+      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html — "Valor da CBS difere do
+      // calculado" era exatamente a falta desse campo.
+      const baseIbsCbs = it.cst_ibs_cbs ? Number(it.valor_total) : 0;
+      const ibsUfAliquota = 0.1; // alíquota-teste 2026 (NT RT 2025.002) — todo o IBS
+      const ibsMunAliquota = 0; // vai pra UF nesta fase; sem segregação Município ainda
+      const cbsAliquota = 0.9; // alíquota-teste 2026 (NT RT 2025.002)
+      return {
       numero_item: idx + 1,
       codigo_produto: it.produto_id || 'AVULSO',
       descricao: it.descricao,
@@ -213,20 +240,26 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
       pis_aliquota: it.aliquota_pis ?? undefined,
       cofins_aliquota: it.aliquota_cofins ?? undefined,
       // Reforma Tributária — nomes de campo confirmados via
-      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html. "IBS/CBS não
-      // informado" sem classificacao/situacao; depois "Grupo IBS/CBS não
-      // informado" mesmo com os dois — a SEFAZ parece exigir o grupo
-      // completo (base de cálculo + alíquotas), não só a classificação.
-      // Valor 0 pra empresa Simples Nacional (dispensada de calcular
-      // IBS/CBS de verdade nesta fase de transição) — confirmar se isso
-      // muda quando a Focus NFe/SEFAZ atualizarem a regra.
+      // campos.focusnfe.com.br/nfe/NotaFiscalXML.html. Simples Nacional (CRT=1) só é
+      // OBRIGADO a preencher IBS/CBS a partir de 01/2027 (NT RT 2025.002, art. 348 da
+      // LC 214/2025) — mas em 2026 o grupo já é aceito/validado em caráter opcional
+      // pra ajuste de sistemas, com as alíquotas-teste oficiais do ano: CBS 0,9% e
+      // IBS 0,1%. Mandar aliquota=0 é o que causava "Valor da CBS difere do
+      // calculado" — a SEFAZ recalcula e compara com o valor esperado pela
+      // alíquota-teste, não aceita zero. Toda a alíquota de IBS vai em
+      // ibs_uf_aliquota (0,1%) — no ano de teste o IBS ainda não está segregado
+      // entre UF/Município na prática, então ibs_mun_aliquota fica 0.
       ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
       ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
-      ibs_cbs_base_calculo: it.cst_ibs_cbs ? it.valor_total : undefined,
-      ibs_uf_aliquota: it.cst_ibs_cbs ? 0 : undefined,
-      ibs_mun_aliquota: it.cst_ibs_cbs ? 0 : undefined,
-      cbs_aliquota: it.cst_ibs_cbs ? 0 : undefined,
-    })),
+      ibs_cbs_base_calculo: it.cst_ibs_cbs ? baseIbsCbs : undefined,
+      ibs_uf_aliquota: it.cst_ibs_cbs ? ibsUfAliquota : undefined,
+      ibs_uf_valor: it.cst_ibs_cbs ? arred2((baseIbsCbs * ibsUfAliquota) / 100) : undefined,
+      ibs_mun_aliquota: it.cst_ibs_cbs ? ibsMunAliquota : undefined,
+      ibs_mun_valor: it.cst_ibs_cbs ? arred2((baseIbsCbs * ibsMunAliquota) / 100) : undefined,
+      cbs_aliquota: it.cst_ibs_cbs ? cbsAliquota : undefined,
+      cbs_valor: it.cst_ibs_cbs ? arred2((baseIbsCbs * cbsAliquota) / 100) : undefined,
+      };
+    }),
     formas_pagamento: formasPagamento.map((p) => ({
       forma_pagamento: FORMA_PAGAMENTO_SEFAZ[p.forma_pagamento] || '99',
       valor_pagamento: p.valor,

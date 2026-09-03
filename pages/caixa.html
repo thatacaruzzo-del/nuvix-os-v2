@@ -1069,7 +1069,10 @@ async function finalizarVenda(){
 let empresaFiscal={nfce_ativo:false,nfce_simulacao:false};
 async function carregarConfigFiscal(){
   try{
-    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao`);
+    // razao/cnpj/endereco vêm junto (não só nfce_ativo/nfce_simulacao) porque o
+    // cupom fiscal térmico precisa desses dados no cabeçalho — evita um fetch
+    // extra na hora de imprimir.
+    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
     if(e)empresaFiscal=e;
   }catch(e){ /* segue com nfce_ativo=false — Caixa nunca trava por causa disso */ }
 }
@@ -1115,10 +1118,17 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
     const resp=await r.json();
     if(resp.ok&&resp.nota?.status==='autorizada'){
       toast('NFC-e emitida com sucesso.','ok');
-      // DANFCE (o PDF com QR code) já vem pronto da Focus NFe — abre pra imprimir
-      // em qualquer impressora. Impressão térmica direta (ESC/POS) fica pra quando
-      // tivermos uma nota real autorizada pra calibrar o layout do cupom fiscal.
+      // DANFCE (a página com QR code) já vem pronta da Focus NFe — abre pra
+      // imprimir em qualquer impressora, sempre (é o "backup" universal, igual
+      // o cupom não-fiscal já faz). Se tiver térmica USB pareada, imprime
+      // direto nela também, calibrado com uma nota real já autorizada.
       if(resp.nota.link_pdf) window.open(resp.nota.link_pdf,'_blank');
+      if(impressoraDevice){
+        try{
+          const formasPagamentoNota=pagamentos.filter(p=>p.valor>0).map(p=>({forma_pagamento:p.forma,valor:p.valor}));
+          await imprimirNfceTermica(resp.nota,itensPayload,empresaFiscal,formasPagamentoNota);
+        }catch(e){ console.warn('Falha ao imprimir NFC-e na térmica (cupom em tela já está disponível):',e); }
+      }
       return true;
     }
     toast('Venda registrada, mas a NFC-e não foi autorizada — corrija em Notas Fiscais.','err');
@@ -1219,6 +1229,82 @@ async function imprimirCupomTermico(d){
   txt+='\n\n\n';
   const bytes=new Uint8Array([0x1B,0x40, ...enc.encode(semAcentoParaImpressora(txt)), 0x1D,0x56,0x00]);
   await impressoraDevice.transferOut(1,bytes);
+}
+
+// ══ CUPOM FISCAL (NFC-e) NA TÉRMICA ══
+// Layout calibrado contra um DANFCE simplificado real (impresso numa loja que já usa
+// NFC-e por fora do Nuvix) — mesmos blocos: identificação do emitente, itens, totais,
+// forma de pagamento, chave de acesso, protocolo/data de autorização e QR Code. O QR
+// vai pelo comando nativo GS(k de impressoras ESC/POS (padrão Epson, compatível com a
+// grande maioria — Bematech, Elgin, Daruma etc. — quando em modo de emulação ESC/POS).
+function formatarCnpjImpressora(v){
+  const d=String(v||'').replace(/\D/g,'');
+  return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):(v||'');
+}
+function formatarChaveAcessoImpressora(chave){
+  const d=String(chave||'').replace(/\D/g,'');
+  return d.match(/.{1,4}/g)?.join(' ')||(chave||'');
+}
+function qrCodeBytesImpressora(dados){
+  const d=Array.from(new TextEncoder().encode(dados));
+  const storeLen=d.length+3;
+  const pL=storeLen&0xFF, pH=(storeLen>>8)&0xFF;
+  return [
+    0x1D,0x28,0x6B,0x04,0x00,0x31,0x41,0x32,0x00, // seleciona modelo 2
+    0x1D,0x28,0x6B,0x03,0x00,0x31,0x43,0x06,      // tamanho do módulo (6)
+    0x1D,0x28,0x6B,0x03,0x00,0x31,0x45,0x31,      // correção de erro nível M
+    0x1D,0x28,0x6B,pL,pH,0x31,0x50,0x30, ...d,    // armazena os dados do QR
+    0x1D,0x28,0x6B,0x03,0x00,0x31,0x51,0x30,      // imprime o QR armazenado
+  ];
+}
+async function imprimirNfceTermica(nota,itens,empresa,formasPagamento){
+  const enc=new TextEncoder();
+  const CENTER=[0x1B,0x61,0x01], LEFT=[0x1B,0x61,0x00];
+  const bytes=[0x1B,0x40, ...CENTER]; // ESC @ (reset) + centralizado
+  const addLine=(s='')=>bytes.push(...enc.encode(semAcentoParaImpressora(s)+'\n'));
+
+  const emp=empresa||{};
+  const endereco=[emp.endereco_logradouro,emp.endereco_numero,emp.endereco_bairro,emp.cidade,emp.endereco_uf].filter(Boolean).join(', ');
+  addLine(emp.razao||emp.fantasia||'');
+  addLine('CNPJ '+formatarCnpjImpressora(emp.cnpj));
+  if(endereco) addLine(endereco);
+  addLine('Documento Auxiliar da Nota Fiscal de');
+  addLine('Consumidor Eletronica');
+
+  bytes.push(...LEFT);
+  addLine('--------------------------------');
+  itens.forEach(it=>{
+    addLine(it.descricao);
+    addLine(`  ${it.quantidade} ${it.unidade_medida||'UN'} x ${money(it.valor_unitario)} = ${money(it.valor_total)}`);
+  });
+  addLine('--------------------------------');
+  addLine(`Qtde. total de itens: ${itens.length}`);
+  addLine(`Valor total R$: ${money(nota.valor_total)}`);
+  if(nota.desconto_total>0) addLine(`Desconto R$: ${money(nota.desconto_total)}`);
+  addLine(`Valor a pagar: ${money(Number(nota.valor_total)-Number(nota.desconto_total||0))}`);
+  addLine('');
+  formasPagamento.forEach(p=>addLine(`${p.forma_pagamento}: ${money(p.valor)}`));
+  addLine('');
+
+  bytes.push(...CENTER);
+  addLine('Consulte pela Chave de Acesso em');
+  // Portal de consulta pública é por estado (cada UF hospeda o seu) — fixo em SP
+  // porque é o único estado em uso até agora (YUP). Se entrar cliente de outro
+  // estado, trocar por uma tabela UF→URL antes de ativar NFC-e pra ele. A
+  // verificação de verdade não depende disso: o QR Code (nota.qrcode_url) já vem
+  // pronto e correto direto da Focus NFe, isso aqui é só o texto de apoio.
+  addLine(empresa?.endereco_uf==='SP'||!empresa?.endereco_uf?'www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica':'consulte a nota pelo QR Code acima');
+  addLine(formatarChaveAcessoImpressora(nota.chave_acesso));
+  addLine('');
+  addLine(nota.cliente_nome||'CONSUMIDOR NAO IDENTIFICADO');
+  addLine(`NFC-e no ${nota.numero} Serie: ${nota.serie}`);
+  if(nota.protocolo) addLine(`Protocolo de autorizacao: ${nota.protocolo}`);
+  if(nota.data_emissao) addLine(`Data de autorizacao: ${new Date(nota.data_emissao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}`);
+  addLine('');
+
+  if(nota.qrcode_url) bytes.push(...qrCodeBytesImpressora(nota.qrcode_url));
+  bytes.push(0x0A,0x0A,0x0A, 0x1D,0x56,0x00); // avança papel + corte total
+  await impressoraDevice.transferOut(1,new Uint8Array(bytes));
 }
 
 // ══ FECHAMENTO DE CAIXA ══
