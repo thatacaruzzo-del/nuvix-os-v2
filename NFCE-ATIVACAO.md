@@ -137,6 +137,13 @@ com a NFC-e autorizada corretamente.
   no Storage. Corrigido. A cópia que arquivamos do DANFCE (HTML) agora sai
   com um botão "Imprimir" injetado antes de subir pro Storage — a página
   original da Focus NFe é cross-origin, não dava pra editar depois.
+- **Cancelamento de NFC-e sempre falhava**: `acao: 'cancelar'` mandava a
+  justificativa na query string do DELETE (`?justificativa=...`) — a Focus
+  NFe rejeita esse endpoint com 415 "requisição vazia quando eram esperados
+  dados" nesse formato. Testado direto contra a API real: precisa ir no
+  corpo JSON (`{"justificativa": "..."}`). Toda tentativa de cancelamento
+  até 03/09/2026 falhava por causa disso — corrigido em
+  `supabase/functions/emitir-nfce/index.ts`.
 - **Cancelar venda com NFC-e emitida**: `cancelarVenda()` em `pages/caixa.html`
   agora verifica se a venda tem NFC-e autorizada e, se tiver, pergunta ao
   operador (modal de 3 saídas) o que fazer: cancelar a nota junto (pede
