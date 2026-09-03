@@ -130,6 +130,14 @@ async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/${ARQUIVOS_BUCKET}/${path}`;
 }
 
+// O Supabase Storage reescreve Content-Type: text/html pra text/plain em buckets
+// públicos (proteção deles contra phishing hospedado lá) — abrir o link direto do
+// Storage mostra o código fonte em vez de renderizar. A função ver-danfce serve o
+// mesmo arquivo com o Content-Type certo.
+function urlVerDanfce(notaId: string) {
+  return `${SUPABASE_URL}/functions/v1/ver-danfce?id=${notaId}`;
+}
+
 // Mesmo motivo que em emitir-nfse: o link que a Focus NFe devolve é
 // hospedado por ELES — arquivamos uma cópia (DANFCE em PDF + XML) assim
 // que a nota é autorizada, pra não depender da retenção deles.
@@ -142,7 +150,9 @@ async function arquivarDocumentos(notaId: string, empresaId: string, focusData: 
       const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
       if (htmlBytes) {
         const htmlComBotao = injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
-        updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
+        await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
+        // Não usa a URL direta do Storage — ela serve como text/plain (ver ver-danfce/index.ts).
+        updates.link_pdf = urlVerDanfce(notaId);
       }
     } else if (focusData?.url) {
       const pdfBytes = await baixarBytes(focusData.url);
