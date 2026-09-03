@@ -490,9 +490,25 @@ async function simularErroTeste(nota){
   });
 }
 
+// Busca o HTML por fetch() e escreve direto na aba nova, em vez de navegar (window.open
+// direto pra URL) — uma navegação de página inteira passa por filtros de rede/antivírus
+// que às vezes tratam esse tipo de link diferente de uma chamada comum do sistema,
+// mostrando o código em vez da página renderizada. Mesmo motivo em pages/caixa.html.
+async function abrirDanfce(url){
+  const janela=window.open('','_blank');
+  try{
+    const r=await fetch(url);
+    const html=await r.text();
+    janela.document.open();
+    janela.document.write(html);
+    janela.document.close();
+  }catch(e){
+    if(janela)janela.location.href=url;
+  }
+}
 function verImprimir(){
   if(!notaAtual)return;
-  if(notaAtual.link_pdf){window.open(notaAtual.link_pdf,'_blank');return;}
+  if(notaAtual.link_pdf){abrirDanfce(notaAtual.link_pdf);return;}
   const emp=session.empresa||{};
   const html=tipoAtual==='nfce'?`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NFC-e ${esc(notaAtual.numero||'')}</title>
   <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>

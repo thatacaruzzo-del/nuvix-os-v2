@@ -116,6 +116,23 @@ function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>
 function escolherAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';actions.style.flexDirection='column';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.style.width='100%';btnCancel.textContent=opts.labelCancelar||'Voltar';function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}function onKey(e){if(e.key==='Escape')finish(null)}(opts.botoes||[]).forEach(b=>{const btn=document.createElement('button');btn.type='button';btn.className='nx-confirm-ok '+(b.variante||'neutro');btn.style.width='100%';btn.textContent=b.label;btn.onclick=()=>finish(b.valor);actions.append(btn);});actions.append(btnCancel);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);btnCancel.onclick=()=>finish(null);overlay.onclick=e=>{if(e.target===overlay)finish(null)};document.addEventListener('keydown',onKey);})}
 function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('textarea');input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';input.rows=3;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);input.focus();function onKey(e){if(e.key==='Escape')finish(null)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value.trim());document.addEventListener('keydown',onKey);})}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+// Abre o DANFCE (comprovante da NFC-e) buscando o HTML por fetch() e escrevendo direto
+// na aba nova, em vez de navegar (window.open direto pra URL) — uma navegação de página
+// inteira passa por filtros de rede/antivírus que às vezes tratam esse tipo de link
+// diferente de uma chamada comum do sistema, mostrando o código em vez da página
+// renderizada. fetch() usa o mesmo caminho que o resto do Caixa já usa sem problema.
+async function abrirDanfce(url){
+  const janela=window.open('','_blank');
+  try{
+    const r=await fetch(url);
+    const html=await r.text();
+    janela.document.open();
+    janela.document.write(html);
+    janela.document.close();
+  }catch(e){
+    if(janela)janela.location.href=url; // fallback: navegação direta, se o fetch falhar
+  }
+}
 
 const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
@@ -1136,7 +1153,7 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
       // imprimir em qualquer impressora, sempre (é o "backup" universal, igual
       // o cupom não-fiscal já faz). Se tiver térmica USB pareada, imprime
       // direto nela também, calibrado com uma nota real já autorizada.
-      if(resp.nota.link_pdf) window.open(resp.nota.link_pdf,'_blank');
+      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf);
       if(impressoraDevice){
         try{
           const formasPagamentoNota=pagamentos.filter(p=>p.valor>0).map(p=>({forma_pagamento:p.forma,valor:p.valor}));
