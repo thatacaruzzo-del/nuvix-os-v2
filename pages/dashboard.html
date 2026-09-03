@@ -526,6 +526,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- VENDAS — quanto vendi? (só aparece pra segmento Venda de Produto / Mista) -->
       <div class="pane" id="pane-vendas">
         <div class="kpi-grid-4" id="vendasKpis"></div>
+        <!-- Só aparece se a empresa vender por mais de 1 canal (Loja + Mercado Livre/
+        Nuvemshop) — decidido pelos dados já carregados, sem consulta extra. Pra quem
+        só vende na loja física, mostrar isso seria ruído. -->
+        <div class="recent-grid" id="vendasPorCanalWrap" style="margin-top:16px;display:none">
+          <div class="recent-card" style="grid-column:1/-1">
+            <div class="recent-hdr">
+              <h3>Vendas por canal</h3>
+            </div>
+            <div class="recent-body" id="vendasPorCanal"></div>
+          </div>
+        </div>
         <div class="recent-grid" style="margin-top:16px">
           <div class="recent-card" style="grid-column:1/-1">
             <div class="recent-hdr">
@@ -755,7 +766,7 @@ async function loadData(){
     // >1000 linhas descrito no comentário acima). Em vez disso, encadeia na promise de
     // `vendas` (que já é filtrada por período) e busca só os itens dessas vendas — sai
     // dentro do mesmo Promise.all, sem virar mais uma espera em série.
-    const vendasPromise = (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at&empresa_id=eq.${session.empresa_id}&created_at=gte.${cutoff}`).catch(()=>[]) : Promise.resolve([]);
+    const vendasPromise = (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at,canal&empresa_id=eq.${session.empresa_id}&created_at=gte.${cutoff}`).catch(()=>[]) : Promise.resolve([]);
     const itensVendaPromise = (isVarejo||isMista) ? vendasPromise.then(vs=>{
       const ids=vs.map(v=>v.id);
       if(!ids.length) return [];
@@ -851,9 +862,35 @@ function calcVendasSetor(de,ate){
   const ticketMedio=numVendas?faturamento/numVendas:0;
   return {faturamento,numVendas,ticketMedio};
 }
+// Agrupa por canal (Loja/Mercado Livre/Nuvemshop) em vez de somar tudo junto —
+// mesmo filtro de período que calcVendasSetor.
+function calcVendasPorCanal(de,ate){
+  const periodo_=(dados.vendas||[]).filter(v=>{const dt=String(v.created_at||'').slice(0,10);return dt>=de&&dt<=ate;});
+  const porCanal={};
+  periodo_.forEach(v=>{
+    const canal=v.canal||'Loja';
+    if(!porCanal[canal])porCanal[canal]={faturamento:0,numVendas:0};
+    porCanal[canal].faturamento+=Number(v.total||0);
+    porCanal[canal].numVendas++;
+  });
+  return porCanal;
+}
+function renderVendasPorCanal(de,ate){
+  // Só mostra se a empresa realmente vende por mais de 1 canal — decide pelos
+  // dados já carregados (últimos 400 dias), sem consulta extra só pra isso.
+  const canaisConhecidos=new Set((dados.vendas||[]).map(v=>v.canal||'Loja'));
+  const wrap=$('vendasPorCanalWrap');
+  if(canaisConhecidos.size<2){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  const porCanal=calcVendasPorCanal(de,ate);
+  const linhas=Object.entries(porCanal).sort((a,b)=>b[1].faturamento-a[1].faturamento);
+  setHTML('vendasPorCanal', linhas.length ? linhas.map(([canal,d])=>`<div class="top-row">${avatarHTML(canal)}<span class="top-name">${esc(canal)}</span><span class="top-val">${money(d.faturamento)} · ${d.numVendas} venda${d.numVendas!==1?'s':''}</span></div>`).join('')
+    : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nenhuma venda no período</div>');
+}
 function renderVendas(){
   const de=periodo.de||hoje(), ate=periodo.ate||hoje();
   const v=calcVendasSetor(de,ate);
+  renderVendasPorCanal(de,ate);
   const hj=hoje();
   const hoje_=calcVendasSetor(hj,hj);
   setHTML('vendasKpis', kpiCardsHTML([
