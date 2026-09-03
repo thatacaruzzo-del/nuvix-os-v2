@@ -166,13 +166,61 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      <!-- ══ NUVEMSHOP — LOJAS CONECTADAS ══ -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:14px;align-items:center">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--p-light);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--p2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            </div>
+            <div>
+              <h2 style="margin:0">Nuvemshop</h2>
+              <p class="muted" style="margin:2px 0 0">Importe pedidos e sincronize estoque e preço automaticamente com suas lojas. Uma empresa pode conectar mais de uma loja.</p>
+            </div>
+          </div>
+          <button class="btn" id="nsBtnConectar" onclick="conectarNS()">Conectar nova loja</button>
+        </div>
+        <div id="nsLojasLista" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px"></div>
+      </div>
+
+      <!-- ══ NUVEMSHOP — MAPEAMENTO DE PRODUTOS ══ -->
+      <div class="card" id="nsMapeamentoCard" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Mapeamento de produtos — Nuvemshop</h2>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <select id="nsMapLojaSelect" onchange="renderMapeamentoNS()" style="max-width:220px"></select>
+            <input id="nsBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoNS()" style="max-width:260px">
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:14px">Informe o ID do produto e o ID da variante na Nuvemshop pra cada item vendido por lá — mesmo produto sem variação de tamanho/cor também tem 1 variante na Nuvemshop, é ela que carrega estoque/preço. Sem esse vínculo, o produto não sincroniza nem recebe pedidos automaticamente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Produto</th><th>SKU / Código</th><th>ID produto (Nuvemshop)</th><th>ID variante (Nuvemshop)</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="nsProdutosTable"></tbody>
+          </table>
+        </div>
+        <div id="nsProdutosTablePaginacao"></div>
+      </div>
+
+      <!-- ══ NUVEMSHOP — PEDIDOS COM ERRO ══ -->
+      <div class="card" id="nsErrosCard" style="display:none">
+        <h2>Pedidos Nuvemshop pendentes de revisão</h2>
+        <p class="muted" style="margin-bottom:14px">A Nuvemshop notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e o próximo reenvio processa normalmente; ou marque como resolvido se já tratou manualmente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Pedido</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <tbody id="nsErrosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
 const session = requireAuth();
-let dados = { produtos:[], lojas:[], empresaAtual:{} };
+let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[] };
 
 async function init() {
   if (!session) return;
@@ -185,6 +233,7 @@ async function init() {
     if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
   }
   tratarRetornoOAuth();
+  tratarRetornoOAuthNS();
   await loadData();
   $('pageLoader')?.classList.add('hide');
 }
@@ -226,6 +275,7 @@ async function loadData(){
   }catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
   await carregarStatusML();
   await carregarErrosPedidos();
+  await carregarStatusNS();
 }
 
 // ══ Pedidos com erro de importação ══
@@ -376,6 +426,239 @@ async function sincronizarEstoqueAgora(produtoId){
     });
   }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
   await loadData();
+}
+
+// ══ NUVEMSHOP ══
+// Uma empresa pode ter mais de uma loja conectada (diferente do ML) — ver
+// NUVEMSHOP-ATIVACAO.md pro porquê disso e do fluxo de conexão em 2 etapas.
+async function chamarEdgeNS(slug, body){
+  const token = tokenAtual();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${slug}`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY, 'Authorization':'Bearer '+(token||SUPABASE_KEY) },
+    body: JSON.stringify(body||{}),
+  });
+  let data; try { data = await r.json(); } catch(e) { throw new Error('Resposta inválida do serviço de integração.'); }
+  return data;
+}
+
+// Depois do redirect de volta do nuvemshop-oauth-callback, a URL carrega
+// ?nuvemshop=erro&motivo=... (falha) OU ?nuvemshop_pendente=<id> (sucesso,
+// falta reivindicar — ver nuvemshop-vincular pro porquê dessa etapa extra).
+function tratarRetornoOAuthNS(){
+  const params = new URLSearchParams(location.search);
+  const pendente = params.get('nuvemshop_pendente');
+  if(pendente){ vincularNS(pendente); return; }
+  const ns = params.get('nuvemshop');
+  if (!ns) return;
+  const MENSAGENS_ERRO = {
+    parametros_ausentes: 'A Nuvemshop não retornou os dados esperados.',
+    nuvemshop_nao_configurado: 'A Nuvix ainda não configurou o aplicativo da Nuvemshop para esta conta. Fale com o suporte.',
+    troca_token_falhou: 'A Nuvemshop recusou a autorização. Tente novamente.',
+    erro_interno: 'Erro inesperado ao conectar. Tente novamente.',
+  };
+  toast(MENSAGENS_ERRO[params.get('motivo')] || 'Erro ao conectar à Nuvemshop.', 'err');
+  history.replaceState({}, '', location.pathname);
+}
+async function vincularNS(stagingId){
+  try{
+    const data = await chamarEdgeNS('nuvemshop-vincular', {staging_id: stagingId});
+    history.replaceState({}, '', location.pathname);
+    if(!data.ok){
+      const MENSAGENS = {
+        instalacao_nao_encontrada: 'Não foi possível concluir a conexão — tente conectar novamente.',
+        instalacao_expirada: 'A conexão expirou antes de você confirmar. Tente conectar novamente.',
+        loja_ja_conectada_outra_empresa: 'Essa loja Nuvemshop já está conectada a outra empresa no Nuvix.',
+      };
+      toast(MENSAGENS[data.erro] || ('Erro ao conectar: '+(data.erro||'')), 'err');
+    }else{
+      toast('Loja Nuvemshop conectada com sucesso!', 'ok');
+    }
+  }catch(e){ toast('Erro ao conectar: '+e.message,'err'); history.replaceState({}, '', location.pathname); }
+  await carregarStatusNS();
+}
+
+async function conectarNS(){
+  if(!temPermissao('integracoes','criar')&&!temPermissao('integracoes','editar')){toast('Sem permissão para conectar integrações.','err');return;}
+  const btn=$('nsBtnConectar'); btn.disabled=true; btn.textContent='Redirecionando...';
+  try{
+    const data = await chamarEdgeNS('nuvemshop-conectar', {});
+    if (data.ok && data.url){ window.location.href = data.url; return; }
+    const MENSAGENS = { nuvemshop_nao_configurado: 'A Nuvix ainda não configurou o aplicativo da Nuvemshop para esta conta. Fale com o suporte.' };
+    toast(MENSAGENS[data.erro] || ('Erro ao conectar: '+(data.erro||'')), 'err');
+  }catch(e){ toast('Erro ao conectar: '+e.message,'err'); }
+  btn.disabled=false; btn.textContent='Conectar nova loja';
+}
+
+async function desconectarNS(credencialId){
+  if(!temPermissao('integracoes','excluir')&&!temPermissao('integracoes','editar')){toast('Sem permissão para desconectar integrações.','err');return;}
+  if(!await confirmarAcao('Desconectar esta loja Nuvemshop? A sincronização de estoque/preço e a importação de pedidos param até reconectar.',{labelOk:'Desconectar'}))return;
+  try{
+    const data = await chamarEdgeNS('nuvemshop-desconectar', {credencial_id: credencialId});
+    if (!data.ok) throw new Error(data.erro || 'Erro desconhecido');
+    toast('Loja Nuvemshop desconectada.');
+    await carregarStatusNS();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function carregarStatusNS(){
+  try{
+    const data = await chamarEdgeNS('nuvemshop-status', {});
+    dados.nsLojas = (data.ok && data.lojas) ? data.lojas : [];
+  }catch(e){ dados.nsLojas = []; }
+  renderLojasNS();
+  renderMapLojaSelectNS();
+  await renderMapeamentoNS();
+  await carregarErrosNS();
+}
+
+function renderLojasNS(){
+  const el = $('nsLojasLista');
+  if(!dados.nsLojas.length){
+    el.innerHTML = '<div class="muted" style="text-align:center;font-size:12.5px;padding:8px 0">Nenhuma loja Nuvemshop conectada ainda.</div>';
+    return;
+  }
+  el.innerHTML = dados.nsLojas.map(l=>{
+    const lojaOpts = dados.lojas.map(lj=>`<option value="${lj.id}" ${lj.id===l.loja_estoque_id?'selected':''}>${esc(lj.nome)}</option>`).join('');
+    return `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-weight:700">${esc(l.nome_loja||('Loja '+l.store_id))}</div>
+        <div class="muted" style="font-size:12px">ID ${esc(l.store_id)} · conectada em ${fmtData(l.conectado_em)}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="field" style="margin:0;min-width:190px">
+          <label style="font-size:11px">Loja de referência de estoque</label>
+          <select onchange="salvarLojaEstoqueNS('${l.id}', this.value)"><option value="">Selecione...</option>${lojaOpts}</select>
+        </div>
+        <button class="danger" style="font-size:12px;padding:8px 12px" onclick="desconectarNS('${l.id}')">Desconectar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function salvarLojaEstoqueNS(credencialId, lojaId){
+  try{
+    const data = await chamarEdgeNS('nuvemshop-atualizar-loja-estoque', {credencial_id: credencialId, loja_estoque_id: lojaId||null});
+    if(!data.ok) throw new Error(data.erro||'Erro desconhecido');
+    const l = dados.nsLojas.find(x=>x.id===credencialId);
+    if(l) l.loja_estoque_id = lojaId||null;
+    toast('Loja de referência salva!');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Mapeamento de produtos — Nuvemshop ══
+// Tabela própria (produto_nuvemshop_mapeamento), não colunas soltas em
+// produtos como no ML — permite o mesmo produto estar publicado em mais de
+// uma loja Nuvemshop da empresa, cada uma com seu próprio vínculo/status.
+function renderMapLojaSelectNS(){
+  const sel = $('nsMapLojaSelect');
+  const card = $('nsMapeamentoCard');
+  if(!dados.nsLojas.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  const atual = sel.value;
+  sel.innerHTML = dados.nsLojas.map(l=>`<option value="${l.id}">${esc(l.nome_loja||('Loja '+l.store_id))}</option>`).join('');
+  if(atual && dados.nsLojas.some(l=>l.id===atual)) sel.value = atual;
+}
+
+const NS_SYNC_LABEL = { ok:'Sincronizado', pendente:'Pendente', erro:'Erro' };
+const NS_SYNC_CLASSE = { ok:'ok', pendente:'warn', erro:'bad' };
+let _nsMapeamentosCache = {};
+async function renderMapeamentoNS(){
+  if(!dados.nsLojas.length) return;
+  const credencialId = val('nsMapLojaSelect') || dados.nsLojas[0]?.id;
+  if(!credencialId) return;
+  if(!_nsMapeamentosCache[credencialId]){
+    try{
+      _nsMapeamentosCache[credencialId] = await db.get('produto_nuvemshop_mapeamento', `?nuvemshop_credencial_id=eq.${credencialId}&select=id,produto_id,nuvemshop_produto_id,nuvemshop_variante_id,sync_status,sync_erro`);
+    }catch(e){ _nsMapeamentosCache[credencialId]=[]; }
+  }
+  const mapeamentos = _nsMapeamentosCache[credencialId];
+  const porProdutoId = {}; mapeamentos.forEach(m=>{ porProdutoId[m.produto_id]=m; });
+
+  const q=(val('nsBusca')||'').toLowerCase();
+  const lista=(dados.produtos||[]).filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  renderPaginacao('nsProdutosTable', lista.length, 'renderMapeamentoNS');
+  setHTML('nsProdutosTable', paginar(lista,'nsProdutosTable').map(p=>{
+    const m = porProdutoId[p.id];
+    const badge = m
+      ? `<span class="badge ${NS_SYNC_CLASSE[m.sync_status]||'off'}" title="${esc(m.sync_erro||'')}">${NS_SYNC_LABEL[m.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem vínculo</span>';
+    return `<tr>
+      <td><b>${esc(p.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
+      <td><input id="nsProd_${p.id}" value="${esc(m?.nuvemshop_produto_id||'')}" placeholder="ID produto" style="max-width:130px"></td>
+      <td><input id="nsVar_${p.id}" value="${esc(m?.nuvemshop_variante_id||'')}" placeholder="ID variante" style="max-width:130px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarMapeamentoNS('${p.id}','${credencialId}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum produto encontrado.</td></tr>');
+}
+async function salvarMapeamentoNS(produtoId, credencialId){
+  const nsProdutoId = ($('nsProd_'+produtoId)?.value||'').trim();
+  const nsVarianteId = ($('nsVar_'+produtoId)?.value||'').trim();
+  try{
+    const mapeamentos = _nsMapeamentosCache[credencialId]||[];
+    const existente = mapeamentos.find(m=>m.produto_id===produtoId);
+    if(!nsVarianteId){
+      if(existente){
+        await db.delete('produto_nuvemshop_mapeamento', existente.id);
+        _nsMapeamentosCache[credencialId] = mapeamentos.filter(m=>m.id!==existente.id);
+        toast('Vinculação removida.');
+      }
+      await renderMapeamentoNS();
+      return;
+    }
+    if(existente){
+      await db.patch('produto_nuvemshop_mapeamento', existente.id, { nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId, sync_status:'pendente', sync_erro:null });
+      existente.nuvemshop_produto_id = nsProdutoId||null; existente.nuvemshop_variante_id = nsVarianteId; existente.sync_status='pendente'; existente.sync_erro=null;
+    }else{
+      const novo = await db.post('produto_nuvemshop_mapeamento', withEmpresa({ produto_id: produtoId, nuvemshop_credencial_id: credencialId, nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId, sync_status:'pendente' }));
+      _nsMapeamentosCache[credencialId].push(Array.isArray(novo)?novo[0]:novo);
+    }
+    toast('Vinculação salva!');
+    await renderMapeamentoNS();
+    // Sem isso, o produto só sincronizaria no PRÓXIMO movimento de estoque —
+    // mesmo motivo de sincronizarEstoqueAgora() no bloco do ML acima.
+    await sincronizarEstoqueAgoraNS(produtoId, credencialId);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueAgoraNS(produtoId, credencialId){
+  const cred = dados.nsLojas.find(l=>l.id===credencialId);
+  const lojaId = cred?.loja_estoque_id;
+  if(!lojaId) return; // sem loja de referência configurada ainda — nada pra sincronizar
+  try{
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${produtoId}&loja_id=eq.${lojaId}&select=quantidade`);
+    const mapeamento = (_nsMapeamentosCache[credencialId]||[]).find(m=>m.produto_id===produtoId);
+    if(!mapeamento) return;
+    await fetch(`${SUPABASE_URL}/functions/v1/nuvemshop-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mapeamento_id: mapeamento.id, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
+  delete _nsMapeamentosCache[credencialId];
+  await renderMapeamentoNS();
+}
+
+// ══ Pedidos com erro — Nuvemshop ══
+async function carregarErrosNS(){
+  try{
+    const erros = await db.get('nuvemshop_pedidos_erro', `?select=id,nuvemshop_order_id,erro,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.false&order=created_at.desc`);
+    const card=$('nsErrosCard');
+    if(!erros.length){ card.style.display='none'; return; }
+    card.style.display='block';
+    setHTML('nsErrosTable', erros.map(e=>`<tr>
+      <td><b>${esc(e.nuvemshop_order_id)}</b></td>
+      <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+      <td>${fmtData(e.created_at)}</td>
+      <td><button class="btn2" onclick="resolverErroPedidoNS('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button></td>
+    </tr>`).join(''));
+  }catch(e){ console.warn('Erro ao carregar pedidos pendentes Nuvemshop:', e); }
+}
+async function resolverErroPedidoNS(id){
+  try{
+    await db.patch('nuvemshop_pedidos_erro', id, { resolvido:true });
+    toast('Marcado como resolvido.');
+    await carregarErrosNS();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
 init();
