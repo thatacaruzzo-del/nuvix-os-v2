@@ -102,10 +102,28 @@ async function baixarBytes(url: string, authHeader?: string) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
+// Injeta um botão flutuante "Imprimir" + CSS de impressão no HTML do DANFCE antes de
+// arquivar — a página original da Focus NFe é cross-origin, não dá pra adicionar isso
+// via JS depois; precisa entrar no HTML antes de subir pro nosso Storage.
+function injetarBotaoImprimir(html: string): string {
+  const bloco = `
+<style>
+  #nx-imprimir-btn{position:fixed;top:12px;right:12px;z-index:9999;background:#111827;color:#fff;
+    border:none;border-radius:8px;padding:10px 18px;font:600 14px system-ui,sans-serif;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+  #nx-imprimir-btn:hover{background:#1f2937}
+  @media print{#nx-imprimir-btn{display:none!important}}
+</style>
+<button id="nx-imprimir-btn" onclick="window.print()">Imprimir</button>
+`;
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${bloco}</body>`);
+  return html + bloco;
+}
+
 async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
   const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${ARQUIVOS_BUCKET}/${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': contentType, 'x-upsert': 'true' },
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': contentType, 'x-upsert': 'true' },
     body: bytes,
   });
   if (!r.ok) throw new Error(`Storage upload falhou: ${await r.text()}`);
@@ -122,7 +140,10 @@ async function arquivarDocumentos(notaId: string, empresaId: string, focusData: 
     // a NFS-e — confirmado direto na resposta real da Focus NFe.
     if (focusData?.caminho_danfe) {
       const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
-      if (htmlBytes) updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.html`, htmlBytes, 'text/html');
+      if (htmlBytes) {
+        const htmlComBotao = injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
+        updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
+      }
     } else if (focusData?.url) {
       const pdfBytes = await baixarBytes(focusData.url);
       if (pdfBytes) updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.pdf`, pdfBytes, 'application/pdf');
