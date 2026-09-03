@@ -109,6 +109,7 @@ function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
 function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 
 const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
@@ -1053,7 +1054,7 @@ async function finalizarVenda(){
       // só significa que sai o cupom não-fiscal em vez do fiscal.
       let nfceOk=false;
       if(empresaFiscal.nfce_ativo){
-        const querEmitir=confirm('Emitir NFC-e desta venda?\n\n(Cancelar = não emitir agora, sai o cupom não-fiscal em vez disso)');
+        const querEmitir=await confirmarAcao('Emitir NFC-e desta venda? Se não emitir agora, sai o cupom não-fiscal em vez disso.',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
         if(querEmitir) nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef);
       }
       if(!nfceOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
