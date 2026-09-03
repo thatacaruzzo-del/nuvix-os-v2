@@ -1311,9 +1311,14 @@ async function imprimirNfceTermica(nota,itens,empresa,formasPagamento){
   addLine('--------------------------------');
   addLine(`Qtde. total de itens: ${itens.length}`);
   addLine(`Valor total R$: ${money(nota.valor_total)}`);
-  if(nota.desconto_total>0) addLine(`Desconto R$: ${money(nota.desconto_total)}`);
+  addLine(`Desconto R$: ${money(nota.desconto_total||0)}`);
+  // Acréscimos sempre 0 — o sistema não tem esse conceito (só desconto) — mas o
+  // NuvixHub segue o mesmo formato de campos que outros ERPs de mercado já usam,
+  // pra ficar reconhecível pra quem troca de sistema.
+  addLine(`Acrescimos R$: ${money(0)}`);
   addLine(`Valor a pagar: ${money(Number(nota.valor_total)-Number(nota.desconto_total||0))}`);
   addLine('');
+  addLine('FORMA DE PAGAMENTO');
   formasPagamento.forEach(p=>addLine(`${p.forma_pagamento}: ${money(p.valor)}`));
   addLine('');
 
