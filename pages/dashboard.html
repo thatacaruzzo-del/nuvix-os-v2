@@ -749,6 +749,18 @@ async function loadData(){
   const cutoff=(()=>{const d=new Date();d.setDate(d.getDate()-400);return dataLocal(d);})();
   const qRecente = `${q}&created_at=gte.${cutoff}`;
   try{
+    // itens_venda não tem coluna de data própria — não dava pra aplicar o mesmo corte de
+    // 400 dias que as outras consultas usam, então buscava TODOS os itens de venda da
+    // empresa desde sempre, sem limite (mesmo risco de corte silencioso do PostgREST em
+    // >1000 linhas descrito no comentário acima). Em vez disso, encadeia na promise de
+    // `vendas` (que já é filtrada por período) e busca só os itens dessas vendas — sai
+    // dentro do mesmo Promise.all, sem virar mais uma espera em série.
+    const vendasPromise = (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at&empresa_id=eq.${session.empresa_id}&created_at=gte.${cutoff}`).catch(()=>[]) : Promise.resolve([]);
+    const itensVendaPromise = (isVarejo||isMista) ? vendasPromise.then(vs=>{
+      const ids=vs.map(v=>v.id);
+      if(!ids.length) return [];
+      return db.get('itens_venda',`?select=venda_id,produto_nome,quantidade,valor_unitario&venda_id=in.(${ids.join(',')})`).catch(()=>[]);
+    }) : Promise.resolve([]);
     const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo] = await Promise.all([
       db.get('financeiro', qRecente),
       db.get('servicos_orcamentos', q).catch(()=>[]),
@@ -760,8 +772,8 @@ async function loadData(){
       db.get('colaboradores',`?select=id,nome,ativo,salario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
       db.get('ponto',`?select=data,horas_extras,tipo,colaborador_nome&empresa_id=eq.${session.empresa_id}&data=gte.${cutoff}`).catch(()=>[]),
       db.get('notas_fiscais',`?select=id,cliente_nome,status,mensagem_erro&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
-      (isVarejo||isMista) ? db.get('vendas',`?status=eq.Concluída&select=id,total,created_at&empresa_id=eq.${session.empresa_id}&created_at=gte.${cutoff}`).catch(()=>[]) : Promise.resolve([]),
-      (isVarejo||isMista) ? db.get('itens_venda',`?select=venda_id,produto_nome,quantidade,valor_unitario&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      vendasPromise,
+      itensVendaPromise,
       (isVarejo||isMista) ? db.get('estoque_por_loja',`?select=quantidade,estoque_minimo&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
     ]);
     dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo};
