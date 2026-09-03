@@ -56,7 +56,12 @@ async function sbPatch(table: string, id: string, body: Record<string, unknown>)
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`Supabase PATCH ${table} falhou: ${await r.text()}`);
-  return r.json();
+  const rows = await r.json();
+  // PostgREST sempre devolve array, mesmo pra update de 1 linha por id — desembrulha
+  // aqui, uma vez só, pra todo mundo que chama sbPatch já receber objeto (antes só o
+  // caminho de nota autorizada fazia isso, via um SELECT extra; erro/cancelamento
+  // devolviam array pro front-end, que lia resp.nota.mensagem_erro como undefined).
+  return Array.isArray(rows) ? rows[0] : rows;
 }
 
 function focusBaseUrl(ambiente: string) {
@@ -141,36 +146,56 @@ function urlVerDanfce(notaId: string) {
 // Mesmo motivo que em emitir-nfse: o link que a Focus NFe devolve é
 // hospedado por ELES — arquivamos uma cópia (DANFCE em PDF + XML) assim
 // que a nota é autorizada, pra não depender da retenção deles.
+async function arquivarDanfce(notaId: string, empresaId: string, focusData: any, base: string) {
+  // NFC-e devolve o DANFCE como página HTML (caminho_danfe), não PDF direto como
+  // a NFS-e — confirmado direto na resposta real da Focus NFe.
+  if (focusData?.caminho_danfe) {
+    const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
+    if (!htmlBytes) return null;
+    const htmlComBotao = injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
+    await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
+    // Não usa a URL direta do Storage — ela serve como text/plain (ver ver-danfce/index.ts).
+    return urlVerDanfce(notaId);
+  }
+  if (focusData?.url) {
+    const pdfBytes = await baixarBytes(focusData.url);
+    if (!pdfBytes) return null;
+    return await sbUpload(`${empresaId}/nfce-${notaId}.pdf`, pdfBytes, 'application/pdf');
+  }
+  return null;
+}
+
+async function arquivarXml(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
+  if (!focusData?.caminho_xml_nota_fiscal) return null;
+  const xmlBytes = await baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth);
+  if (!xmlBytes) return null;
+  return await sbUpload(`${empresaId}/nfce-${notaId}.xml`, xmlBytes, 'application/xml');
+}
+
+// Mesmo motivo que em emitir-nfse: o link que a Focus NFe devolve é hospedado por
+// ELES — arquivamos uma cópia (DANFCE + XML) assim que a nota é autorizada, pra não
+// depender da retenção deles. DANFCE e XML são independentes (arquivos diferentes,
+// endpoints diferentes na Focus NFe) — buscados e enviados em paralelo, não em série.
 async function arquivarDocumentos(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
   try {
+    const [linkPdf, linkXml] = await Promise.all([
+      arquivarDanfce(notaId, empresaId, focusData, base),
+      arquivarXml(notaId, empresaId, focusData, base, auth),
+    ]);
     const updates: Record<string, unknown> = {};
-    // NFC-e devolve o DANFCE como página HTML (caminho_danfe), não PDF direto como
-    // a NFS-e — confirmado direto na resposta real da Focus NFe.
-    if (focusData?.caminho_danfe) {
-      const htmlBytes = await baixarBytes(`${base}${focusData.caminho_danfe}`);
-      if (htmlBytes) {
-        const htmlComBotao = injetarBotaoImprimir(new TextDecoder().decode(htmlBytes));
-        await sbUpload(`${empresaId}/nfce-${notaId}.html`, new TextEncoder().encode(htmlComBotao), 'text/html');
-        // Não usa a URL direta do Storage — ela serve como text/plain (ver ver-danfce/index.ts).
-        updates.link_pdf = urlVerDanfce(notaId);
-      }
-    } else if (focusData?.url) {
-      const pdfBytes = await baixarBytes(focusData.url);
-      if (pdfBytes) updates.link_pdf = await sbUpload(`${empresaId}/nfce-${notaId}.pdf`, pdfBytes, 'application/pdf');
-    }
-    if (focusData?.caminho_xml_nota_fiscal) {
-      const xmlBytes = await baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth);
-      if (xmlBytes) updates.link_xml = await sbUpload(`${empresaId}/nfce-${notaId}.xml`, xmlBytes, 'application/xml');
-    }
+    if (linkPdf) updates.link_pdf = linkPdf;
+    if (linkXml) updates.link_xml = linkXml;
     if (Object.keys(updates).length) {
       updates.arquivos_arquivados = true;
-      await sbPatch('notas_fiscais_nfce', notaId, updates);
+      return await sbPatch('notas_fiscais_nfce', notaId, updates);
     }
+    return null;
   } catch (e) {
     // Não deixa o arquivamento falho derrubar a emissão — a nota já foi
     // autorizada de verdade; o link da própria Focus NFe continua valendo
     // como retaguarda enquanto isso não for resolvido.
     console.warn('Falha ao arquivar DANFCE/XML localmente:', e);
+    return null;
   }
 }
 
@@ -197,10 +222,15 @@ async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData
     data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   });
-  if (focusData?.status === 'autorizado') {
-    await arquivarDocumentos(notaId, empresaId, focusData, base, auth);
-    const [fresco] = await sbGet(`notas_fiscais_nfce?id=eq.${notaId}&select=*`);
-    return fresco || atualizado;
+  // Só arquiva na primeira vez que a nota vira autorizada — sem essa checagem, cada
+  // clique em "Consultar status" numa nota já arquivada baixava e re-subia o
+  // DANFCE/XML de novo à toa (nota.arquivos_arquivados vem no PATCH acima porque
+  // sbPatch devolve a linha inteira, mesmo sem esse campo estar no corpo do PATCH).
+  if (focusData?.status === 'autorizado' && !atualizado.arquivos_arquivados) {
+    // arquivarDocumentos já devolve a linha com link_pdf/link_xml atualizados (ou null se
+    // nada mudou) — evita um SELECT extra só pra reler o que acabamos de gravar.
+    const arquivado = await arquivarDocumentos(notaId, empresaId, focusData, base, auth);
+    return arquivado || atualizado;
   }
   return atualizado;
 }
@@ -331,8 +361,11 @@ Deno.serve(async (req) => {
     const [nota] = await sbGet(`notas_fiscais_nfce?id=eq.${nota_fiscal_nfce_id}&select=*`);
     if (!nota) return json({ ok: false, erro: 'nota_nao_encontrada' }, 404);
 
-    const [empresa] = await sbGet(`empresas?id=eq.${nota.empresa_id}&select=*`);
-    const [cred] = await sbGet(`nfse_credenciais?empresa_id=eq.${nota.empresa_id}&select=*`);
+    // Independentes entre si — buscados em paralelo em vez de em série.
+    const [[empresa], [cred]] = await Promise.all([
+      sbGet(`empresas?id=eq.${nota.empresa_id}&select=*`),
+      sbGet(`nfse_credenciais?empresa_id=eq.${nota.empresa_id}&select=*`),
+    ]);
 
     if (!empresa?.nfce_ativo || !cred?.focus_nfe_token) {
       await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
@@ -389,8 +422,10 @@ Deno.serve(async (req) => {
     }
 
     // acao === 'emitir' (padrão)
-    const itens = await sbGet(`notas_fiscais_nfce_itens?nota_fiscal_nfce_id=eq.${nota_fiscal_nfce_id}&select=*`);
-    const formasPagamento = await sbGet(`venda_formas_pagamento?venda_id=eq.${nota.venda_id}&select=forma_pagamento,valor`);
+    const [itens, formasPagamento] = await Promise.all([
+      sbGet(`notas_fiscais_nfce_itens?nota_fiscal_nfce_id=eq.${nota_fiscal_nfce_id}&select=*`),
+      sbGet(`venda_formas_pagamento?venda_id=eq.${nota.venda_id}&select=forma_pagamento,valor`),
+    ]);
     const payload = montarPayload(empresa, nota, itens, formasPagamento);
 
     const ref = `nuvix-nfce-${nota_fiscal_nfce_id}`;
