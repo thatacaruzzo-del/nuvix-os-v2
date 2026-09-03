@@ -110,6 +110,10 @@ function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagin
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
 function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+// Modal premium com 3 saídas (em vez do sim/não de confirmarAcao) — usado quando cancelar
+// a venda com NFC-e emitida: cancelar a nota junto, só a venda, ou voltar sem fazer nada.
+// Resolve com opts.botoes[i].valor, ou null se fechar/Esc/clicar fora (aborta tudo).
+function escolherAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';actions.style.flexDirection='column';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.style.width='100%';btnCancel.textContent=opts.labelCancelar||'Voltar';function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}function onKey(e){if(e.key==='Escape')finish(null)}(opts.botoes||[]).forEach(b=>{const btn=document.createElement('button');btn.type='button';btn.className='nx-confirm-ok '+(b.variante||'neutro');btn.style.width='100%';btn.textContent=b.label;btn.onclick=()=>finish(b.valor);actions.append(btn);});actions.append(btnCancel);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);btnCancel.onclick=()=>finish(null);overlay.onclick=e=>{if(e.target===overlay)finish(null)};document.addEventListener('keydown',onKey);})}
 function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgEl=document.createElement('div');msgEl.className='nx-confirm-msg';msgEl.textContent=mensagem;const input=document.createElement('textarea');input.className='nx-prompt-input';input.placeholder=opts.placeholder||'';input.rows=3;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent='Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok neutro';btnOk.textContent=opts.labelOk||'Confirmar';actions.append(btnCancel,btnOk);box.append(msgEl,input,actions);overlay.append(box);document.body.appendChild(overlay);input.focus();function onKey(e){if(e.key==='Escape')finish(null)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(null);btnOk.onclick=()=>finish(input.value.trim());document.addEventListener('keydown',onKey);})}
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 
@@ -1496,21 +1500,33 @@ async function cancelarVenda(vendaId){
     const venda=await dbGet('vendas',`?id=eq.${vendaId}&select=*`).then(r=>r[0]);
     if(!venda||venda.status==='Cancelada'){toast('Venda não encontrada ou já cancelada.','err');return;}
 
-    // Se essa venda tem NFC-e autorizada, a nota precisa ser cancelada no SEFAZ ANTES
-    // de mexer em estoque/financeiro — senão fica uma nota fiscal válida sem venda por
-    // trás. Sem isso não deixa cancelar a venda (evita o operador esquecer o passo fiscal).
+    // Se essa venda tem NFC-e autorizada, pergunta o que o operador quer fazer com ela —
+    // cancelar junto (só funciona até 30min da autorização, prazo da SEFAZ) ou deixar a
+    // nota como está e cancelar só a venda no sistema (ex: prazo já passou, ou vai
+    // resolver a nota depois com a contabilidade).
     const notaNfce=await dbGet('notas_fiscais_nfce',`?venda_id=eq.${vendaId}&select=id,status,numero`).then(r=>r[0]);
     if(notaNfce&&notaNfce.status==='autorizada'){
-      const justificativa=await promptAcao(`Essa venda tem a NFC-e nº ${notaNfce.numero||'—'} autorizada. Por que ela está sendo cancelada? (mínimo 15 caracteres)`,{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
-      if(!justificativa)return;
-      if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
-      const r=await fetch(`${SB_URL}/functions/v1/emitir-nfce`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_nfce_id:notaNfce.id,justificativa})});
-      const resp=await r.json();
-      if(!resp.ok){
-        toast(resp?.erro==='prazo_cancelamento_expirado'?'Prazo de cancelamento da NFC-e na SEFAZ já passou — resolva isso em Notas Fiscais antes de cancelar a venda.':'Não foi possível cancelar a NFC-e — a venda não foi cancelada.','err');
-        return;
+      const escolha=await escolherAcao(`Essa venda tem a NFC-e nº ${notaNfce.numero||'—'} autorizada. O que fazer com ela?`,{
+        botoes:[
+          {label:'Cancelar a NFC-e e a venda',valor:'nota',variante:'perigo'},
+          {label:'Cancelar só a venda (nota continua autorizada)',valor:'venda',variante:'aviso'},
+        ],
+      });
+      if(!escolha)return;
+      if(escolha==='nota'){
+        const justificativa=await promptAcao('Por que a NFC-e está sendo cancelada? (mínimo 15 caracteres)',{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
+        if(!justificativa)return;
+        if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
+        const r=await fetch(`${SB_URL}/functions/v1/emitir-nfce`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_nfce_id:notaNfce.id,justificativa})});
+        const resp=await r.json();
+        if(!resp.ok){
+          const seguirMesmoAssim=await confirmarAcao(resp?.erro==='prazo_cancelamento_expirado'?'Prazo de cancelamento da NFC-e na SEFAZ já passou (30min). Cancelar a venda mesmo assim, deixando a nota autorizada?':'Não foi possível cancelar a NFC-e agora. Cancelar a venda mesmo assim, deixando a nota autorizada?',{labelOk:'Cancelar venda mesmo assim',variante:'aviso'});
+          if(!seguirMesmoAssim)return;
+        }else{
+          toast('NFC-e cancelada.','ok');
+        }
       }
-      toast('NFC-e cancelada.','ok');
+      // escolha==='venda': segue direto pro cancelamento da venda, nota fica intocada.
     }else{
       const confirmou=await confirmarAcao('Cancelar essa venda? O estoque volta, a receita no Financeiro é removida, e ela fica marcada como cancelada no histórico. Essa ação não pode ser desfeita.',{labelOk:'Cancelar venda'});
       if(!confirmou)return;
