@@ -199,7 +199,7 @@ async function aplicarCancelamentoFocus(notaId: string, focusData: any, justific
   const cancelou = focusData?.status === 'cancelado';
   return await sbPatch('notas_fiscais_nfce', notaId, {
     status: cancelou ? 'cancelada' : 'erro',
-    mensagem_erro: cancelou ? null : focusData?.mensagem_sefaz || 'Erro ao cancelar a nota.',
+    mensagem_erro: cancelou ? null : focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro ao cancelar a nota. Resposta completa: ${JSON.stringify(focusData)}`,
     motivo_cancelamento: cancelou ? justificativa : null,
     data_cancelamento: cancelou ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -362,13 +362,17 @@ Deno.serve(async (req) => {
         return json({ ok: false, erro: 'justificativa_invalida' }, 422);
       }
       // NFC-e (diferente de NFS-e) não tem "prazo de cancelamento" configurável
-      // por município — a SEFAZ define um prazo curto e fixo (tipicamente
-      // algumas horas). A Focus NFe rejeita a chamada se o prazo já passou;
+      // por município — a SEFAZ define um prazo curto e fixo (30min, Ajuste
+      // SINIEF 07/18). A Focus NFe rejeita a chamada se o prazo já passou;
       // não replicamos essa checagem aqui pra não arriscar um número errado.
-      const r = await fetch(
-        `${base}/v2/nfce/${nota.focus_nfe_ref}?justificativa=${encodeURIComponent(justificativa)}`,
-        { method: 'DELETE', headers: { Authorization: auth } }
-      );
+      // A justificativa vai no CORPO JSON, não na query string — testado direto
+      // contra a API real: mandar só na URL dá 415 "requisição vazia quando eram
+      // esperados dados" (a Focus NFe ignora o query param nesse endpoint).
+      const r = await fetch(`${base}/v2/nfce/${nota.focus_nfe_ref}`, {
+        method: 'DELETE',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ justificativa }),
+      });
       const focusData = await r.json();
       const atualizado = await aplicarCancelamentoFocus(nota_fiscal_nfce_id, focusData, justificativa);
       return json({ ok: r.ok, nota: atualizado });
