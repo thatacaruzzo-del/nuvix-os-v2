@@ -30,6 +30,10 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  // Sem isso, a resposta não declarava política de cache nenhuma — deixando a critério de
+  // CDNs no meio do caminho (Cloudflare, na frente do Supabase) decidirem guardar ou não uma
+  // cópia. Cada nota é única (URL tem ?id=), então nunca deveria cachear; força isso aqui.
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
 const ARQUIVOS_BUCKET = 'notas-fiscais-arquivos';
