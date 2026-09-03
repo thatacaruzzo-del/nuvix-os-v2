@@ -100,32 +100,51 @@ Com `focus_nfe_ambiente = 'homologacao'` (mesma linha em
 trocar pra `'producao'` depois de confirmar que uma venda de teste saiu
 com a NFC-e autorizada corretamente.
 
-## Pontos em aberto — confirmar antes do primeiro teste real
+## Resolvido em teste real (YUP, 02-03/09/2026)
 
-- **Reforma tributária (IBS/CBS)**: desde 03/08/2026 a SEFAZ já rejeita
-  nota sem os campos de IBS/CBS pra empresa de regime regular (Lucro
-  Real/Presumido). Os campos `cclasstrib`/`cst_ibs_cbs` já existem no
-  schema (`produtos` e `notas_fiscais_nfce_itens`) e no formulário de
-  produto, mas o **nome exato** que a Focus NFe espera no payload da API
-  ainda não está documentado publicamente — conferir em
-  `doc.focusnfe.com.br/reference/emitir_nfce` e ajustar
-  `montarPayload()` em `supabase/functions/emitir-nfce/index.ts` antes de
-  emitir a primeira nota de produção pra uma empresa do regime regular.
-- **IE/CNAE do emitente**: guardados no nosso banco (`empresas.inscricao_estadual`/`cnae_principal`),
-  mas o payload atual NÃO os envia pra Focus NFe — seguindo o mesmo padrão do `emitir-nfse` (que só
-  manda CNPJ + inscrição municipal), a hipótese é que isso é configurado uma vez no painel deles ao
-  cadastrar o CNPJ, não reenviado a cada nota. Confirmar isso no passo 4a antes do primeiro teste real
-  — se a API precisar desses campos no payload, adicionar em `montarPayload()`.
+- **Reforma tributária (IBS/CBS)** — confirmado contra a API de verdade:
+  Simples Nacional (CRT=1) só é **obrigado** a preencher IBS/CBS a partir
+  de 01/2027 (NT RT 2025.002, art. 348 da LC 214/2025), mas em 2026 o
+  grupo já é aceito/validado com as alíquotas-teste oficiais do ano (CBS
+  0,9%, IBS 0,1%). A Focus NFe exige o **valor já calculado** junto da
+  alíquota (`cbs_valor`/`ibs_uf_valor`/`ibs_mun_valor`), não só a
+  alíquota sozinha — mandar só a alíquota (ou alíquota 0) gera rejeição
+  "Valor da CBS difere do calculado". `montarPayload()` em
+  `supabase/functions/emitir-nfce/index.ts` já calcula e manda os três.
+  Pra empresa de regime regular (Lucro Real/Presumido), que É obrigada
+  desde já, revisar se as alíquotas-teste fixas ainda se aplicam ou se
+  precisa calcular de verdade.
+- **DANFCE na impressora térmica**: implementado. `imprimirNfceTermica()`
+  em `pages/caixa.html` — mesma infraestrutura WebUSB do cupom não-fiscal
+  (`impressoraDevice`), layout calibrado contra um DANFCE real impresso
+  fora do Nuvix, QR Code via comando nativo `GS(k` (padrão Epson,
+  compatível com a maioria das térmicas ESC/POS). Dispara sozinho depois
+  de uma NFC-e autorizada, se tiver impressora pareada — sem isso, só
+  abre o link do DANFCE (`link_pdf`) pra imprimir em qualquer impressora
+  normal, como já fazia antes.
+- **Plano da Focus NFe**: conta nova (trial) simula a emissão mesmo
+  apontando pra produção com token de produção — o documento sai com a
+  faixa "SIMULAÇÃO — não tem validade fiscal" e nenhum aviso de erro.
+  Precisa contratar um plano de verdade (Retail/NFCe pra 1 CNPJ é o mais
+  barato) antes de considerar qualquer nota como realmente autorizada.
+- **IE/CNAE do emitente**: confirmado — o payload NÃO precisa enviar
+  `empresas.inscricao_estadual`/`cnae_principal` a cada nota (a hipótese
+  estava certa). Ficam configurados uma vez no cadastro do CNPJ no painel
+  da Focus NFe, junto do certificado/CSC.
+
+## Pontos em aberto — confirmar antes do primeiro teste real numa empresa NOVA
+
 - **Alíquotas de ICMS/PIS/COFINS**: os nomes de campo usados (`icms_aliquota`/`pis_aliquota`/
   `cofins_aliquota`) seguem o padrão observado em outros pontos da API da Focus NFe, mas não foram
   confirmados especificamente pra NFC-e — conferir junto com o restante do payload antes de produção.
+  Não bloqueou o teste da YUP porque ela é Simples Nacional (não destaca esses valores por item).
 - **Formas de pagamento**: o mapeamento em `emitir-nfce/index.ts`
   (`FORMA_PAGAMENTO_SEFAZ`) assume os textos exatos que `caixa.html` usa
   hoje (`Dinheiro`, `Pix`, `Cartão Débito`, `Cartão Crédito`) — se esse
   texto mudar no Caixa, atualizar o mapeamento junto.
-- **DANFCE na impressora térmica**: por ora, ao autorizar a nota, o
-  sistema abre o PDF que a própria Focus NFe já gera (`link_pdf`) — serve
-  pra imprimir em qualquer impressora pelo diálogo do navegador. Impressão
-  térmica direta (ESC/POS, reaproveitando o WebUSB que o cupom não-fiscal
-  já usa) fica pra quando tivermos uma nota real autorizada pra calibrar o
-  layout do cupom fiscal.
+- **Portal de consulta pública no cupom térmico**: `imprimirNfceTermica()`
+  em `pages/caixa.html` imprime a URL de consulta fixa de SP
+  (`nfce.fazenda.sp.gov.br`) — cada UF hospeda a própria. Trocar por uma
+  tabela UF→URL antes de ativar NFC-e pra empresa de outro estado (não
+  afeta a validade da nota, só o texto de apoio — o QR Code em si já vem
+  correto da Focus NFe).
