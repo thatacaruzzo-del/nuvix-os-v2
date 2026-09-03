@@ -25,6 +25,10 @@ Contribuinte) pra gerar o QR code do cupom.
   arquiva uma cópia do DANFCE/XML no Storage do Supabase assim que a nota
   é autorizada — mesmo bucket que a NFS-e já usa
   (`notas-fiscais-arquivos`).
+- `supabase/functions/ver-danfce/index.ts` — serve a cópia arquivada do
+  DANFCE com o Content-Type certo (o link direto do Storage não renderiza,
+  ver "Resolvido em teste real" abaixo). É o link salvo em
+  `notas_fiscais_nfce.link_pdf`.
 - `pages/caixa.html` — ao finalizar uma venda, se `nfce_ativo=true` pra
   essa empresa, emite a NFC-e automaticamente (sem travar a venda se
   falhar — nesse caso volta pro cupom não-fiscal de sempre).
@@ -137,6 +141,13 @@ com a NFC-e autorizada corretamente.
   no Storage. Corrigido. A cópia que arquivamos do DANFCE (HTML) agora sai
   com um botão "Imprimir" injetado antes de subir pro Storage — a página
   original da Focus NFe é cross-origin, não dava pra editar depois.
+- **DANFCE arquivado abria como código-fonte, não renderizado**: o Supabase
+  Storage reescreve `Content-Type: text/html` pra `text/plain` em buckets
+  públicos (proteção deles contra phishing hospedado lá), mesmo enviando o
+  header certo no upload — o navegador mostrava o HTML cru em vez da
+  página. Criada `supabase/functions/ver-danfce` (sem `verify_jwt`, serve
+  a cópia arquivada via proxy com o Content-Type certo); `link_pdf` agora
+  aponta pra essa função em vez do link direto do Storage.
 - **Cancelamento de NFC-e sempre falhava**: `acao: 'cancelar'` mandava a
   justificativa na query string do DELETE (`?justificativa=...`) — a Focus
   NFe rejeita esse endpoint com 415 "requisição vazia quando eram esperados
