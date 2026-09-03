@@ -1053,7 +1053,7 @@ async function finalizarVenda(){
       // só significa que sai o cupom não-fiscal em vez do fiscal.
       let nfceOk=false;
       if(empresaFiscal.nfce_ativo){
-        const querEmitir=await confirmarAcao('Emitir NFC-e desta venda?',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
+        const querEmitir=confirm('Emitir NFC-e desta venda?\n\n(Cancelar = não emitir agora, sai o cupom não-fiscal em vez disso)');
         if(querEmitir) nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef);
       }
       if(!nfceOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
