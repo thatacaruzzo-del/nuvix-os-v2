@@ -130,6 +130,14 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
             <input id="buscaProduto" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:320px" oninput="paginaProdutos=1;renderProdutos()">
+            <select id="ordemProduto" onchange="paginaProdutos=1;renderProdutos()" style="max-width:210px">
+              <option value="nome_asc">Nome (A-Z)</option>
+              <option value="nome_desc">Nome (Z-A)</option>
+              <option value="estoque_desc">Quantidade: maior → menor</option>
+              <option value="estoque_asc">Quantidade: menor → maior</option>
+              <option value="valor_desc">Preço: maior → menor</option>
+              <option value="valor_asc">Preço: menor → maior</option>
+            </select>
             <button class="btn" onclick="abrirModalProduto()">+ Novo produto</button>
           </div>
           <div class="tablewrap">
@@ -517,9 +525,22 @@ function nomeConsignador(id){return dados.consignadores.find(c=>c.id===id)?.nome
 function estoqueTotalProduto(produtoId){return dados.estoque.filter(e=>e.produto_id===produtoId).reduce((a,e)=>a+Number(e.quantidade||0),0)}
 
 // ══ PRODUTOS ══
+// Ordenação prática pro cliente achar rápido o que precisa — quantidade e valor são os
+// dois eixos que mais importam pra revisar estoque (foi assim que achamos o produto com
+// preço digitado errado: bastava ordenar por valor pra pular direto pro topo da lista).
+const ORDEM_PRODUTO_CMP={
+  nome_asc:(a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'),
+  nome_desc:(a,b)=>(b.nome||'').localeCompare(a.nome||'','pt-BR'),
+  estoque_desc:(a,b)=>estoqueTotalProduto(b.id)-estoqueTotalProduto(a.id),
+  estoque_asc:(a,b)=>estoqueTotalProduto(a.id)-estoqueTotalProduto(b.id),
+  valor_desc:(a,b)=>Number(b.preco_venda_final||0)-Number(a.preco_venda_final||0),
+  valor_asc:(a,b)=>Number(a.preco_venda_final||0)-Number(b.preco_venda_final||0),
+};
 function renderProdutos(){
   const q=(val('buscaProduto')||'').toLowerCase();
   const lista=dados.produtos.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  const ordem=val('ordemProduto')||'nome_asc';
+  lista.sort(ORDEM_PRODUTO_CMP[ordem]||ORDEM_PRODUTO_CMP.nome_asc);
   paginaProdutos=renderPaginacao('produtosPaginacao',lista.length,paginaProdutos,'irParaPaginaProdutos');
   const pagina=paginar(lista,paginaProdutos);
   $('produtosTable').innerHTML=pagina.length?pagina.map(p=>{
