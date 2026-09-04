@@ -122,8 +122,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 // mostrava o HTML como texto cru em vez de renderizar, mesmo com o conteúdo certo
 // chegando). Blob URL é uma navegação de verdade pro motor de renderização normal do
 // navegador, funciona igual em qualquer contexto — webview de app incluído.
-async function abrirDanfce(url){
-  const janela=window.open('','_blank');
+async function abrirDanfce(url,janelaPreAberta){
+  const janela=janelaPreAberta||window.open('','_blank');
   try{
     const r=await fetch(url);
     const html=await r.text();
@@ -1078,7 +1078,14 @@ async function finalizarVenda(){
       let nfceOk=false;
       if(empresaFiscal.nfce_ativo){
         const querEmitir=await confirmarAcao('Emitir NFC-e desta venda? Se não emitir agora, sai o cupom não-fiscal em vez disso.',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
-        if(querEmitir) nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef);
+        if(querEmitir){
+          // Abre a aba em branco JÁ AQUI, ainda no gesto de clique da confirmação —
+          // se esperarmos os fetches de emissão (que incluem ida à SEFAZ, 1-3s+) pra
+          // só então chamar window.open(), o navegador deixa de reconhecer como ação
+          // do usuário e bloqueia o pop-up sem avisar (nota sai emitida, mas nada abre).
+          const janelaDanfce=window.open('','_blank');
+          nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce);
+        }
       }
       if(!nfceOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
     }
@@ -1113,8 +1120,8 @@ async function carregarConfigFiscal(){
 // (empresa sem NFC-e ativa, erro, item avulso sem NCM), volta false e quem chamou
 // cai de volta pro cupom não-fiscal de sempre — a nota fica "erro" em Notas Fiscais
 // pra corrigir e reemitir manualmente depois.
-async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteNome,total,desconto,dataRef){
-  if(!empresaFiscal.nfce_ativo)return false;
+async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce){
+  if(!empresaFiscal.nfce_ativo){ janelaDanfce?.close(); return false; }
   try{
     const itensPayload=itensCarrinho.filter(i=>!i.avulso).map(i=>{
       const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
@@ -1126,7 +1133,7 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
         aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
       };
     });
-    if(!itensPayload.length)return false; // venda só com item(ns) avulso(s) — sem cadastro/NCM não dá pra emitir
+    if(!itensPayload.length){ janelaDanfce?.close(); return false; } // venda só com item(ns) avulso(s) — sem cadastro/NCM não dá pra emitir
     const nota=await dbPost('notas_fiscais_nfce',withEmpresa({
       venda_id:vendaId, cliente_documento:clienteDocDigits, cliente_nome:clienteNome, valor_total:total,
       desconto_total:desconto||0, data_venda:dataRef,
@@ -1140,6 +1147,7 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
       // já usa pra simular NFS-e. Nunca deixar ativo numa empresa cliente real.
       await dbPatch('notas_fiscais_nfce',notaRow.id,{status:'autorizada',numero:'SIMULADO',data_emissao:new Date().toISOString()});
       toast('NFC-e emitida (simulação).','ok');
+      janelaDanfce?.close(); // simulação não gera DANFCE de verdade pra mostrar
       return true;
     }
 
@@ -1154,7 +1162,8 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
       // imprimir em qualquer impressora, sempre (é o "backup" universal, igual
       // o cupom não-fiscal já faz). Se tiver térmica USB pareada, imprime
       // direto nela também, calibrado com uma nota real já autorizada.
-      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf);
+      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf,janelaDanfce);
+      else janelaDanfce?.close();
       if(impressoraDevice){
         try{
           const formasPagamentoNota=pagamentos.filter(p=>p.valor>0).map(p=>({forma_pagamento:p.forma,valor:p.valor}));
@@ -1163,9 +1172,11 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
       }
       return true;
     }
+    janelaDanfce?.close();
     toast('Venda registrada, mas a NFC-e não foi autorizada — corrija em Notas Fiscais.','err');
     return false;
   }catch(e){
+    janelaDanfce?.close();
     toast('Venda registrada, mas houve um erro ao emitir a NFC-e — corrija em Notas Fiscais.','err');
     return false;
   }
