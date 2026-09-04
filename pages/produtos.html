@@ -120,6 +120,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <button class="pdv-tab active" onclick="abaTab('produtos',this)">Produtos</button>
         <button class="pdv-tab" onclick="abaTab('categorias',this)">Categorias</button>
         <button class="pdv-tab" id="tabBtnEstoque" onclick="abaTab('estoque',this)">Estoque por loja</button>
+        <button class="pdv-tab" onclick="abaTab('validade',this)">Validade</button>
         <button class="pdv-tab" onclick="abaTab('transferencias',this)">Transferências</button>
         <button class="pdv-tab" onclick="abaTab('lojas',this)">Lojas</button>
         <button class="pdv-tab" onclick="abaTab('consignadores',this)">Consignadores</button>
@@ -194,6 +195,42 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             </table>
           </div>
           <div id="estoquePaginacao"></div>
+        </div>
+      </div>
+
+      <!-- ══ VALIDADE / ENTRADA DE MERCADORIA ══ -->
+      <div id="pane-validade" class="pdv-pane">
+        <div class="card" style="margin-bottom:20px">
+          <h2 style="margin:0 0 4px">Entrada de mercadoria</h2>
+          <p class="field-hint" style="margin-bottom:14px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote — a venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" style="flex:1;min-width:180px"><label>Loja *</label><select id="entLoja"></select></div>
+            <div class="field" style="flex:2;min-width:220px"><label>Produto *</label><select id="entProduto" onchange="atualizarCamposEntrada()"></select></div>
+            <div class="field" style="width:120px"><label>Quantidade *</label><input id="entQuantidade" type="text" inputmode="numeric" oninput="sanitizarInteiro(this)"></div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" id="entValidadeWrap" style="flex:1;min-width:160px;display:none"><label>Data de validade *</label><input id="entValidade" type="date"></div>
+            <div class="field" style="flex:1;min-width:160px"><label>Custo unitário</label><input id="entCusto" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"><div class="field-hint">Opcional, mas sem isso não dá pra calcular a perda em R$ se esse lote vencer sem vender.</div></div>
+            <div class="field" style="flex:1;min-width:160px"><label>Nota/Documento</label><input id="entDocumento" placeholder="Opcional"></div>
+          </div>
+          <div id="entradaMsg" class="msg"></div>
+          <button class="btn" onclick="confirmarEntradaMercadoria()">Registrar entrada</button>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+            <h2 style="margin:0">Lotes ativos</h2>
+            <div style="font-size:12px;color:var(--muted)">
+              <span class="badge badge-red">Vencido</span> <span class="badge badge-amber">Vencendo</span> <span class="badge badge-green">Ok</span>
+            </div>
+          </div>
+          <p class="field-hint" id="perdaVencimentoResumo" style="margin-bottom:14px"></p>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Produto</th><th>Loja</th><th>Quantidade</th><th>Validade</th><th>Custo unit.</th><th></th></tr></thead>
+              <tbody id="lotesTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -318,10 +355,12 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     </div>
     <div class="field-hint" style="margin-top:4px">Reforma Tributária (IBS/CBS) — "000" + "000001" é a classificação padrão de venda tributada normalmente, sem isenção/redução. Só muda se o produto tiver uma regra especial (cesta básica, medicamento etc.) — confirme com a contabilidade antes de alterar.</div>
   </div>
-  <div style="display:flex;gap:20px;margin-bottom:14px">
+  <div style="display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodAtivo" checked style="width:auto"> Produto ativo</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodControlaValidade" style="width:auto"> Controla validade (lote)</label>
   </div>
+  <div class="field-hint" style="margin-top:-10px;margin-bottom:14px">Perecível — ligue aqui pra exigir data de validade na Entrada de Mercadoria e habilitar a baixa por lote (FEFO) e os alertas de vencimento.</div>
   <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
     <label>Consignador *</label>
     <div style="display:flex;gap:8px">
@@ -396,6 +435,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <input type="hidden" id="ajusteEstoqueId">
   <p id="ajusteEstoqueInfo" style="font-size:13px;color:var(--muted);margin-bottom:14px"></p>
   <div class="field"><label>Nova quantidade *</label><input id="ajusteNovaQtd" type="text" inputmode="numeric" oninput="sanitizarInteiro(this)"></div>
+  <div class="field"><label>Estoque mínimo dessa loja</label><input id="ajusteEstoqueMinimo" type="text" inputmode="numeric" oninput="sanitizarInteiro(this)"><div class="field-hint">Abaixo disso, o produto entra no alerta de estoque baixo. Deixe 0 pra não alertar.</div></div>
   <div class="field"><label>Motivo *</label><input id="ajusteMotivo" placeholder="Ex: recontagem, compra sem nota, avaria..."></div>
   <div id="ajusteEstoqueMsg" class="msg"></div>
   <div class="modal-actions">
@@ -408,7 +448,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[] };
+let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[], lotes:[] };
 const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
 // ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
@@ -451,15 +491,16 @@ async function init(){
 async function carregarTudo(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos,categorias,lojas,estoque,transferencias,consignadores]=await Promise.all([
+    const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes]=await Promise.all([
       dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=*`),
       dbGet('transferencias_estoque',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=100`),
       dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
+      dbGet('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
     ]);
-    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores;
+    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes;
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
   // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
   // cadastro novo) — cria uma loja padrão sozinho, pra estoque/PDV já funcionarem
@@ -471,7 +512,7 @@ async function carregarTudo(){
       toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
-  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores();
+  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade();
   popularSelectsComuns();
 }
 
@@ -590,6 +631,7 @@ function abrirModalProduto(){
   $('prodCusto').value=''; $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
   $('prodAtivo').checked=true; $('prodSobrescritoHint').textContent=DICA_PRECO_PADRAO;
   $('prodConsignado').checked=false; if($('prodConsignador'))$('prodConsignador').value=''; toggleFornecedorConsignado();
+  $('prodControlaValidade').checked=false;
   $('produtoMsg').textContent='';$('produtoMsg').className='msg';
   $('prodEstoqueInicialWrap').style.display='block';
   $('prodEstoqueAtualWrap').style.display='none';
@@ -612,6 +654,7 @@ function editarProduto(id){
   $('prodPrecoFinal').value=p.preco_venda_final||0;
   $('prodAtivo').checked=!!p.ativo;
   $('prodConsignado').checked=!!p.is_consignado; if($('prodConsignador'))$('prodConsignador').value=p.consignador_id||''; toggleFornecedorConsignado();
+  $('prodControlaValidade').checked=!!p.controla_validade;
   $('prodEstoqueInicialWrap').style.display='none'; // na edição mostra o estoque atual, não o "inicial"
   $('prodEstoqueAtualWrap').style.display='block';
   renderEstoqueAtualCampos(id);
@@ -656,6 +699,7 @@ async function salvarProduto(){
     preco_venda_final: precoFinal, preco_sobrescrito: sobrescrito,
     ativo: $('prodAtivo').checked,
     is_consignado: $('prodConsignado').checked, consignador_id: $('prodConsignado').checked?(val('prodConsignador')||null):null,
+    controla_validade: $('prodControlaValidade').checked,
     ncm: val('prodNcm').trim()||null, cest: val('prodCest').trim()||null,
     cfop_padrao: val('prodCfop').trim()||'5102', unidade_medida: val('prodUnidade').trim()||'UN',
     origem_mercadoria: val('prodOrigem')||'0', csosn_cst: val('prodCstCsosn').trim()||null,
@@ -848,6 +892,7 @@ function abrirModalAjusteEstoque(estoqueId){
   $('ajusteEstoqueId').value=estoqueId;
   $('ajusteEstoqueInfo').textContent=`${produto?.nome||''} — ${nomeLoja(linha.loja_id)} — estoque atual: ${Number(linha.quantidade||0)}`;
   $('ajusteNovaQtd').value=Number(linha.quantidade||0);
+  $('ajusteEstoqueMinimo').value=Number(linha.estoque_minimo||0);
   $('ajusteMotivo').value='';
   $('ajusteEstoqueMsg').textContent='';$('ajusteEstoqueMsg').className='msg';
   abrirModal('modalAjusteEstoque');
@@ -857,17 +902,21 @@ async function confirmarAjusteEstoque(){
   const linha=dados.estoque.find(e=>e.id===estoqueId);
   if(!linha)return;
   const novaQtd=num('ajusteNovaQtd');
+  const novoMinimo=num('ajusteEstoqueMinimo');
   const motivo=val('ajusteMotivo').trim();
   if(!motivo){msg('ajusteEstoqueMsg','Informe o motivo do ajuste.','err');return;}
   const anterior=Number(linha.quantidade||0);
-  if(novaQtd===anterior){msg('ajusteEstoqueMsg','A quantidade é igual à atual — nada pra ajustar.','err');return;}
+  const minimoAnterior=Number(linha.estoque_minimo||0);
+  if(novaQtd===anterior&&novoMinimo===minimoAnterior){msg('ajusteEstoqueMsg','Nada mudou — quantidade e mínimo iguais aos atuais.','err');return;}
   try{
-    await dbPatch('estoque_por_loja',estoqueId,{quantidade:novaQtd,updated_at:new Date().toISOString()});
-    await dbPost('estoque_movimentacoes',withEmpresa({
-      produto_id:linha.produto_id, loja_id:linha.loja_id, tipo:novaQtd>anterior?'entrada':'ajuste',
-      quantidade:Math.abs(novaQtd-anterior), estoque_anterior:anterior, estoque_posterior:novaQtd,
-      motivo, referencia_tipo:'ajuste', usuario_id:session?.id||null,
-    }));
+    await dbPatch('estoque_por_loja',estoqueId,{quantidade:novaQtd,estoque_minimo:novoMinimo,updated_at:new Date().toISOString()});
+    if(novaQtd!==anterior){
+      await dbPost('estoque_movimentacoes',withEmpresa({
+        produto_id:linha.produto_id, loja_id:linha.loja_id, tipo:novaQtd>anterior?'entrada':'ajuste',
+        quantidade:Math.abs(novaQtd-anterior), estoque_anterior:anterior, estoque_posterior:novaQtd,
+        motivo, referencia_tipo:'ajuste', usuario_id:session?.id||null,
+      }));
+    }
     toast('Estoque ajustado.','ok');
     fecharModal('modalAjusteEstoque');
     await carregarTudo();
@@ -875,6 +924,102 @@ async function confirmarAjusteEstoque(){
     // a lista de estoque ali também — sem isso ficaria mostrando o número antigo.
     if(val('prodId')===linha.produto_id) renderEstoqueAtualCampos(linha.produto_id);
   }catch(e){msg('ajusteEstoqueMsg','Erro ao ajustar: '+e.message,'err');}
+}
+
+// ══ VALIDADE / ENTRADA DE MERCADORIA ══
+// Tela própria, separada do "Ajustar estoque" genérico (que é pra correção pontual —
+// recontagem, avaria). Aqui é o fluxo do dia a dia de receber mercadoria: soma no
+// estoque e, se o produto controla validade, cria um lote pra FEFO/alerta usarem.
+function diasRestantesValidade(data){return Math.floor((new Date(data)-new Date(hoje()))/864e5)}
+function statusLote(l){
+  const dias=diasRestantesValidade(l.data_validade);
+  const diasAlerta=Number(session.empresa?.dias_alerta_validade||7);
+  if(dias<0)return'vencido';
+  if(dias<=diasAlerta)return'vencendo';
+  return'ok';
+}
+function atualizarCamposEntrada(){
+  const produto=dados.produtos.find(p=>p.id===val('entProduto'));
+  $('entValidadeWrap').style.display=produto?.controla_validade?'block':'none';
+}
+function renderValidade(){
+  const perdaTotal=dados.lotes.filter(l=>l.status==='descartado').reduce((a,l)=>a+Number(l.quantidade||0)*Number(l.custo_unitario||0),0);
+  const qtdDescartada=dados.lotes.filter(l=>l.status==='descartado').reduce((a,l)=>a+Number(l.quantidade||0),0);
+  $('perdaVencimentoResumo').textContent=qtdDescartada?`Perda por vencimento até agora: ${money(perdaTotal)} (${qtdDescartada} un. descartada(s)).`:'Nenhum lote descartado por vencimento ainda.';
+
+  const ativos=dados.lotes.filter(l=>l.status==='ativo'&&Number(l.quantidade||0)>0)
+    .sort((a,b)=>String(a.data_validade).localeCompare(String(b.data_validade)));
+  $('lotesTable').innerHTML=ativos.length?ativos.map(l=>{
+    const produto=dados.produtos.find(p=>p.id===l.produto_id);
+    const status=statusLote(l);
+    const dias=diasRestantesValidade(l.data_validade);
+    const badge=status==='vencido'?`<span class="badge badge-red">Vencido há ${Math.abs(dias)}d</span>`:status==='vencendo'?`<span class="badge badge-amber">${dias===0?'Vence hoje':'Vence em '+dias+'d'}</span>`:`<span class="badge badge-green">${fmtData(l.data_validade)}</span>`;
+    return `<tr>
+      <td>${esc(produto?.nome||'—')}</td>
+      <td>${esc(nomeLoja(l.loja_id))}</td>
+      <td>${Number(l.quantidade||0)}</td>
+      <td>${badge}</td>
+      <td>${l.custo_unitario!=null?money(l.custo_unitario):'—'}</td>
+      <td><button class="btn2" style="padding:6px 12px" onclick="descartarLote('${l.id}')">Descartar</button></td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">Nenhum lote ativo.</td></tr>';
+}
+async function confirmarEntradaMercadoria(){
+  const lojaId=val('entLoja'), produtoId=val('entProduto');
+  const quantidade=num('entQuantidade');
+  const produto=dados.produtos.find(p=>p.id===produtoId);
+  if(!lojaId||!produtoId){msg('entradaMsg','Selecione a loja e o produto.','err');return;}
+  if(!quantidade||quantidade<=0){msg('entradaMsg','Informe uma quantidade válida.','err');return;}
+  const controlaValidade=!!produto?.controla_validade;
+  const dataValidade=val('entValidade');
+  if(controlaValidade&&!dataValidade){msg('entradaMsg','Esse produto controla validade — informe a data de vencimento.','err');return;}
+  const custoUnitario=val('entCusto')?numBR('entCusto'):null;
+  if(custoUnitario!==null&&custoUnitario<0){msg('entradaMsg','O custo não pode ser negativo.','err');return;}
+  const linhaEstoque=dados.estoque.find(e=>e.produto_id===produtoId&&e.loja_id===lojaId);
+  const anterior=Number(linhaEstoque?.quantidade||0);
+  const posterior=anterior+quantidade;
+  try{
+    if(linhaEstoque) await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:posterior,updated_at:new Date().toISOString()});
+    else await dbPost('estoque_por_loja',withEmpresa({produto_id:produtoId,loja_id:lojaId,quantidade:posterior}));
+    await dbPost('estoque_movimentacoes',withEmpresa({
+      produto_id:produtoId, loja_id:lojaId, tipo:'entrada', quantidade,
+      estoque_anterior:anterior, estoque_posterior:posterior, motivo:'Entrada de mercadoria',
+      referencia_tipo:'ajuste', usuario_id:session?.id||null,
+    }));
+    if(controlaValidade){
+      await dbPost('lotes_produto',withEmpresa({
+        produto_id:produtoId, loja_id:lojaId, quantidade, data_validade:dataValidade,
+        custo_unitario:custoUnitario, documento_referencia:val('entDocumento').trim()||null,
+      }));
+    }
+    toast('Entrada registrada.','ok');
+    $('entQuantidade').value=''; $('entValidade').value=''; $('entCusto').value=''; $('entDocumento').value='';
+    await carregarTudo();
+  }catch(e){msg('entradaMsg','Erro ao registrar entrada: '+e.message,'err');}
+}
+async function descartarLote(id){
+  const lote=dados.lotes.find(l=>l.id===id);
+  if(!lote)return;
+  const produto=dados.produtos.find(p=>p.id===lote.produto_id);
+  const qtd=Number(lote.quantidade||0);
+  if(!confirm(`Descartar ${qtd} un. de "${produto?.nome||''}" (vencido)? Isso baixa do estoque físico dessa loja e registra como perda por vencimento.`))return;
+  const linhaEstoque=dados.estoque.find(e=>e.produto_id===lote.produto_id&&e.loja_id===lote.loja_id);
+  try{
+    await dbPatch('lotes_produto',id,{status:'descartado',updated_at:new Date().toISOString()});
+    if(linhaEstoque){
+      const anterior=Number(linhaEstoque.quantidade||0);
+      const posterior=Math.max(0,anterior-qtd);
+      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:posterior,updated_at:new Date().toISOString()});
+      await dbPost('estoque_movimentacoes',withEmpresa({
+        produto_id:lote.produto_id, loja_id:lote.loja_id, tipo:'saida', quantidade:Math.min(qtd,anterior),
+        estoque_anterior:anterior, estoque_posterior:posterior,
+        motivo:`Descarte de lote vencido (venceu em ${fmtData(lote.data_validade)})`,
+        referencia_tipo:'ajuste', usuario_id:session?.id||null,
+      }));
+    }
+    toast('Lote descartado — baixado do estoque e registrado como perda.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro ao descartar: '+e.message,'err');}
 }
 
 // ══ LOJAS ══
@@ -981,6 +1126,8 @@ function popularSelectsComuns(){
   $('trfOrigem').innerHTML=lojaOpts; $('trfDestino').innerHTML=lojaOpts;
   $('trfProduto').innerHTML=dados.produtos.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
   if($('prodConsignador'))$('prodConsignador').innerHTML='<option value="">Selecione...</option>'+dados.consignadores.filter(c=>c.ativo!==false).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+  if($('entLoja'))$('entLoja').innerHTML=lojaOpts;
+  if($('entProduto')){$('entProduto').innerHTML=dados.produtos.filter(p=>p.ativo!==false).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');atualizarCamposEntrada();}
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}

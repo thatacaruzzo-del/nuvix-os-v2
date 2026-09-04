@@ -576,7 +576,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
 <script>
 const session = requireAuth();
-let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[],vendas:[],itensVenda:[],estoqueVarejo:[]};
+let dados = {fin:[],orc:[],cli:[],mats:[],crm:[],os:[],movs:[],colab:[],ponto:[],notas:[],vendas:[],itensVenda:[],estoqueVarejo:[],produtosVarejo:[],lotesVarejo:[]};
 // Segmento da empresa — controla quais abas do Painel fazem sentido pra ela. Definido
 // aqui (não só na sidebar) porque o conteúdo das abas também precisa respeitar isso:
 // uma empresa só de Varejo não presta serviço nenhum, "Serviços mais vendidos" e a aba
@@ -772,7 +772,7 @@ async function loadData(){
       if(!ids.length) return [];
       return db.get('itens_venda',`?select=venda_id,produto_nome,quantidade,valor_unitario&venda_id=in.(${ids.join(',')})`).catch(()=>[]);
     }) : Promise.resolve([]);
-    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo] = await Promise.all([
+    const [fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo,produtosVarejo,lotesVarejo] = await Promise.all([
       db.get('financeiro', qRecente),
       db.get('servicos_orcamentos', q).catch(()=>[]),
       db.get('clientes', q).catch(()=>[]),
@@ -785,9 +785,13 @@ async function loadData(){
       db.get('notas_fiscais',`?select=id,cliente_nome,status,mensagem_erro&empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
       vendasPromise,
       itensVendaPromise,
-      (isVarejo||isMista) ? db.get('estoque_por_loja',`?select=quantidade,estoque_minimo&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      (isVarejo||isMista) ? db.get('estoque_por_loja',`?select=produto_id,quantidade,estoque_minimo&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      (isVarejo||isMista) ? db.get('produtos',`?select=id,nome,controla_validade&empresa_id=eq.${session.empresa_id}`).catch(()=>[]) : Promise.resolve([]),
+      // Só lote ativo com saldo — é o que interessa pro alerta de validade (mesmo
+      // índice parcial que a baixa FEFO usa em finalizar_venda).
+      (isVarejo||isMista) ? db.get('lotes_produto',`?select=produto_id,quantidade,data_validade&empresa_id=eq.${session.empresa_id}&status=eq.ativo&quantidade=gt.0`).catch(()=>[]) : Promise.resolve([]),
     ]);
-    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo};
+    dados = {fin,orc,cli,mats,crm,os,movs,colab,ponto,notas,vendas,itensVenda,estoqueVarejo,produtosVarejo,lotesVarejo};
     renderAll();
     $('lastUpd').textContent = 'Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1939,6 +1943,31 @@ function renderCentralAtencao(){
     titulo:despesaVencida.favorecido||despesaVencida.descricao||'Despesa',
     sub:`Financeiro · vencida desde ${fmtData(despesaVencida.vencimento)}`,
     valor:money(despesaVencida.valor),href:'financeiro.html'});
+
+  if(isVarejo||isMista){
+    const nomeProdutoVarejo=id=>(dados.produtosVarejo||[]).find(p=>p.id===id)?.nome||'Produto';
+
+    const estoqueBaixo=(dados.estoqueVarejo||[])
+      .filter(e=>Number(e.estoque_minimo||0)>0 && Number(e.quantidade||0)<Number(e.estoque_minimo||0))
+      .sort((a,b)=>Number(a.quantidade||0)-Number(b.quantidade||0))[0];
+    if(estoqueBaixo)itens.push({ic:icoAlert,cor:Number(estoqueBaixo.quantidade||0)<=0?'red':'amber',
+      titulo:nomeProdutoVarejo(estoqueBaixo.produto_id),
+      sub:`Estoque · ${Number(estoqueBaixo.quantidade||0)} / mín. ${Number(estoqueBaixo.estoque_minimo||0)}`,
+      href:'produtos.html'});
+
+    // Só o lote mais urgente entra aqui (vencido primeiro, senão o que vence mais
+    // cedo) — dias_alerta_validade é o mesmo prazo configurável por empresa que a
+    // tela de Entrada de Mercadoria usa pra colorir a lista inteira.
+    const diasAlerta=Number(session.empresa?.dias_alerta_validade||7);
+    const loteUrgente=(dados.lotesVarejo||[])
+      .map(l=>({...l,diasRestantes:Math.floor((new Date(l.data_validade)-new Date(hj))/864e5)}))
+      .filter(l=>l.diasRestantes<=diasAlerta)
+      .sort((a,b)=>a.diasRestantes-b.diasRestantes)[0];
+    if(loteUrgente)itens.push({ic:icoClock,cor:loteUrgente.diasRestantes<0?'red':'amber',
+      titulo:nomeProdutoVarejo(loteUrgente.produto_id),
+      sub:`Validade · ${loteUrgente.diasRestantes<0?`vencido há ${Math.abs(loteUrgente.diasRestantes)} dia(s)`:loteUrgente.diasRestantes===0?'vence hoje':`vence em ${loteUrgente.diasRestantes} dia(s)`}`,
+      href:'produtos.html'});
+  }
 
   setHTML('centralAtencao', itens.length?itens.map(rowHTML).join(''):'<div class="agenda-empty">Nada precisando de atenção agora.</div>');
 }
