@@ -1959,7 +1959,12 @@ function renderEvolucao(linhas,de,ate){
     return dataLocal(d);
   }
   linhas.forEach(l=>{
-    const k=chaveBucket(String(l.total_venda?.created_at||'').slice(0,10));
+    // data_venda, não created_at — venda retroativa é lançada num dia diferente de
+    // quando aconteceu de verdade; agrupar por created_at jogava ela no dia do
+    // lançamento em vez do dia real, distorcendo a evolução (só não aparecia antes
+    // porque retroativa é rara — com volume alto de vendas de teste lançadas todas
+    // de uma vez, ficou óbvio: tudo colapsava num ponto só, no dia do lançamento).
+    const k=chaveBucket(String(l.total_venda?.data_venda||'').slice(0,10));
     buckets[k]=(buckets[k]||0)+valorLiquidoLinha(l);
   });
   const chaves=Object.keys(buckets).filter(k=>k).sort();
