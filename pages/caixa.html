@@ -1810,12 +1810,33 @@ function trendBadge(atual,anterior,invertido,confiavel){
   const bom=invertido?pct<0:pct>0;
   return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
 }
+// Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, período com mais de
+// 1000 linhas fica silenciosamente cortado pela paginação padrão do PostgREST, sem
+// erro nenhum, só um número errado na tela.
+async function dbGetTodas(t,q){
+  const TAM=1000;
+  let offset=0, tudo=[];
+  while(true){
+    const sep=q.includes('?')?'&':'?';
+    const pagina=await dbGet(t,`${q}${sep}limit=${TAM}&offset=${offset}`);
+    tudo=tudo.concat(pagina);
+    if(pagina.length<TAM)break;
+    offset+=TAM;
+  }
+  return tudo;
+}
 async function buscarVendasCompletas(de,ate){
   // data_venda — vendas retroativas entram no período a que de fato pertencem.
-  const vendas=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=*`);
-  const ids=vendas.map(v=>v.id);
-  const itens=ids.length?await dbGet('itens_venda',`?venda_id=in.(${ids.join(',')})&select=*`):[];
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=*`);
+  if(!vendas.length)return[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
+  // Filtra itens_venda pela venda relacionada (vendas!inner, join do próprio
+  // PostgREST) em vez de listar os IDs de venda na URL — período com milhares de
+  // vendas gerava uma URL de dezenas de milhares de caracteres (venda_id=in.(id1,
+  // id2,...)), rejeitada pelo servidor antes mesmo de rodar a consulta.
+  const itens=await dbGetTodas('itens_venda',
+    `?select=*,vendas!inner(status,data_venda)&empresa_id=eq.${session.empresa_id}&vendas.status=eq.Concluída&vendas.data_venda=gte.${de}&vendas.data_venda=lte.${ate}`
+  );
   return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
 }
 // Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
