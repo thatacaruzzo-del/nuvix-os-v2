@@ -1003,7 +1003,11 @@ async function confirmarImportacaoProdutos(){
   try{
     const resp=await dbRpc('importar_produtos_csv',{p:{empresa_id:session.empresa_id, loja_id_padrao:lojaPadraoId, itens}});
     try{
-      await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'produtos',nome_arquivo:importProdArquivoNome,total_linhas:itens.length,status:'concluido',criados:resp.criados||0,atualizados:resp.atualizados||0}));
+      await dbPost('importacoes',withEmpresa({
+        usuario_id:session?.id||null, modulo:'produtos', nome_arquivo:importProdArquivoNome, total_linhas:itens.length, status:'concluido',
+        criados:resp.criados||0, atualizados:resp.atualizados||0,
+        produto_ids:{criados:resp.criados_ids||[], atualizados:resp.atualizados_ids||[]},
+      }));
     }catch(e){ /* log de auditoria não deve travar a importação em si */ }
     toast(`${resp.criados||0} produto(s) criado(s), ${resp.atualizados||0} atualizado(s).`,'ok');
     fecharModal('modalImportarProdutos');

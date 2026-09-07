@@ -35,12 +35,21 @@
 --      Sequence é atômica por natureza, sem essa corrida.
 --   2. importacoes ganhou colunas criados/atualizados — antes só guardava o total
 --      de linhas enviadas, sem separar o que foi de fato criado vs. atualizado.
+--
+-- v3 — base pra auditoria/reversão futura: a função também devolve os IDs exatos
+-- de produto criados e atualizados (criados_ids/atualizados_ids), não só a
+-- contagem. O front grava isso em importacoes.produto_ids. Sem isso não tinha como
+-- responder "quais produtos específicos essa importação tocou" depois do fato —
+-- só "quantos". Ainda não existe um "desfazer importação" (reverter um
+-- "sobrescrever" exigiria guardar o valor anterior de cada campo, que hoje não é
+-- capturado em lugar nenhum — fica pra decisão futura).
 -- ============================================================
 
 CREATE SEQUENCE IF NOT EXISTS seq_sem_cb_produtos;
 
 ALTER TABLE importacoes ADD COLUMN IF NOT EXISTS criados integer;
 ALTER TABLE importacoes ADD COLUMN IF NOT EXISTS atualizados integer;
+ALTER TABLE importacoes ADD COLUMN IF NOT EXISTS produto_ids jsonb;
 
 CREATE OR REPLACE FUNCTION public.importar_produtos_csv(p jsonb)
  RETURNS jsonb
@@ -57,6 +66,8 @@ DECLARE
   v_sku text;
   v_criados int := 0;
   v_atualizados int := 0;
+  v_criados_ids uuid[] := '{}';
+  v_atualizados_ids uuid[] := '{}';
 BEGIN
   IF v_empresa_id IS NULL THEN
     RAISE EXCEPTION 'empresa_id é obrigatório.';
@@ -84,6 +95,7 @@ BEGIN
       ON CONFLICT (produto_id, loja_id) DO UPDATE SET quantidade = EXCLUDED.quantidade, updated_at = now();
 
       v_atualizados := v_atualizados + 1;
+      v_atualizados_ids := v_atualizados_ids || v_produto_id;
     ELSE
       v_categoria_id := NULL;
       IF nullif(item->>'categoria_nome','') IS NOT NULL THEN
@@ -125,9 +137,13 @@ BEGIN
       END IF;
 
       v_criados := v_criados + 1;
+      v_criados_ids := v_criados_ids || v_produto_id;
     END IF;
   END LOOP;
 
-  RETURN jsonb_build_object('criados', v_criados, 'atualizados', v_atualizados);
+  RETURN jsonb_build_object(
+    'criados', v_criados, 'atualizados', v_atualizados,
+    'criados_ids', to_jsonb(v_criados_ids), 'atualizados_ids', to_jsonb(v_atualizados_ids)
+  );
 END;
 $function$
