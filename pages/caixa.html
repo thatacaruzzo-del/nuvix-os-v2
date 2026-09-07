@@ -1831,12 +1831,13 @@ async function buscarVendasCompletas(de,ate){
   if(!vendas.length)return[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
   const ids=vendas.map(v=>v.id);
-  // Busca os itens em blocos de 150 IDs por vez, EM PARALELO (Promise.all) — um
+  // Busca os itens em blocos de 400 IDs por vez, EM PARALELO (Promise.all) — um
   // venda_id=in.(id1,id2,...) com milhares de IDs de uma vez só gera uma URL de
   // dezenas de milhares de caracteres, que o servidor rejeita antes de rodar a
-  // consulta; em blocos sequenciais (um de cada vez) funciona, mas fica lento à
-  // toa com muitos blocos — em paralelo, o navegador manda todos de uma vez.
-  const TAM_BLOCO=150;
+  // consulta. 400 IDs por bloco (~15 mil caracteres) fica bem abaixo do tamanho
+  // que já vimos falhar (~90 mil, com todos de uma vez) e ainda reduz bastante o
+  // número de blocos em paralelo comparado a blocos menores.
+  const TAM_BLOCO=400;
   const blocos=[];
   for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
   const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=*`)));
@@ -1854,11 +1855,6 @@ function valorLiquidoLinha(l){
   const subtotal=Number(v.subtotal||0);
   const fator=subtotal>0?Number(v.total||0)/subtotal:1;
   return bruto*fator;
-}
-function totaisVendas(linhas){
-  const faturamento=linhas.reduce((a,l)=>a+valorLiquidoLinha(l),0);
-  const vendaIds=new Set(linhas.map(l=>l.venda_id));
-  return {faturamento,numVendas:vendaIds.size};
 }
 function renderVendasPorLojaPainel(linhas){
   if(dados.lojas.length<2){$('painelLojaWrap').style.display='none';return;}
@@ -1880,15 +1876,25 @@ function renderVendasPorLojaPainel(linhas){
       <td>${total?Math.round(l.faturamento/total*100):0}%</td>
     </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
 }
+// Total do período anterior é só faturamento + nº de vendas (pro badge de
+// tendência) — não precisa dos itens um por um. venda.total já é o valor líquido
+// (desconto já aplicado), soma exatamente igual a somar valorLiquidoLinha de cada
+// item; buscar só essa coluna evita repetir toda a busca pesada de itens_venda
+// (que só existe pra dar o detalhe por produto do período ATUAL) só pra tirar 2
+// números do período comparativo.
+async function totaisPeriodoLeve(de,ate){
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=total`);
+  return {faturamento:vendas.reduce((a,v)=>a+Number(v.total||0),0), numVendas:vendas.length};
+}
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
   const ant=periodoAnteriorPainel(de,ate);
-  let linhas,linhasAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
+  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
   try{
-    [linhas,linhasAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
+    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
       buscarVendasCompletas(de,ate),
-      buscarVendasCompletas(ant.de,ant.ate),
+      totaisPeriodoLeve(ant.de,ant.ate),
       dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
       dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
@@ -1927,7 +1933,6 @@ async function carregarPainel(){
   const ticketMedio=vendaIds.size?faturamentoTotal/vendaIds.size:0;
   const margemPct=faturamentoTotal?((faturamentoTotal-custoTotal)/faturamentoTotal*100):0;
 
-  const totAnt=totaisVendas(linhasAnt);
   const ticketMedioAnt=totAnt.numVendas?totAnt.faturamento/totAnt.numVendas:0;
   const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
 
