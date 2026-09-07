@@ -1830,13 +1830,18 @@ async function buscarVendasCompletas(de,ate){
   const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=*`);
   if(!vendas.length)return[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
-  // Filtra itens_venda pela venda relacionada (vendas!inner, join do próprio
-  // PostgREST) em vez de listar os IDs de venda na URL — período com milhares de
-  // vendas gerava uma URL de dezenas de milhares de caracteres (venda_id=in.(id1,
-  // id2,...)), rejeitada pelo servidor antes mesmo de rodar a consulta.
-  const itens=await dbGetTodas('itens_venda',
-    `?select=*,vendas!inner(status,data_venda)&empresa_id=eq.${session.empresa_id}&vendas.status=eq.Concluída&vendas.data_venda=gte.${de}&vendas.data_venda=lte.${ate}`
-  );
+  const ids=vendas.map(v=>v.id);
+  // Busca os itens em blocos de 150 IDs por vez — um venda_id=in.(id1,id2,...) com
+  // milhares de IDs de uma vez só gera uma URL de dezenas de milhares de
+  // caracteres, que o servidor rejeita antes de rodar a consulta. Em blocos, cada
+  // requisição fica bem abaixo de qualquer limite de tamanho de URL.
+  const TAM_BLOCO=150;
+  let itens=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO){
+    const bloco=ids.slice(i,i+TAM_BLOCO);
+    const pagina=await dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=*`);
+    itens=itens.concat(pagina);
+  }
   return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
 }
 // Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
