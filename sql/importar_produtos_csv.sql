@@ -1,9 +1,10 @@
 -- ============================================================
 -- importar_produtos_csv() — importação em lote de Produtos via CSV
 --
--- JÁ APLICADA em produção. Chamada por produtos.html (aba Produtos → "Importar
--- CSV") depois que o front já classificou cada linha (severidade + ação escolhida
--- em caso de duplicata) e monta um array só com o que de fato vai ser gravado.
+-- JÁ APLICADA em produção (v2). Chamada por produtos.html (aba Produtos →
+-- "Importar CSV") depois que o front já classificou cada linha (severidade + ação
+-- escolhida em caso de duplicata) e monta um array só com o que de fato vai ser
+-- gravado.
 --
 -- Por que uma função no Postgres e não POSTs sequenciais (como materiais.html faz
 -- pro import dele): cada linha de produto pode tocar até 3 tabelas — produtos,
@@ -11,7 +12,8 @@
 -- tiver validade. POSTs separados via PostgREST só são atômicos DENTRO de uma
 -- tabela; entre tabelas, se o segundo POST falhar o primeiro já foi commitado.
 -- Testado manualmente: uma linha inválida no meio do lote derruba a transação
--- inteira, nada fica gravado pela metade.
+-- inteira, nada fica gravado pela metade — inclusive com 2.700 linhas (tamanho
+-- real do catálogo da YUP), completou em ~1,1s no banco.
 --
 -- Duas ações possíveis por linha, decididas no front:
 --   - "sobrescrever" (produto_id_existente presente): só atualiza custo, preço de
@@ -21,7 +23,24 @@
 --   - "novo" (produto_id_existente ausente): cria produto, cria/reaproveita
 --     categoria por nome, cria estoque_por_loja e, se veio data_validade, cria o
 --     lote também (mesmo padrão de Entrada de Mercadoria).
+--
+-- v2 — corrigido depois de revisão pós-implementação (2 lacunas reais):
+--   1. Código interno (SEM-CB-NNNNNN) pra linha sem código de barras agora é
+--      numerado AQUI DENTRO, via sequence do Postgres (seq_sem_cb_produtos), não
+--      mais calculado no front (maior número visto + 1). O cálculo no front não
+--      tinha lock nenhum — duas importações em paralelo pra mesma empresa (ex:
+--      duas lojas importando ao mesmo tempo) podiam calcular o mesmo próximo
+--      número. O UNIQUE(empresa_id, sku) evitava duplicar silenciosamente, mas
+--      derrubava a transação inteira da segunda import com erro de constraint.
+--      Sequence é atômica por natureza, sem essa corrida.
+--   2. importacoes ganhou colunas criados/atualizados — antes só guardava o total
+--      de linhas enviadas, sem separar o que foi de fato criado vs. atualizado.
 -- ============================================================
+
+CREATE SEQUENCE IF NOT EXISTS seq_sem_cb_produtos;
+
+ALTER TABLE importacoes ADD COLUMN IF NOT EXISTS criados integer;
+ALTER TABLE importacoes ADD COLUMN IF NOT EXISTS atualizados integer;
 
 CREATE OR REPLACE FUNCTION public.importar_produtos_csv(p jsonb)
  RETURNS jsonb
@@ -35,6 +54,7 @@ DECLARE
   v_categoria_id uuid;
   v_produto_id uuid;
   v_loja_id uuid;
+  v_sku text;
   v_criados int := 0;
   v_atualizados int := 0;
 BEGIN
@@ -73,13 +93,19 @@ BEGIN
         RETURNING id INTO v_categoria_id;
       END IF;
 
+      IF coalesce((item->>'gerar_codigo_interno')::boolean, false) THEN
+        v_sku := 'SEM-CB-' || lpad(nextval('seq_sem_cb_produtos')::text, 6, '0');
+      ELSE
+        v_sku := nullif(item->>'sku','');
+      END IF;
+
       INSERT INTO produtos (
         empresa_id, nome, categoria_id, sku, codigo_barras,
         custo_atual, preco_venda_final, preco_venda_sugerido,
         unidade_medida, controla_validade
       ) VALUES (
         v_empresa_id, item->>'nome', v_categoria_id,
-        nullif(item->>'sku',''), nullif(item->>'codigo_barras',''),
+        v_sku, nullif(item->>'codigo_barras',''),
         coalesce((item->>'custo')::numeric, 0), coalesce((item->>'preco_venda')::numeric, 0),
         coalesce((item->>'preco_venda')::numeric, 0),
         coalesce(nullif(item->>'unidade_medida',''), 'UN'),

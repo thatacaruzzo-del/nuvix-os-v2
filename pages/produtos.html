@@ -829,7 +829,10 @@ function lerArquivoImportacaoProdutos(input){
 // Classifica cada linha em 4 níveis: 'erro' (bloqueia só a linha — formato inválido),
 // 'atencao' (precisa de uma escolha do usuário — duplicata ou sem código de barras),
 // 'aviso' (sinaliza mas não bloqueia — estoque negativo) e 'ok'.
-function validarLinhaImportacaoProduto(linha, codigosVistos){
+// mapasImportacao é montado UMA VEZ por arquivo (ver processarImportacaoProdutos),
+// não a cada linha — com catálogo de milhares de produtos, .find()/.some() varrendo
+// dados.produtos pra CADA linha do CSV vira O(linhas × produtos) e trava a aba.
+function validarLinhaImportacaoProduto(linha, codigosVistos, mapasImportacao){
   const nome=(linha.nome||'').trim();
   if(!nome) return {status:'erro', motivo:'nome obrigatório'};
 
@@ -846,19 +849,23 @@ function validarLinhaImportacaoProduto(linha, codigosVistos){
     if(!dataValidade)return{status:'erro',motivo:'validade em formato inválido (use DD/MM/AAAA)'};
   }
 
+  // Repetição do MESMO código de barras dentro da própria planilha sempre bloqueia
+  // a 2ª ocorrência em diante — não importa se o código já existe no cadastro ou
+  // não. Sem essa regra, duas linhas apontando pro mesmo produto já existente
+  // podiam cada uma "escolher" uma ação diferente (uma sobrescreve, outra cria
+  // mesmo assim) sem nenhuma trava entre si.
   const codigoBarras=(linha.codigo_barras||'').trim()||null;
-  const jaExisteNoCadastro=codigoBarras?dados.produtos.some(p=>p.codigo_barras===codigoBarras):false;
-  if(codigoBarras&&!jaExisteNoCadastro&&codigosVistos.has(codigoBarras)){
-    return{status:'erro',motivo:'código de barras duplicado na própria planilha'};
+  if(codigoBarras){
+    if(codigosVistos.has(codigoBarras))return{status:'erro',motivo:'código de barras duplicado na própria planilha'};
+    codigosVistos.add(codigoBarras);
   }
-  if(codigoBarras)codigosVistos.add(codigoBarras);
 
   const lojaTxt=(linha.loja||'').trim();
-  const lojaEncontrada=lojaTxt?dados.lojas.find(l=>l.ativo&&(l.identificador||'').toLowerCase()===lojaTxt.toLowerCase()):null;
+  const lojaEncontrada=lojaTxt?mapasImportacao.lojasPorIdentificador.get(lojaTxt.toLowerCase()):null;
   const categoria=(linha.categoria||'').trim()||null;
   const nomeNorm=normalizarTexto(nome);
-  const produtoExistente=codigoBarras?dados.produtos.find(p=>p.codigo_barras===codigoBarras):null;
-  const produtoSimilar=!produtoExistente?dados.produtos.find(p=>normalizarTexto(p.nome)===nomeNorm):null;
+  const produtoExistente=codigoBarras?mapasImportacao.produtosPorCodigoBarras.get(codigoBarras):null;
+  const produtoSimilar=!produtoExistente?mapasImportacao.produtosPorNomeNorm.get(nomeNorm):null;
 
   const base={
     nome, categoria, custo:isNaN(custo)?0:custo, precoVenda:isNaN(precoVenda)?0:precoVenda,
@@ -882,9 +889,14 @@ function processarImportacaoProdutos(linhas, nomeArquivo){
     $('importProdConfirmarBtn').disabled=true;
     return;
   }
+  const mapasImportacao={
+    produtosPorCodigoBarras: new Map(dados.produtos.filter(p=>p.codigo_barras).map(p=>[p.codigo_barras,p])),
+    produtosPorNomeNorm: new Map(dados.produtos.map(p=>[normalizarTexto(p.nome),p])),
+    lojasPorIdentificador: new Map(dados.lojas.filter(l=>l.ativo&&l.identificador).map(l=>[l.identificador.toLowerCase(),l])),
+  };
   const codigosVistos=new Set();
   importProdArquivoNome=nomeArquivo;
-  importProdLinhasClassificadas=linhas.map((l,idx)=>({idx, linha:l, ...validarLinhaImportacaoProduto(l,codigosVistos)}));
+  importProdLinhasClassificadas=linhas.map((l,idx)=>({idx, linha:l, ...validarLinhaImportacaoProduto(l,codigosVistos,mapasImportacao)}));
   importProdLinhasClassificadas.forEach(r=>{ r.acao=r.acaoPadrao; });
   renderPreviewImportacaoProdutos();
 }
@@ -962,8 +974,6 @@ function renderPreviewImportacaoProdutos(){
 async function confirmarImportacaoProdutos(){
   if(!temPermissao('produtos','criar')){toast('Sem permissão para importar produtos.','err');return;}
   const lojaPadraoId=val('importProdLojaPadrao')||null;
-  const skusExistentes=dados.produtos.map(p=>p.sku).filter(s=>/^SEM-CB-\d+$/.test(s||''));
-  let proximoSemCb=skusExistentes.length?Math.max(...skusExistentes.map(s=>Number(s.split('-')[2])))+1:1;
 
   const itens=[];
   for(const r of importProdLinhasClassificadas){
@@ -972,15 +982,16 @@ async function confirmarImportacaoProdutos(){
     const lojaId=lojaEfetivaImportacao(r,lojaPadraoId);
     if(!lojaId)continue;
 
-    let sku=null;
-    if(!r.codigoBarras&&r.status==='atencao'&&!r.produtoExistente&&r.acao==='gerar'){
-      sku=`SEM-CB-${String(proximoSemCb).padStart(6,'0')}`; proximoSemCb++;
-    }
+    // Código interno (SEM-CB-NNNNNN) é numerado dentro da função no banco, via
+    // sequence — não aqui. Duas importações em paralelo pra mesma empresa não
+    // correm risco de calcular o mesmo próximo número (era o caso antes).
+    const gerarCodigoInterno=!r.codigoBarras&&r.status==='atencao'&&!r.produtoExistente&&r.acao==='gerar';
 
     const item={
-      nome:r.nome, categoria_nome:r.categoria||null, sku, codigo_barras:r.codigoBarras,
+      nome:r.nome, categoria_nome:r.categoria||null, sku:null, codigo_barras:r.codigoBarras,
       custo:r.custo, preco_venda:r.precoVenda, quantidade:r.quantidade,
       loja_id:lojaId, controla_validade:!!r.dataValidade, data_validade:r.dataValidade,
+      gerar_codigo_interno:gerarCodigoInterno,
     };
     if(fim==='atualizar')item.produto_id_existente=r.produtoExistente.id;
     itens.push(item);
@@ -992,7 +1003,7 @@ async function confirmarImportacaoProdutos(){
   try{
     const resp=await dbRpc('importar_produtos_csv',{p:{empresa_id:session.empresa_id, loja_id_padrao:lojaPadraoId, itens}});
     try{
-      await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'produtos',nome_arquivo:importProdArquivoNome,total_linhas:itens.length,status:'concluido'}));
+      await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'produtos',nome_arquivo:importProdArquivoNome,total_linhas:itens.length,status:'concluido',criados:resp.criados||0,atualizados:resp.atualizados||0}));
     }catch(e){ /* log de auditoria não deve travar a importação em si */ }
     toast(`${resp.criados||0} produto(s) criado(s), ${resp.atualizados||0} atualizado(s).`,'ok');
     fecharModal('modalImportarProdutos');
