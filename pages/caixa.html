@@ -1831,17 +1831,16 @@ async function buscarVendasCompletas(de,ate){
   if(!vendas.length)return[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
   const ids=vendas.map(v=>v.id);
-  // Busca os itens em blocos de 150 IDs por vez — um venda_id=in.(id1,id2,...) com
-  // milhares de IDs de uma vez só gera uma URL de dezenas de milhares de
-  // caracteres, que o servidor rejeita antes de rodar a consulta. Em blocos, cada
-  // requisição fica bem abaixo de qualquer limite de tamanho de URL.
+  // Busca os itens em blocos de 150 IDs por vez, EM PARALELO (Promise.all) — um
+  // venda_id=in.(id1,id2,...) com milhares de IDs de uma vez só gera uma URL de
+  // dezenas de milhares de caracteres, que o servidor rejeita antes de rodar a
+  // consulta; em blocos sequenciais (um de cada vez) funciona, mas fica lento à
+  // toa com muitos blocos — em paralelo, o navegador manda todos de uma vez.
   const TAM_BLOCO=150;
-  let itens=[];
-  for(let i=0;i<ids.length;i+=TAM_BLOCO){
-    const bloco=ids.slice(i,i+TAM_BLOCO);
-    const pagina=await dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=*`);
-    itens=itens.concat(pagina);
-  }
+  const blocos=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
+  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=*`)));
+  const itens=paginas.flat();
   return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
 }
 // Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
