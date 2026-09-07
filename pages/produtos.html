@@ -37,6 +37,7 @@
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
+<script src="../js/csv-import.js"></script>
 </head>
 <body>
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
@@ -74,6 +75,7 @@ function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const o
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
+async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -139,6 +141,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <option value="valor_desc">Preço: maior → menor</option>
               <option value="valor_asc">Preço: menor → maior</option>
             </select>
+            <button class="btn2" onclick="abrirModalImportarProdutos()">Importar CSV</button>
             <button class="btn" onclick="abrirModalProduto()">+ Novo produto</button>
           </div>
           <div class="tablewrap">
@@ -445,6 +448,38 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 </div>
 </div>
 
+<!-- MODAL IMPORTAR PRODUTOS (CSV) -->
+<div class="modal-overlay" id="modalImportarProdutos">
+<div class="modal" style="max-width:920px">
+  <h3>Importar produtos (CSV)</h3>
+  <p class="field-hint" style="margin-bottom:14px">Baixe o modelo, preencha no Excel/Google Sheets e suba de volta. Nada é gravado antes de você conferir a prévia e confirmar.</p>
+  <div class="actions" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn2" onclick="baixarModeloProdutos()">Baixar modelo (.csv)</button>
+  </div>
+  <div id="importProdLojaWrap" class="field" style="display:none">
+    <label>Loja (aplicada às linhas sem coluna "loja" reconhecida) *</label>
+    <select id="importProdLojaPadrao" onchange="reprocessarImportacaoProdutos()"></select>
+    <div class="field-hint">Sua empresa tem mais de uma loja ativa. O CSV pode trazer uma coluna "loja" com o identificador de cada loja (ex: L1, L2) — quando uma linha não tiver isso ou não bater com nenhuma loja cadastrada, ela usa a loja escolhida aqui.</div>
+  </div>
+  <div class="field">
+    <label>Arquivo (.csv)</label>
+    <input type="file" id="importProdArquivo" accept=".csv" onchange="lerArquivoImportacaoProdutos(this)">
+  </div>
+  <div id="importProdResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
+  <div id="importProdPreviewWrap" style="display:none;max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <table style="font-size:12px">
+      <thead><tr><th></th><th>Nome</th><th>Categoria</th><th>Cód. barras / SKU</th><th>Estoque</th><th>Custo</th><th>Venda</th><th>Loja</th><th>Ação</th><th>Nota</th></tr></thead>
+      <tbody id="importProdPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="importProdMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalImportarProdutos')">Cancelar</button>
+    <button class="btn" id="importProdConfirmarBtn" onclick="confirmarImportacaoProdutos()" disabled>Confirmar e importar</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
@@ -745,6 +780,229 @@ async function excluirProduto(id){
     toast('Produto excluído.','ok');
     await carregarTudo();
   }catch(e){toast('Erro ao excluir: '+e.message,'err');}
+}
+
+// ══ IMPORTAR PRODUTOS (CSV) ══
+// Mesmo padrão de materiais.html (parser/modelo vêm de js/csv-import.js, validação e
+// preview ficam aqui) — mas a gravação passa por uma função no Postgres
+// (importar_produtos_csv), não por POSTs sequenciais: produto + estoque_por_loja +
+// lotes_produto são 3 tabelas por linha, e só uma transação de verdade garante que
+// uma falha no meio não deixe nada gravado pela metade.
+const IMPORT_PROD_CABECALHO=['codigo_barras','nome','categoria','custo','preco_venda','quantidade','validade','loja'];
+let importProdLinhasClassificadas=[];
+let importProdArquivoNome='';
+
+function normalizarTexto(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function abrirModalImportarProdutos(){
+  if(!temPermissao('produtos','criar')){toast('Sem permissão para importar produtos.','err');return;}
+  $('importProdArquivo').value='';
+  $('importProdResumo').style.display='none';
+  $('importProdPreviewWrap').style.display='none';
+  $('importProdPreviewTable').innerHTML='';
+  $('importProdMsg').textContent='';$('importProdMsg').className='msg';
+  $('importProdConfirmarBtn').disabled=true;
+  importProdLinhasClassificadas=[];
+  const lojasAtivas=dados.lojas.filter(l=>l.ativo);
+  $('importProdLojaWrap').style.display=lojasAtivas.length>1?'block':'none';
+  $('importProdLojaPadrao').innerHTML=lojasAtivas.map(l=>`<option value="${l.id}">${esc(l.nome)}${l.identificador?' ('+esc(l.identificador)+')':''}</option>`).join('');
+  abrirModal('modalImportarProdutos');
+}
+function baixarModeloProdutos(){
+  baixarModeloCSV(IMPORT_PROD_CABECALHO,
+    ['7891000000001','Exemplo de produto','Bebidas','10,00','20,00','50','','L1'],
+    'modelo_produtos.csv');
+}
+function lerArquivoImportacaoProdutos(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{ processarImportacaoProdutos(parseCSV(String(reader.result||'')), arquivo.name); }
+    catch(e){ $('importProdMsg').textContent='Não foi possível ler o arquivo: '+e.message; $('importProdMsg').className='msg show err'; }
+  };
+  reader.onerror=()=>{ $('importProdMsg').textContent='Erro ao ler o arquivo.'; $('importProdMsg').className='msg show err'; };
+  reader.readAsText(arquivo,'UTF-8');
+}
+// Classifica cada linha em 4 níveis: 'erro' (bloqueia só a linha — formato inválido),
+// 'atencao' (precisa de uma escolha do usuário — duplicata ou sem código de barras),
+// 'aviso' (sinaliza mas não bloqueia — estoque negativo) e 'ok'.
+function validarLinhaImportacaoProduto(linha, codigosVistos){
+  const nome=(linha.nome||'').trim();
+  if(!nome) return {status:'erro', motivo:'nome obrigatório'};
+
+  const custo=linha.custo?parseNumeroBR(linha.custo):0;
+  const precoVenda=linha.preco_venda?parseNumeroBR(linha.preco_venda):0;
+  const quantidade=linha.quantidade?parseNumeroBR(linha.quantidade):0;
+  if(linha.custo&&isNaN(custo))return{status:'erro',motivo:'custo inválido'};
+  if(linha.preco_venda&&isNaN(precoVenda))return{status:'erro',motivo:'preço de venda inválido'};
+  if(linha.quantidade&&isNaN(quantidade))return{status:'erro',motivo:'estoque inválido'};
+
+  let dataValidade=null;
+  if((linha.validade||'').trim()){
+    dataValidade=parseDataBR(linha.validade);
+    if(!dataValidade)return{status:'erro',motivo:'validade em formato inválido (use DD/MM/AAAA)'};
+  }
+
+  const codigoBarras=(linha.codigo_barras||'').trim()||null;
+  const jaExisteNoCadastro=codigoBarras?dados.produtos.some(p=>p.codigo_barras===codigoBarras):false;
+  if(codigoBarras&&!jaExisteNoCadastro&&codigosVistos.has(codigoBarras)){
+    return{status:'erro',motivo:'código de barras duplicado na própria planilha'};
+  }
+  if(codigoBarras)codigosVistos.add(codigoBarras);
+
+  const lojaTxt=(linha.loja||'').trim();
+  const lojaEncontrada=lojaTxt?dados.lojas.find(l=>l.ativo&&(l.identificador||'').toLowerCase()===lojaTxt.toLowerCase()):null;
+  const categoria=(linha.categoria||'').trim()||null;
+  const nomeNorm=normalizarTexto(nome);
+  const produtoExistente=codigoBarras?dados.produtos.find(p=>p.codigo_barras===codigoBarras):null;
+  const produtoSimilar=!produtoExistente?dados.produtos.find(p=>normalizarTexto(p.nome)===nomeNorm):null;
+
+  const base={
+    nome, categoria, custo:isNaN(custo)?0:custo, precoVenda:isNaN(precoVenda)?0:precoVenda,
+    quantidade:isNaN(quantidade)?0:quantidade, dataValidade, codigoBarras,
+    lojaId:lojaEncontrada?lojaEncontrada.id:null, lojaTxt,
+  };
+
+  const notas=[]; let status='ok', acaoPadrao=null, produtoRef=null;
+  if(produtoExistente){ status='atencao'; acaoPadrao='pular'; produtoRef=produtoExistente; notas.push(`já existe produto com esse código de barras ("${produtoExistente.nome}")`); }
+  else if(produtoSimilar){ status='atencao'; acaoPadrao='pular'; produtoRef=produtoSimilar; notas.push(`nome muito parecido com "${produtoSimilar.nome}" já cadastrado`); }
+  else if(!codigoBarras){ status='atencao'; acaoPadrao='gerar'; notas.push('sem código de barras'); }
+  if(base.quantidade<0){ if(status==='ok')status='aviso'; notas.push(`estoque negativo (${base.quantidade})`); }
+
+  return {...base, status, motivo:notas.join(' · '), acaoPadrao, produtoExistente:produtoRef};
+}
+function processarImportacaoProdutos(linhas, nomeArquivo){
+  if(!linhas.length){
+    $('importProdMsg').textContent='Planilha vazia ou sem linhas de dados.';
+    $('importProdMsg').className='msg show err';
+    $('importProdPreviewWrap').style.display='none';
+    $('importProdConfirmarBtn').disabled=true;
+    return;
+  }
+  const codigosVistos=new Set();
+  importProdArquivoNome=nomeArquivo;
+  importProdLinhasClassificadas=linhas.map((l,idx)=>({idx, linha:l, ...validarLinhaImportacaoProduto(l,codigosVistos)}));
+  importProdLinhasClassificadas.forEach(r=>{ r.acao=r.acaoPadrao; });
+  renderPreviewImportacaoProdutos();
+}
+function reprocessarImportacaoProdutos(){ renderPreviewImportacaoProdutos(); }
+function lojaEfetivaImportacao(r,lojaPadraoId){ return r.lojaId||lojaPadraoId||null; }
+function statusFinalLinhaImportacao(r){
+  if(r.status==='erro')return'ignorado';
+  if(r.status==='atencao'&&r.acao==='pular')return'pular';
+  if(r.status==='atencao'&&r.produtoExistente&&r.acao==='sobrescrever')return'atualizar';
+  return'novo';
+}
+function linhaPreviewImportacaoHTML(r,lojaPadraoId){
+  const cores={ok:'',atencao:'background:var(--amber-bg,#FEF3C7)',aviso:'background:var(--red-bg,#FEE2E2)',erro:'background:var(--red-bg,#FEE2E2)'};
+  const icones={ok:'✓',atencao:'⚠',aviso:'⚠',erro:'✕'};
+  const lojaEfetiva=lojaEfetivaImportacao(r,lojaPadraoId);
+  const lojaTxt=r.lojaId?esc(nomeLoja(r.lojaId)):(lojaEfetiva?`${esc(nomeLoja(lojaEfetiva))} (padrão)`:'<span style="color:var(--red)">sem loja</span>');
+  let acaoHTML='—';
+  if(r.status==='atencao'&&r.produtoExistente){
+    acaoHTML=`<select onchange="alterarAcaoLinhaImportacao(${r.idx},this.value)" style="font-size:11px;padding:4px">
+      <option value="pular"${r.acao==='pular'?' selected':''}>Pular</option>
+      <option value="sobrescrever"${r.acao==='sobrescrever'?' selected':''}>Sobrescrever</option>
+      <option value="criar_mesmo_assim"${r.acao==='criar_mesmo_assim'?' selected':''}>Criar mesmo assim</option>
+    </select>`;
+  }else if(r.status==='atencao'&&!r.produtoExistente){
+    acaoHTML=`<select onchange="alterarAcaoLinhaImportacao(${r.idx},this.value)" style="font-size:11px;padding:4px">
+      <option value="gerar"${r.acao==='gerar'?' selected':''}>Gerar código interno</option>
+      <option value="sem_sku"${r.acao==='sem_sku'?' selected':''}>Marcar sem SKU</option>
+    </select>`;
+  }
+  return `<tr style="${cores[r.status]}">
+    <td title="${esc(r.motivo||'')}">${icones[r.status]}</td>
+    <td>${esc(r.nome||r.linha.nome||'')}</td>
+    <td>${esc(r.categoria||'')}</td>
+    <td>${esc(r.codigoBarras||'sem código')}</td>
+    <td>${r.quantidade??''}</td>
+    <td>${r.custo!=null?money(r.custo):''}</td>
+    <td>${r.precoVenda!=null?money(r.precoVenda):''}</td>
+    <td style="font-size:11px">${lojaTxt}</td>
+    <td>${acaoHTML}</td>
+    <td style="font-size:11px;color:var(--muted)">${esc(r.motivo||'')}</td>
+  </tr>`;
+}
+function alterarAcaoLinhaImportacao(idx,novaAcao){
+  const r=importProdLinhasClassificadas.find(x=>x.idx===idx);
+  if(r)r.acao=novaAcao;
+  renderPreviewImportacaoProdutos();
+}
+function renderPreviewImportacaoProdutos(){
+  const lojaPadraoId=val('importProdLojaPadrao')||null;
+  let novos=0, atualizacoes=0, ignorados=0, negativos=0;
+  importProdLinhasClassificadas.forEach(r=>{
+    const fim=statusFinalLinhaImportacao(r);
+    if(fim==='ignorado')ignorados++;
+    else if(fim==='pular'){ /* não conta */ }
+    else{
+      if(fim==='atualizar')atualizacoes++; else novos++;
+      if(Number(r.quantidade)<0)negativos++;
+    }
+  });
+  $('importProdPreviewTable').innerHTML=importProdLinhasClassificadas.map(r=>linhaPreviewImportacaoHTML(r,lojaPadraoId)).join('');
+  $('importProdResumo').style.display='block';
+  $('importProdResumo').innerHTML=`${novos} produto${novos!==1?'s':''} novo${novos!==1?'s':''} · ${atualizacoes} atualização${atualizacoes!==1?'ões':''} · ${ignorados} ignorado${ignorados!==1?'s':''} por erro · ${negativos} com estoque negativo sinalizado`;
+  $('importProdPreviewWrap').style.display='block';
+
+  const semLojaResolvida=importProdLinhasClassificadas.some(r=>statusFinalLinhaImportacao(r)!=='ignorado'&&statusFinalLinhaImportacao(r)!=='pular'&&!lojaEfetivaImportacao(r,lojaPadraoId));
+  const nadaPraImportar=(novos+atualizacoes)===0;
+  $('importProdConfirmarBtn').disabled=nadaPraImportar||semLojaResolvida;
+  if(semLojaResolvida){
+    $('importProdMsg').textContent='Algumas linhas não têm loja identificada — selecione uma loja padrão acima.';
+    $('importProdMsg').className='msg show err';
+  }else{
+    $('importProdMsg').textContent='';$('importProdMsg').className='msg';
+  }
+}
+async function confirmarImportacaoProdutos(){
+  if(!temPermissao('produtos','criar')){toast('Sem permissão para importar produtos.','err');return;}
+  const lojaPadraoId=val('importProdLojaPadrao')||null;
+  const skusExistentes=dados.produtos.map(p=>p.sku).filter(s=>/^SEM-CB-\d+$/.test(s||''));
+  let proximoSemCb=skusExistentes.length?Math.max(...skusExistentes.map(s=>Number(s.split('-')[2])))+1:1;
+
+  const itens=[];
+  for(const r of importProdLinhasClassificadas){
+    const fim=statusFinalLinhaImportacao(r);
+    if(fim==='ignorado'||fim==='pular')continue;
+    const lojaId=lojaEfetivaImportacao(r,lojaPadraoId);
+    if(!lojaId)continue;
+
+    let sku=null;
+    if(!r.codigoBarras&&r.status==='atencao'&&!r.produtoExistente&&r.acao==='gerar'){
+      sku=`SEM-CB-${String(proximoSemCb).padStart(6,'0')}`; proximoSemCb++;
+    }
+
+    const item={
+      nome:r.nome, categoria_nome:r.categoria||null, sku, codigo_barras:r.codigoBarras,
+      custo:r.custo, preco_venda:r.precoVenda, quantidade:r.quantidade,
+      loja_id:lojaId, controla_validade:!!r.dataValidade, data_validade:r.dataValidade,
+    };
+    if(fim==='atualizar')item.produto_id_existente=r.produtoExistente.id;
+    itens.push(item);
+  }
+  if(!itens.length){msg('importProdMsg','Nenhuma linha pronta pra importar.','err');return;}
+
+  const btn=$('importProdConfirmarBtn');
+  btn.disabled=true;btn.textContent='Importando...';
+  try{
+    const resp=await dbRpc('importar_produtos_csv',{p:{empresa_id:session.empresa_id, loja_id_padrao:lojaPadraoId, itens}});
+    try{
+      await dbPost('importacoes',withEmpresa({usuario_id:session?.id||null,modulo:'produtos',nome_arquivo:importProdArquivoNome,total_linhas:itens.length,status:'concluido'}));
+    }catch(e){ /* log de auditoria não deve travar a importação em si */ }
+    toast(`${resp.criados||0} produto(s) criado(s), ${resp.atualizados||0} atualizado(s).`,'ok');
+    fecharModal('modalImportarProdutos');
+    await carregarTudo();
+  }catch(e){
+    $('importProdMsg').textContent='Erro ao importar: '+e.message;
+    $('importProdMsg').className='msg show err';
+  }finally{
+    btn.disabled=false;btn.textContent='Confirmar e importar';
+  }
 }
 
 // ══ CATEGORIAS ══
