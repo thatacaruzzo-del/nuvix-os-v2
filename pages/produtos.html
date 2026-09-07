@@ -536,6 +536,7 @@ async function carregarTudo(){
       dbGet('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
     ]);
     dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes;
+    reconstruirMapaEstoque();
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
   // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
   // cadastro novo) — cria uma loja padrão sozinho, pra estoque/PDV já funcionarem
@@ -598,7 +599,19 @@ function abaTab(id,btn){
 function nomeCategoria(id){return dados.categorias.find(c=>c.id===id)?.nome||'—'}
 function nomeLoja(id){return dados.lojas.find(l=>l.id===id)?.nome||'—'}
 function nomeConsignador(id){return dados.consignadores.find(c=>c.id===id)?.nome||'—'}
-function estoqueTotalProduto(produtoId){return dados.estoque.filter(e=>e.produto_id===produtoId).reduce((a,e)=>a+Number(e.quantidade||0),0)}
+// Mapa produto_id -> estoque total, reconstruído toda vez que dados.estoque muda (ver
+// carregarTudo). Sem isso, estoqueTotalProduto() varria dados.estoque inteiro por
+// chamada — e o comparador de ordenação por estoque chama ela 2x por comparação do
+// sort, então com catálogo grande (medido: ~1.500 produtos × 3 lojas) a primeira
+// ordenação por quantidade travava a tela por mais de 3 segundos.
+let mapaEstoquePorProduto=new Map();
+function reconstruirMapaEstoque(){
+  mapaEstoquePorProduto=new Map();
+  dados.estoque.forEach(e=>{
+    mapaEstoquePorProduto.set(e.produto_id,(mapaEstoquePorProduto.get(e.produto_id)||0)+Number(e.quantidade||0));
+  });
+}
+function estoqueTotalProduto(produtoId){return mapaEstoquePorProduto.get(produtoId)||0}
 
 // ══ PRODUTOS ══
 // Ordenação prática pro cliente achar rápido o que precisa — quantidade e valor são os
