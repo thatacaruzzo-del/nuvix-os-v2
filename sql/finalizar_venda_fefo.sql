@@ -24,6 +24,11 @@
 -- Mercadoria" registrada), não bloqueia a venda por isso — o
 -- estoque_por_loja já validou que existe quantidade suficiente no total,
 -- só significa que uma parte dessa baixa não tem lote/validade associado.
+--
+-- v2 (ver multi_caixa_por_loja.sql): vendas ganhou usuario_id — quem estava de
+-- fato logado ao finalizar a venda, gravado aqui além de estoque_movimentacoes
+-- (que já recebia). O front já mandava usuario_id:session.id desde sempre, só
+-- faltava incluir na lista de colunas do INSERT em vendas.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.finalizar_venda(p jsonb)
@@ -76,8 +81,8 @@ BEGIN
   VALUES (v_empresa_id, 'Receita', 'Vendas de Produtos', v_descricao, v_loja_id, v_total, v_data_venda, v_data_venda, 'Recebido', v_forma_pagamento_txt, v_cliente_nome, now())
   RETURNING id INTO v_financeiro_id;
 
-  INSERT INTO vendas (empresa_id, loja_id, caixa_sessao_id, cliente_id, cliente_nome, financeiro_id, vendedor_id, vendedor_nome, subtotal, desconto_total, total, status, data_venda, retroativa, motivo_retroativo, canal, ml_order_id, nuvemshop_order_id, nuvemshop_credencial_id)
-  VALUES (v_empresa_id, v_loja_id, v_caixa_sessao_id, v_cliente_id, v_cliente_nome, v_financeiro_id, v_vendedor_id, v_vendedor_nome, v_subtotal, v_desconto_total, v_total, 'Concluída', v_data_venda, v_retroativa, v_motivo_retroativo, v_canal, v_ml_order_id, v_nuvemshop_order_id, v_nuvemshop_credencial_id)
+  INSERT INTO vendas (empresa_id, loja_id, caixa_sessao_id, cliente_id, cliente_nome, financeiro_id, vendedor_id, vendedor_nome, usuario_id, subtotal, desconto_total, total, status, data_venda, retroativa, motivo_retroativo, canal, ml_order_id, nuvemshop_order_id, nuvemshop_credencial_id)
+  VALUES (v_empresa_id, v_loja_id, v_caixa_sessao_id, v_cliente_id, v_cliente_nome, v_financeiro_id, v_vendedor_id, v_vendedor_nome, v_usuario_id, v_subtotal, v_desconto_total, v_total, 'Concluída', v_data_venda, v_retroativa, v_motivo_retroativo, v_canal, v_ml_order_id, v_nuvemshop_order_id, v_nuvemshop_credencial_id)
   RETURNING id INTO v_venda_id;
 
   FOR item IN SELECT * FROM jsonb_array_elements(coalesce(p->'itens','[]'::jsonb)) LOOP

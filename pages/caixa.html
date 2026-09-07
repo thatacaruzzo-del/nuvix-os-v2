@@ -195,7 +195,8 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <div class="card caixa-fechada-box">
           <h2 style="margin-bottom:6px">Abrir caixa</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Nenhum caixa aberto nessa loja agora. Informe o fundo de troco pra começar a vender.</p>
-          <div class="field" style="text-align:left"><label>Loja</label><select id="abrirLoja"></select></div>
+          <div class="field" style="text-align:left"><label>Loja</label><select id="abrirLoja" onchange="verificarCaixaAberto()"></select></div>
+          <div class="field" style="text-align:left"><label>Número do caixa (deixe em branco se essa loja só tem 1)</label><input id="abrirNumeroCaixa" placeholder="Ex: 2, 3... vazio = caixa único" oninput="sanitizarInteiro(this)"></div>
           <div class="field" style="text-align:left"><label>Turno (opcional)</label><input id="abrirTurno" placeholder="Ex: Manhã, Tarde..."></div>
           <div class="field" style="text-align:left"><label>Fundo de troco (R$)</label><input id="abrirFundoTroco" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
           <div id="abrirCaixaMsg" class="msg"></div>
@@ -325,6 +326,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="telaFechamento" style="display:none">
         <div class="card" style="max-width:560px;margin:0 auto">
           <h2 style="margin-bottom:6px">Fechar caixa</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:6px" id="fechamentoSubtitulo"></p>
           <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Dinheiro físico exige contagem manual. Cartão e Pix não têm contagem — ficam aguardando conciliação com o extrato.</p>
           <div id="fechamentoFormas"></div>
           <div id="fechamentoMsg" class="msg"></div>
@@ -348,7 +350,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div id="histResumoConsignado"></div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Hora</th><th>Vendedor</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Hora</th><th>Operador</th><th>Vendedor</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
               <tbody id="histTable"></tbody>
             </table>
           </div>
@@ -495,7 +497,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[], consignadores:[] };
+let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[], consignadores:[], usuarios:[] };
 let carrinho = [];
 let pagamentos = [];
 let sessaoAtual = null;
@@ -515,6 +517,13 @@ function limiteDescontoPct(){
 }
 
 function chaveUltimaLoja(){return `nuvix_caixa_loja_${session?.empresa_id||''}`}
+// Guarda, POR LOJA, qual "número de caixa" esse navegador/terminal costuma abrir —
+// em branco é o comportamento de sempre (1 caixa só, sem número). Só passa a
+// importar pra loja que decidir ter 2+ registradores simultâneos: cada terminal
+// lembra o seu próprio número, pra não puxar sem querer a sessão de outro terminal
+// no recarregamento da página.
+function chaveUltimoCaixa(lojaId){return `nuvix_caixa_numero_${session?.empresa_id||''}_${lojaId||''}`}
+function queryNumeroCaixa(numeroCaixa){return numeroCaixa?`numero_caixa=eq.${encodeURIComponent(numeroCaixa)}`:'numero_caixa=is.null'}
 
 async function init(){
   if(!session)return;
@@ -528,6 +537,7 @@ async function init(){
   }
   await carregarLojas();
   carregarVendedores();
+  carregarUsuarios();
   carregarConfigFiscal();
   await verificarCaixaAberto();
   reconectarImpressoraSalva();
@@ -566,12 +576,26 @@ async function carregarVendedores(){
   if(sel) sel.innerHTML='<option value="">Selecione...</option>'+dados.colaboradores.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 }
 
+// Quem estava de fato logado ao finalizar cada venda (usuario_id, gravado sempre —
+// diferente do "vendedor" acima, que é opcional/manual). Mesma ideia de
+// vendedores_ativos: view enxuta (só id/nome) pra dar nome no histórico sem abrir a
+// tabela `usuarios` inteira pra quem não é admin.
+async function carregarUsuarios(){
+  try{ dados.usuarios=await dbGet('usuarios_ativos',`?select=id,nome`); }
+  catch(e){ dados.usuarios=[]; }
+}
+function nomeUsuario(id){ return dados.usuarios.find(u=>u.id===id)?.nome || null; }
+
 async function verificarCaixaAberto(){
   const lojaId=val('abrirLoja')||dados.lojas[0]?.id;
   if(!lojaId){ $('telaAbrirCaixa').style.display='block'; return; }
+  // Número de caixa que ESTE terminal costuma usar nessa loja — em branco na
+  // grande maioria dos casos (loja com 1 caixa só, comportamento de sempre).
+  const numeroCaixa=localStorage.getItem(chaveUltimoCaixa(lojaId))||'';
+  if($('abrirNumeroCaixa'))$('abrirNumeroCaixa').value=numeroCaixa;
   let abertos;
   try{
-    abertos=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+    abertos=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&${queryNumeroCaixa(numeroCaixa)}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
   }catch(e){
     // Nunca deixa cair silenciosamente na tela de "Abrir caixa" quando a checagem falhou —
     // senão o funcionário pode acabar abrindo um caixa novo achando que não tinha nenhum
@@ -608,7 +632,7 @@ function mostrarTelaPdv(){
   $('topoPdvNormal').style.display='flex';
   $('bannerRetroativo').style.display='none';
   modoRetroativo=false;
-  $('lblLojaAtual').textContent=dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'—';
+  $('lblLojaAtual').textContent=(dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'—')+(sessaoAtual.numero_caixa?` · Caixa ${sessaoAtual.numero_caixa}`:'');
   $('lblFundoTroco').textContent=money(sessaoAtual.fundo_troco);
   $('lblAbertoEm').textContent='aberto '+fmtDataHora(sessaoAtual.aberto_em);
   limparCarrinho();
@@ -666,25 +690,31 @@ function cancelarModoRetroativo(){
 async function abrirCaixaSessao(){
   const lojaId=val('abrirLoja');
   if(!lojaId){msg('abrirCaixaMsg','Cadastre uma loja em Produtos → Lojas antes de abrir o caixa.','err');return;}
+  const numeroCaixa=val('abrirNumeroCaixa').trim()||'';
   try{
-    // Checagem de última hora antes de criar — evita duplicar caixa aberto pra mesma loja
-    // (ex: sessão expirou, funcionário logou de novo e a tela achou, por engano, que não
-    // tinha nenhum caixa aberto). Sem isso, um caixa de verdade com vendas do dia inteiro
-    // pode ficar órfão — invisível no sistema — enquanto um caixa vazio é criado por cima.
-    const jaAberto=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
+    // Checagem de última hora antes de criar — evita duplicar caixa aberto pro MESMO
+    // número nessa loja (ex: sessão expirou, funcionário logou de novo e a tela achou,
+    // por engano, que não tinha nenhum caixa aberto). Sem isso, um caixa de verdade com
+    // vendas do dia inteiro pode ficar órfão — invisível no sistema — enquanto um caixa
+    // vazio é criado por cima. Filtra por número de caixa também — duas lojas... duas
+    // sessões numeradas diferentes na MESMA loja são caixas de verdade distintos, não
+    // duplicata: cada um com seu fundo de troco, sangria/suprimento e fechamento próprios.
+    const jaAberto=await dbGet('caixa_sessoes',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}&${queryNumeroCaixa(numeroCaixa)}&status=eq.Aberto&order=aberto_em.desc&limit=1`);
     if(jaAberto.length){
       sessaoAtual=jaAberto[0];
       localStorage.setItem(chaveUltimaLoja(),lojaId);
+      localStorage.setItem(chaveUltimoCaixa(lojaId),numeroCaixa);
       await carregarProdutosLoja();
       mostrarTelaPdv();
-      toast('Já existia um caixa aberto pra essa loja (desde '+fmtDataHora(jaAberto[0].aberto_em)+') — retomando ele em vez de abrir outro.','ok');
+      toast('Já existia'+(numeroCaixa?` o caixa ${numeroCaixa}`:' um caixa')+' aberto pra essa loja (desde '+fmtDataHora(jaAberto[0].aberto_em)+') — retomando ele em vez de abrir outro.','ok');
       return;
     }
     const nova=await dbPost('caixa_sessoes',withEmpresa({
-      loja_id:lojaId, turno:val('abrirTurno').trim()||null, responsavel_abertura_id:session.id,
+      loja_id:lojaId, numero_caixa:numeroCaixa||null, turno:val('abrirTurno').trim()||null, responsavel_abertura_id:session.id,
       fundo_troco:numBR('abrirFundoTroco'), status:'Aberto',
     }));
     sessaoAtual=Array.isArray(nova)?nova[0]:nova;
+    localStorage.setItem(chaveUltimoCaixa(lojaId),numeroCaixa);
     localStorage.setItem(chaveUltimaLoja(),lojaId);
     await carregarProdutosLoja();
     mostrarTelaPdv();
@@ -1360,6 +1390,7 @@ const FORMAS_FECHAMENTO=['Dinheiro','Cartão Débito','Cartão Crédito','Pix'];
 async function abrirTelaFechamento(){
   $('telaPdv').style.display='none';
   $('telaFechamento').style.display='block';
+  $('fechamentoSubtitulo').textContent=(dados.lojas.find(l=>l.id===sessaoAtual.loja_id)?.nome||'')+(sessaoAtual.numero_caixa?` · Caixa ${sessaoAtual.numero_caixa}`:'');
   // status=eq.Concluída — sem isso, venda cancelada (ex: teste) continuava entrando no
   // "esperado pelo sistema" do fechamento, mesmo já não aparecendo em lugar nenhum do
   // histórico e com o estoque já devolvido.
@@ -1500,6 +1531,7 @@ function renderHistoricoVendas(vendas,itens,formas,devolucoes){
       : '<span class="badge badge-green">Concluída</span>';
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
       <td>${horaOuRetroativa}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(nomeUsuario(v.usuario_id)||'—')}</td>
       <td>${esc(v.vendedor_nome||'—')}</td>
       <td>${esc(v.cliente_nome||'—')}</td>
       <td>${qtdItens} (${itensTxt})</td>
@@ -1508,7 +1540,7 @@ function renderHistoricoVendas(vendas,itens,formas,devolucoes){
       <td>${badgeStatus}</td>
       <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
-  }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+  }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
 // Reimprime o cupom de uma venda já concluída, reconstruindo o mesmo formato usado na
 // hora da venda a partir do que já está carregado no histórico (sem round-trip extra).
