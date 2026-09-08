@@ -59,6 +59,31 @@ function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_ses
 const H={'apikey':KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||KEY);},'Content-Type':'application/json'};
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 const db={get:async(t,q)=>{let r;try{r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}};
+// Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, período com mais
+// de 1000 linhas fica cortado silenciosamente pela paginação padrão do PostgREST.
+async function dbGetTodas(t,q){
+  const TAM=1000;
+  let offset=0, tudo=[];
+  while(true){
+    const sep=(q||'').includes('?')?'&':'?';
+    const pagina=await db.get(t,`${q||''}${sep}limit=${TAM}&offset=${offset}`);
+    tudo=tudo.concat(pagina);
+    if(pagina.length<TAM)break;
+    offset+=TAM;
+  }
+  return tudo;
+}
+// Busca uma tabela filtrando por uma lista de IDs de venda, em blocos de 400 por
+// vez e em paralelo — um venda_id=in.(id1,id2,...) com milhares de IDs de uma vez
+// só gera uma URL de dezenas de milhares de caracteres, que o servidor rejeita
+// antes de rodar a consulta.
+async function buscarPorVendaIds(t,ids,selectQ){
+  const TAM_BLOCO=400;
+  const blocos=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
+  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas(t,`?venda_id=in.(${bloco.join(',')})&${selectQ}`)));
+  return paginas.flat();
+}
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
@@ -573,7 +598,7 @@ async function gerarRelatorioVendas(){
   setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Carregando...</div>');
   setHTML('relInfo','');
   try{
-    const vendas=await db.get('vendas',`?select=*&empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&order=data_venda.desc`);
+    const vendas=await dbGetTodas('vendas',`?select=*&empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&order=data_venda.desc`);
     if(!vendas.length){
       _vendasBrutas=null; _relDados=[];
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>');
@@ -581,14 +606,14 @@ async function gerarRelatorioVendas(){
     }
     const ids=vendas.map(v=>v.id);
     const [itens,formas,lojas,consignadores,produtosConsignados,estoqueConsignados]=await Promise.all([
-      db.get('itens_venda',`?venda_id=in.(${ids.join(',')})&select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado,consignador_id,percentual_repasse_snapshot`),
-      db.get('venda_formas_pagamento',`?venda_id=in.(${ids.join(',')})&select=venda_id,forma_pagamento,valor`),
+      buscarPorVendaIds('itens_venda',ids,'select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado,consignador_id,percentual_repasse_snapshot'),
+      buscarPorVendaIds('venda_formas_pagamento',ids,'select=venda_id,forma_pagamento,valor'),
       db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
       db.get('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,nome,percentual_repasse,ativo`).catch(()=>[]),
       // Estoque parado de consignados é independente do período do relatório — é "agora",
       // não "nesse mês" — por isso busca à parte, sem filtro de data.
-      db.get('produtos',`?empresa_id=eq.${session.empresa_id}&is_consignado=eq.true&select=id,nome,consignador_id,preco_venda_final`).catch(()=>[]),
-      db.get('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade,loja_id`).catch(()=>[]),
+      dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&is_consignado=eq.true&select=id,nome,consignador_id,preco_venda_final`).catch(()=>[]),
+      dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade,loja_id`).catch(()=>[]),
     ]);
     const nomeLoja={}; lojas.forEach(l=>{nomeLoja[l.id]=l.nome;});
     const nomeConsignador={}; consignadores.forEach(c=>{nomeConsignador[c.id]=c.nome;});

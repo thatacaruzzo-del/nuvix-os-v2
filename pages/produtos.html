@@ -76,6 +76,21 @@ async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_UR
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
 async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+// Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, catálogo/estoque
+// acima de 1000 linhas fica cortado silenciosamente pela paginação padrão do
+// PostgREST, sem erro nenhum: produto ou lote some da tela sem ninguém perceber.
+async function dbGetTodas(t,q){
+  const TAM=1000;
+  let offset=0, tudo=[];
+  while(true){
+    const sep=q.includes('?')?'&':'?';
+    const pagina=await dbGet(t,`${q}${sep}limit=${TAM}&offset=${offset}`);
+    tudo=tudo.concat(pagina);
+    if(pagina.length<TAM)break;
+    offset+=TAM;
+  }
+  return tudo;
+}
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -527,13 +542,13 @@ async function carregarTudo(){
   if(!session?.empresa_id)return;
   try{
     const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes]=await Promise.all([
-      dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
+      dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
-      dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=*`),
+      dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=*`),
       dbGet('transferencias_estoque',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=100`),
       dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
-      dbGet('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
+      dbGetTodas('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
     ]);
     dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes;
     reconstruirMapaEstoque();

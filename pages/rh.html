@@ -111,6 +111,21 @@ function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const o
 // auditoria de 2026-08-19: nenhum formulário do sistema validava isso antes.
 function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
 const db={get:async(t,q='')=>{_verificarSessao();let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q}`,{headers:_h});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},post:async(t,d)=>{_verificarSessao();let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},patch:async(t,id,d)=>{_verificarSessao();let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:_h,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j},delete:async(t,id)=>{_verificarSessao();let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:_h});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}};
+// Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, ponto (batido
+// 2x/dia por colaborador) fica cortado silenciosamente pela paginação padrão do
+// PostgREST com o tempo, contaminando cálculo de horas/HE na folha sem aviso.
+async function dbGetTodas(t,q){
+  const TAM=1000;
+  let offset=0, tudo=[];
+  while(true){
+    const sep=(q||'').includes('?')?'&':'?';
+    const pagina=await db.get(t,`${q||''}${sep}limit=${TAM}&offset=${offset}`);
+    tudo=tudo.concat(pagina);
+    if(pagina.length<TAM)break;
+    offset+=TAM;
+  }
+  return tudo;
+}
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
@@ -637,7 +652,7 @@ async function loadData(){
   const q=`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`;
   const qUsuarios=`?select=id,nome,email,perfil,ativo&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`;
   const qLojas=`?select=id,nome,ativo&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`;
-  try{[dados.colaboradores,dados.ponto,dados.usuarios,dados.lojas,dados.jornadas,dados.comissoes]=await Promise.all([db.get('colaboradores',q),db.get('ponto',q),db.get('usuarios',qUsuarios).catch(()=>[]),db.get('lojas',qLojas).catch(()=>[]),db.get('jornadas_trabalho',q).catch(()=>[]),db.get('comissoes_colaborador',q).catch(()=>[])]);renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
+  try{[dados.colaboradores,dados.ponto,dados.usuarios,dados.lojas,dados.jornadas,dados.comissoes]=await Promise.all([db.get('colaboradores',q),dbGetTodas('ponto',q),db.get('usuarios',qUsuarios).catch(()=>[]),db.get('lojas',qLojas).catch(()=>[]),db.get('jornadas_trabalho',q).catch(()=>[]),db.get('comissoes_colaborador',q).catch(()=>[])]);renderTudo();}catch(e){toast('Erro ao carregar: '+e.message,'err');}}
 function renderTudo(){if(!modoSoPonto)renderKpis();renderColaboradores();renderPonto();popularSelects();if(!modoSoPonto){renderAvisoSemJornada();renderSelecaoFolha();}}
 function ativarModoSoPonto(){
   ['rhTabsCompleto','rhTabsCompleto2','rhKpis','avisoParams'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});

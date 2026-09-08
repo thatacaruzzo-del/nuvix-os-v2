@@ -618,8 +618,8 @@ async function verificarCaixaAberto(){
 async function carregarProdutosLoja(lojaIdOverride){
   const lojaId=lojaIdOverride||sessaoAtual.loja_id;
   const [produtos,estoque,consignadores]=await Promise.all([
-    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,consignador_id,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
-    dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
+    dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,consignador_id,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
+    dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
     dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,percentual_repasse`).catch(()=>[]),
   ]);
   dados.produtos=produtos; dados.estoque=estoque; dados.consignadores=consignadores;
@@ -1895,9 +1895,9 @@ async function carregarPainel(){
     [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
       buscarVendasCompletas(de,ate),
       totaisPeriodoLeve(ant.de,ant.ate),
-      dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
+      dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
-      dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
+      dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
     ]);
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
 
