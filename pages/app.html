@@ -563,7 +563,7 @@ async function salvarEmpresa(){
   const cnpjEmp=val('empCnpj').trim();
   if(cnpjEmp&&!validarCNPJ(cnpjEmp)){msg('empMsg','CNPJ inválido, confira os números digitados.','err');return;}
   const seg=val('empSegmento');
-  try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
+  try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
 }
 
 // Cria usuário de verdade: conta de autenticação real no Supabase Auth + registro em

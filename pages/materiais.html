@@ -1139,7 +1139,7 @@ async function salvarMovimentacao(){
     }
     await dbPatch('materiais', matId, novosCampos);
     const msgCusto = novosCampos.custo_compra ? ` · Custo médio: ${money(novosCampos.custo_compra)}` : '';
-    msg('movMsg',`${tipo==='entrada'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Entrada':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Saída'} registrada! Novo estoque: ${fmtNum(Math.max(0,estPost),3)} ${mat.unidade||'UN'}${msgCusto}` ,'ok');
+    msg('movMsg',`${tipo==='entrada'?'Entrada':'Saída'} registrada! Novo estoque: ${fmtNum(Math.max(0,estPost),3)} ${mat.unidade||'UN'}${msgCusto}` ,'ok');
     limparMov();await carregarTudo();
   }catch(e){msg('movMsg','Erro: '+e.message,'err');}
 }
