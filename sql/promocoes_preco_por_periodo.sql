@@ -39,6 +39,17 @@ CREATE TABLE promocoes (
     WHERE (ativo)
 );
 
+COMMENT ON CONSTRAINT promocoes_produto_id_loja_id_vigencia_excl ON promocoes IS
+'Sentinel 00000000-0000-0000-0000-000000000000 = Nil UUID (RFC 4122 §4.1.7). '
+'Usado só dentro da expressão COALESCE(loja_id, sentinel) da constraint, pra '
+'normalizar loja_id=NULL ("todas as lojas") pra um valor comparável por "=" no '
+'EXCLUDE — sem isso, duas promocoes com loja_id NULL sobrepostas não seriam '
+'bloqueadas (NULL nunca é igual a NULL nesse operador). Nunca colide com um '
+'lojas.id real: lojas.id usa gen_random_uuid() (UUID v4), que sempre grava a '
+'versão (nibble fixo 0100) e o variant (bits fixos 10xx) nos bytes 6-8 do UUID '
+'— o Nil UUID (todos os bytes zero) é estruturalmente impossível de sair desse '
+'gerador, não é só improvável.';
+
 ALTER TABLE promocoes ENABLE ROW LEVEL SECURITY;
 
 -- RLS no mesmo padrão de categorias_produto (módulo 'produtos').
