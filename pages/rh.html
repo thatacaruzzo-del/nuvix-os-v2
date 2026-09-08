@@ -115,13 +115,37 @@ const db={get:async(t,q='')=>{_verificarSessao();let r;try{r=await fetch(`${SUPA
 // 2x/dia por colaborador) fica cortado silenciosamente pela paginação padrão do
 // PostgREST com o tempo, contaminando cálculo de horas/HE na folha sem aviso.
 async function dbGetTodas(t,q){
+  _verificarSessao();
   const TAM=1000;
-  let offset=0, tudo=[];
+  const sep=(q||'').includes('?')?'&':'?';
+  const buscar=async(offset,headers)=>{
+    let r;
+    try{ r=await fetch(`${SUPABASE_URL}/rest/v1/${t}${q||''}${sep}limit=${TAM}&offset=${offset}`,{headers}); }
+    catch(e){ throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.'); }
+    if(!r.ok) throw new Error(traduzErroGenerico(await r.text()));
+    return r;
+  };
+  // 1ª página pede o total exato (Content-Range, via Prefer: count=exact) — com o total
+  // em mãos, todas as páginas seguintes saem em paralelo numa única rodada, em vez de uma
+  // esperando a outra terminar. Era o gargalo real: numa tabela de poucas mil linhas, o
+  // loop sequencial antigo levava vários segundos só nisso (cada página só começava
+  // depois da anterior acabar, e o tempo por página ainda crescia com o offset).
+  const r0=await buscar(0,{..._h,Prefer:(_h.Prefer?_h.Prefer+',':'')+'count=exact'});
+  const pagina0=await r0.json();
+  if(pagina0.length<TAM) return pagina0;
+  const total=Number((r0.headers.get('content-range')||'').split('/')[1]);
+  if(Number.isFinite(total)){
+    const offsets=[]; for(let o=TAM;o<total;o+=TAM) offsets.push(o);
+    const resto=await Promise.all(offsets.map(o=>buscar(o,_h).then(r=>r.json())));
+    return pagina0.concat(...resto);
+  }
+  // Fallback raro: servidor não devolveu contagem exata — volta pro loop sequencial
+  // de sempre a partir da 2ª página (a 1ª já foi buscada acima).
+  let offset=TAM, tudo=pagina0;
   while(true){
-    const sep=(q||'').includes('?')?'&':'?';
-    const pagina=await db.get(t,`${q||''}${sep}limit=${TAM}&offset=${offset}`);
-    tudo=tudo.concat(pagina);
-    if(pagina.length<TAM)break;
+    const pag=await buscar(offset,_h).then(r=>r.json());
+    tudo=tudo.concat(pag);
+    if(pag.length<TAM) break;
     offset+=TAM;
   }
   return tudo;
