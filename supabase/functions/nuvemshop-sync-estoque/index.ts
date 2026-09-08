@@ -54,6 +54,12 @@ async function sbPatch(pathWithFilter: string, body: unknown) {
   if (!r.ok) throw new Error(`Supabase PATCH ${pathWithFilter} falhou: ${await r.text()}`);
 }
 
+async function sbRpc(nome: string, params: unknown) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`, { method: "POST", headers: sbHeaders, body: JSON.stringify(params) });
+  if (!r.ok) throw new Error(`Supabase RPC ${nome} falhou: ${await r.text()}`);
+  return r.json();
+}
+
 async function marcarSyncStatus(mapeamentoId: string, status: "ok" | "erro", erro: string | null) {
   try {
     await sbPatch(`produto_nuvemshop_mapeamento?id=eq.${mapeamentoId}`, { sync_status: status, sync_erro: erro, sync_at: new Date().toISOString() });
@@ -82,7 +88,18 @@ Deno.serve(async (req) => {
     }
 
     const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
-    const preco = Number(produto.preco_venda_final || 0);
+    // Fonte única de verdade pra "quanto cobrar agora" — respeita promoção de preço
+    // por período (produtos.preco_venda_final é só o cadastro, não o preço vigente).
+    let preco = Number(produto.preco_venda_final || 0);
+    try {
+      const precoVigente = await sbRpc("obter_preco_vigente", {
+        p_produto_id: mapeamento.produto_id,
+        p_loja_id: cred.loja_estoque_id ?? null,
+      });
+      if (precoVigente != null) preco = Number(precoVigente);
+    } catch (e) {
+      console.error("Falha ao resolver preço vigente, usando preco_venda_final de cadastro:", e);
+    }
 
     const r = await fetch(`https://api.nuvemshop.com.br/2025-03/${cred.store_id}/products/${mapeamento.nuvemshop_produto_id}/variants/${mapeamento.nuvemshop_variante_id}`, {
       method: "PUT",

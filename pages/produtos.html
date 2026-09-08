@@ -71,7 +71,7 @@ const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
 const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
-function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';if(/^Já existe uma promoção ativa/i.test(m))return m;return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
@@ -141,6 +141,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <button class="pdv-tab" onclick="abaTab('transferencias',this)">Transferências</button>
         <button class="pdv-tab" onclick="abaTab('lojas',this)">Lojas</button>
         <button class="pdv-tab" onclick="abaTab('consignadores',this)">Consignadores</button>
+        <button class="pdv-tab" onclick="abaTab('promocoes',this)">Promoções</button>
       </div>
 
       <!-- ══ PRODUTOS ══ -->
@@ -300,6 +301,35 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <table>
               <thead><tr><th>Nome</th><th>Telefone</th><th>% de repasse</th><th>Status</th><th></th></tr></thead>
               <tbody id="consignadoresTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PROMOÇÕES (preço por período) ══ -->
+      <div id="pane-promocoes" class="pdv-pane">
+        <div class="card" style="margin-bottom:20px">
+          <h2 style="margin:0 0 4px">Nova promoção</h2>
+          <p class="field-hint" style="margin-bottom:14px">Preço vale só dentro do período — o cadastro do produto não muda. Não dá pra ter duas promoções do mesmo produto com período sobreposto na mesma loja (o sistema bloqueia).</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" style="flex:2;min-width:220px"><label>Produto *</label><select id="promoProduto"></select></div>
+            <div class="field" id="promoLojaWrap" style="flex:1;min-width:180px;display:none"><label>Loja</label><select id="promoLoja"><option value="">Todas as lojas</option></select></div>
+            <div class="field" style="width:150px"><label>Preço promocional (R$) *</label><input id="promoPreco" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" style="flex:1;min-width:160px"><label>Data início *</label><input id="promoDataInicio" type="date"></div>
+            <div class="field" style="flex:1;min-width:160px"><label>Data fim *</label><input id="promoDataFim" type="date"></div>
+          </div>
+          <div id="promoMsg" class="msg"></div>
+          <button class="btn" onclick="salvarPromocao()">Criar promoção</button>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 14px">Promoções</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Status</th><th>Produto</th><th>Loja</th><th>Período</th><th>Catálogo</th><th>Promocional</th><th></th></tr></thead>
+              <tbody id="promocoesTable"></tbody>
             </table>
           </div>
         </div>
@@ -498,7 +528,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[], lotes:[] };
+let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[], lotes:[], promocoes:[] };
 const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
 // ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
@@ -541,7 +571,7 @@ async function init(){
 async function carregarTudo(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes]=await Promise.all([
+    const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes,promocoes]=await Promise.all([
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
@@ -549,8 +579,9 @@ async function carregarTudo(){
       dbGet('transferencias_estoque',`?empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=100`),
       dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
       dbGetTodas('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
+      dbGet('promocoes_listagem',`?empresa_id=eq.${session.empresa_id}&order=data_inicio.desc`).catch(()=>[]),
     ]);
-    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes;
+    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes; dados.promocoes=promocoes;
     reconstruirMapaEstoque();
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
   // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
@@ -563,7 +594,7 @@ async function carregarTudo(){
       toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
-  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade();
+  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade(); renderPromocoes();
   popularSelectsComuns();
 }
 
@@ -649,13 +680,14 @@ function renderProdutos(){
   const pagina=paginar(lista,paginaProdutos);
   $('produtosTable').innerHTML=pagina.length?pagina.map(p=>{
     const sobrescrito=p.preco_sobrescrito&&Number(p.preco_venda_final)!==Number(p.preco_venda_sugerido);
+    const promoAtiva=dados.promocoes.find(pr=>pr.produto_id===p.id&&pr.vigente_agora&&pr.ativo!==false);
     return `<tr>
       <td><b>${esc(p.nome)}</b>${p.ativo?'':' <span class="badge badge-muted">inativo</span>'}${p.is_consignado?' <span class="badge badge-amber" title="'+esc(nomeConsignador(p.consignador_id))+'">Consignado</span>':''}</td>
       <td>${esc(nomeCategoria(p.categoria_id))}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
       <td>${money(p.custo_atual)}</td>
       <td>${money(p.preco_venda_sugerido)}</td>
-      <td>${money(p.preco_venda_final)}${sobrescrito?' <span class="badge badge-blue">editado</span>':''}</td>
+      <td>${promoAtiva?`<span style="text-decoration:line-through;color:var(--muted);font-size:12px">${money(p.preco_venda_final)}</span> <b style="color:var(--green,#16a34a)">${money(promoAtiva.preco_promocional)}</b> <span class="badge badge-green" title="${esc(promoAtiva.loja_id?('Só na loja '+nomeLoja(promoAtiva.loja_id)):'Todas as lojas')}">promoção</span>`:`${money(p.preco_venda_final)}${sobrescrito?' <span class="badge badge-blue">editado</span>':''}`}</td>
       <td>${estoqueTotalProduto(p.id)}</td>
       <td style="display:flex;gap:6px">
         <button class="btn2" style="padding:6px 12px" onclick="editarProduto('${p.id}')">Editar</button>
@@ -1323,6 +1355,49 @@ async function descartarLote(id){
   }catch(e){toast('Erro ao descartar: '+e.message,'err');}
 }
 
+function renderPromocoes(){
+  const lista=[...dados.promocoes].sort((a,b)=>String(b.data_inicio).localeCompare(String(a.data_inicio)));
+  $('promocoesTable').innerHTML=lista.length?lista.map(pr=>{
+    const status=pr.ativo===false?'<span class="badge badge-muted">desativada</span>':pr.vigente_agora?'<span class="badge badge-green">vigente</span>':pr.agendada?'<span class="badge badge-blue">agendada</span>':'<span class="badge badge-muted">expirada</span>';
+    return `<tr>
+      <td>${status}</td>
+      <td>${esc(pr.produto_nome||'—')}</td>
+      <td>${pr.loja_id?esc(nomeLoja(pr.loja_id)):'Todas as lojas'}</td>
+      <td>${fmtData(pr.data_inicio)} – ${fmtData(pr.data_fim)}</td>
+      <td>${money(pr.preco_catalogo)}</td>
+      <td><b>${money(pr.preco_promocional)}</b></td>
+      <td>${pr.ativo===false?'':`<button class="btn2" style="padding:6px 12px" onclick="desativarPromocao('${pr.id}')">Desativar</button>`}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma promoção cadastrada.</td></tr>';
+}
+async function salvarPromocao(){
+  const produtoId=val('promoProduto');
+  const lojaId=val('promoLoja')||null;
+  const preco=numBR('promoPreco');
+  const dataInicio=val('promoDataInicio'), dataFim=val('promoDataFim');
+  if(!produtoId){msg('promoMsg','Selecione o produto.','err');return;}
+  if(!preco||preco<=0){msg('promoMsg','Informe um preço promocional válido.','err');return;}
+  if(!dataInicio||!dataFim){msg('promoMsg','Informe as datas de início e fim.','err');return;}
+  if(dataFim<dataInicio){msg('promoMsg','A data de fim não pode ser antes da data de início.','err');return;}
+  try{
+    await dbRpc('criar_promocao',{p:{
+      empresa_id:session.empresa_id, produto_id:produtoId, loja_id:lojaId,
+      preco_promocional:preco, data_inicio:dataInicio, data_fim:dataFim, criado_por:session?.id||null,
+    }});
+    toast('Promoção criada.','ok');
+    $('promoPreco').value=''; $('promoDataInicio').value=''; $('promoDataFim').value='';
+    await carregarTudo();
+  }catch(e){msg('promoMsg',e.message,'err');}
+}
+async function desativarPromocao(id){
+  if(!confirm('Desativar essa promoção? O histórico fica registrado, só deixa de valer a partir de agora.'))return;
+  try{
+    await dbPatch('promocoes',id,{ativo:false});
+    toast('Promoção desativada.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro ao desativar: '+e.message,'err');}
+}
+
 // ══ LOJAS ══
 function renderLojas(){
   paginaLojas=renderPaginacao('lojasPaginacao',dados.lojas.length,paginaLojas,'irParaPaginaLojas');
@@ -1429,6 +1504,10 @@ function popularSelectsComuns(){
   if($('prodConsignador'))$('prodConsignador').innerHTML='<option value="">Selecione...</option>'+dados.consignadores.filter(c=>c.ativo!==false).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
   if($('entLoja'))$('entLoja').innerHTML=lojaOpts;
   if($('entProduto')){$('entProduto').innerHTML=dados.produtos.filter(p=>p.ativo!==false).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');atualizarCamposEntrada();}
+  if($('promoProduto'))$('promoProduto').innerHTML=dados.produtos.filter(p=>p.ativo!==false).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
+  const lojasAtivasCount=dados.lojas.filter(l=>l.ativo).length;
+  if($('promoLojaWrap'))$('promoLojaWrap').style.display=lojasAtivasCount>1?'block':'none';
+  if($('promoLoja'))$('promoLoja').innerHTML='<option value="">Todas as lojas</option>'+lojaOpts;
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}

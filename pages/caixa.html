@@ -617,11 +617,23 @@ async function verificarCaixaAberto(){
 
 async function carregarProdutosLoja(lojaIdOverride){
   const lojaId=lojaIdOverride||sessaoAtual.loja_id;
-  const [produtos,estoque,consignadores]=await Promise.all([
+  const [produtos,estoque,consignadores,precos]=await Promise.all([
     dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,consignador_id,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
     dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
     dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,percentual_repasse`).catch(()=>[]),
+    // Preço vigente (promoção ativa ou catálogo) pra TODOS os produtos da loja, numa
+    // chamada só — obter_preco_vigente() produto por produto seria centenas/milhares
+    // de idas ao banco só pra abrir o Caixa. Best-effort: se falhar, cada produto usa
+    // o próprio preco_venda_final (nunca trava a venda por causa de promoção).
+    dbRpc('obter_precos_vigentes',{p_empresa_id:session.empresa_id,p_loja_id:lojaId}).catch(()=>[]),
   ]);
+  const precoPorProduto={};
+  precos.forEach(p=>{precoPorProduto[p.produto_id]={preco:Number(p.preco),emPromocao:!!p.em_promocao};});
+  produtos.forEach(p=>{
+    const info=precoPorProduto[p.id];
+    p.preco_vigente=info?info.preco:Number(p.preco_venda_final||0);
+    p.em_promocao=info?info.emPromocao:false;
+  });
   dados.produtos=produtos; dados.estoque=estoque; dados.consignadores=consignadores;
 }
 
@@ -729,7 +741,7 @@ function buscarProdutoManual(){
   const box=$('pdvBuscaResultados');
   if(!q){box.classList.remove('open');box.innerHTML='';return;}
   const achados=dados.produtos.filter(p=>(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q)).slice(0,10);
-  box.innerHTML=achados.map(p=>`<div class="pdv-busca-item" onclick="adicionarAoCarrinhoPorId('${p.id}')"><span>${esc(p.nome)}</span><span class="qtd-disp">${disponivel(p.id)} disp. · ${money(p.preco_venda_final)}</span></div>`).join('')||'<div class="pdv-busca-item">Nenhum produto encontrado.</div>';
+  box.innerHTML=achados.map(p=>`<div class="pdv-busca-item" onclick="adicionarAoCarrinhoPorId('${p.id}')"><span>${esc(p.nome)}</span><span class="qtd-disp">${disponivel(p.id)} disp. · ${p.em_promocao?`<span style="text-decoration:line-through;color:var(--muted)">${money(p.preco_venda_final)}</span> <b style="color:var(--red)">${money(p.preco_vigente)}</b>`:money(p.preco_vigente)}</span></div>`).join('')||'<div class="pdv-busca-item">Nenhum produto encontrado.</div>';
   box.classList.add('open');
 }
 function adicionarAoCarrinhoPorId(id){
@@ -743,7 +755,11 @@ function adicionarAoCarrinho(produto){
   const qtdAtual=item?item.quantidade:0;
   if(qtdAtual+1>disp){ toast(`Estoque disponível insuficiente (${disp} un.).`,'err'); return; }
   if(item){ item.quantidade+=1; } else {
-    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_venda_final||0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,consignador_id:produto.consignador_id||null,estoque_disponivel:disp});
+    // preco_vigente (não preco_venda_final) — já resolvido em carregarProdutosLoja()
+    // via obter_precos_vigentes(), então uma promoção ativa entra automaticamente
+    // aqui, sem precisar de nenhuma lógica de promoção espalhada pelo Caixa: daqui
+    // pra frente (finalizar_venda, NFC-e, histórico) tudo usa esse valor gravado.
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_vigente??produto.preco_venda_final??0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,consignador_id:produto.consignador_id||null,estoque_disponivel:disp});
   }
   renderCarrinho();
 }
