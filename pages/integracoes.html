@@ -177,9 +177,21 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
           <div id="mlDetalhe" class="muted" style="font-size:12.5px">Carregando status da conexão...</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn" id="mlBtnConectar" onclick="conectarML()" style="display:none">Conectar Mercado Livre</button>
-            <button class="danger" id="mlBtnDesconectar" onclick="desconectarML()" style="display:none">Desconectar</button>
+          <div id="mlConectarInfo" style="display:none;max-width:420px;width:100%;text-align:left;background:var(--p-light);border-radius:12px;padding:16px">
+            <div style="font-weight:700;font-size:12.5px;color:var(--p);margin-bottom:10px">Como conectar</div>
+            <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--txt);line-height:1.5">
+              <li>Clique em "Conectar Mercado Livre" abaixo</li>
+              <li>Você será redirecionado pro site do Mercado Livre</li>
+              <li>Faça login com a <b>conta vendedora</b> desta empresa (a que publica os anúncios) e autorize o acesso do NuvixHub</li>
+              <li>Você volta automaticamente pra esta tela, já conectado</li>
+            </ol>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;max-width:420px;width:100%">
+            <div style="display:flex;gap:8px">
+              <button class="btn" id="mlBtnConectar" onclick="conectarML()" style="display:none">Conectar Mercado Livre</button>
+              <button class="danger" id="mlBtnDesconectar" onclick="desconectarML()" style="display:none">Desconectar</button>
+            </div>
+            <p class="muted" id="mlSuporteInfo" style="display:none;font-size:11.5px;margin:2px 0 0;text-align:center">Problema pra conectar? Fale com o suporte NuvixHub.</p>
           </div>
         </div>
       </div>
@@ -238,7 +250,21 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <p class="muted" style="margin:2px 0 0">Importe pedidos e sincronize estoque e preço automaticamente com suas lojas. Uma empresa pode conectar mais de uma loja.</p>
             </div>
           </div>
-          <button class="btn" id="nsBtnConectar" onclick="conectarNS()">Conectar nova loja</button>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
+          <div id="nsConectarInfo" style="display:none;max-width:420px;width:100%;text-align:left;background:var(--p-light);border-radius:12px;padding:16px">
+            <div style="font-weight:700;font-size:12.5px;color:var(--p);margin-bottom:10px">Como conectar</div>
+            <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--txt);line-height:1.5">
+              <li>Clique em "Conectar nova loja" abaixo</li>
+              <li>Você será redirecionado pro site da Nuvemshop</li>
+              <li>Faça login como <b>administrador</b> da loja e autorize o acesso do NuvixHub</li>
+              <li>Você volta automaticamente pra esta tela, já conectado</li>
+            </ol>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;max-width:420px;width:100%">
+            <button class="btn" id="nsBtnConectar" onclick="conectarNS()">Conectar nova loja</button>
+            <p class="muted" style="font-size:11.5px;margin:2px 0 0;text-align:center">Problema pra conectar? Fale com o suporte NuvixHub.</p>
+          </div>
         </div>
         <div id="nsLojasLista" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px"></div>
       </div>
@@ -489,12 +515,16 @@ function renderStatusML(data){
     badge.textContent='Conectado';
     badge.className='badge ok';
     $('mlDetalhe').textContent = `Vendedor ML: ${esc(data.ml_user_id||'—')} · conectado em ${fmtData(data.conectado_em)}`;
+    $('mlConectarInfo').style.display='none';
+    $('mlSuporteInfo').style.display='none';
     $('mlBtnConectar').style.display='none';
     $('mlBtnDesconectar').style.display='inline-flex';
   } else {
     badge.textContent='Não conectado';
     badge.className='badge off';
-    $('mlDetalhe').textContent='Conecte a conta vendedora do Mercado Livre desta empresa para começar.';
+    $('mlDetalhe').textContent='Siga os passos abaixo pra conectar esta empresa.';
+    $('mlConectarInfo').style.display='block';
+    $('mlSuporteInfo').style.display='block';
     $('mlBtnConectar').style.display='inline-flex';
     $('mlBtnDesconectar').style.display='none';
   }
@@ -672,6 +702,7 @@ async function carregarStatusNS(){
 
 function renderLojasNS(){
   $('nsTabDot')?.classList.toggle('on', dados.nsLojas.length>0);
+  $('nsConectarInfo').style.display = dados.nsLojas.length ? 'none' : 'block';
   const el = $('nsLojasLista');
   if(!dados.nsLojas.length){
     el.innerHTML = '<div class="muted" style="text-align:center;font-size:12.5px;padding:8px 0">Nenhuma loja Nuvemshop conectada ainda.</div>';
