@@ -10,6 +10,14 @@
   #hambBtn{display:block!important}
   .form-row,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr!important}
 }
+/* Mesmo padrão de abas de parametros.html (.par-tabs/.par-tab/.par-pane) —
+   evita a página virar uma rolagem infinita conforme mais canais entram. */
+.par-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.par-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;gap:8px}
+.par-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.par-pane{display:none}.par-pane.active{display:block}
+.int-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex-shrink:0;display:inline-block}
+.int-dot.on{background:#22c55e}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -128,7 +136,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div class="topbar-left">
         <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
         <div>
-          <div class="page-breadcrumb">Integrações <span style="color:var(--line)">/</span> <b>Mercado Livre</b></div>
+          <div class="page-breadcrumb">Integrações <span style="color:var(--line)">/</span> <b id="intBreadcrumbCanal">Mercado Livre</b></div>
           <div class="topbar-title">Integrações</div>
           <div class="topbar-breadcrumb" id="topbarSub"></div>
         </div>
@@ -142,6 +150,16 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
     </div>
 
     <div class="main-scroll">
+
+      <!-- ══ ABAS — uma por canal, evita a página virar rolagem infinita
+           conforme mais integrações entram. Mesmo padrão de parametros.html. ══ -->
+      <div class="par-tabs">
+        <button class="par-tab active" onclick="intTab('ml','Mercado Livre',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Mercado Livre <span class="int-dot" id="mlTabDot"></span></button>
+        <button class="par-tab" onclick="intTab('ns','Nuvemshop',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Nuvemshop <span class="int-dot" id="nsTabDot"></span></button>
+        <button class="par-tab" onclick="intTab('pk','PedidoOK',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> PedidoOK <span class="int-dot" id="pkTabDot"></span></button>
+      </div>
+
+      <div class="par-pane active" id="pane-ml">
 
       <!-- ══ MERCADO LIVRE — STATUS DE CONEXÃO ══ -->
       <div class="card" id="mlCard">
@@ -204,6 +222,10 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      </div>
+
+      <div class="par-pane" id="pane-ns">
+
       <!-- ══ NUVEMSHOP — LOJAS CONECTADAS ══ -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
@@ -251,6 +273,10 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </table>
         </div>
       </div>
+
+      </div>
+
+      <div class="par-pane" id="pane-pk">
 
       <!-- ══ PEDIDOOK — STATUS DE CONEXÃO ══ -->
       <div class="card" id="pkCard">
@@ -323,6 +349,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      </div>
+
     </div>
   </div>
 </div>
@@ -330,6 +358,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 <script>
 const session = requireAuth();
 let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[] };
+
+function intTab(id, nome, btn){
+  document.querySelectorAll('.par-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.par-tabs .par-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-'+id)?.classList.add('active');
+  btn?.classList.add('active');
+  $('intBreadcrumbCanal').textContent = nome;
+}
 
 async function init() {
   if (!session) return;
@@ -436,6 +472,7 @@ async function carregarStatusML(){
 }
 
 function renderStatusML(data){
+  $('mlTabDot')?.classList.toggle('on', !!data.conectado);
   const badge=$('mlStatusBadge');
   if (data.conectado){
     badge.textContent='Conectado';
@@ -623,6 +660,7 @@ async function carregarStatusNS(){
 }
 
 function renderLojasNS(){
+  $('nsTabDot')?.classList.toggle('on', dados.nsLojas.length>0);
   const el = $('nsLojasLista');
   if(!dados.nsLojas.length){
     el.innerHTML = '<div class="muted" style="text-align:center;font-size:12.5px;padding:8px 0">Nenhuma loja Nuvemshop conectada ainda.</div>';
@@ -805,6 +843,7 @@ async function carregarStatusPK(){
 
 function renderStatusPK(){
   const data = dados.pkStatus||{};
+  $('pkTabDot')?.classList.toggle('on', !!data.conectado);
   const badge=$('pkStatusBadge');
   if (data.conectado){
     badge.textContent='Conectado';
