@@ -294,12 +294,23 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
           <div id="pkDetalhe" class="muted" style="font-size:12.5px">Carregando status da conexão...</div>
-          <div id="pkConectarForm" style="display:none;max-width:360px;width:100%">
+          <div id="pkConectarForm" style="display:none;max-width:420px;width:100%">
+            <div style="text-align:left;background:var(--p-light);border-radius:12px;padding:16px;margin-bottom:16px">
+              <div style="font-weight:700;font-size:12.5px;color:var(--p);margin-bottom:10px">Como conectar</div>
+              <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--txt);line-height:1.5">
+                <li>Acesse sua conta do PedidoOK na <b>Plataforma PC</b></li>
+                <li>No menu lateral, clique em <b>Integrações</b></li>
+                <li>Selecione <b>NuvixHub</b> na lista de ERPs</li>
+                <li>Clique em <b>"Configurar integração"</b> (ou "Obter token_pedidook")</li>
+                <li>Copie o token gerado e cole no campo abaixo</li>
+              </ol>
+            </div>
             <div class="field">
               <label>Token PedidoOK</label>
               <input id="pkTokenInput" placeholder="Cole aqui o token gerado na Plataforma PC">
             </div>
             <button class="btn" id="pkBtnConectar" onclick="conectarPK()" style="margin-top:10px;width:100%">Conectar PedidoOK</button>
+            <p class="muted" style="font-size:11.5px;margin-top:10px;text-align:center">Não encontrou "Integrações" no menu? Fale com o suporte do PedidoOK: <a href="https://wa.me/551934683258" target="_blank" rel="noopener">(19) 3468-3258</a> ou <a href="mailto:contato@pedidook.com.br">contato@pedidook.com.br</a>.</p>
           </div>
           <button class="danger" id="pkBtnDesconectar" onclick="desconectarPK()" style="display:none">Desconectar</button>
         </div>
@@ -856,7 +867,7 @@ function renderStatusPK(){
   } else {
     badge.textContent='Não conectado';
     badge.className='badge off';
-    $('pkDetalhe').textContent='Cole o token gerado na Plataforma PC do PedidoOK pra conectar esta empresa.';
+    $('pkDetalhe').textContent='Siga os passos abaixo pra conectar esta empresa.';
     $('pkConectarForm').style.display='block';
     $('pkBtnDesconectar').style.display='none';
     $('pkConfigCard').style.display='none';

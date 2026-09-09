@@ -44,9 +44,17 @@ Integrações.
 ## Passo a passo pra ativar de verdade
 
 ### 1. Obter o `token_parceiro` e configurar o segredo
-O `token_parceiro` identifica a NuvixHub junto ao PedidoOK — é obtido uma
-única vez com o time comercial/parceria do PedidoOK, o mesmo valor pra
-todos os clientes. Depois de obtido:
+O `token_parceiro` identifica a NuvixHub junto ao PedidoOK — o mesmo valor
+pra todos os clientes, obtido **uma única vez**. Processo oficial
+(pedidook.com.br/api):
+
+1. Acessar https://www.pedidook.com.br/api e preencher o formulário de
+   solicitação do token parceiro.
+2. O PedidoOK envia o `token_parceiro` por e-mail e cria uma conta de teste
+   — nesse ponto o NuvixHub aparece na lista de ERPs integrados com status
+   **"em desenvolvimento"**.
+
+Depois de obtido:
 
 ```
 supabase secrets set PEDIDOOK_TOKEN_PARCEIRO=...
@@ -57,9 +65,20 @@ tentativa de conexão** (`erro: "pedidook_nao_configurado"`) — é o único
 bloqueio real pra esta integração começar a funcionar; todo o resto já está
 pronto.
 
+**Homologação** (sair de "em desenvolvimento" pra "ativo"): pedir por
+e-mail em `integracao@pedidook.com.br`, só depois que a integração estiver
+testada e funcionando de ponta a ponta.
+
 ### 2. Cliente gera o `token_pedidook`
-Cada empresa gera o próprio token na Plataforma PC do PedidoOK, na conta
-dela, e cola em Integrações → PedidoOK → "Conectar PedidoOK".
+Cada empresa gera o próprio token **na conta dela**, na Plataforma PC do
+PedidoOK — passo a passo oficial deles, já replicado no card de
+Integrações → PedidoOK do NuvixHub:
+
+1. Acessar a conta do PedidoOK na Plataforma PC.
+2. No menu lateral, clicar em **Integrações**.
+3. Selecionar **NuvixHub** na lista de ERPs.
+4. Clicar em **"Configurar integração"** (ou "Obter token_pedidook").
+5. Copiar o token e colar em Integrações → PedidoOK → "Conectar PedidoOK".
 
 ### 3. Configurar loja de referência e prazo de pagamento
 Depois de conectado, a tela mostra os campos "Loja de referência de
