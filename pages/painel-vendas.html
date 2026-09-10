@@ -8,11 +8,12 @@
 <style>
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
 .kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden}
-.kpi-card.purple{border-left:4px solid var(--p)}
-.kpi-card.green{border-left:4px solid var(--green)}
-.kpi-card.amber{border-left:4px solid var(--amber)}
+.kpi-ic{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.kpi-ic.p{background:var(--p-light);color:var(--p2)}
+.kpi-ic.n{background:#F1EFF7;color:#9491A3}
+.kpi-ic svg{width:14px;height:14px}
 .kpi-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.kpi-value{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
+.kpi-value{font-size:22px;font-weight:500;line-height:1;margin-bottom:4px;color:var(--txt);font-variant-numeric:tabular-nums}
 .kpi-sub{font-size:11px;color:var(--muted2)}
 @media(max-width:1000px){.chart-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr 1fr}}
 .abc-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:11px;font-weight:800}
@@ -55,11 +56,20 @@ function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
   _paginaAtual[chave]=p;
   const container=chave+'Paginacao';
   if(totalPaginas<=1){setHTML(container,'');return;}
-  const btns=[];
-  for(let i=1;i<=totalPaginas;i++){
-    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  const btn=i=>`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`;
+  const dots='<span style="padding:6px 4px;color:var(--muted)">…</span>';
+  // Janela: sempre mostra a 1ª, a última, a atual e as vizinhas — o resto vira
+  // "…". Sem isso, uma lista grande (20 itens/página) virava uma fileira com
+  // um botão pra cada uma das dezenas/centenas de páginas.
+  const paginas=[...new Set([1,totalPaginas,p-1,p,p+1].filter(i=>i>=1&&i<=totalPaginas))].sort((a,b)=>a-b);
+  const partes=[];
+  let anterior=0;
+  for(const i of paginas){
+    if(anterior&&i-anterior>1)partes.push(dots);
+    partes.push(btn(i));
+    anterior=i;
   }
-  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap;align-items:center">${partes.join('')}</div>`);
 }
 function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
@@ -128,7 +138,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <h2 style="margin-bottom:14px">Vendas por loja</h2>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Loja</th><th>Nº de vendas</th><th>Faturamento</th><th>% do total</th></tr></thead>
+            <thead><tr><th>Loja</th><th style="text-align:right">Nº de vendas</th><th style="text-align:right">Faturamento</th><th>% do total</th></tr></thead>
             <tbody id="painelLojaTable"></tbody>
           </table>
         </div>
@@ -281,14 +291,27 @@ function renderVendasPorLojaPainel(linhas){
   });
   const linhasLoja=Object.values(porLoja).sort((a,b)=>b.faturamento-a.faturamento);
   const total=linhasLoja.reduce((a,l)=>a+l.faturamento,0);
+  const maiorFaturamento=linhasLoja[0]?.faturamento||1;
   $('painelLojaWrap').style.display=linhasLoja.length?'block':'none';
-  $('painelLojaTable').innerHTML=linhasLoja.length?linhasLoja.map(l=>`
-    <tr>
+  // Ranking por intensidade de roxo (1ª = forte, 2ª = clara, resto cinza) em
+  // vez de uma cor de gráfico por linha — a cor agora conta a posição no
+  // ranking, não decora a tabela.
+  $('painelLojaTable').innerHTML=linhasLoja.length?linhasLoja.map((l,i)=>{
+    const pct=total?Math.round(l.faturamento/total*100):0;
+    const largura=(l.faturamento/maiorFaturamento*100).toFixed(0);
+    const cor=i===0?'var(--p)':i===1?'var(--p3)':'#D8D5E0';
+    return `<tr>
       <td>${esc(l.nome)}</td>
-      <td>${l.vendaIds.size}</td>
-      <td><b>${money(l.faturamento)}</b></td>
-      <td>${total?Math.round(l.faturamento/total*100):0}%</td>
-    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+      <td style="text-align:right">${l.vendaIds.size}</td>
+      <td style="text-align:right"><b>${money(l.faturamento)}</b></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="giro-bar-track"><div style="width:${largura}%;background:${cor}"></div></div>
+          <span style="font-size:12px;color:var(--muted);width:30px;text-align:right;flex-shrink:0">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
 }
 async function totaisPeriodoLeve(de,ate,canal){
   const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
@@ -351,15 +374,32 @@ async function carregarPainel(){
   renderAbc(produtos,faturamentoTotal);
   renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
 }
+// Ícones — roxo só na métrica principal (Faturamento); as demais usam o mesmo
+// ícone em cinza neutro. Cor deixou de decorar o card inteiro (borda lateral
+// aleatória) e virou sinal só onde é sinal de verdade: a pílula de variação
+// (verde/vermelho) e o valor da margem quando fica negativo.
+const KPI_ICONES={
+  cifrao:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  carrinho:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  tendencia:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  caixa:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  fatia:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+};
 function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado}){
   setHTML('painelKpis',[
-    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple',trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
-    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
-    {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',cor:margemPct>=0?'green':'amber'},
-    {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',cor:'purple'},
-    {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',cor:'green'},
-    {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',cor:'amber'},
-  ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.trend||''}</div>`).join(''));
+    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
+    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
+    {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',ic:'tendencia',valorCor:margemPct<0?'var(--red)':null},
+    {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',ic:'caixa'},
+    {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
+    {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
+  ].map(k=>`<div class="kpi-card">
+    <div class="kpi-ic ${k.principal?'p':'n'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KPI_ICONES[k.ic]}</svg></div>
+    <div class="kpi-label">${k.lbl}</div>
+    <div class="kpi-value"${k.valorCor?` style="color:${k.valorCor}"`:''}>${k.val}</div>
+    <div class="kpi-sub">${k.sub}</div>
+    ${k.trend||''}
+  </div>`).join(''));
 }
 function renderEvolucao(linhas,de,ate){
   const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
@@ -437,7 +477,13 @@ function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,esto
   categorias.forEach(c=>{c.giro=c.estoqueAtual>0?c.qtd/c.estoqueAtual:0;});
   const giroMax=Math.max(1,...categorias.map(c=>c.giro));
 
-  $('giroCategoriaTable').innerHTML=categorias.length?categorias.map(c=>`
+  // Intensidade do roxo acompanha o giro relativo ao maior giro do período —
+  // não é rank fixo (a tabela continua ordenada por faturamento), é magnitude:
+  // categoria que mais gira fica no roxo mais forte, o resto esmaece pro
+  // fundo neutro do track. Nunca outra cor — giro não é status, é volume.
+  $('giroCategoriaTable').innerHTML=categorias.length?categorias.map(c=>{
+    const intensidade=Math.max(.15, c.giro/giroMax);
+    return `
     <tr>
       <td>${esc(c.categoria)}</td>
       <td>${c.qtd}</td>
@@ -445,18 +491,22 @@ function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,esto
       <td>${c.estoqueAtual}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%"></div></div>
+          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%;background:rgba(99,67,164,${intensidade.toFixed(2)})"></div></div>
           <span style="font-size:12px;color:var(--muted)">${c.giro.toFixed(2)}x</span>
         </div>
       </td>
-    </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
+    </tr>`;
+  }).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
 
   const ctx=$('chartCategoria');
   if(chartCategoriaInstance)chartCategoriaInstance.destroy();
   if(ctx&&categorias.length){
+    // Só 2 tons: a categoria líder (já é a 1ª — array ordenado por faturamento)
+    // em roxo forte, todo o resto em cinza neutro — sem paleta arco-íris.
+    const coresCategoria=categorias.map((c,i)=>i===0?'#6343A4':'#D8D5E0');
     chartCategoriaInstance=new Chart(ctx,{type:'doughnut',data:{
       labels:categorias.map(c=>c.categoria),
-      datasets:[{data:categorias.map(c=>c.faturamento),backgroundColor:['#6D5EF5','#059669','#D97706','#DC2626','#0EA5E9','#8B5CF6','#F472B6','#64748B']}],
+      datasets:[{data:categorias.map(c=>c.faturamento),backgroundColor:coresCategoria,borderWidth:2,borderColor:'#fff'}],
     },options:{plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
   }
 }

@@ -100,11 +100,20 @@ function renderPaginacao(chave,totalItens,nomeFuncaoRerender){
   _paginaAtual[chave]=p;
   const container=chave+'Paginacao';
   if(totalPaginas<=1){setHTML(container,'');return;}
-  const btns=[];
-  for(let i=1;i<=totalPaginas;i++){
-    btns.push(`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`);
+  const btn=i=>`<button class="btn2" style="padding:6px 12px;min-width:36px${i===p?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPagina('${chave}',${i},'${nomeFuncaoRerender}')">${i}</button>`;
+  const dots='<span style="padding:6px 4px;color:var(--muted)">…</span>';
+  // Janela: sempre mostra a 1ª, a última, a atual e as vizinhas — o resto vira
+  // "…". Sem isso, uma lista grande (20 itens/página) virava uma fileira com
+  // um botão pra cada uma das dezenas/centenas de páginas.
+  const paginas=[...new Set([1,totalPaginas,p-1,p,p+1].filter(i=>i>=1&&i<=totalPaginas))].sort((a,b)=>a-b);
+  const partes=[];
+  let anterior=0;
+  for(const i of paginas){
+    if(anterior&&i-anterior>1)partes.push(dots);
+    partes.push(btn(i));
+    anterior=i;
   }
-  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`);
+  setHTML(container,`<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap;align-items:center">${partes.join('')}</div>`);
 }
 function irParaPagina(chave,pagina,nomeFuncaoRerender){_paginaAtual[chave]=pagina;window[nomeFuncaoRerender]();}
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
