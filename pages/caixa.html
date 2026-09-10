@@ -190,6 +190,10 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
     <div class="main-scroll">
 
+      <div style="display:flex;justify-content:flex-end;margin-bottom:-6px">
+        <a href="painel-vendas.html" style="font-size:12px;font-weight:700;color:var(--p);text-decoration:none">Ver Painel de Vendas →</a>
+      </div>
+
       <!-- ══ SEM CAIXA ABERTO ══ -->
       <div id="telaAbrirCaixa" style="display:none">
         <div class="card caixa-fechada-box">
@@ -212,7 +216,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn2" onclick="pareirImpressora()" title="Impressora térmica USB (opcional)">🖨️ Parear impressora</button>
             <button class="btn2" onclick="abrirTelaHistorico()">Histórico</button>
-            <button class="btn2" onclick="abrirTelaPainel()">Painel</button>
+            <button class="btn2" onclick="location.href='painel-vendas.html'">Painel de Vendas</button>
             <button class="btn2" onclick="abrirModoRetroativo()">Venda retroativa</button>
             <button class="btn2" onclick="abrirModalMovimento('Sangria')">Sangria</button>
             <button class="btn2" onclick="abrirModalMovimento('Suprimento')">Suprimento</button>
@@ -359,60 +363,6 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       </div>
 
       <!-- ══ PAINEL EXECUTIVO ══ -->
-      <div id="telaPainel" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-          <h2 style="margin:0">Painel Executivo</h2>
-          <button class="btn2" onclick="fecharTelaPainel()">Voltar pro caixa</button>
-        </div>
-        <div class="card" style="margin-bottom:16px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">De</label><input type="date" id="painelDe" onchange="carregarPainel()"></div>
-            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Até</label><input type="date" id="painelAte" onchange="carregarPainel()"></div>
-            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Canal</label><select id="painelCanal" onchange="carregarPainel()"><option value="">Todos os canais</option><option value="Loja">Loja</option><option value="Mercado Livre">Mercado Livre</option><option value="Nuvemshop">Nuvemshop</option><option value="PedidoOK">PedidoOK</option></select></div>
-            <div style="font-size:12px;color:var(--muted);padding-bottom:10px">Giro é estimado com base no estoque atual (não há histórico diário de estoque salvo). Vendas canceladas não entram nos números.</div>
-          </div>
-        </div>
-
-        <div class="kpi-grid" id="painelKpis"></div>
-
-        <div class="card" id="painelLojaWrap" style="margin-bottom:16px;display:none">
-          <h2 style="margin-bottom:14px">Vendas por loja</h2>
-          <div class="tablewrap">
-            <table>
-              <thead><tr><th>Loja</th><th>Nº de vendas</th><th>Faturamento</th><th>% do total</th></tr></thead>
-              <tbody id="painelLojaTable"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
-
-        <div class="chart-grid">
-          <div class="chart-card"><h3>Curva ABC — top produtos por faturamento</h3><canvas id="chartAbc" height="220"></canvas></div>
-          <div class="chart-card"><h3>Faturamento por categoria</h3><canvas id="chartCategoria" height="220"></canvas></div>
-        </div>
-
-        <div class="card" style="margin-bottom:16px">
-          <h2 style="margin-bottom:14px">Curva ABC de produtos</h2>
-          <div class="tablewrap">
-            <table>
-              <thead><tr><th></th><th>Produto</th><th>Qtd. vendida</th><th>Faturamento</th><th>Margem</th><th>% do total</th><th>% acumulado</th></tr></thead>
-              <tbody id="abcTable"></tbody>
-            </table>
-          </div>
-          <div id="abcTablePaginacao"></div>
-        </div>
-
-        <div class="card">
-          <h2 style="margin-bottom:14px">Giro por categoria</h2>
-          <div class="tablewrap">
-            <table>
-              <thead><tr><th>Categoria</th><th>Qtd. vendida</th><th>Faturamento</th><th>Estoque atual</th><th>Giro estimado</th></tr></thead>
-              <tbody id="giroCategoriaTable"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
     </div>
   </div>
@@ -542,10 +492,12 @@ async function init(){
   carregarConfigFiscal();
   await verificarCaixaAberto();
   reconectarImpressoraSalva();
+  // Painel de Vendas virou tela própria — link antigo (?tela=painel) ainda
+  // pode estar salvo em algum lugar, então redireciona em vez de quebrar.
   if(new URLSearchParams(location.search).get('tela')==='painel'){
     const canalUrl=new URLSearchParams(location.search).get('canal');
-    abrirTelaPainel();
-    if(canalUrl){ $('painelCanal').value=canalUrl; carregarPainel(); }
+    location.replace('painel-vendas.html'+(canalUrl?`?canal=${encodeURIComponent(canalUrl)}`:''));
+    return;
   }
   $('pageLoader')?.classList.add('hide');
   setTimeout(()=>{$('pdvBarras')?.focus();},80);
@@ -1792,45 +1744,6 @@ async function confirmarAprovacaoEdicaoPagamento(){
 // faturamento acumulado, B = até 95%, C = o resto. Giro é "quantidade vendida no
 // período ÷ estoque atual" — estimativa, já que não guardamos estoque dia a dia.
 // Vendas com status='Cancelada' nunca entram em nenhum número aqui.
-let chartAbcInstance=null, chartCategoriaInstance=null, chartEvolucaoInstance=null;
-const setaUp='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
-const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-
-function nomeLoja(id){return dados.lojas.find(l=>l.id===id)?.nome||'—'}
-function abrirTelaPainel(){
-  $('telaAbrirCaixa').style.display='none';
-  $('telaPdv').style.display='none';
-  $('telaFechamento').style.display='none';
-  $('telaHistorico').style.display='none';
-  $('telaPainel').style.display='block';
-  if(!val('painelDe')){const de=new Date();de.setDate(de.getDate()-29);$('painelDe').value=dataLocal(de);}
-  if(!val('painelAte'))$('painelAte').value=hoje();
-  carregarPainel();
-}
-function fecharTelaPainel(){
-  $('telaPainel').style.display='none';
-  if(new URLSearchParams(location.search).get('tela')==='painel'){
-    history.replaceState(null,'',location.pathname);
-  }
-  if(sessaoAtual) $('telaPdv').style.display='block';
-  else $('telaAbrirCaixa').style.display='block';
-}
-
-function periodoAnteriorPainel(de,ate){
-  const d=new Date(de+'T12:00:00'), a=new Date(ate+'T12:00:00');
-  const span=Math.round((a-d)/864e5)+1;
-  const antAte=new Date(d); antAte.setDate(d.getDate()-1);
-  const antDe=new Date(antAte); antDe.setDate(antAte.getDate()-span+1);
-  return {de:dataLocal(antDe), ate:dataLocal(antAte)};
-}
-function trendBadge(atual,anterior,invertido,confiavel){
-  if(!anterior) return '';
-  if(!confiavel) return '';
-  const pct=Math.round(((atual-anterior)/Math.abs(anterior))*100);
-  if(pct===0) return '';
-  const bom=invertido?pct<0:pct>0;
-  return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
-}
 // Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, período com mais de
 // 1000 linhas fica silenciosamente cortado pela paginação padrão do PostgREST, sem
 // erro nenhum, só um número errado na tela.
@@ -1869,239 +1782,6 @@ async function dbGetTodas(t,q){
     offset+=TAM;
   }
   return tudo;
-}
-async function buscarVendasCompletas(de,ate,canal){
-  // data_venda — vendas retroativas entram no período a que de fato pertencem.
-  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
-  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=*`);
-  if(!vendas.length)return[];
-  const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
-  const ids=vendas.map(v=>v.id);
-  // Busca os itens em blocos de 400 IDs por vez, EM PARALELO (Promise.all) — um
-  // venda_id=in.(id1,id2,...) com milhares de IDs de uma vez só gera uma URL de
-  // dezenas de milhares de caracteres, que o servidor rejeita antes de rodar a
-  // consulta. 400 IDs por bloco (~15 mil caracteres) fica bem abaixo do tamanho
-  // que já vimos falhar (~90 mil, com todos de uma vez) e ainda reduz bastante o
-  // número de blocos em paralelo comparado a blocos menores.
-  const TAM_BLOCO=400;
-  const blocos=[];
-  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
-  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=*`)));
-  const itens=paginas.flat();
-  return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
-}
-// Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
-// na venda inteira (venda.total/venda.subtotal). Sem isso, "Faturamento" contava o
-// preço cheio de cada item mesmo em venda com desconto, inclusive uma 100% grátis
-// (brinde), que entrava como se tivesse faturado o valor cheio do produto.
-function valorLiquidoLinha(l){
-  const bruto=Number(l.quantidade||0)*Number(l.valor_unitario||0);
-  const v=l.total_venda;
-  if(!v)return bruto;
-  const subtotal=Number(v.subtotal||0);
-  const fator=subtotal>0?Number(v.total||0)/subtotal:1;
-  return bruto*fator;
-}
-function renderVendasPorLojaPainel(linhas){
-  if(dados.lojas.length<2){$('painelLojaWrap').style.display='none';return;}
-  const porLoja={};
-  linhas.forEach(l=>{
-    const k=l.loja_id||'—';
-    if(!porLoja[k])porLoja[k]={nome:nomeLoja(l.loja_id)||'Não informada',faturamento:0,vendaIds:new Set()};
-    porLoja[k].faturamento+=valorLiquidoLinha(l);
-    porLoja[k].vendaIds.add(l.venda_id);
-  });
-  const linhasLoja=Object.values(porLoja).sort((a,b)=>b.faturamento-a.faturamento);
-  const total=linhasLoja.reduce((a,l)=>a+l.faturamento,0);
-  $('painelLojaWrap').style.display=linhasLoja.length?'block':'none';
-  $('painelLojaTable').innerHTML=linhasLoja.length?linhasLoja.map(l=>`
-    <tr>
-      <td>${esc(l.nome)}</td>
-      <td>${l.vendaIds.size}</td>
-      <td><b>${money(l.faturamento)}</b></td>
-      <td>${total?Math.round(l.faturamento/total*100):0}%</td>
-    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
-}
-// Total do período anterior é só faturamento + nº de vendas (pro badge de
-// tendência) — não precisa dos itens um por um. venda.total já é o valor líquido
-// (desconto já aplicado), soma exatamente igual a somar valorLiquidoLinha de cada
-// item; buscar só essa coluna evita repetir toda a busca pesada de itens_venda
-// (que só existe pra dar o detalhe por produto do período ATUAL) só pra tirar 2
-// números do período comparativo.
-async function totaisPeriodoLeve(de,ate,canal){
-  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
-  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=total`);
-  return {faturamento:vendas.reduce((a,v)=>a+Number(v.total||0),0), numVendas:vendas.length};
-}
-async function carregarPainel(){
-  if(!session?.empresa_id)return;
-  const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
-  const canal=val('painelCanal')||'';
-  const ant=periodoAnteriorPainel(de,ate);
-  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
-  try{
-    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
-      buscarVendasCompletas(de,ate,canal),
-      totaisPeriodoLeve(ant.de,ant.ate,canal),
-      dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
-      dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
-      dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
-    ]);
-  }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
-
-  renderEvolucao(linhas,de,ate);
-  renderVendasPorLojaPainel(linhas);
-
-  const porProduto={};
-  let fatProprio=0, fatConsignado=0;
-  linhas.forEach(l=>{
-    const k=l.produto_id||l.produto_nome;
-    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0,is_consignado:false};
-    const qtd=Number(l.quantidade||0);
-    const valLinha=valorLiquidoLinha(l);
-    porProduto[k].qtd+=qtd;
-    porProduto[k].faturamento+=valLinha;
-    porProduto[k].custo+=qtd*Number(l.custo_unitario_snapshot||0);
-    if(l.is_consignado){porProduto[k].is_consignado=true; fatConsignado+=valLinha;} else{fatProprio+=valLinha;}
-  });
-  const produtos=Object.values(porProduto).sort((a,b)=>b.faturamento-a.faturamento);
-  const faturamentoTotal=produtos.reduce((a,p)=>a+p.faturamento,0);
-  const custoTotal=produtos.reduce((a,p)=>a+p.custo,0);
-
-  let acumulado=0;
-  produtos.forEach(p=>{
-    p.pct=faturamentoTotal?p.faturamento/faturamentoTotal*100:0;
-    acumulado+=p.pct;
-    p.pctAcumulado=acumulado;
-    p.classe=acumulado<=80?'A':acumulado<=95?'B':'C';
-    p.margemPct=p.faturamento?((p.faturamento-p.custo)/p.faturamento*100):0;
-  });
-
-  const vendaIds=new Set(linhas.map(l=>l.venda_id));
-  const ticketMedio=vendaIds.size?faturamentoTotal/vendaIds.size:0;
-  const margemPct=faturamentoTotal?((faturamentoTotal-custoTotal)/faturamentoTotal*100):0;
-
-  const ticketMedioAnt=totAnt.numVendas?totAnt.faturamento/totAnt.numVendas:0;
-  const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
-
-  renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
-    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado});
-  renderAbc(produtos,faturamentoTotal);
-  renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
-}
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado}){
-  setHTML('painelKpis',[
-    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,cor:'purple',trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
-    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',cor:'purple',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
-    {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',cor:margemPct>=0?'green':'amber'},
-    {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',cor:'purple'},
-    {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',cor:'green'},
-    {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',cor:'amber'},
-  ].map(k=>`<div class="kpi-card ${k.cor}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.trend||''}</div>`).join(''));
-}
-function renderEvolucao(linhas,de,ate){
-  const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
-  const spanDias=Math.max(1,Math.round((dFim-dIni)/864e5)+1);
-  const porSemana=spanDias>45;
-  const buckets={};
-  function chaveBucket(dataStr){
-    if(!porSemana)return dataStr;
-    const d=new Date(dataStr+'T12:00:00');
-    const diaSemana=d.getDay();
-    d.setDate(d.getDate()-diaSemana);
-    return dataLocal(d);
-  }
-  linhas.forEach(l=>{
-    // data_venda, não created_at — venda retroativa é lançada num dia diferente de
-    // quando aconteceu de verdade; agrupar por created_at jogava ela no dia do
-    // lançamento em vez do dia real, distorcendo a evolução (só não aparecia antes
-    // porque retroativa é rara — com volume alto de vendas de teste lançadas todas
-    // de uma vez, ficou óbvio: tudo colapsava num ponto só, no dia do lançamento).
-    const k=chaveBucket(String(l.total_venda?.data_venda||'').slice(0,10));
-    buckets[k]=(buckets[k]||0)+valorLiquidoLinha(l);
-  });
-  const chaves=Object.keys(buckets).filter(k=>k).sort();
-  const ctx=$('chartEvolucao');
-  if(chartEvolucaoInstance)chartEvolucaoInstance.destroy();
-  if(!ctx)return;
-  if(!chaves.length){
-    chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{data:[]}]},options:{plugins:{legend:{display:false}}}});
-    return;
-  }
-  chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{
-    labels:chaves.map(k=>fmtData(k)+(porSemana?' (semana)':'')),
-    datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
-  },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
-}
-let _ultimoAbc={produtos:[],faturamentoTotal:0};
-function renderAbc(produtos,faturamentoTotal){
-  if(produtos===undefined){ ({produtos,faturamentoTotal}=_ultimoAbc); }
-  else{ _ultimoAbc={produtos,faturamentoTotal}; }
-  renderPaginacao('abcTable',produtos.length,'renderAbc');
-  $('abcTable').innerHTML=produtos.length?paginar(produtos,'abcTable').map(p=>`
-    <tr>
-      <td><span class="abc-badge abc-${p.classe}">${p.classe}</span></td>
-      <td>${esc(p.nome||'—')}${p.is_consignado?' <span class="badge badge-amber">Consig.</span>':''}</td>
-      <td>${p.qtd}</td>
-      <td>${money(p.faturamento)}</td>
-      <td style="color:${p.margemPct>=0?'var(--green)':'var(--red)'}">${p.margemPct.toFixed(1)}%</td>
-      <td>${p.pct.toFixed(1)}%</td>
-      <td>${p.pctAcumulado.toFixed(1)}%</td>
-    </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
-
-  const top=produtos.slice(0,10);
-  const ctx=$('chartAbc');
-  if(chartAbcInstance)chartAbcInstance.destroy();
-  if(ctx&&top.length){
-    chartAbcInstance=new Chart(ctx,{type:'bar',data:{
-      labels:top.map(p=>p.nome),
-      datasets:[{label:'Faturamento',data:top.map(p=>p.faturamento),backgroundColor:top.map(p=>p.classe==='A'?'#059669':p.classe==='B'?'#D97706':'#DC2626')}],
-    },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});
-  }
-}
-function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,estoqueTodasLojas){
-  const nomeCategoriaMap={}; categoriasTodas.forEach(c=>nomeCategoriaMap[c.id]=c.nome);
-  const categoriaPorProduto={}; produtosTodos.forEach(p=>categoriaPorProduto[p.id]=nomeCategoriaMap[p.categoria_id]||'Sem categoria');
-  const estoquePorProduto={}; estoqueTodasLojas.forEach(e=>{estoquePorProduto[e.produto_id]=(estoquePorProduto[e.produto_id]||0)+Number(e.quantidade||0);});
-
-  const porCategoria={};
-  produtosVendidos.forEach(p=>{
-    const cat=categoriaPorProduto[p.produto_id]||'Sem categoria';
-    if(!porCategoria[cat])porCategoria[cat]={categoria:cat,qtd:0,faturamento:0,estoqueAtual:0};
-    porCategoria[cat].qtd+=p.qtd;
-    porCategoria[cat].faturamento+=p.faturamento;
-  });
-  produtosTodos.forEach(p=>{
-    const cat=categoriaPorProduto[p.id]||'Sem categoria';
-    if(!porCategoria[cat])return; // só mostra categoria que teve venda no período
-    porCategoria[cat].estoqueAtual+=Number(estoquePorProduto[p.id]||0);
-  });
-  const categorias=Object.values(porCategoria).sort((a,b)=>b.faturamento-a.faturamento);
-  categorias.forEach(c=>{c.giro=c.estoqueAtual>0?c.qtd/c.estoqueAtual:0;});
-  const giroMax=Math.max(1,...categorias.map(c=>c.giro));
-
-  $('giroCategoriaTable').innerHTML=categorias.length?categorias.map(c=>`
-    <tr>
-      <td>${esc(c.categoria)}</td>
-      <td>${c.qtd}</td>
-      <td>${money(c.faturamento)}</td>
-      <td>${c.estoqueAtual}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%"></div></div>
-          <span style="font-size:12px;color:var(--muted)">${c.giro.toFixed(2)}x</span>
-        </div>
-      </td>
-    </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
-
-  const ctx=$('chartCategoria');
-  if(chartCategoriaInstance)chartCategoriaInstance.destroy();
-  if(ctx&&categorias.length){
-    chartCategoriaInstance=new Chart(ctx,{type:'doughnut',data:{
-      labels:categorias.map(c=>c.categoria),
-      datasets:[{data:categorias.map(c=>c.faturamento),backgroundColor:['#6D5EF5','#059669','#D97706','#DC2626','#0EA5E9','#8B5CF6','#F472B6','#64748B']}],
-    },options:{plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
-  }
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
@@ -2179,6 +1859,7 @@ init();
         <div class="sb-group-label">Produtos</div>
         <a class="sb-btn" href="produtos.html" data-tip="Produtos e Estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Produtos</span></a>
         <a class="sb-btn" href="caixa.html" data-tip="Caixa (PDV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Caixa</span></a>
+        <a class="sb-btn" href="painel-vendas.html" data-tip="Painel de Vendas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Painel de Vendas</span></a>
         <a class="sb-btn" href="integracoes.html" data-tip="Integrações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Integrações</span></a>
       </div>`;
     }
@@ -2196,7 +1877,7 @@ init();
 
     logo.insertAdjacentHTML('afterend', html);
 
-    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','produtos.html':'produtos','caixa.html':'caixa','integracoes.html':'integracoes'};
+    const HREF_MODULO={'dashboard.html':'dashboard','financeiro.html':'financeiro','crm.html':'crm','transporte.html':'transporte','cotacao.html':'cotacao','rh.html':['rh','folha_ponto'],'relatorios.html':'relatorios','parametros.html':'configuracoes','os.html':'ordens_servico','servicos.html':'servicos','materiais.html':'materiais','notas-fiscais.html':'notas_fiscais','produtos.html':'produtos','caixa.html':'caixa','painel-vendas.html':'caixa','integracoes.html':'integracoes'};
     const permsUser = d.user?.usuario_permissoes || [];
     const isAdminUser = d.user?.perfil==='Administrador' || d.user?.perfil==='SuperAdmin';
     // Módulos liberados pra ESSA EMPRESA (painel Nuvix Admin → Módulos, tabela
