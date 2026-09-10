@@ -295,19 +295,45 @@ async function totaisPeriodoLeve(de,ate,canal){
   const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=total`);
   return {faturamento:vendas.reduce((a,v)=>a+Number(v.total||0),0), numVendas:vendas.length};
 }
+// "Faturado" (finalizar_venda contabiliza na hora, produto já saiu do estoque) não é o
+// mesmo que "recebido" — vendas a prazo (PedidoOK, fiado no Caixa) entram no faturamento
+// do período mas o dinheiro só chega no vencimento. Sem isso, o "Faturamento no período"
+// parece caixa disponível quando na verdade parte dele ainda é promessa de pagamento.
+// Não recalcula faturamento nenhum — só soma o financeiro Pendente das MESMAS vendas já
+// filtradas por período/canal (via vendas.financeiro_id, o vínculo que finalizar_venda cria).
+async function buscarAReceberPainel(de,ate,canal){
+  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&financeiro_id=not.is.null&select=financeiro_id`);
+  if(!vendas.length) return {aReceber:0, atrasado:0};
+  const ids=[...new Set(vendas.map(v=>v.financeiro_id))];
+  const TAM_BLOCO=400;
+  const blocos=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
+  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('financeiro',`?id=in.(${bloco.join(',')})&status=eq.Pendente&select=valor,vencimento`)));
+  const pendentes=paginas.flat();
+  const hj=hoje();
+  let aReceber=0, atrasado=0;
+  pendentes.forEach(f=>{
+    const v=Number(f.valor||0);
+    aReceber+=v;
+    if(String(f.vencimento||'').slice(0,10)<hj) atrasado+=v;
+  });
+  return {aReceber, atrasado};
+}
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
   const canal=val('painelCanal')||'';
   const ant=periodoAnteriorPainel(de,ate);
-  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
+  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo;
   try{
-    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
+    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo]=await Promise.all([
       buscarVendasCompletas(de,ate,canal),
       totaisPeriodoLeve(ant.de,ant.ate,canal),
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
       dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
+      buscarAReceberPainel(de,ate,canal),
     ]);
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
 
@@ -347,7 +373,8 @@ async function carregarPainel(){
   const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
 
   renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
-    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado});
+    faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado,
+    aReceber:aReceberInfo.aReceber,atrasado:aReceberInfo.atrasado});
   renderAbc(produtos,faturamentoTotal);
   renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
 }
@@ -362,9 +389,15 @@ const KPI_ICONES={
   caixa:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   fatia:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
 };
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado}){
+function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado,aReceber,atrasado}){
+  // Faturado ≠ recebido: o valor pendente não é erro nem alerta por si só (venda a prazo é
+  // normal), por isso âmbar — só vira vermelho quando parte dele já está atrasado (vencido
+  // e ainda não pago), que aí sim é risco de verdade.
+  const subReceber = aReceber>0
+    ? ` · <span style="color:${atrasado>0?'var(--red)':'var(--amber)'};font-weight:700">${money(aReceber)} a receber</span>${atrasado>0?` (${money(atrasado)} atrasado)`:''}`
+    : '';
   setHTML('painelKpis',[
-    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
+    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}${subReceber}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
     {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
     {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',ic:'tendencia',valorCor:margemPct<0?'var(--red)':null},
     {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',ic:'caixa'},
