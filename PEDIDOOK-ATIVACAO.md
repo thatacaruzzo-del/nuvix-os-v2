@@ -43,7 +43,7 @@ Integrações.
 
 ## Passo a passo pra ativar de verdade
 
-### 1. Obter o `token_parceiro` e configurar o segredo
+### 1. Obter o `token_parceiro` e configurar o segredo — ✅ já feito
 O `token_parceiro` identifica a NuvixHub junto ao PedidoOK — o mesmo valor
 pra todos os clientes, obtido **uma única vez**. Processo oficial
 (pedidook.com.br/api):
@@ -54,20 +54,24 @@ pra todos os clientes, obtido **uma única vez**. Processo oficial
    — nesse ponto o NuvixHub aparece na lista de ERPs integrados com status
    **"em desenvolvimento"**.
 
-Depois de obtido:
+O valor **não** fica numa env var de Edge Function — fica guardado
+criptografado no **Supabase Vault** (secret `pedidook_token_parceiro`), lido
+só por `get_pedidook_token_parceiro()` (SECURITY DEFINER, `EXECUTE` restrito
+a `service_role` — nem `anon` nem `authenticated` conseguem chamar). Pra
+trocar o valor no futuro (rotação, renovação):
 
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'pedidook_token_parceiro'),
+  new_secret => '<novo_valor>'
+);
 ```
-supabase secrets set PEDIDOOK_TOKEN_PARCEIRO=...
-```
 
-**Sem esse segredo configurado, `pedidook-conectar` recusa qualquer
-tentativa de conexão** (`erro: "pedidook_nao_configurado"`) — é o único
-bloqueio real pra esta integração começar a funcionar; todo o resto já está
-pronto.
-
-**Homologação** (sair de "em desenvolvimento" pra "ativo"): pedir por
-e-mail em `integracao@pedidook.com.br`, só depois que a integração estiver
-testada e funcionando de ponta a ponta.
+Já está configurado pra este projeto (conta de teste liberada pela PedidoOK
+em 2026-09, com 2 licenças de vendedor/dispositivo Android). **Homologação**
+(sair de "em desenvolvimento" pra "ativo"): pedir por e-mail em
+`integracao@pedidook.com.br`, só depois que a integração estiver testada e
+funcionando de ponta a ponta.
 
 ### 2. Cliente gera o `token_pedidook`
 Cada empresa gera o próprio token **na conta dela**, na Plataforma PC do

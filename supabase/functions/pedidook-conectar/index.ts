@@ -7,8 +7,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // Diferente de ml-conectar/nuvemshop-conectar (OAuth, com redirect pro site do
 // canal): o PedidoOK não tem OAuth. O cliente gera o `token_pedidook` na
 // própria conta dele, na Plataforma PC, e cola aqui. `token_parceiro` é o
-// mesmo pra todo cliente NuvixHub (segredo PEDIDOOK_TOKEN_PARCEIRO), nunca
-// pedido no formulário.
+// mesmo pra todo cliente NuvixHub — guardado no Supabase Vault (secret
+// `pedidook_token_parceiro`), lido via a função `get_pedidook_token_parceiro()`
+// (SECURITY DEFINER, EXECUTE restrito a service_role) em vez de env var —
+// evita depender de configurar secret de Edge Function manualmente.
 //
 // Valida o token com uma chamada real (GET /produtos) antes de gravar —
 // evita salvar um token com erro de digitação e só descobrir isso 20min
@@ -18,7 +20,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const TOKEN_PARCEIRO = Deno.env.get("PEDIDOOK_TOKEN_PARCEIRO");
 const PEDIDOOK_BASE_URL = "https://api.pedidook.com.br/v1";
 
 const CORS = {
@@ -40,7 +41,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    if (!TOKEN_PARCEIRO) return json({ ok: false, erro: "pedidook_nao_configurado" }, 500);
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    const { data: tokenParceiro, error: tokenErr } = await admin.rpc("get_pedidook_token_parceiro");
+    if (tokenErr || !tokenParceiro) return json({ ok: false, erro: "pedidook_nao_configurado" }, 500);
 
     const { token_pedidook } = await req.json().catch(() => ({}) as any);
     const tokenPedidook = String(token_pedidook || "").trim();
@@ -54,7 +58,6 @@ Deno.serve(async (req) => {
     const { data: callerAuth, error: callerErr } = await anon.auth.getUser(callerToken);
     if (callerErr || !callerAuth?.user) return json({ ok: false, erro: "sessao_invalida" }, 401);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: usuario } = await admin.from("usuarios").select("empresa_id, perfil").eq("id", callerAuth.user.id).maybeSingle();
     if (!usuario?.empresa_id) return json({ ok: false, erro: "usuario_sem_empresa" }, 403);
     if (usuario.perfil !== "Administrador" && usuario.perfil !== "SuperAdmin") {
@@ -62,7 +65,7 @@ Deno.serve(async (req) => {
     }
 
     const r = await fetch(`${PEDIDOOK_BASE_URL}/produtos?pagina=1`, {
-      headers: { token_parceiro: TOKEN_PARCEIRO, token_pedidook: tokenPedidook, "Content-Type": "application/json" },
+      headers: { token_parceiro: tokenParceiro, token_pedidook: tokenPedidook, "Content-Type": "application/json" },
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) return json({ ok: false, erro: `O PedidoOK recusou o token: ${extrairErroPedidook(data)}` }, 422);
@@ -72,13 +75,13 @@ Deno.serve(async (req) => {
     if (existente) {
       const { error } = await admin
         .from("pedidook_credenciais")
-        .update({ token_parceiro: TOKEN_PARCEIRO, token_pedidook: tokenPedidook, conectado_em: agora, desconectado_em: null, updated_at: agora })
+        .update({ token_parceiro: tokenParceiro, token_pedidook: tokenPedidook, conectado_em: agora, desconectado_em: null, updated_at: agora })
         .eq("id", existente.id);
       if (error) return json({ ok: false, erro: error.message }, 500);
     } else {
       const { error } = await admin
         .from("pedidook_credenciais")
-        .insert({ empresa_id: usuario.empresa_id, token_parceiro: TOKEN_PARCEIRO, token_pedidook: tokenPedidook, conectado_em: agora });
+        .insert({ empresa_id: usuario.empresa_id, token_parceiro: tokenParceiro, token_pedidook: tokenPedidook, conectado_em: agora });
       if (error) return json({ ok: false, erro: error.message }, 500);
     }
 
