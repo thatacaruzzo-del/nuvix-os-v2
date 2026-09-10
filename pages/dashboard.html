@@ -946,9 +946,9 @@ function renderVendas(){
   const hoje_=calcVendasSetor(hj,hj);
   setHTML('vendasKpis', kpiCardsHTML([
     {ico:icoWallet,cls:'p',lbl:'Faturamento hoje',val:money(hoje_.faturamento),sub:`${hoje_.numVendas} venda${hoje_.numVendas!==1?'s':''}`,destaque:true},
-    {ico:icoSVG(pathComercial),cls:'g',lbl:'Faturamento no período',val:money(v.faturamento),sub:'ver filtro de período acima'},
-    {ico:icoScale,cls:'b',lbl:'Nº de vendas no período',val:v.numVendas,sub:'concluídas'},
-    {ico:icoClock,cls:'a',lbl:'Ticket médio',val:v.ticketMedio?money(v.ticketMedio):'—',sub:'no período'},
+    {ico:icoSVG(pathComercial),cls:'m',lbl:'Faturamento no período',val:money(v.faturamento),sub:'ver filtro de período acima'},
+    {ico:icoScale,cls:'m',lbl:'Nº de vendas no período',val:v.numVendas,sub:'concluídas'},
+    {ico:icoClock,cls:'m',lbl:'Ticket médio',val:v.ticketMedio?money(v.ticketMedio):'—',sub:'no período'},
   ]));
 
   const vendasNoPeriodo=(dados.vendas||[]).filter(vd=>{const dt=String(vd.created_at||'').slice(0,10);return dt>=de&&dt<=ate;});
@@ -1789,11 +1789,11 @@ function renderIndicadores(){
   const confiavel = dadosSuficientesParaTendencia();
 
   setHTML('indicadores', kpiCardsHTML([
-    {ico:icoWallet,cls:'g',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
+    {ico:icoWallet,cls:'m',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
     {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true,confiavel)},
-    {ico:icoScale,cls:atual.saldo>=0?'b':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel),destaque:true},
-    {ico:icoClock,cls:'a',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
-    {ico:icoClock,cls:'r',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
+    {ico:icoScale,cls:atual.saldo>=0?'p':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel),destaque:atual.saldo>=0},
+    {ico:icoClock,cls:'m',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
+    {ico:icoClock,cls:'m',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
   ]));
 }
 
@@ -1802,9 +1802,9 @@ function renderComercial(){
   const c = calcComercial(periodo.de, periodo.ate);
   setHTML('comercialKpis', kpiCardsHTML([
     {ico:icoSVG(pathComercial),cls:'p',lbl:'Novos clientes',val:c.fechados,sub:'no período',destaque:true},
-    {ico:icoClock,cls:'b',lbl:'Receita prevista',val:money(c.pipelineAberto),sub:'pipeline em aberto · agora'},
-    {ico:icoScale,cls:'g',lbl:'Conversão',val:c.txConv!==null?c.txConv+'%':'—',sub:'no período'},
-    {ico:icoWallet,cls:'a',lbl:'Ticket médio',val:c.ticketMedio?money(c.ticketMedio):'—',sub:'estimado · fechados no período'},
+    {ico:icoClock,cls:'m',lbl:'Receita prevista',val:money(c.pipelineAberto),sub:'pipeline em aberto · agora'},
+    {ico:icoScale,cls:'m',lbl:'Conversão',val:c.txConv!==null?c.txConv+'%':'—',sub:'no período'},
+    {ico:icoWallet,cls:'m',lbl:'Ticket médio',val:c.ticketMedio?money(c.ticketMedio):'—',sub:'estimado · fechados no período'},
   ]));
   renderQuemMove();
 }
@@ -1813,10 +1813,10 @@ function renderComercial(){
 function renderOperacao(){
   const o = calcOperacao(periodo.de, periodo.ate);
   setHTML('operacaoKpis', kpiCardsHTML([
-    {ico:icoSVG(pathOperacao),cls:'p',lbl:'OS abertas',val:o.abertasPeriodo,sub:'no período'},
-    {ico:icoScale,cls:'g',lbl:'OS concluídas',val:o.concluidasPeriodo,sub:'no período',destaque:true},
+    {ico:icoSVG(pathOperacao),cls:'m',lbl:'OS abertas',val:o.abertasPeriodo,sub:'no período'},
+    {ico:icoScale,cls:'p',lbl:'OS concluídas',val:o.concluidasPeriodo,sub:'no período',destaque:true},
     {ico:icoClock,cls:o.atrasadasAgora>0?'r':'m',lbl:'OS atrasadas',val:o.atrasadasAgora,sub:'agora'},
-    {ico:icoDown,cls:'b',lbl:'Tempo médio',val:o.tempoMedio!==null?o.tempoMedio+' dia'+(o.tempoMedio!==1?'s':''):'—',sub:'abertura → conclusão'},
+    {ico:icoDown,cls:'m',lbl:'Tempo médio',val:o.tempoMedio!==null?o.tempoMedio+' dia'+(o.tempoMedio!==1?'s':''):'—',sub:'abertura → conclusão'},
   ]));
 }
 
@@ -1826,8 +1826,8 @@ function renderMateriais(){
   setHTML('materiaisKpis', kpiCardsHTML([
     {ico:icoSVG(pathMateriais),cls:m.abaixoMinimo>0?'a':'m',lbl:'Abaixo do mínimo',val:m.abaixoMinimo,sub:'agora'},
     {ico:icoScale,cls:m.zerados>0?'r':'m',lbl:'Sem estoque',val:m.zerados,sub:'agora'},
-    {ico:icoDown,cls:'b',lbl:'Consumo no período',val:money(m.consumoPeriodo),sub:'saídas de estoque'},
-    {ico:icoWallet,cls:'a',lbl:'Investimento p/ repor mínimo',val:money(m.investimentoReposicao),sub:'estimado · agora'},
+    {ico:icoDown,cls:'m',lbl:'Consumo no período',val:money(m.consumoPeriodo),sub:'saídas de estoque'},
+    {ico:icoWallet,cls:'m',lbl:'Investimento p/ repor mínimo',val:money(m.investimentoReposicao),sub:'estimado · agora'},
   ]));
 }
 
@@ -1835,10 +1835,10 @@ function renderMateriais(){
 function renderRH(){
   const r = calcRHSetor(periodo.de, periodo.ate);
   setHTML('rhKpis', kpiCardsHTML([
-    {ico:icoSVG(pathRH),cls:'p',lbl:'Funcionários ativos',val:r.ativos,sub:'agora'},
+    {ico:icoSVG(pathRH),cls:'m',lbl:'Funcionários ativos',val:r.ativos,sub:'agora'},
     {ico:icoWallet,cls:'m',lbl:'Folha mensal estimada',val:money(r.folhaMensalEst),sub:'agora'},
     {ico:icoScale,cls:r.horasExtras>0?'a':'m',lbl:'Horas extras',val:r.horasExtras.toFixed(0)+'h',sub:'no período'},
-    {ico:icoClock,cls:'b',lbl:'Em férias',val:r.emFerias,sub:'agora'},
+    {ico:icoClock,cls:'m',lbl:'Em férias',val:r.emFerias,sub:'agora'},
     {ico:icoDown,cls:r.faltas>0?'r':'m',lbl:'Faltas',val:r.faltas,sub:'no período'},
   ]));
 }
