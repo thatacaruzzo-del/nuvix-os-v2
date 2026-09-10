@@ -19,10 +19,11 @@
 // arquivo pro resto do fluxo.
 // ============================================================
 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const NUVEMSHOP_CLIENT_ID = Deno.env.get("NUVEMSHOP_CLIENT_ID");
-const NUVEMSHOP_CLIENT_SECRET = Deno.env.get("NUVEMSHOP_CLIENT_SECRET");
 
 // Mesmo domínio real do front-end usado em ml-oauth-callback/convidar-admin.
 const APP_URL = "https://nuvix-os-v2.vercel.app";
@@ -66,15 +67,20 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     if (!code) return redirecionar("erro", "parametros_ausentes");
-    if (!NUVEMSHOP_CLIENT_ID || !NUVEMSHOP_CLIENT_SECRET) return redirecionar("erro", "nuvemshop_nao_configurado");
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: credenciaisApp } = await admin.rpc("get_nuvemshop_client_credentials").single();
+    const clientId = (credenciaisApp as any)?.client_id;
+    const clientSecret = (credenciaisApp as any)?.client_secret;
+    if (!clientId || !clientSecret) return redirecionar("erro", "nuvemshop_nao_configurado");
 
     const tokenResp = await fetch("https://www.nuvemshop.com.br/apps/authorize/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
       body: new URLSearchParams({
         grant_type: "authorization_code",
-        client_id: NUVEMSHOP_CLIENT_ID,
-        client_secret: NUVEMSHOP_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
       }),
     });

@@ -25,7 +25,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const NUVEMSHOP_CLIENT_ID = Deno.env.get("NUVEMSHOP_CLIENT_ID");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -41,10 +40,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    if (!NUVEMSHOP_CLIENT_ID) {
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: credenciaisApp } = await admin.rpc("get_nuvemshop_client_credentials").single();
+    const clientId = (credenciaisApp as any)?.client_id;
+    if (!clientId) {
       // Estado esperado até o usuário virar Parceiro Nuvemshop, registrar o app e
-      // guardar NUVEMSHOP_CLIENT_ID/NUVEMSHOP_CLIENT_SECRET como segredo da edge
-      // function — mesmo tratamento que ml-conectar dá pra "ml_nao_configurado".
+      // guardar client_id/client_secret no Vault (ver get_nuvemshop_client_credentials)
+      // — mesmo tratamento que ml-conectar dá pra "ml_nao_configurado".
       return json({ ok: false, erro: "nuvemshop_nao_configurado" }, 422);
     }
 
@@ -56,7 +58,6 @@ Deno.serve(async (req) => {
     const { data: callerAuth, error: callerErr } = await anon.auth.getUser(callerToken);
     if (callerErr || !callerAuth?.user) return json({ ok: false, erro: "sessao_invalida" }, 401);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: usuario } = await admin
       .from("usuarios")
       .select("empresa_id, perfil")
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: "Só administradores podem conectar a Nuvemshop." }, 403);
     }
 
-    const url = `https://www.nuvemshop.com.br/apps/${encodeURIComponent(NUVEMSHOP_CLIENT_ID)}/authorize`;
+    const url = `https://www.nuvemshop.com.br/apps/${encodeURIComponent(clientId)}/authorize`;
     return json({ ok: true, url });
   } catch (e) {
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);
