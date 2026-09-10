@@ -1,0 +1,30 @@
+-- BUG REAL DE PRODUÇÃO encontrado em 2026-09-10 ao testar mais a integração PedidoOK:
+--
+-- A API do PedidoOK devolve `ultima_alteracao` sem sufixo de fuso (ex:
+-- "2026-09-10T11:31:27"), mas o valor já está em horário de Brasília — e ela
+-- espera receber `alterado_apos` no MESMO formato (naive, sem "Z"/offset).
+--
+-- A edge function pedidook-pull-pedidos mandava `alterado_apos` em UTC com
+-- "Z" (produzido por `Date.toISOString()`). A API do PedidoOK não faz a
+-- conversão de fuso — ela tratava esse valor como se já fosse horário local,
+-- ficando ~3h "no futuro". Resultado: TODO pedido criado depois da primeira
+-- sincronização manual (feita com o watermark resetado pra null) era
+-- silenciosamente ignorado em toda rodada do cron, sem nenhum erro visível
+-- (a chamada retornava HTTP 200 com 0 pedidos, como se não houvesse nada
+-- novo).
+--
+-- Confirmado comparando a mesma consulta direto na API:
+--   ?alterado_apos=2026-09-10T14:29:52.705Z   → 0 pedidos (errado)
+--   ?alterado_apos=2026-09-10T11:29:52        → 2 pedidos (correto, mesmo
+--                                                instante em horário local)
+--
+-- Corrigido na edge function (supabase/functions/pedidook-pull-pedidos/index.ts)
+-- com a função toSaoPauloNaive(), que converte o watermark UTC (guardado
+-- normalmente como timestamptz — isso não muda) pro formato local naive
+-- só na hora de montar a URL de consulta. Re-testado após o deploy: os 2
+-- pedidos que estavam "perdidos" desde o teste inicial foram importados
+-- corretamente na primeira chamada seguinte ao fix.
+--
+-- Nenhuma alteração de schema — este arquivo é só o registro histórico do
+-- bug e da correção, seguindo a convenção do repositório de manter cópia
+-- local das mudanças relevantes de backend.

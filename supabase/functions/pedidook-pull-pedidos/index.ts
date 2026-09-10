@@ -48,6 +48,27 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// A API do PedidoOK devolve `ultima_alteracao` sem sufixo de fuso (ex:
+// "2026-09-10T11:31:27"), mas o valor já é horário de Brasília — e ela espera
+// `alterado_apos` no MESMO formato. Mandar em UTC com "Z" (o que
+// `Date.toISOString()` sempre produz) faz a API tratar o valor como se já
+// fosse horário local, ficando ~3h "no futuro" e excluindo da busca todo
+// pedido criado depois da primeira sincronização — bug real confirmado em
+// 2026-09-10 comparando a mesma consulta com e sem "Z" direto na API.
+// data_ultima_sync_pedidos continua guardado em UTC de verdade (timestamptz);
+// essa conversão só acontece na hora de montar a URL pro PedidoOK.
+function toSaoPauloNaive(isoUtc: string): string {
+  const data = new Date(isoUtc);
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(data).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
@@ -296,7 +317,7 @@ async function processarCredencial(cred: any) {
   }
 
   const headers = { token_parceiro: cred.token_parceiro, token_pedidook: cred.token_pedidook, "Content-Type": "application/json" };
-  const alteradoApos = cred.data_ultima_sync_pedidos || "1970-01-01T00:00:00Z";
+  const alteradoApos = toSaoPauloNaive(cred.data_ultima_sync_pedidos || "1970-01-01T00:00:00Z");
 
   let url: string | null = `${PEDIDOOK_BASE_URL}/pedidos?alterado_apos=${encodeURIComponent(alteradoApos)}`;
   let processados = 0;
