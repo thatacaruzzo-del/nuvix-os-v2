@@ -18,6 +18,22 @@
 .par-pane{display:none}.par-pane.active{display:block}
 .int-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex-shrink:0;display:inline-block}
 .int-dot.on{background:#22c55e}
+
+/* ── Radar de canais — resumo compacto acima das abas, some sozinho se só
+   houver 1 canal conectado (mesma regra do card "Vendas por canal" do
+   Painel Executivo, pra não virar ruído de quem só vende por 1 canal). ── */
+#radarCanais{display:none;margin-bottom:20px}
+.radar-titulo{font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:10px}
+.radar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.radar-chip{border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow .15s ease,transform .15s ease;display:flex;flex-direction:column;gap:8px}
+.radar-chip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.radar-chip-top{display:flex;align-items:center;gap:8px}
+.radar-chip-nome{font-size:13px;font-weight:800;flex:1}
+.radar-chip-linha{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.radar-chip-linha b{color:var(--txt);font-weight:700}
+.radar-chip-erro{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--red-bg);color:var(--red)}
+.radar-chip-link{font-size:11px;font-weight:700;color:var(--p);text-decoration:none}
+.radar-chip-link:hover{text-decoration:underline}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -151,12 +167,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
     <div class="main-scroll">
 
+      <!-- ══ RADAR DE CANAIS — resumo compacto acima das abas ══ -->
+      <div id="radarCanais">
+        <div class="radar-titulo">Radar de canais</div>
+        <div class="radar-grid" id="radarGrid"></div>
+      </div>
+
       <!-- ══ ABAS — uma por canal, evita a página virar rolagem infinita
            conforme mais integrações entram. Mesmo padrão de parametros.html. ══ -->
       <div class="par-tabs">
-        <button class="par-tab active" onclick="intTab('ml','Mercado Livre',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Mercado Livre <span class="int-dot" id="mlTabDot"></span></button>
-        <button class="par-tab" onclick="intTab('ns','Nuvemshop',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Nuvemshop <span class="int-dot" id="nsTabDot"></span></button>
-        <button class="par-tab" onclick="intTab('pk','PedidoOK',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> PedidoOK <span class="int-dot" id="pkTabDot"></span></button>
+        <button class="par-tab active" id="tabBtnMl" onclick="intTab('ml','Mercado Livre',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Mercado Livre <span class="int-dot" id="mlTabDot"></span></button>
+        <button class="par-tab" id="tabBtnNs" onclick="intTab('ns','Nuvemshop',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Nuvemshop <span class="int-dot" id="nsTabDot"></span></button>
+        <button class="par-tab" id="tabBtnPk" onclick="intTab('pk','PedidoOK',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> PedidoOK <span class="int-dot" id="pkTabDot"></span></button>
       </div>
 
       <div class="par-pane active" id="pane-ml">
@@ -459,6 +481,7 @@ async function loadData(){
   await carregarErrosPedidos();
   await carregarStatusNS();
   await carregarStatusPK();
+  await carregarRadar();
 }
 
 // ══ Pedidos com erro de importação ══
@@ -1039,6 +1062,68 @@ async function resolverErroPedidoPK(id){
     toast('Marcado como resolvido.');
     await carregarErrosPK();
   }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ RADAR DE CANAIS ══
+// Resumo compacto de todos os canais externos, acima das abas — lê
+// canais-status (view_status_canais). Some sozinho se menos de 2 canais
+// estiverem conectados, mesma regra do card "Vendas por canal" do Painel
+// Executivo (evita ruído pra quem só vende por 1 canal).
+const RADAR_TAB_ID = { 'Mercado Livre':'ml', 'Nuvemshop':'ns', 'PedidoOK':'pk' };
+const RADAR_TAB_BTN_ID = { 'Mercado Livre':'tabBtnMl', 'Nuvemshop':'tabBtnNs', 'PedidoOK':'tabBtnPk' };
+const RADAR_ICONE = {
+  'Mercado Livre':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+  'Nuvemshop':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+  'PedidoOK':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+};
+function haQuanto(iso){
+  if(!iso) return null;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs/60000);
+  if(min < 1) return 'agora mesmo';
+  if(min < 60) return `há ${min}min`;
+  const h = Math.floor(min/60);
+  if(h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h/24)}d`;
+}
+async function chamarEdgeCanais(slug, body){
+  const token = tokenAtual();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${slug}`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY, 'Authorization':'Bearer '+(token||SUPABASE_KEY) },
+    body: JSON.stringify(body||{}),
+  });
+  let data; try { data = await r.json(); } catch(e) { throw new Error('Resposta inválida do serviço de integração.'); }
+  return data;
+}
+async function carregarRadar(){
+  try{
+    const data = await chamarEdgeCanais('canais-status', {});
+    if(!data.ok){ $('radarCanais').style.display='none'; return; }
+    renderRadar(data.canais||[]);
+  }catch(e){ $('radarCanais').style.display='none'; }
+}
+function renderRadar(canais){
+  const conectados = canais.filter(c=>c.conectado);
+  if(conectados.length < 2){ $('radarCanais').style.display='none'; return; }
+  $('radarCanais').style.display='block';
+  setHTML('radarGrid', canais.map(c=>{
+    const tabId = RADAR_TAB_ID[c.canal];
+    const linhaTempo = c.canal==='PedidoOK' && c.ultima_sincronizacao
+      ? `Sincronizado ${haQuanto(c.ultima_sincronizacao)}`
+      : (c.ultima_venda ? `Última venda ${haQuanto(c.ultima_venda)}` : (c.conectado ? 'Sem vendas ainda' : 'Não conectado'));
+    const linhaVendas = c.conectado ? `<div class="radar-chip-linha"><span>Vendas hoje</span><b>${c.vendas_hoje}</b>${c.erros_pendentes>0?`<span class="radar-chip-erro">${c.erros_pendentes} erro${c.erros_pendentes!==1?'s':''}</span>`:''}</div>` : '';
+    const link = c.conectado ? `<a class="radar-chip-link" href="caixa.html?tela=painel&canal=${encodeURIComponent(c.canal)}" onclick="event.stopPropagation()">Ver performance →</a>` : '';
+    return `<div class="radar-chip" onclick="irParaAbaRadar('${tabId}','${esc(c.canal)}')">
+      <div class="radar-chip-top">${RADAR_ICONE[c.canal]}<span class="radar-chip-nome">${esc(c.canal)}</span><span class="int-dot ${c.conectado?'on':''}"></span></div>
+      <div class="radar-chip-linha">${linhaTempo}</div>
+      ${linhaVendas}
+      ${link}
+    </div>`;
+  }).join(''));
+}
+function irParaAbaRadar(tabId, canal){
+  intTab(tabId, canal, $(RADAR_TAB_BTN_ID[canal]));
 }
 
 init();

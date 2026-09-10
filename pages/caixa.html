@@ -368,6 +368,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
             <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">De</label><input type="date" id="painelDe" onchange="carregarPainel()"></div>
             <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Até</label><input type="date" id="painelAte" onchange="carregarPainel()"></div>
+            <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Canal</label><select id="painelCanal" onchange="carregarPainel()"><option value="">Todos os canais</option><option value="Loja">Loja</option><option value="Mercado Livre">Mercado Livre</option><option value="Nuvemshop">Nuvemshop</option><option value="PedidoOK">PedidoOK</option></select></div>
             <div style="font-size:12px;color:var(--muted);padding-bottom:10px">Giro é estimado com base no estoque atual (não há histórico diário de estoque salvo). Vendas canceladas não entram nos números.</div>
           </div>
         </div>
@@ -541,7 +542,11 @@ async function init(){
   carregarConfigFiscal();
   await verificarCaixaAberto();
   reconectarImpressoraSalva();
-  if(new URLSearchParams(location.search).get('tela')==='painel') abrirTelaPainel();
+  if(new URLSearchParams(location.search).get('tela')==='painel'){
+    const canalUrl=new URLSearchParams(location.search).get('canal');
+    abrirTelaPainel();
+    if(canalUrl){ $('painelCanal').value=canalUrl; carregarPainel(); }
+  }
   $('pageLoader')?.classList.add('hide');
   setTimeout(()=>{$('pdvBarras')?.focus();},80);
 }
@@ -1865,9 +1870,10 @@ async function dbGetTodas(t,q){
   }
   return tudo;
 }
-async function buscarVendasCompletas(de,ate){
+async function buscarVendasCompletas(de,ate,canal){
   // data_venda — vendas retroativas entram no período a que de fato pertencem.
-  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=*`);
+  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=*`);
   if(!vendas.length)return[];
   const vendaPorId={}; vendas.forEach(v=>vendaPorId[v.id]=v);
   const ids=vendas.map(v=>v.id);
@@ -1922,19 +1928,21 @@ function renderVendasPorLojaPainel(linhas){
 // item; buscar só essa coluna evita repetir toda a busca pesada de itens_venda
 // (que só existe pra dar o detalhe por produto do período ATUAL) só pra tirar 2
 // números do período comparativo.
-async function totaisPeriodoLeve(de,ate){
-  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}&select=total`);
+async function totaisPeriodoLeve(de,ate,canal){
+  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Concluída&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=total`);
   return {faturamento:vendas.reduce((a,v)=>a+Number(v.total||0),0), numVendas:vendas.length};
 }
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
+  const canal=val('painelCanal')||'';
   const ant=periodoAnteriorPainel(de,ate);
   let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas;
   try{
     [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas]=await Promise.all([
-      buscarVendasCompletas(de,ate),
-      totaisPeriodoLeve(ant.de,ant.ate),
+      buscarVendasCompletas(de,ate,canal),
+      totaisPeriodoLeve(ant.de,ant.ate,canal),
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
       dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),

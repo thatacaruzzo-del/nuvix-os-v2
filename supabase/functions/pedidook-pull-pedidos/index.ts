@@ -323,7 +323,13 @@ async function processarCredencial(cred: any) {
     url = data?.href_proxima_pagina || null;
   }
 
-  await sbPatch(`pedidook_credenciais?id=eq.${cred.id}`, { data_ultima_sync_pedidos: new Date().toISOString() });
+  // Margem de segurança de 5min ao invés de now(): um pedido pode ficar
+  // gravado no PedidoOK alguns segundos antes de aparecer na API deles (visto
+  // em teste real). Sem essa margem, marcar exatamente "agora" faz o próximo
+  // pull nunca mais pegar um pedido que demorou a propagar — ele fica sempre
+  // "antes" do alterado_apos usado na busca seguinte.
+  const novoWatermark = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  await sbPatch(`pedidook_credenciais?id=eq.${cred.id}`, { data_ultima_sync_pedidos: novoWatermark });
   return { empresa_id: cred.empresa_id, processados, com_erro: comErro };
 }
 
