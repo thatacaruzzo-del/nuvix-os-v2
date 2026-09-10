@@ -441,7 +441,7 @@ function renderAbc(produtos,faturamentoTotal){
       <td>${esc(p.nome||'—')}${p.is_consignado?' <span class="badge badge-amber">Consig.</span>':''}</td>
       <td>${p.qtd}</td>
       <td>${money(p.faturamento)}</td>
-      <td style="color:${p.margemPct>=0?'var(--green)':'var(--red)'}">${p.margemPct.toFixed(1)}%</td>
+      <td${p.margemPct<0?' style="color:var(--red)"':''}>${p.margemPct.toFixed(1)}%</td>
       <td>${p.pct.toFixed(1)}%</td>
       <td>${p.pctAcumulado.toFixed(1)}%</td>
     </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
@@ -450,9 +450,15 @@ function renderAbc(produtos,faturamentoTotal){
   const ctx=$('chartAbc');
   if(chartAbcInstance)chartAbcInstance.destroy();
   if(ctx&&top.length){
+    // Esse gráfico é um RANKING (top 10 por faturamento), não a classificação
+    // ABC em si — colorir por classe A/B/C aqui saía quase todo verde (é
+    // normal um top 10 por faturamento ser majoritariamente classe A), o que
+    // não comunica nada. Intensidade do roxo por posição, igual "Vendas por
+    // loja"/"Giro por categoria" — o selo A/B/C continua na tabela abaixo.
+    const maiorValor=top[0]?.faturamento||1;
     chartAbcInstance=new Chart(ctx,{type:'bar',data:{
       labels:top.map(p=>p.nome),
-      datasets:[{label:'Faturamento',data:top.map(p=>p.faturamento),backgroundColor:top.map(p=>p.classe==='A'?'#059669':p.classe==='B'?'#D97706':'#DC2626')}],
+      datasets:[{label:'Faturamento',data:top.map(p=>p.faturamento),backgroundColor:top.map(p=>`rgba(99,67,164,${Math.max(.25,p.faturamento/maiorValor).toFixed(2)})`)}],
     },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});
   }
 }
