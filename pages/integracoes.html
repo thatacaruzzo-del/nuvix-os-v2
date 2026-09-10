@@ -876,8 +876,10 @@ async function salvarMapeamentoNS(produtoId, credencialId){
         await db.delete('produto_nuvemshop_mapeamento', existente.id);
         _nsMapeamentosCache[credencialId] = mapeamentos.filter(m=>m.id!==existente.id);
         toast('Vinculação removida.');
+        await renderMapeamentoNS();
+      } else {
+        toast('Preencha o "ID variante" antes de salvar.', 'err');
       }
-      await renderMapeamentoNS();
       return;
     }
     if(existente){
