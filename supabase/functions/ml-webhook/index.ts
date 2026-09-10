@@ -24,8 +24,12 @@
 // — nenhuma lógica de atomicidade duplicada aqui.
 // ============================================================
 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ML_CLIENT_ID = Deno.env.get("ML_CLIENT_ID");
 const ML_CLIENT_SECRET = Deno.env.get("ML_CLIENT_SECRET");
 
@@ -37,7 +41,7 @@ const sbHeaders = {
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -193,11 +197,177 @@ async function emitirNfceMLSeAtivo(empresa: any, vendaId: string, itensDetalhado
   }
 }
 
+// Extraído do corpo do handler pra ser reaproveitado tanto pelo webhook normal
+// quanto pelo "Tentar novamente" (tela de Pedidos com erro, em Integrações) —
+// mesma resolução de produto/estoque/finalizar_venda nos dois casos, só muda
+// como o pedido chega até aqui (notificação do ML vs busca manual por id).
+async function processarPedidoML(empresa: any, cred: any, accessToken: string, order: any) {
+  // Só importa pedido pago — antes disso pode ser cancelado/expirar sem nunca virar venda de verdade.
+  if (order.status !== "paid") return { ignorado: `status_${order.status}` };
+
+  const mlOrderId = String(order.id);
+  const [vendaExistente] = await sbGet(`vendas?ml_order_id=eq.${mlOrderId}&select=id`);
+  if (vendaExistente) return { ja_processado: true, venda_id: vendaExistente.id };
+
+  if (!empresa.ml_loja_estoque_id) {
+    await registrarErroPedido(empresa.id, mlOrderId, "Empresa sem loja de referência de estoque configurada em Integrações.", order);
+    return { erro: "loja_estoque_nao_configurada" };
+  }
+
+  const orderItems: any[] = order.order_items || [];
+  const itemIds: string[] = orderItems.map((oi) => String(oi.item?.id)).filter(Boolean);
+  const produtosMapeados: any[] = itemIds.length
+    ? await sbGet(`produtos?empresa_id=eq.${empresa.id}&ml_item_id=in.(${itemIds.join(",")})&select=id,nome,ml_item_id,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`)
+    : [];
+  const porMlItemId = new Map(produtosMapeados.map((p) => [p.ml_item_id, p]));
+
+  const semMapeamento = orderItems.filter((oi) => !porMlItemId.has(String(oi.item?.id)));
+  if (semMapeamento.length) {
+    const nomes = semMapeamento.map((oi) => oi.item?.title || oi.item?.id).join(", ");
+    await registrarErroPedido(
+      empresa.id,
+      mlOrderId,
+      `Produto(s) sem vínculo no Nuvix: ${nomes}. Mapeie o ID do anúncio em Integrações → Mapeamento de produtos e aguarde o próximo reenvio do Mercado Livre.`,
+      order
+    );
+    return { erro: "itens_sem_mapeamento", itens: nomes };
+  }
+
+  const itensDetalhados = orderItems.map((oi) => {
+    const p = porMlItemId.get(String(oi.item.id));
+    return {
+      produto_id: p.id,
+      produto_nome: p.nome,
+      quantidade: Number(oi.quantity),
+      valor_unitario: Number(oi.unit_price),
+      custo_unitario_snapshot: p.custo_atual ?? null,
+      ncm: p.ncm,
+      cfop_padrao: p.cfop_padrao,
+      csosn_cst: p.csosn_cst,
+      cclasstrib: p.cclasstrib,
+      cst_ibs_cbs: p.cst_ibs_cbs,
+      unidade_medida: p.unidade_medida,
+      aliquota_icms: p.aliquota_icms,
+      aliquota_pis: p.aliquota_pis,
+      aliquota_cofins: p.aliquota_cofins,
+    };
+  });
+
+  const total = arred2(itensDetalhados.reduce((a, i) => a + i.quantidade * i.valor_unitario, 0));
+  const buyer = order.buyer || {};
+  const clienteNome = [buyer.first_name, buyer.last_name].filter(Boolean).join(" ").trim() || buyer.nickname || "Comprador Mercado Livre";
+  const dataVenda = String(order.date_created || new Date().toISOString()).slice(0, 10);
+
+  // formas_pagamento vai vazio de propósito: venda_formas_pagamento tem CHECK
+  // restrito a Dinheiro/Cartão Crédito/Cartão Débito/Pix (formas do Caixa físico)
+  // — 'Mercado Livre' quebraria essa constraint. O financeiro registra a origem
+  // via forma_pagamento_txt (campo livre), que é o suficiente pro relatório.
+  let resultado: any;
+  try {
+    resultado = await sbRpc("finalizar_venda", {
+      p: {
+        empresa_id: empresa.id,
+        loja_id: empresa.ml_loja_estoque_id,
+        caixa_sessao_id: null,
+        cliente_id: null,
+        cliente_nome: clienteNome,
+        vendedor_id: null,
+        vendedor_nome: null,
+        subtotal: total,
+        desconto_total: 0,
+        total,
+        data_venda: dataVenda,
+        retroativa: false,
+        motivo_retroativo: null,
+        forma_pagamento_txt: "Mercado Livre",
+        descricao: `Venda Mercado Livre — pedido #${mlOrderId}`,
+        motivo_estoque: `Venda Mercado Livre — pedido #${mlOrderId}`,
+        usuario_id: null,
+        canal: "Mercado Livre",
+        ml_order_id: mlOrderId,
+        itens: itensDetalhados.map((i) => ({
+          produto_id: i.produto_id,
+          produto_nome: i.produto_nome,
+          quantidade: i.quantidade,
+          valor_unitario: i.valor_unitario,
+          custo_unitario_snapshot: i.custo_unitario_snapshot,
+          is_consignado: false,
+          consignador_id: null,
+          percentual_repasse_snapshot: null,
+          avulso: false,
+        })),
+        formas_pagamento: [],
+        desconto: null,
+      },
+    });
+  } catch (eRpc) {
+    // Motivo mais comum: "Estoque insuficiente" — dois canais venderam a mesma
+    // última unidade quase ao mesmo tempo, e o segundo pedido a chegar aqui perde
+    // a corrida. finalizar_venda já bloqueia isso a nível de banco (nunca deixa
+    // gravar estoque negativo); aqui só transforma o erro cru do Postgres numa
+    // mensagem legível e joga na mesma fila de revisão manual dos itens sem
+    // mapeamento, em vez de só aparecer nos logs técnicos da function.
+    const mensagem = extrairMensagemErroSql(String((eRpc as Error)?.message || eRpc));
+    console.error(`Falha ao finalizar venda do pedido ML ${mlOrderId}:`, eRpc);
+    await registrarErroPedido(empresa.id, mlOrderId, `Não foi possível importar a venda: ${mensagem}`, order);
+    return { erro: "falha_finalizar_venda", detalhe: mensagem };
+  }
+  const vendaId = resultado.venda_id;
+
+  if (empresa.nfce_ativo) {
+    await emitirNfceMLSeAtivo(empresa, vendaId, itensDetalhados, total, clienteNome, dataVenda, mlOrderId);
+  }
+
+  return { venda_id: vendaId };
+}
+
+// "Tentar novamente" (tela de Pedidos com erro, em Integrações): reprocessa UM
+// pedido específico sob demanda — busca direto por id na API do ML em vez de
+// esperar reenvio de webhook, reaproveitando processarPedidoML() por inteiro.
+// Diferente do PedidoOK (várias credenciais possíveis), ml_credenciais é uma
+// por empresa — por isso o "retry_credencial_id" que o front manda aqui é, na
+// prática, o próprio empresa_id (mesma coisa que pedidook-status já devolve
+// como credencial_id pro Mercado Livre não ter caminho separado no front).
+async function retentarPedidoML(empresaId: string, mlOrderId: string) {
+  const [cred] = await sbGet(`ml_credenciais?empresa_id=eq.${empresaId}&select=*`);
+  if (!cred) return { ok: false, erro: "Credencial não encontrada." };
+  const [empresa] = await sbGet(`empresas?id=eq.${cred.empresa_id}&select=*`);
+  if (!empresa) return { ok: false, erro: "Empresa não encontrada." };
+
+  const accessToken = await garantirTokenValido(cred);
+  const orderResp = await fetch(`https://api.mercadolibre.com/orders/${mlOrderId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const order = await orderResp.json();
+  if (!orderResp.ok || !order?.id) return { ok: false, erro: "Não foi possível buscar o pedido no Mercado Livre." };
+
+  const resultado = await processarPedidoML(empresa, cred, accessToken, order);
+  if ((resultado as any)?.erro) return { ok: false, erro: "Falha ao reprocessar — motivo atualizado na lista de erros.", detalhe: resultado };
+  return { ok: true, resultado };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
     const body = await req.json().catch(() => ({}) as any);
+
+    if (body?.retry_order_id && body?.retry_credencial_id) {
+      // Único caminho desta function que aceita entrada do navegador (o resto é
+      // notificação direta do ML, sem JWT) — valida o usuário e confere que a
+      // credencial é da empresa dele antes de reprocessar qualquer coisa.
+      const callerToken = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!callerToken) return json({ ok: false, erro: "nao_autenticado" }, 401);
+      const anon = createClient(SUPABASE_URL, ANON_KEY);
+      const { data: callerAuth, error: callerErr } = await anon.auth.getUser(callerToken);
+      if (callerErr || !callerAuth?.user) return json({ ok: false, erro: "sessao_invalida" }, 401);
+
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data: usuario } = await admin.from("usuarios").select("empresa_id").eq("id", callerAuth.user.id).maybeSingle();
+      if (!usuario?.empresa_id) return json({ ok: false, erro: "usuario_sem_empresa" }, 403);
+      if (String(body.retry_credencial_id) !== usuario.empresa_id) return json({ ok: false, erro: "credencial_nao_pertence_a_empresa" }, 403);
+
+      const resultado = await retentarPedidoML(String(body.retry_credencial_id), String(body.retry_order_id));
+      return json(resultado, resultado.ok ? 200 : 400);
+    }
 
     // ML manda outros tópicos além de orders_v2 se o app tiver mais escopos
     // (ex: messages, items) — ignora com 200 pra não gerar retry por algo que
@@ -226,123 +396,9 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: "falha_buscar_pedido" }, 502);
     }
 
-    // Só importa pedido pago — antes disso pode ser cancelado/expirar sem nunca virar venda de verdade.
-    if (order.status !== "paid") return json({ ok: true, ignorado: `status_${order.status}` });
-
-    const mlOrderId = String(order.id);
-    const [vendaExistente] = await sbGet(`vendas?ml_order_id=eq.${mlOrderId}&select=id`);
-    if (vendaExistente) return json({ ok: true, ja_processado: true, venda_id: vendaExistente.id });
-
-    if (!empresa.ml_loja_estoque_id) {
-      await registrarErroPedido(empresa.id, mlOrderId, "Empresa sem loja de referência de estoque configurada em Integrações.", order);
-      return json({ ok: false, erro: "loja_estoque_nao_configurada" }, 422);
-    }
-
-    const orderItems: any[] = order.order_items || [];
-    const itemIds: string[] = orderItems.map((oi) => String(oi.item?.id)).filter(Boolean);
-    const produtosMapeados: any[] = itemIds.length
-      ? await sbGet(`produtos?empresa_id=eq.${empresa.id}&ml_item_id=in.(${itemIds.join(",")})&select=id,nome,ml_item_id,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`)
-      : [];
-    const porMlItemId = new Map(produtosMapeados.map((p) => [p.ml_item_id, p]));
-
-    const semMapeamento = orderItems.filter((oi) => !porMlItemId.has(String(oi.item?.id)));
-    if (semMapeamento.length) {
-      const nomes = semMapeamento.map((oi) => oi.item?.title || oi.item?.id).join(", ");
-      await registrarErroPedido(
-        empresa.id,
-        mlOrderId,
-        `Produto(s) sem vínculo no Nuvix: ${nomes}. Mapeie o ID do anúncio em Integrações → Mapeamento de produtos e aguarde o próximo reenvio do Mercado Livre.`,
-        order
-      );
-      return json({ ok: false, erro: "itens_sem_mapeamento", itens: nomes }, 422);
-    }
-
-    const itensDetalhados = orderItems.map((oi) => {
-      const p = porMlItemId.get(String(oi.item.id));
-      return {
-        produto_id: p.id,
-        produto_nome: p.nome,
-        quantidade: Number(oi.quantity),
-        valor_unitario: Number(oi.unit_price),
-        custo_unitario_snapshot: p.custo_atual ?? null,
-        ncm: p.ncm,
-        cfop_padrao: p.cfop_padrao,
-        csosn_cst: p.csosn_cst,
-        cclasstrib: p.cclasstrib,
-        cst_ibs_cbs: p.cst_ibs_cbs,
-        unidade_medida: p.unidade_medida,
-        aliquota_icms: p.aliquota_icms,
-        aliquota_pis: p.aliquota_pis,
-        aliquota_cofins: p.aliquota_cofins,
-      };
-    });
-
-    const total = arred2(itensDetalhados.reduce((a, i) => a + i.quantidade * i.valor_unitario, 0));
-    const buyer = order.buyer || {};
-    const clienteNome = [buyer.first_name, buyer.last_name].filter(Boolean).join(" ").trim() || buyer.nickname || "Comprador Mercado Livre";
-    const dataVenda = String(order.date_created || new Date().toISOString()).slice(0, 10);
-
-    // formas_pagamento vai vazio de propósito: venda_formas_pagamento tem CHECK
-    // restrito a Dinheiro/Cartão Crédito/Cartão Débito/Pix (formas do Caixa físico)
-    // — 'Mercado Livre' quebraria essa constraint. O financeiro registra a origem
-    // via forma_pagamento_txt (campo livre), que é o suficiente pro relatório.
-    let resultado: any;
-    try {
-      resultado = await sbRpc("finalizar_venda", {
-        p: {
-          empresa_id: empresa.id,
-          loja_id: empresa.ml_loja_estoque_id,
-          caixa_sessao_id: null,
-          cliente_id: null,
-          cliente_nome: clienteNome,
-          vendedor_id: null,
-          vendedor_nome: null,
-          subtotal: total,
-          desconto_total: 0,
-          total,
-          data_venda: dataVenda,
-          retroativa: false,
-          motivo_retroativo: null,
-          forma_pagamento_txt: "Mercado Livre",
-          descricao: `Venda Mercado Livre — pedido #${mlOrderId}`,
-          motivo_estoque: `Venda Mercado Livre — pedido #${mlOrderId}`,
-          usuario_id: null,
-          canal: "Mercado Livre",
-          ml_order_id: mlOrderId,
-          itens: itensDetalhados.map((i) => ({
-            produto_id: i.produto_id,
-            produto_nome: i.produto_nome,
-            quantidade: i.quantidade,
-            valor_unitario: i.valor_unitario,
-            custo_unitario_snapshot: i.custo_unitario_snapshot,
-            is_consignado: false,
-            consignador_id: null,
-            percentual_repasse_snapshot: null,
-            avulso: false,
-          })),
-          formas_pagamento: [],
-          desconto: null,
-        },
-      });
-    } catch (eRpc) {
-      // Motivo mais comum: "Estoque insuficiente" — dois canais venderam a mesma
-      // última unidade quase ao mesmo tempo, e o segundo pedido a chegar aqui perde
-      // a corrida. finalizar_venda já bloqueia isso a nível de banco (nunca deixa
-      // gravar estoque negativo); aqui só transforma o erro cru do Postgres numa
-      // mensagem legível e joga na mesma fila de revisão manual dos itens sem
-      // mapeamento, em vez de só aparecer nos logs técnicos da function.
-      const mensagem = extrairMensagemErroSql(String((eRpc as Error)?.message || eRpc));
-      console.error(`Falha ao finalizar venda do pedido ML ${mlOrderId}:`, eRpc);
-      await registrarErroPedido(empresa.id, mlOrderId, `Não foi possível importar a venda: ${mensagem}`, order);
-      return json({ ok: false, erro: "falha_finalizar_venda", detalhe: mensagem }, 422);
-    }
-    const vendaId = resultado.venda_id;
-
-    if (empresa.nfce_ativo) {
-      await emitirNfceMLSeAtivo(empresa, vendaId, itensDetalhados, total, clienteNome, dataVenda, mlOrderId);
-    }
-
-    return json({ ok: true, venda_id: vendaId });
+    const resultado = await processarPedidoML(empresa, cred, accessToken, order);
+    if ((resultado as any)?.erro) return json({ ok: false, ...resultado }, 422);
+    return json({ ok: true, ...resultado });
   } catch (e) {
     console.error("Erro no webhook do Mercado Livre:", e);
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);

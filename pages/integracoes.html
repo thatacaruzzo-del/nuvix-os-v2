@@ -232,11 +232,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
       <div class="card" id="mlErrosCard" style="display:none">
-        <h2>Pedidos pendentes de revisão</h2>
-        <p class="muted" style="margin-bottom:14px">O Mercado Livre notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e o próximo reenvio do Mercado Livre processa normalmente; ou marque como resolvido se já tratou manualmente.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+          <h2 style="margin-bottom:0">Pedidos pendentes de revisão</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn2" id="mlErrosTabPendentes" onclick="mlErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="mlErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
+            <button class="btn2" id="mlErrosTabResolvidos" onclick="mlErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:14px">O Mercado Livre notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e clique em "Tentar novamente"; ou marque como resolvido se já tratou manualmente.</p>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Pedido ML</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <thead><tr><th style="width:24px"></th><th>Pedido ML</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
             <tbody id="mlErrosTable"></tbody>
           </table>
         </div>
@@ -298,11 +304,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ NUVEMSHOP — PEDIDOS COM ERRO ══ -->
       <div class="card" id="nsErrosCard" style="display:none">
-        <h2>Pedidos Nuvemshop pendentes de revisão</h2>
-        <p class="muted" style="margin-bottom:14px">A Nuvemshop notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e o próximo reenvio processa normalmente; ou marque como resolvido se já tratou manualmente.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+          <h2 style="margin-bottom:0">Pedidos Nuvemshop pendentes de revisão</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn2" id="nsErrosTabPendentes" onclick="nsErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="nsErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
+            <button class="btn2" id="nsErrosTabResolvidos" onclick="nsErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:14px">A Nuvemshop notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e clique em "Tentar novamente"; ou marque como resolvido se já tratou manualmente.</p>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Pedido</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <thead><tr><th style="width:24px"></th><th>Pedido</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
             <tbody id="nsErrosTable"></tbody>
           </table>
         </div>
@@ -476,20 +488,61 @@ async function loadData(){
   await carregarRadar();
 }
 
-// ══ Pedidos com erro de importação ══
+// ══ Pedidos com erro de importação — Mercado Livre ══
+let _mlErrosAba = 'pendentes';
+let _mlErrosExpandido = null;
+function mlErrosVerAba(aba){
+  _mlErrosAba = aba;
+  $('mlErrosTabPendentes').style.background = aba==='pendentes' ? 'var(--p)' : '';
+  $('mlErrosTabPendentes').style.color = aba==='pendentes' ? '#fff' : '';
+  $('mlErrosTabPendentes').style.borderColor = aba==='pendentes' ? 'var(--p)' : '';
+  $('mlErrosTabResolvidos').style.background = aba==='resolvidos' ? 'var(--p)' : '';
+  $('mlErrosTabResolvidos').style.color = aba==='resolvidos' ? '#fff' : '';
+  $('mlErrosTabResolvidos').style.borderColor = aba==='resolvidos' ? 'var(--p)' : '';
+  carregarErrosPedidos();
+}
 async function carregarErrosPedidos(){
   try{
-    const erros = await db.get('ml_pedidos_erro', `?select=id,ml_order_id,erro,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.false&order=created_at.desc`);
+    const resolvido = _mlErrosAba==='resolvidos';
+    const erros = await db.get('ml_pedidos_erro', `?select=id,ml_order_id,erro,payload,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.${resolvido}&order=created_at.desc`);
+    const pendentes = _mlErrosAba==='pendentes' ? erros.length
+      : (await db.get('ml_pedidos_erro', `?select=id&empresa_id=eq.${session.empresa_id}&resolvido=eq.false`)).length;
+    const badge = $('mlErrosCountBadge');
+    if(pendentes>0){ badge.style.display='inline-flex'; badge.textContent=pendentes; } else { badge.style.display='none'; }
+
     const card=$('mlErrosCard');
-    if(!erros.length){ card.style.display='none'; return; }
+    if(!erros.length && pendentes===0){ card.style.display='none'; return; }
     card.style.display='block';
-    setHTML('mlErrosTable', erros.map(e=>`<tr>
-      <td><b>${esc(e.ml_order_id)}</b></td>
-      <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
-      <td>${fmtData(e.created_at)}</td>
-      <td><button class="btn2" onclick="resolverErroPedido('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button></td>
-    </tr>`).join(''));
+
+    if(!erros.length){
+      setHTML('mlErrosTable', `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido ${resolvido?'resolvido':'pendente'} no momento.</td></tr>`);
+      return;
+    }
+
+    setHTML('mlErrosTable', erros.map(e=>{
+      const aberto = _mlErrosExpandido===e.id;
+      const itens = Array.isArray(e.payload?.order_items) ? e.payload.order_items : [];
+      const detalhe = aberto ? `<tr><td></td><td colspan="4" style="background:var(--bg);font-size:12.5px;color:var(--muted);padding:12px 14px">
+        <div><b>Comprador</b> ${esc(e.payload?.buyer?.nickname || '—')} · <b>Data</b> ${esc(String(e.payload?.date_created||'').slice(0,10)||'—')}</div>
+        ${itens.length?`<div style="margin-top:8px"><b>Itens do pedido:</b><ul style="margin:6px 0 0 18px;padding:0">${itens.map(i=>`<li>${esc(i.item?.title||i.item?.id)} · qtd ${esc(i.quantity)}</li>`).join('')}</ul></div>`:''}
+      </td></tr>` : '';
+      return `<tr>
+        <td><button class="btn2" onclick="mlErrosExpandir('${e.id}')" title="Ver detalhes" style="padding:3px 7px;font-size:11px">${aberto?'▾':'▸'}</button></td>
+        <td><b>${esc(e.ml_order_id)}</b></td>
+        <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+        <td>${fmtData(e.created_at)}</td>
+        <td style="white-space:nowrap">
+          ${resolvido ? '<span class="badge ok">Resolvido</span>' : `
+          <button class="btn2" onclick="tentarNovamenteML('${e.id}','${e.ml_order_id}',this)" style="font-size:11px;padding:5px 8px">Tentar novamente</button>
+          <button class="btn2" onclick="resolverErroPedido('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button>`}
+        </td>
+      </tr>${detalhe}`;
+    }).join(''));
   }catch(e){ console.warn('Erro ao carregar pedidos pendentes:', e); }
+}
+function mlErrosExpandir(id){
+  _mlErrosExpandido = _mlErrosExpandido===id ? null : id;
+  carregarErrosPedidos();
 }
 async function resolverErroPedido(id){
   try{
@@ -497,6 +550,21 @@ async function resolverErroPedido(id){
     toast('Marcado como resolvido.');
     await carregarErrosPedidos();
   }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function tentarNovamenteML(erroId, mlOrderId, btn){
+  btn.disabled = true; btn.textContent = 'Tentando...';
+  try{
+    const resp = await chamarEdgeML('ml-webhook', { retry_order_id: mlOrderId, retry_credencial_id: session.empresa_id });
+    if(resp?.ok){
+      await db.patch('ml_pedidos_erro', erroId, { resolvido:true });
+      toast('Pedido importado com sucesso!');
+    } else {
+      toast(resp?.erro || 'Ainda não foi possível importar — veja o motivo atualizado.', 'err');
+    }
+  }catch(e){
+    toast('Erro: '+e.message, 'err');
+  }
+  await carregarErrosPedidos();
 }
 
 // ══ Conexão OAuth ══
@@ -844,19 +912,60 @@ async function sincronizarEstoqueAgoraNS(produtoId, credencialId){
 }
 
 // ══ Pedidos com erro — Nuvemshop ══
+let _nsErrosAba = 'pendentes';
+let _nsErrosExpandido = null;
+function nsErrosVerAba(aba){
+  _nsErrosAba = aba;
+  $('nsErrosTabPendentes').style.background = aba==='pendentes' ? 'var(--p)' : '';
+  $('nsErrosTabPendentes').style.color = aba==='pendentes' ? '#fff' : '';
+  $('nsErrosTabPendentes').style.borderColor = aba==='pendentes' ? 'var(--p)' : '';
+  $('nsErrosTabResolvidos').style.background = aba==='resolvidos' ? 'var(--p)' : '';
+  $('nsErrosTabResolvidos').style.color = aba==='resolvidos' ? '#fff' : '';
+  $('nsErrosTabResolvidos').style.borderColor = aba==='resolvidos' ? 'var(--p)' : '';
+  carregarErrosNS();
+}
 async function carregarErrosNS(){
   try{
-    const erros = await db.get('nuvemshop_pedidos_erro', `?select=id,nuvemshop_order_id,erro,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.false&order=created_at.desc`);
+    const resolvido = _nsErrosAba==='resolvidos';
+    const erros = await db.get('nuvemshop_pedidos_erro', `?select=id,nuvemshop_order_id,nuvemshop_credencial_id,erro,payload,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.${resolvido}&order=created_at.desc`);
+    const pendentes = _nsErrosAba==='pendentes' ? erros.length
+      : (await db.get('nuvemshop_pedidos_erro', `?select=id&empresa_id=eq.${session.empresa_id}&resolvido=eq.false`)).length;
+    const badge = $('nsErrosCountBadge');
+    if(pendentes>0){ badge.style.display='inline-flex'; badge.textContent=pendentes; } else { badge.style.display='none'; }
+
     const card=$('nsErrosCard');
-    if(!erros.length){ card.style.display='none'; return; }
+    if(!erros.length && pendentes===0){ card.style.display='none'; return; }
     card.style.display='block';
-    setHTML('nsErrosTable', erros.map(e=>`<tr>
-      <td><b>${esc(e.nuvemshop_order_id)}</b></td>
-      <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
-      <td>${fmtData(e.created_at)}</td>
-      <td><button class="btn2" onclick="resolverErroPedidoNS('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button></td>
-    </tr>`).join(''));
+
+    if(!erros.length){
+      setHTML('nsErrosTable', `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido ${resolvido?'resolvido':'pendente'} no momento.</td></tr>`);
+      return;
+    }
+
+    setHTML('nsErrosTable', erros.map(e=>{
+      const aberto = _nsErrosExpandido===e.id;
+      const itens = Array.isArray(e.payload?.products) ? e.payload.products : [];
+      const detalhe = aberto ? `<tr><td></td><td colspan="4" style="background:var(--bg);font-size:12.5px;color:var(--muted);padding:12px 14px">
+        <div><b>Cliente</b> ${esc(e.payload?.contact_name || e.payload?.customer?.name || '—')} · <b>Data</b> ${esc(String(e.payload?.created_at||'').slice(0,10)||'—')}</div>
+        ${itens.length?`<div style="margin-top:8px"><b>Itens do pedido:</b><ul style="margin:6px 0 0 18px;padding:0">${itens.map(i=>`<li>${esc(i.name||i.variant_id)} · qtd ${esc(i.quantity)}</li>`).join('')}</ul></div>`:''}
+      </td></tr>` : '';
+      return `<tr>
+        <td><button class="btn2" onclick="nsErrosExpandir('${e.id}')" title="Ver detalhes" style="padding:3px 7px;font-size:11px">${aberto?'▾':'▸'}</button></td>
+        <td><b>${esc(e.nuvemshop_order_id)}</b></td>
+        <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+        <td>${fmtData(e.created_at)}</td>
+        <td style="white-space:nowrap">
+          ${resolvido ? '<span class="badge ok">Resolvido</span>' : `
+          <button class="btn2" onclick="tentarNovamenteNS('${e.id}','${e.nuvemshop_order_id}','${e.nuvemshop_credencial_id}',this)" style="font-size:11px;padding:5px 8px">Tentar novamente</button>
+          <button class="btn2" onclick="resolverErroPedidoNS('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button>`}
+        </td>
+      </tr>${detalhe}`;
+    }).join(''));
   }catch(e){ console.warn('Erro ao carregar pedidos pendentes Nuvemshop:', e); }
+}
+function nsErrosExpandir(id){
+  _nsErrosExpandido = _nsErrosExpandido===id ? null : id;
+  carregarErrosNS();
 }
 async function resolverErroPedidoNS(id){
   try{
@@ -864,6 +973,21 @@ async function resolverErroPedidoNS(id){
     toast('Marcado como resolvido.');
     await carregarErrosNS();
   }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function tentarNovamenteNS(erroId, orderId, credencialId, btn){
+  btn.disabled = true; btn.textContent = 'Tentando...';
+  try{
+    const resp = await chamarEdgeNS('nuvemshop-webhook', { retry_order_id: orderId, retry_credencial_id: credencialId });
+    if(resp?.ok){
+      await db.patch('nuvemshop_pedidos_erro', erroId, { resolvido:true });
+      toast('Pedido importado com sucesso!');
+    } else {
+      toast(resp?.erro || 'Ainda não foi possível importar — veja o motivo atualizado.', 'err');
+    }
+  }catch(e){
+    toast('Erro: '+e.message, 'err');
+  }
+  await carregarErrosNS();
 }
 
 // ══ PEDIDOOK ══

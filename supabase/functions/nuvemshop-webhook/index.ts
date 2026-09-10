@@ -26,8 +26,12 @@
 // webhook do ML) — nenhuma lógica de atomicidade duplicada aqui.
 // ============================================================
 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const USER_AGENT = "NuvixHub (suporte@nuvixhub.com.br)";
 
 const sbHeaders = {
@@ -38,7 +42,7 @@ const sbHeaders = {
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -159,38 +163,24 @@ async function tratarDesinstalacao(storeId: string) {
   });
 }
 
-async function tratarPedidoPago(storeId: string, orderId: string) {
-  const [cred] = await sbGet(`nuvemshop_credenciais?store_id=eq.${storeId}&access_token=not.is.null&select=*`);
-  if (!cred) {
-    console.warn(`Webhook Nuvemshop: nenhuma loja conectada com store_id=${storeId}`);
-    return json({ ok: true, ignorado: "loja_nao_conectada" });
-  }
-
-  const [empresa] = await sbGet(`empresas?id=eq.${cred.empresa_id}&select=*`);
-  if (!empresa) return json({ ok: true, ignorado: "empresa_nao_encontrada" });
-
-  const orderResp = await fetch(`https://api.nuvemshop.com.br/2025-03/${storeId}/orders/${orderId}`, {
-    headers: { Authorization: `Bearer ${cred.access_token}`, "User-Agent": USER_AGENT },
-  });
-  const order = await orderResp.json();
-  if (!orderResp.ok || !order?.id) {
-    console.error("Falha ao buscar pedido na Nuvemshop:", order);
-    return json({ ok: false, erro: "falha_buscar_pedido" }, 502);
-  }
-
+// Extraído do corpo do handler pra ser reaproveitado tanto pelo webhook normal
+// quanto pelo "Tentar novamente" (tela de Pedidos com erro, em Integrações) —
+// mesma resolução de produto/estoque/finalizar_venda nos dois casos, só muda
+// como o pedido chega até aqui (notificação da Nuvemshop vs busca manual por id).
+async function processarPedidoNS(empresa: any, cred: any, order: any) {
   // Só importa pedido efetivamente pago — outros status (pending, voided...)
   // podem nunca virar venda de verdade. O tópico já é order/paid, mas confere
   // de novo aqui porque o pedido pode ter mudado de status entre o disparo do
   // webhook e esta consulta (ex: estorno quase imediato).
-  if (order.payment_status !== "paid") return json({ ok: true, ignorado: `payment_status_${order.payment_status}` });
+  if (order.payment_status !== "paid") return { ignorado: `payment_status_${order.payment_status}` };
 
   const nsOrderId = String(order.id);
   const [vendaExistente] = await sbGet(`vendas?nuvemshop_credencial_id=eq.${cred.id}&nuvemshop_order_id=eq.${nsOrderId}&select=id`);
-  if (vendaExistente) return json({ ok: true, ja_processado: true, venda_id: vendaExistente.id });
+  if (vendaExistente) return { ja_processado: true, venda_id: vendaExistente.id };
 
   if (!cred.loja_estoque_id) {
     await registrarErroPedido(empresa.id, cred.id, nsOrderId, "Loja sem referência de estoque configurada em Integrações.", order);
-    return json({ ok: false, erro: "loja_estoque_nao_configurada" }, 422);
+    return { erro: "loja_estoque_nao_configurada" };
   }
 
   const products: any[] = order.products || [];
@@ -212,7 +202,7 @@ async function tratarPedidoPago(storeId: string, orderId: string) {
       `Produto(s) sem vínculo no Nuvix: ${nomes}. Mapeie a variante em Integrações → Mapeamento de produtos e aguarde o próximo reenvio da Nuvemshop.`,
       order
     );
-    return json({ ok: false, erro: "itens_sem_mapeamento", itens: nomes }, 422);
+    return { erro: "itens_sem_mapeamento", itens: nomes };
   }
 
   const produtoIds = products.map((p) => porVarianteId.get(String(p.variant_id)));
@@ -297,7 +287,7 @@ async function tratarPedidoPago(storeId: string, orderId: string) {
     const mensagem = extrairMensagemErroSql(String((eRpc as Error)?.message || eRpc));
     console.error(`Falha ao finalizar venda do pedido Nuvemshop ${nsOrderId}:`, eRpc);
     await registrarErroPedido(empresa.id, cred.id, nsOrderId, `Não foi possível importar a venda: ${mensagem}`, order);
-    return json({ ok: false, erro: "falha_finalizar_venda", detalhe: mensagem }, 422);
+    return { erro: "falha_finalizar_venda", detalhe: mensagem };
   }
   const vendaId = resultado.venda_id;
 
@@ -305,7 +295,53 @@ async function tratarPedidoPago(storeId: string, orderId: string) {
     await emitirNfceSeAtivo(empresa, vendaId, itensDetalhados, total, clienteNome, dataVenda, nsOrderId);
   }
 
-  return json({ ok: true, venda_id: vendaId });
+  return { venda_id: vendaId };
+}
+
+async function tratarPedidoPago(storeId: string, orderId: string) {
+  const [cred] = await sbGet(`nuvemshop_credenciais?store_id=eq.${storeId}&access_token=not.is.null&select=*`);
+  if (!cred) {
+    console.warn(`Webhook Nuvemshop: nenhuma loja conectada com store_id=${storeId}`);
+    return json({ ok: true, ignorado: "loja_nao_conectada" });
+  }
+
+  const [empresa] = await sbGet(`empresas?id=eq.${cred.empresa_id}&select=*`);
+  if (!empresa) return json({ ok: true, ignorado: "empresa_nao_encontrada" });
+
+  const orderResp = await fetch(`https://api.nuvemshop.com.br/2025-03/${storeId}/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${cred.access_token}`, "User-Agent": USER_AGENT },
+  });
+  const order = await orderResp.json();
+  if (!orderResp.ok || !order?.id) {
+    console.error("Falha ao buscar pedido na Nuvemshop:", order);
+    return json({ ok: false, erro: "falha_buscar_pedido" }, 502);
+  }
+
+  const resultado = await processarPedidoNS(empresa, cred, order);
+  if ((resultado as any)?.erro) return json({ ok: false, ...resultado }, 422);
+  return json({ ok: true, ...resultado });
+}
+
+// "Tentar novamente" (tela de Pedidos com erro, em Integrações): reprocessa UM
+// pedido específico sob demanda — busca direto por id na API da Nuvemshop em
+// vez de esperar reenvio de webhook, reaproveitando processarPedidoNS() por
+// inteiro. Diferente do ML, Nuvemshop aceita várias lojas por empresa, então
+// aqui o retry_credencial_id É de fato o id de nuvemshop_credenciais.
+async function retentarPedidoNS(credencialId: string, orderId: string) {
+  const [cred] = await sbGet(`nuvemshop_credenciais?id=eq.${credencialId}&select=*`);
+  if (!cred) return { ok: false, erro: "Credencial não encontrada." };
+  const [empresa] = await sbGet(`empresas?id=eq.${cred.empresa_id}&select=*`);
+  if (!empresa) return { ok: false, erro: "Empresa não encontrada." };
+
+  const orderResp = await fetch(`https://api.nuvemshop.com.br/2025-03/${cred.store_id}/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${cred.access_token}`, "User-Agent": USER_AGENT },
+  });
+  const order = await orderResp.json();
+  if (!orderResp.ok || !order?.id) return { ok: false, erro: "Não foi possível buscar o pedido na Nuvemshop." };
+
+  const resultado = await processarPedidoNS(empresa, cred, order);
+  if ((resultado as any)?.erro) return { ok: false, erro: "Falha ao reprocessar — motivo atualizado na lista de erros.", detalhe: resultado };
+  return { ok: true, resultado };
 }
 
 Deno.serve(async (req) => {
@@ -313,6 +349,33 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}) as any);
+
+    if (body?.retry_order_id && body?.retry_credencial_id) {
+      // Único caminho desta function que aceita entrada do navegador (o resto é
+      // notificação direta da Nuvemshop, sem JWT) — valida o usuário e confere
+      // que a credencial é da empresa dele antes de reprocessar qualquer coisa.
+      const callerToken = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!callerToken) return json({ ok: false, erro: "nao_autenticado" }, 401);
+      const anon = createClient(SUPABASE_URL, ANON_KEY);
+      const { data: callerAuth, error: callerErr } = await anon.auth.getUser(callerToken);
+      if (callerErr || !callerAuth?.user) return json({ ok: false, erro: "sessao_invalida" }, 401);
+
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data: usuario } = await admin.from("usuarios").select("empresa_id").eq("id", callerAuth.user.id).maybeSingle();
+      if (!usuario?.empresa_id) return json({ ok: false, erro: "usuario_sem_empresa" }, 403);
+
+      const { data: credDoUsuario } = await admin
+        .from("nuvemshop_credenciais")
+        .select("id")
+        .eq("id", String(body.retry_credencial_id))
+        .eq("empresa_id", usuario.empresa_id)
+        .maybeSingle();
+      if (!credDoUsuario) return json({ ok: false, erro: "credencial_nao_pertence_a_empresa" }, 403);
+
+      const resultado = await retentarPedidoNS(String(body.retry_credencial_id), String(body.retry_order_id));
+      return json(resultado, resultado.ok ? 200 : 400);
+    }
+
     const storeId = body?.store_id != null ? String(body.store_id) : null;
     const event: string | undefined = body?.event;
     const resourceId = body?.id != null ? String(body.id) : null;
