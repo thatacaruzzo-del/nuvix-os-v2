@@ -384,11 +384,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ PEDIDOOK — PEDIDOS COM ERRO ══ -->
       <div class="card" id="pkErrosCard" style="display:none">
-        <h2>Pedidos PedidoOK pendentes de revisão</h2>
-        <p class="muted" style="margin-bottom:14px">A sincronização automática (a cada 20min) encontrou estes pedidos, mas algo impediu a importação — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e a próxima sincronização processa normalmente; ou marque como resolvido se já tratou manualmente.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+          <h2 style="margin-bottom:0">Pedidos PedidoOK pendentes de revisão</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn2" id="pkErrosTabPendentes" onclick="pkErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="pkErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
+            <button class="btn2" id="pkErrosTabResolvidos" onclick="pkErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:14px">A sincronização automática (a cada 20min) encontrou estes pedidos, mas algo impediu a importação — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e clique em "Tentar novamente"; ou marque como resolvido se já tratou manualmente.</p>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Pedido PedidoOK</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <thead><tr><th style="width:24px"></th><th>Pedido PedidoOK</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
             <tbody id="pkErrosTable"></tbody>
           </table>
         </div>
@@ -1027,20 +1033,68 @@ async function sincronizarEstoqueAgoraPK(produtoId, credencialId){
 }
 
 // ══ Pedidos com erro — PedidoOK ══
+// Aba "Pendentes" (resolvido=false) é o padrão — é isso que precisa de ação.
+// "Resolvidos" existe só pra consulta/histórico, sem poluir a lista principal.
+let _pkErrosAba = 'pendentes';
+let _pkErrosCache = [];
+let _pkErrosExpandido = null;
+function pkErrosVerAba(aba){
+  _pkErrosAba = aba;
+  $('pkErrosTabPendentes').style.background = aba==='pendentes' ? 'var(--p)' : '';
+  $('pkErrosTabPendentes').style.color = aba==='pendentes' ? '#fff' : '';
+  $('pkErrosTabPendentes').style.borderColor = aba==='pendentes' ? 'var(--p)' : '';
+  $('pkErrosTabResolvidos').style.background = aba==='resolvidos' ? 'var(--p)' : '';
+  $('pkErrosTabResolvidos').style.color = aba==='resolvidos' ? '#fff' : '';
+  $('pkErrosTabResolvidos').style.borderColor = aba==='resolvidos' ? 'var(--p)' : '';
+  carregarErrosPK();
+}
 async function carregarErrosPK(){
   if(!dados.pkStatus?.conectado){ $('pkErrosCard').style.display='none'; return; }
   try{
-    const erros = await db.get('pedidook_pedidos_erro', `?select=id,pedidook_pedido_id,erro,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.false&order=created_at.desc`);
+    const resolvido = _pkErrosAba==='resolvidos';
+    const erros = await db.get('pedidook_pedidos_erro', `?select=id,pedidook_pedido_id,erro,payload,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.${resolvido}&order=created_at.desc`);
+    _pkErrosCache = erros;
+
+    // Contador de pendentes sempre visível no badge da aba, mesmo vendo "Resolvidos" —
+    // e o card só some de vez quando não há NADA pendente nem resolvido pra mostrar.
+    const pendentes = _pkErrosAba==='pendentes' ? erros.length
+      : (await db.get('pedidook_pedidos_erro', `?select=id&empresa_id=eq.${session.empresa_id}&resolvido=eq.false`)).length;
+    const badge = $('pkErrosCountBadge');
+    if(pendentes>0){ badge.style.display='inline-flex'; badge.textContent=pendentes; } else { badge.style.display='none'; }
+
     const card=$('pkErrosCard');
-    if(!erros.length){ card.style.display='none'; return; }
+    if(!erros.length && pendentes===0){ card.style.display='none'; return; }
     card.style.display='block';
-    setHTML('pkErrosTable', erros.map(e=>`<tr>
-      <td><b>${esc(e.pedidook_pedido_id)}</b></td>
-      <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
-      <td>${fmtData(e.created_at)}</td>
-      <td><button class="btn2" onclick="resolverErroPedidoPK('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button></td>
-    </tr>`).join(''));
-  }catch(e){ console.warn('Erro ao carregar pedidos pendentes PedidoOK:', e); }
+
+    if(!erros.length){
+      setHTML('pkErrosTable', `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido ${resolvido?'resolvido':'pendente'} no momento.</td></tr>`);
+      return;
+    }
+
+    setHTML('pkErrosTable', erros.map(e=>{
+      const aberto = _pkErrosExpandido===e.id;
+      const itens = Array.isArray(e.payload?.itens) ? e.payload.itens : [];
+      const detalhe = aberto ? `<tr><td></td><td colspan="4" style="background:var(--bg);font-size:12.5px;color:var(--muted);padding:12px 14px">
+        <div><b>Pedido nº</b> ${esc(e.payload?.numero ?? '—')} · <b>Cliente PedidoOK</b> ${esc(e.payload?.id_cliente ?? '—')} · <b>Emissão</b> ${esc(e.payload?.emissao ?? '—')}</div>
+        ${itens.length?`<div style="margin-top:8px"><b>Itens do pedido:</b><ul style="margin:6px 0 0 18px;padding:0">${itens.map(i=>`<li>Produto PedidoOK #${esc(i.id_produto)} · qtd ${esc(i.quantidade)}</li>`).join('')}</ul></div>`:''}
+      </td></tr>` : '';
+      return `<tr>
+        <td><button class="btn2" onclick="pkErrosExpandir('${e.id}')" title="Ver detalhes" style="padding:3px 7px;font-size:11px">${aberto?'▾':'▸'}</button></td>
+        <td><b>${esc(e.pedidook_pedido_id)}</b></td>
+        <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+        <td>${fmtData(e.created_at)}</td>
+        <td style="white-space:nowrap">
+          ${resolvido ? '<span class="badge ok">Resolvido</span>' : `
+          <button class="btn2" onclick="tentarNovamentePK('${e.id}','${e.pedidook_pedido_id}',this)" style="font-size:11px;padding:5px 8px">Tentar novamente</button>
+          <button class="btn2" onclick="resolverErroPedidoPK('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button>`}
+        </td>
+      </tr>${detalhe}`;
+    }).join(''));
+  }catch(e){ console.warn('Erro ao carregar pedidos PedidoOK:', e); }
+}
+function pkErrosExpandir(id){
+  _pkErrosExpandido = _pkErrosExpandido===id ? null : id;
+  carregarErrosPK();
 }
 async function resolverErroPedidoPK(id){
   try{
@@ -1048,6 +1102,26 @@ async function resolverErroPedidoPK(id){
     toast('Marcado como resolvido.');
     await carregarErrosPK();
   }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function tentarNovamentePK(erroId, pedidoId, btn){
+  const credencialId = dados.pkStatus?.credencial_id;
+  if(!credencialId) return;
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Tentando...';
+  try{
+    const resp = await chamarEdgePK('pedidook-pull-pedidos', { retry_pedido_id: pedidoId, retry_credencial_id: credencialId });
+    if(resp?.ok){
+      // Reprocessou com sucesso (ou já estava importado) — a venda já existe
+      // normalmente no sistema; só falta marcar esse registro de erro como resolvido.
+      await db.patch('pedidook_pedidos_erro', erroId, { resolvido:true });
+      toast('Pedido importado com sucesso!');
+    } else {
+      toast(resp?.erro || 'Ainda não foi possível importar — veja o motivo atualizado.', 'err');
+    }
+  }catch(e){
+    toast('Erro: '+e.message, 'err');
+  }
+  await carregarErrosPK();
 }
 
 // ══ RADAR DE CANAIS ══
@@ -1119,5 +1193,6 @@ init();
 montarSidebarDinamica();
 </script>
 <script src="../js/alerta-sidebar.js"></script>
+<script src="../js/alerta-integracoes.js"></script>
 </body>
 </html>

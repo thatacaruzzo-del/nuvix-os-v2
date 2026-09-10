@@ -301,6 +301,7 @@ tr:hover td { background: #FAF9FE; }
 .sb-btn.active svg { color: #fff; }
 .sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; cursor: pointer; z-index: 2; }
 .sb-alert-dot:hover { transform: scale(1.2); }
+.sb-badge-count { position: absolute; top: 4px; left: 22px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--red); color: #fff; font-size: 9px; font-weight: 800; line-height: 15px; text-align: center; border: 2px solid #fff; z-index: 2; pointer-events: none; }
 
 /* ── Popover do alerta da sidebar — resumo dos sinais ativos sem sair da página ── */
 .sb-alert-popover { position: fixed; width: 280px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 48px rgba(16,24,40,.22); padding: 16px; z-index: 10000; }

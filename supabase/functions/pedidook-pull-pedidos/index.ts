@@ -23,7 +23,11 @@
 // do PedidoOK documenta como campo opcional).
 //
 // PÚBLICA de propósito (verify_jwt desligado): chamada só pelo pg_cron via
-// pg_net, sem JWT — mesmo raciocínio de pedidook-sync-estoque.
+// pg_net, sem JWT — mesmo raciocínio de pedidook-sync-estoque. A ÚNICA exceção
+// é o corpo {retry_pedido_id, retry_credencial_id} (botão "Tentar novamente"
+// na tela de Pedidos com erro) — esse caminho vem do navegador, então valida
+// o JWT do usuário e confere que a credencial pertence à empresa dele antes
+// de fazer qualquer coisa.
 //
 // Circuit breaker do erro 42 (limite diário de requisições excedido): ao
 // bater esse erro em qualquer chamada, para a execução INTEIRA do invocation
@@ -32,8 +36,12 @@
 // tick do cron (20min depois) tenta de novo.
 // ============================================================
 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const PEDIDOOK_BASE_URL = "https://api.pedidook.com.br/v1";
 
 const sbHeaders = {
@@ -44,7 +52,7 @@ const sbHeaders = {
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -354,10 +362,67 @@ async function processarCredencial(cred: any) {
   return { empresa_id: cred.empresa_id, processados, com_erro: comErro };
 }
 
+// "Tentar novamente" (tela de Pedidos com erro, em Integrações): reprocessa
+// UM pedido específico sob demanda, sem mexer no watermark da varredura
+// incremental normal — reaproveita processarPedido() por inteiro (mesma
+// resolução de cliente/produto, mesmo finalizar_venda), só que buscando o
+// pedido direto por id (GET /pedidos/{id}, envelope singular) em vez de pela
+// lista paginada por alterado_apos.
+async function retentarPedido(credencialId: string, pedidoId: string) {
+  const [cred] = await sbGet(`pedidook_credenciais?id=eq.${credencialId}&select=*`);
+  if (!cred) return { ok: false, erro: "Credencial não encontrada." };
+
+  const [empresa] = await sbGet(`empresas?id=eq.${cred.empresa_id}&select=id`);
+  if (!empresa) return { ok: false, erro: "Empresa não encontrada." };
+
+  const headers = { token_parceiro: cred.token_parceiro, token_pedidook: cred.token_pedidook, "Content-Type": "application/json" };
+  const r = await fetch(`${PEDIDOOK_BASE_URL}/pedidos/${pedidoId}`, { headers });
+  const data = await r.json().catch(() => ({}));
+  await logRequisicao(empresa.id, "pull_pedidos", r.status);
+  if (!r.ok) {
+    const erros = extrairErrosPedidook(data);
+    return { ok: false, erro: `Não foi possível buscar o pedido no PedidoOK: ${erros[0]?.mensagem}` };
+  }
+  const pedido = data?.pedido ?? data;
+  const resultado = await processarPedido(headers, empresa, cred, pedido);
+  if ((resultado as any)?.erro) return { ok: false, erro: "Falha ao reprocessar — motivo atualizado na lista de erros.", detalhe: resultado };
+  return { ok: true, resultado };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
+    const body = await req.json().catch(() => ({}));
+    if (body?.retry_pedido_id && body?.retry_credencial_id) {
+      // Único caminho desta função que aceita entrada de fora vinda do
+      // navegador (o resto é só o próprio pg_cron chamando sem JWT) — por
+      // isso exige e valida o JWT do usuário aqui dentro, mesmo com a função
+      // publicada com verify_jwt desligado. Sem isso, qualquer um poderia
+      // mandar um credencial_id de OUTRA empresa e forçar reprocessamento
+      // alheio.
+      const callerToken = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!callerToken) return json({ ok: false, erro: "nao_autenticado" }, 401);
+      const anon = createClient(SUPABASE_URL, ANON_KEY);
+      const { data: callerAuth, error: callerErr } = await anon.auth.getUser(callerToken);
+      if (callerErr || !callerAuth?.user) return json({ ok: false, erro: "sessao_invalida" }, 401);
+
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data: usuario } = await admin.from("usuarios").select("empresa_id").eq("id", callerAuth.user.id).maybeSingle();
+      if (!usuario?.empresa_id) return json({ ok: false, erro: "usuario_sem_empresa" }, 403);
+
+      const { data: credDoUsuario } = await admin
+        .from("pedidook_credenciais")
+        .select("id")
+        .eq("id", String(body.retry_credencial_id))
+        .eq("empresa_id", usuario.empresa_id)
+        .maybeSingle();
+      if (!credDoUsuario) return json({ ok: false, erro: "credencial_nao_pertence_a_empresa" }, 403);
+
+      const resultado = await retentarPedido(String(body.retry_credencial_id), String(body.retry_pedido_id));
+      return json(resultado, resultado.ok ? 200 : 400);
+    }
+
     const credenciais: any[] = await sbGet("pedidook_credenciais?token_pedidook=not.is.null&select=*");
 
     const resultados: any[] = [];
