@@ -871,28 +871,31 @@ async function salvarMapeamentoNS(produtoId, credencialId){
   try{
     const mapeamentos = _nsMapeamentosCache[credencialId]||[];
     const existente = mapeamentos.find(m=>m.produto_id===produtoId);
-    if(!nsVarianteId){
-      if(existente){
-        await db.delete('produto_nuvemshop_mapeamento', existente.id);
-        _nsMapeamentosCache[credencialId] = mapeamentos.filter(m=>m.id!==existente.id);
-        toast('Vinculação removida.');
-        await renderMapeamentoNS();
-      } else {
-        toast('Preencha o "ID variante" antes de salvar.', 'err');
-      }
+    // Deixar os dois campos em branco e salvar cria o vínculo sem id nenhum —
+    // sincronizarEstoqueAgoraNS() cria o produto na Nuvemshop sozinho na sequência
+    // e preenche os ids automaticamente (mesmo padrão do PedidoOK). Só remove o
+    // vínculo por completo quando havia um mapeamento antes E os campos vieram
+    // vazios de propósito (usuário limpou os dois pra desvincular).
+    if(!nsProdutoId && !nsVarianteId && existente){
+      await db.delete('produto_nuvemshop_mapeamento', existente.id);
+      _nsMapeamentosCache[credencialId] = mapeamentos.filter(m=>m.id!==existente.id);
+      toast('Vinculação removida.');
+      await renderMapeamentoNS();
       return;
     }
     if(existente){
-      await db.patch('produto_nuvemshop_mapeamento', existente.id, { nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId, sync_status:'pendente', sync_erro:null });
-      existente.nuvemshop_produto_id = nsProdutoId||null; existente.nuvemshop_variante_id = nsVarianteId; existente.sync_status='pendente'; existente.sync_erro=null;
+      await db.patch('produto_nuvemshop_mapeamento', existente.id, { nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId||null, sync_status:'pendente', sync_erro:null });
+      existente.nuvemshop_produto_id = nsProdutoId||null; existente.nuvemshop_variante_id = nsVarianteId||null; existente.sync_status='pendente'; existente.sync_erro=null;
     }else{
-      const novo = await db.post('produto_nuvemshop_mapeamento', withEmpresa({ produto_id: produtoId, nuvemshop_credencial_id: credencialId, nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId, sync_status:'pendente' }));
+      const novo = await db.post('produto_nuvemshop_mapeamento', withEmpresa({ produto_id: produtoId, nuvemshop_credencial_id: credencialId, nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId||null, sync_status:'pendente' }));
       _nsMapeamentosCache[credencialId].push(Array.isArray(novo)?novo[0]:novo);
     }
     toast('Vinculação salva!');
     await renderMapeamentoNS();
     // Sem isso, o produto só sincronizaria no PRÓXIMO movimento de estoque —
-    // mesmo motivo de sincronizarEstoqueAgora() no bloco do ML acima.
+    // mesmo motivo de sincronizarEstoqueAgora() no bloco do ML acima. Se os ids
+    // ficaram em branco, é aqui que o produto é criado na Nuvemshop e os ids
+    // voltam preenchidos.
     await sincronizarEstoqueAgoraNS(produtoId, credencialId);
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
