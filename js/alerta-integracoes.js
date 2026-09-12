@@ -1,12 +1,12 @@
-// Contador de pedidos pendentes de revisão (Mercado Livre + Nuvemshop + PedidoOK
-// somados), visível no item "Integrações" da barra lateral em qualquer página —
-// não só quando o cliente já está em Integrações. Sem isso, um pedido que
-// falhou ao importar (produto sem vínculo, erro de estoque etc.) fica invisível
-// até alguém entrar na tela por acaso.
+// Contador de pedidos pendentes de revisão (Mercado Livre + Nuvemshop +
+// PedidoOK + Shopee somados), visível no item "Integrações" da barra lateral
+// em qualquer página — não só quando o cliente já está em Integrações. Sem
+// isso, um pedido que falhou ao importar (produto sem vínculo, erro de
+// estoque etc.) fica invisível até alguém entrar na tela por acaso.
 //
 // Autocontido de propósito (mesmo padrão de alerta-sidebar.js): não depende de
 // nada definido na página, nunca lança erro pra fora do try/catch — se uma das
-// 3 tabelas falhar, as outras ainda contam (cada contagem tem seu próprio
+// 4 tabelas falhar, as outras ainda contam (cada contagem tem seu próprio
 // catch, então uma falha não derruba as demais).
 (function () {
   try {
@@ -29,9 +29,9 @@
         .catch(function () { return 0; });
     }
 
-    Promise.all([contar('ml_pedidos_erro'), contar('nuvemshop_pedidos_erro'), contar('pedidook_pedidos_erro')])
+    Promise.all([contar('ml_pedidos_erro'), contar('nuvemshop_pedidos_erro'), contar('pedidook_pedidos_erro'), contar('shopee_pedidos_erro')])
       .then(function (contagens) {
-        var total = contagens[0] + contagens[1] + contagens[2];
+        var total = contagens[0] + contagens[1] + contagens[2] + contagens[3];
         if (!total) return;
         var link = document.querySelector('.sb-btn[href="integracoes.html"]');
         if (!link || link.querySelector('.sb-badge-count')) return;

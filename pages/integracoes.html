@@ -165,6 +165,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="par-tab active" id="tabBtnMl" onclick="intTab('ml','Mercado Livre',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Mercado Livre <span class="int-dot" id="mlTabDot"></span></button>
         <button class="par-tab" id="tabBtnNs" onclick="intTab('ns','Nuvemshop',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Nuvemshop <span class="int-dot" id="nsTabDot"></span></button>
         <button class="par-tab" id="tabBtnPk" onclick="intTab('pk','PedidoOK',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> PedidoOK <span class="int-dot" id="pkTabDot"></span></button>
+        <button class="par-tab" id="tabBtnShopee" onclick="intTab('shopee','Shopee',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Shopee <span class="int-dot" id="shopeeTabDot"></span></button>
       </div>
 
       <div class="par-pane active" id="pane-ml">
@@ -429,13 +430,111 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       </div>
 
+      <div class="par-pane" id="pane-shopee">
+
+      <!-- ══ SHOPEE — STATUS DE CONEXÃO ══ -->
+      <div class="card" id="shopeeCard">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:14px;align-items:center">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--p-light);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--p2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            </div>
+            <div>
+              <h2 style="margin:0">Shopee</h2>
+              <p class="muted" style="margin:2px 0 0">Importe pedidos e sincronize estoque automaticamente com seus anúncios.</p>
+            </div>
+          </div>
+          <span class="badge off" id="shopeeStatusBadge">Verificando…</span>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
+          <div id="shopeeDetalhe" class="muted" style="font-size:12.5px">Carregando status da conexão...</div>
+          <div id="shopeeConectarInfo" style="display:none;max-width:420px;width:100%;text-align:left;background:var(--p-light);border-radius:12px;padding:16px">
+            <div style="font-weight:700;font-size:12.5px;color:var(--p);margin-bottom:10px">Como conectar</div>
+            <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--txt);line-height:1.5">
+              <li>Clique em "Conectar Shopee" abaixo</li>
+              <li>Você será redirecionado pro site da Shopee</li>
+              <li>Faça login com a <b>conta vendedora</b> desta empresa (a que publica os anúncios) e autorize o acesso do NuvixHub</li>
+              <li>Você volta automaticamente pra esta tela, já conectado</li>
+            </ol>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;max-width:420px;width:100%">
+            <div style="display:flex;gap:8px">
+              <button class="btn" id="shopeeBtnConectar" onclick="conectarShopee()" style="display:none">Conectar Shopee</button>
+              <button class="danger" id="shopeeBtnDesconectar" onclick="desconectarShopee()" style="display:none">Desconectar</button>
+            </div>
+            <p class="muted" id="shopeeSuporteInfo" style="display:none;font-size:11.5px;margin:2px 0 0;text-align:center">Problema pra conectar? Fale com o suporte NuvixHub.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SHOPEE — LOJA DE REFERÊNCIA DE ESTOQUE ══ -->
+      <div class="card">
+        <h2>Loja de referência de estoque</h2>
+        <p class="muted" style="line-height:1.6;margin-bottom:12px">Qual loja do Nuvix representa o estoque anunciado na Shopee? A quantidade dessa loja é o que será sincronizado com seus anúncios.</p>
+        <div class="field" style="max-width:360px">
+          <label>Loja</label>
+          <select id="shopeeLojaEstoque" onchange="salvarLojaEstoqueShopee()"><option value="">Selecione...</option></select>
+        </div>
+      </div>
+
+      <!-- ══ SHOPEE — ANÚNCIOS PENDENTES DE VÍNCULO ══ -->
+      <div class="card" id="shopeeAnunciosCard" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Anúncios pendentes de vínculo</h2>
+          <button class="btn2" id="shopeeBtnBuscarAnuncios" onclick="buscarAnunciosShopee()" style="font-size:12px;padding:6px 12px">Buscar anúncios na Shopee</button>
+        </div>
+        <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta da Shopee que ainda não têm produto vinculado no Nuvix — anúncio com variação (tamanho/cor) aparece uma linha por variação. Vincule a um produto já existente ou crie um produto novo a partir do anúncio.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Anúncio</th><th>Preço</th><th>Estoque na Shopee</th><th>Ação</th></tr></thead>
+            <tbody id="shopeeAnunciosTable"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ SHOPEE — MAPEAMENTO DE PRODUTOS ══ -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Mapeamento de produtos</h2>
+          <input id="shopeeBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoShopee()" style="max-width:280px">
+        </div>
+        <p class="muted" style="margin-bottom:14px">Informe o ID do anúncio na Shopee (e o ID da variação, se houver) para cada produto vendido por lá. Sem esse vínculo, o produto não sincroniza estoque nem recebe pedidos automaticamente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Produto</th><th>SKU / Código</th><th>ID do anúncio (Shopee)</th><th>ID da variação</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="shopeeProdutosTable"></tbody>
+          </table>
+        </div>
+        <div id="shopeeProdutosTablePaginacao"></div>
+      </div>
+
+      <!-- ══ SHOPEE — PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
+      <div class="card" id="shopeeErrosCard" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+          <h2 style="margin-bottom:0">Pedidos pendentes de revisão</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn2" id="shopeeErrosTabPendentes" onclick="shopeeErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="shopeeErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
+            <button class="btn2" id="shopeeErrosTabResolvidos" onclick="shopeeErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:14px">A Shopee notificou estes pedidos, mas algo impediu a importação automática — geralmente um item sem vínculo em "Mapeamento de produtos" acima. Corrija e clique em "Tentar novamente"; ou marque como resolvido se já tratou manualmente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th style="width:24px"></th><th>Pedido Shopee</th><th>Erro</th><th>Recebido em</th><th>Ação</th></tr></thead>
+            <tbody id="shopeeErrosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
 const session = requireAuth();
-let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[], mlAnuncios:[] };
+let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[], mlAnuncios:[], shopeeAnuncios:[] };
 
 function intTab(id, nome, btn){
   document.querySelectorAll('.par-pane').forEach(p=>p.classList.remove('active'));
@@ -457,6 +556,7 @@ async function init() {
   }
   tratarRetornoOAuth();
   tratarRetornoOAuthNS();
+  tratarRetornoOAuthShopee();
   await loadData();
   $('pageLoader')?.classList.add('hide');
 }
@@ -485,27 +585,33 @@ function tratarRetornoOAuth(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos, lojas, empresaRows, mlMapeamentos] = await Promise.all([
+    const [produtos, lojas, empresaRows, mlMapeamentos, shopeeMapeamentos] = await Promise.all([
       dbGetTodas('produtos', `?select=id,nome,sku,codigo_barras&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
       db.get('lojas', `?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
-      db.get('empresas', `?select=id,ml_loja_estoque_id&id=eq.${session.empresa_id}`),
+      db.get('empresas', `?select=id,ml_loja_estoque_id,shopee_loja_estoque_id&id=eq.${session.empresa_id}`),
       dbGetTodas('ml_produto_mapeamento', `?select=id,produto_id,ml_item_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}`),
+      dbGetTodas('shopee_produto_mapeamento', `?select=id,produto_id,shopee_item_id,shopee_model_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}`),
     ]);
-    // Junta o mapeamento ML no próprio produto (p._ml) — mesma ideia de join
-    // client-side que a tabela de erro já faz com o payload do ML, só que aqui
-    // é pra tabela separada (ml_produto_mapeamento, mesmo padrão de
+    // Junta o mapeamento de cada canal no próprio produto (p._ml, p._shopee) —
+    // mesma ideia de join client-side que a tabela de erro já faz com o
+    // payload, só que aqui é pra tabela separada por canal (mesmo padrão de
     // produto_nuvemshop_mapeamento) em vez de colunas soltas em produtos.
     const mlPorProduto = new Map(mlMapeamentos.map(m=>[m.produto_id,m]));
-    dados.produtos = produtos.map(p=>({ ...p, _ml: mlPorProduto.get(p.id)||null }));
+    const shopeePorProduto = new Map(shopeeMapeamentos.map(m=>[m.produto_id,m]));
+    dados.produtos = produtos.map(p=>({ ...p, _ml: mlPorProduto.get(p.id)||null, _shopee: shopeePorProduto.get(p.id)||null }));
     dados.lojas = lojas;
     dados.empresaAtual = empresaRows?.[0] || {};
     renderLojaEstoque();
     renderMapeamento();
+    renderLojaEstoqueShopee();
+    renderMapeamentoShopee();
   }catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
   await carregarStatusML();
   await carregarErrosPedidos();
   await carregarStatusNS();
   await carregarStatusPK();
+  await carregarStatusShopee();
+  await carregarErrosPedidosShopee();
   await carregarRadar();
 }
 
@@ -1344,17 +1450,319 @@ async function tentarNovamentePK(erroId, pedidoId, btn){
   await carregarErrosPK();
 }
 
+// ══ SHOPEE ══
+// Mesmo padrão do Mercado Livre (uma credencial por empresa) — só que anúncio
+// pode ter variação (shopee_model_id), por isso o mapeamento carrega ID do
+// anúncio + ID da variação, igual a Nuvemshop faz com produto/variante.
+async function chamarEdgeShopee(slug, body){
+  const token = tokenAtual();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${slug}`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY, 'Authorization':'Bearer '+(token||SUPABASE_KEY) },
+    body: JSON.stringify(body||{}),
+  });
+  let data; try { data = await r.json(); } catch(e) { throw new Error('Resposta inválida do serviço de integração.'); }
+  return data;
+}
+
+// Depois do redirect de volta do shopee-oauth-callback, a URL carrega
+// ?shopee=conectado|erro|cancelado&motivo=...
+function tratarRetornoOAuthShopee(){
+  const params = new URLSearchParams(location.search);
+  const shopee = params.get('shopee');
+  if (!shopee) return;
+  const MENSAGENS_ERRO = {
+    parametros_ausentes: 'A Shopee não retornou os dados esperados.',
+    state_invalido: 'Não foi possível confirmar a autenticidade da conexão. Tente conectar novamente.',
+    state_expirado: 'O link de conexão expirou. Clique em "Conectar Shopee" novamente.',
+    shopee_nao_configurado: 'A Nuvix ainda não configurou o aplicativo da Shopee para esta conta. Fale com o suporte.',
+    troca_token_falhou: 'A Shopee recusou a autorização. Tente novamente.',
+    erro_interno: 'Erro inesperado ao conectar. Tente novamente.',
+  };
+  if (shopee === 'conectado') toast('Shopee conectada com sucesso!', 'ok');
+  else if (shopee === 'cancelado') toast('Conexão cancelada.', 'err');
+  else toast(MENSAGENS_ERRO[params.get('motivo')] || 'Erro ao conectar à Shopee.', 'err');
+  history.replaceState({}, '', location.pathname);
+}
+
+async function carregarStatusShopee(){
+  try{
+    const data = await chamarEdgeShopee('shopee-status', {});
+    if (!data.ok) { renderStatusShopee({conectado:false}); return; }
+    renderStatusShopee(data);
+  }catch(e){
+    $('shopeeStatusBadge').textContent='Erro ao verificar';
+    $('shopeeStatusBadge').className='badge bad';
+    $('shopeeDetalhe').textContent='Não foi possível verificar o status da conexão: '+e.message;
+  }
+}
+function renderStatusShopee(data){
+  $('shopeeTabDot')?.classList.toggle('on', !!data.conectado);
+  const badge=$('shopeeStatusBadge');
+  if (data.conectado){
+    badge.textContent='Conectado';
+    badge.className='badge ok';
+    $('shopeeDetalhe').textContent = `Loja Shopee: ${esc(data.shop_id||'—')} · conectado em ${fmtData(data.conectado_em)}`;
+    $('shopeeConectarInfo').style.display='none';
+    $('shopeeSuporteInfo').style.display='none';
+    $('shopeeBtnConectar').style.display='none';
+    $('shopeeBtnDesconectar').style.display='inline-flex';
+    $('shopeeAnunciosCard').style.display='block';
+  } else {
+    badge.textContent='Não conectado';
+    badge.className='badge off';
+    $('shopeeDetalhe').textContent='Siga os passos abaixo pra conectar esta empresa.';
+    $('shopeeConectarInfo').style.display='block';
+    $('shopeeSuporteInfo').style.display='block';
+    $('shopeeBtnConectar').style.display='inline-flex';
+    $('shopeeBtnDesconectar').style.display='none';
+    $('shopeeAnunciosCard').style.display='none';
+  }
+}
+async function conectarShopee(){
+  if(!temPermissao('integracoes','criar')&&!temPermissao('integracoes','editar')){toast('Sem permissão para conectar integrações.','err');return;}
+  const btn=$('shopeeBtnConectar'); btn.disabled=true; btn.textContent='Redirecionando...';
+  try{
+    const data = await chamarEdgeShopee('shopee-conectar', {});
+    if (data.ok && data.url){ window.location.href = data.url; return; }
+    const MENSAGENS = { shopee_nao_configurado: 'A Nuvix ainda não configurou o aplicativo da Shopee para esta conta. Fale com o suporte.' };
+    toast(MENSAGENS[data.erro] || ('Erro ao conectar: '+(data.erro||'')), 'err');
+  }catch(e){ toast('Erro ao conectar: '+e.message,'err'); }
+  btn.disabled=false; btn.textContent='Conectar Shopee';
+}
+async function desconectarShopee(){
+  if(!temPermissao('integracoes','excluir')&&!temPermissao('integracoes','editar')){toast('Sem permissão para desconectar integrações.','err');return;}
+  if(!await confirmarAcao('Desconectar a Shopee desta empresa? A sincronização de estoque e a importação de pedidos param até reconectar.',{labelOk:'Desconectar'}))return;
+  try{
+    const data = await chamarEdgeShopee('shopee-desconectar', {});
+    if (!data.ok) throw new Error(data.erro || 'Erro desconhecido');
+    toast('Shopee desconectada.');
+    await carregarStatusShopee();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function renderLojaEstoqueShopee(){
+  const sel=$('shopeeLojaEstoque');
+  const atual=dados.empresaAtual?.shopee_loja_estoque_id||'';
+  sel.innerHTML='<option value="">Selecione...</option>'+dados.lojas.map(l=>`<option value="${l.id}" ${l.id===atual?'selected':''}>${esc(l.nome)}</option>`).join('');
+}
+async function salvarLojaEstoqueShopee(){
+  const id=val('shopeeLojaEstoque');
+  try{
+    await db.patch('empresas', session.empresa_id, { shopee_loja_estoque_id: id||null });
+    dados.empresaAtual.shopee_loja_estoque_id = id||null;
+    toast('Loja de referência salva!');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Mapeamento de produtos — Shopee ══
+function renderMapeamentoShopee(){
+  const q=(val('shopeeBusca')||'').toLowerCase();
+  const lista=(dados.produtos||[]).filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  renderPaginacao('shopeeProdutosTable', lista.length, 'renderMapeamentoShopee');
+  setHTML('shopeeProdutosTable', paginar(lista,'shopeeProdutosTable').map(p=>{
+    const badge = p._shopee?.shopee_item_id
+      ? `<span class="badge ${ML_SYNC_CLASSE[p._shopee.sync_status]||'off'}" title="${esc(p._shopee.sync_erro||'')}">${ML_SYNC_LABEL[p._shopee.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem anúncio</span>';
+    return `<tr>
+      <td><b>${esc(p.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
+      <td><input id="shopeeItem_${p.id}" value="${esc(p._shopee?.shopee_item_id||'')}" placeholder="ID do anúncio" style="max-width:150px"></td>
+      <td><input id="shopeeModel_${p.id}" value="${esc(p._shopee?.shopee_model_id||'')}" placeholder="Opcional" style="max-width:120px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarShopeeItemId('${p.id}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum produto encontrado.</td></tr>');
+}
+async function salvarShopeeItemId(id){
+  const campoItem=$('shopeeItem_'+id), campoModel=$('shopeeModel_'+id);
+  const v=(campoItem?.value||'').trim();
+  const modelo=(campoModel?.value||'').trim();
+  const p=dados.produtos.find(x=>x.id===id);
+  try{
+    if(v){
+      if(p?._shopee){
+        await db.patch('shopee_produto_mapeamento', p._shopee.id, { shopee_item_id: v, shopee_model_id: modelo||null, sync_status:'pendente', sync_erro:null, updated_at:new Date().toISOString() });
+        Object.assign(p._shopee, { shopee_item_id:v, shopee_model_id:modelo||null, sync_status:'pendente', sync_erro:null });
+      } else {
+        const [novo] = await db.post('shopee_produto_mapeamento', withEmpresa({ produto_id:id, shopee_item_id:v, shopee_model_id:modelo||null, sync_status:'pendente' }));
+        if(p) p._shopee = novo;
+      }
+      toast('Vinculação salva!');
+    } else if(p?._shopee){
+      await db.delete('shopee_produto_mapeamento', p._shopee.id);
+      p._shopee = null;
+      toast('Vinculação removida.');
+    }
+    renderMapeamentoShopee();
+    if(v) await sincronizarEstoqueAgoraShopee(id);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueAgoraShopee(produtoId){
+  const lojaId = dados.empresaAtual?.shopee_loja_estoque_id;
+  if(!lojaId) return;
+  try{
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${produtoId}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/shopee-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produto_id: produtoId, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
+  await loadData();
+}
+
+// ══ Anúncios pendentes de vínculo — Shopee ══
+async function buscarAnunciosShopee(){
+  const btn=$('shopeeBtnBuscarAnuncios'); btn.disabled=true; btn.textContent='Buscando...';
+  try{
+    const resp = await chamarEdgeShopee('shopee-importar-anuncios', { acao:'listar' });
+    if(!resp.ok){
+      toast(resp.erro==='empresa_nao_conectada' ? 'Conecte a Shopee primeiro.' : ('Erro ao buscar anúncios: '+(resp.erro||'')), 'err');
+    } else {
+      dados.shopeeAnuncios = resp.anuncios||[];
+      renderAnunciosShopee();
+      if(!dados.shopeeAnuncios.length) toast('Nenhum anúncio pendente — todos os seus anúncios ativos já estão vinculados.');
+    }
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+  btn.disabled=false; btn.textContent='Buscar anúncios na Shopee';
+}
+function renderAnunciosShopee(){
+  const lista = dados.shopeeAnuncios||[];
+  const produtosDisponiveis = (dados.produtos||[]).filter(p=>!p._shopee);
+  const opcoesSelect = produtosDisponiveis.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
+  setHTML('shopeeAnunciosTable', lista.map(a=>{
+    const chave = a.shopee_item_id+'_'+(a.shopee_model_id||'');
+    return `<tr>
+      <td><b>${esc(a.titulo)}</b><div style="font-size:11px;color:var(--muted)">${esc(a.shopee_item_id)}${a.sku?' · SKU '+esc(a.sku):''}</div></td>
+      <td>${money(a.preco)}</td>
+      <td>${esc(a.quantidade_disponivel ?? '—')}</td>
+      <td style="white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="shopeeVincSel_${esc(chave)}" style="max-width:160px;font-size:11px"><option value="">Vincular a...</option>${opcoesSelect}</select>
+        <button class="btn2" onclick="vincularAnuncioShopee('${esc(a.shopee_item_id)}','${esc(a.shopee_model_id||'')}')" style="font-size:11px;padding:5px 8px">Vincular</button>
+        <button class="btn2" onclick="criarProdutoDeAnuncioShopee('${esc(a.shopee_item_id)}','${esc(a.shopee_model_id||'')}')" style="font-size:11px;padding:5px 8px">Criar produto novo</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr>');
+}
+async function vincularAnuncioShopee(itemId, modelId){
+  const chave = itemId+'_'+modelId;
+  const sel = $('shopeeVincSel_'+chave);
+  const produtoId = sel?.value;
+  if(!produtoId){ toast('Selecione um produto pra vincular.','err'); return; }
+  try{
+    const resp = await chamarEdgeShopee('shopee-importar-anuncios', { acao:'vincular', shopee_item_id: itemId, shopee_model_id: modelId||null, produto_id: produtoId });
+    if(!resp.ok) throw new Error(resp.erro||'Erro desconhecido');
+    toast('Vinculado com sucesso!');
+    dados.shopeeAnuncios = (dados.shopeeAnuncios||[]).filter(a=>!(a.shopee_item_id===itemId && (a.shopee_model_id||'')===modelId));
+    await loadData();
+    renderAnunciosShopee();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function criarProdutoDeAnuncioShopee(itemId, modelId){
+  const anuncio = (dados.shopeeAnuncios||[]).find(a=>a.shopee_item_id===itemId && (a.shopee_model_id||'')===modelId);
+  if(!anuncio) return;
+  if(!await confirmarAcao(`Criar um produto novo no Nuvix chamado "${anuncio.titulo}", com preço ${money(anuncio.preco)}? Você poderá completar o cadastro fiscal (NCM/CSOSN) depois em Produtos.`,{labelOk:'Criar produto'})) return;
+  try{
+    const resp = await chamarEdgeShopee('shopee-importar-anuncios', { acao:'criar', shopee_item_id: itemId, shopee_model_id: modelId||null, titulo: anuncio.titulo, preco: anuncio.preco, sku: anuncio.sku, ncm: anuncio.ncm });
+    if(!resp.ok) throw new Error(resp.erro||'Erro desconhecido');
+    toast('Produto criado e vinculado! Complete o cadastro fiscal em Produtos, se necessário.');
+    dados.shopeeAnuncios = (dados.shopeeAnuncios||[]).filter(a=>!(a.shopee_item_id===itemId && (a.shopee_model_id||'')===modelId));
+    await loadData();
+    renderAnunciosShopee();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ══ Pedidos com erro — Shopee ══
+let _shopeeErrosAba = 'pendentes';
+let _shopeeErrosExpandido = null;
+function shopeeErrosVerAba(aba){
+  _shopeeErrosAba = aba;
+  $('shopeeErrosTabPendentes').style.background = aba==='pendentes' ? 'var(--p)' : '';
+  $('shopeeErrosTabPendentes').style.color = aba==='pendentes' ? '#fff' : '';
+  $('shopeeErrosTabPendentes').style.borderColor = aba==='pendentes' ? 'var(--p)' : '';
+  $('shopeeErrosTabResolvidos').style.background = aba==='resolvidos' ? 'var(--p)' : '';
+  $('shopeeErrosTabResolvidos').style.color = aba==='resolvidos' ? '#fff' : '';
+  $('shopeeErrosTabResolvidos').style.borderColor = aba==='resolvidos' ? 'var(--p)' : '';
+  carregarErrosPedidosShopee();
+}
+async function carregarErrosPedidosShopee(){
+  try{
+    const resolvido = _shopeeErrosAba==='resolvidos';
+    const erros = await db.get('shopee_pedidos_erro', `?select=id,shopee_order_sn,erro,payload,created_at&empresa_id=eq.${session.empresa_id}&resolvido=eq.${resolvido}&order=created_at.desc`);
+    const pendentes = _shopeeErrosAba==='pendentes' ? erros.length
+      : (await db.get('shopee_pedidos_erro', `?select=id&empresa_id=eq.${session.empresa_id}&resolvido=eq.false`)).length;
+    const badge = $('shopeeErrosCountBadge');
+    if(pendentes>0){ badge.style.display='inline-flex'; badge.textContent=pendentes; } else { badge.style.display='none'; }
+
+    const card=$('shopeeErrosCard');
+    if(!erros.length && pendentes===0){ card.style.display='none'; return; }
+    card.style.display='block';
+
+    if(!erros.length){
+      setHTML('shopeeErrosTable', `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido ${resolvido?'resolvido':'pendente'} no momento.</td></tr>`);
+      return;
+    }
+
+    setHTML('shopeeErrosTable', erros.map(e=>{
+      const aberto = _shopeeErrosExpandido===e.id;
+      const itens = Array.isArray(e.payload?.item_list) ? e.payload.item_list : [];
+      const detalhe = aberto ? `<tr><td></td><td colspan="4" style="background:var(--bg);font-size:12.5px;color:var(--muted);padding:12px 14px">
+        <div><b>Comprador</b> ${esc(e.payload?.buyer_username || '—')}</div>
+        ${itens.length?`<div style="margin-top:8px"><b>Itens do pedido:</b><ul style="margin:6px 0 0 18px;padding:0">${itens.map(i=>`<li>${esc(i.item_name||i.item_id)} · qtd ${esc(i.model_quantity_purchased)}</li>`).join('')}</ul></div>`:''}
+      </td></tr>` : '';
+      return `<tr>
+        <td><button class="btn2" onclick="shopeeErrosExpandir('${e.id}')" title="Ver detalhes" style="padding:3px 7px;font-size:11px">${aberto?'▾':'▸'}</button></td>
+        <td><b>${esc(e.shopee_order_sn)}</b></td>
+        <td style="font-size:12.5px;color:var(--muted);max-width:420px">${esc(e.erro)}</td>
+        <td>${fmtData(e.created_at)}</td>
+        <td style="white-space:nowrap">
+          ${resolvido ? '<span class="badge ok">Resolvido</span>' : `
+          <button class="btn2" onclick="tentarNovamenteShopee('${e.id}','${e.shopee_order_sn}',this)" style="font-size:11px;padding:5px 8px">Tentar novamente</button>
+          <button class="btn2" onclick="resolverErroPedidoShopee('${e.id}')" style="font-size:11px;padding:5px 8px">Marcar como resolvido</button>`}
+        </td>
+      </tr>${detalhe}`;
+    }).join(''));
+  }catch(e){ console.warn('Erro ao carregar pedidos pendentes Shopee:', e); }
+}
+function shopeeErrosExpandir(id){
+  _shopeeErrosExpandido = _shopeeErrosExpandido===id ? null : id;
+  carregarErrosPedidosShopee();
+}
+async function resolverErroPedidoShopee(id){
+  try{
+    await db.patch('shopee_pedidos_erro', id, { resolvido:true });
+    toast('Marcado como resolvido.');
+    await carregarErrosPedidosShopee();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function tentarNovamenteShopee(erroId, orderSn, btn){
+  btn.disabled = true; btn.textContent = 'Tentando...';
+  try{
+    const resp = await chamarEdgeShopee('shopee-webhook', { retry_order_id: orderSn, retry_credencial_id: session.empresa_id });
+    if(resp?.ok){
+      await db.patch('shopee_pedidos_erro', erroId, { resolvido:true });
+      toast('Pedido importado com sucesso!');
+    } else {
+      toast(resp?.erro || 'Ainda não foi possível importar — veja o motivo atualizado.', 'err');
+    }
+  }catch(e){
+    toast('Erro: '+e.message, 'err');
+  }
+  await carregarErrosPedidosShopee();
+}
+
 // ══ RADAR DE CANAIS ══
 // Resumo compacto de todos os canais externos, acima das abas — lê
 // canais-status (view_status_canais). Some sozinho se menos de 2 canais
 // estiverem conectados, mesma regra do card "Vendas por canal" do Painel
 // Executivo (evita ruído pra quem só vende por 1 canal).
-const RADAR_TAB_ID = { 'Mercado Livre':'ml', 'Nuvemshop':'ns', 'PedidoOK':'pk' };
-const RADAR_TAB_BTN_ID = { 'Mercado Livre':'tabBtnMl', 'Nuvemshop':'tabBtnNs', 'PedidoOK':'tabBtnPk' };
+const RADAR_TAB_ID = { 'Mercado Livre':'ml', 'Nuvemshop':'ns', 'PedidoOK':'pk', 'Shopee':'shopee' };
+const RADAR_TAB_BTN_ID = { 'Mercado Livre':'tabBtnMl', 'Nuvemshop':'tabBtnNs', 'PedidoOK':'tabBtnPk', 'Shopee':'tabBtnShopee' };
 const RADAR_ICONE = {
   'Mercado Livre':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
   'Nuvemshop':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
   'PedidoOK':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  'Shopee':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
 };
 function haQuanto(iso){
   if(!iso) return null;
