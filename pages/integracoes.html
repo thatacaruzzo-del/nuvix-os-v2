@@ -221,7 +221,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <h2 style="margin:0">Anúncios pendentes de vínculo</h2>
           <button class="btn2" id="mlBtnBuscarAnuncios" onclick="buscarAnunciosML()" style="font-size:12px;padding:6px 12px">Buscar anúncios no Mercado Livre</button>
         </div>
-        <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta do Mercado Livre que ainda não têm produto vinculado no Nuvix — quem cria o anúncio direto lá não precisa cadastrar o produto de novo aqui. Vincule a um produto já existente ou crie um produto novo a partir do anúncio.</p>
+        <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta do Mercado Livre que ainda não têm produto vinculado no Nuvix — quem cria o anúncio direto lá não precisa cadastrar o produto de novo aqui. Vincule a um produto já existente ou crie um produto novo a partir do anúncio. Anúncio com SKU igual ao de um produto do Nuvix já vem sugerido, pra não precisar vincular catálogo grande um por um.</p>
+        <div id="mlAnunciosBulkAcao"></div>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Anúncio</th><th>Preço</th><th>Estoque no ML</th><th>Ação</th></tr></thead>
@@ -765,17 +766,49 @@ async function buscarAnunciosML(){
 function renderAnunciosML(){
   const lista = dados.mlAnuncios||[];
   const produtosDisponiveis = (dados.produtos||[]).filter(p=>!p._ml);
-  const opcoesSelect = produtosDisponiveis.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
-  setHTML('mlAnunciosTable', lista.map(a=>`<tr>
-      <td><b>${esc(a.titulo)}</b><div style="font-size:11px;color:var(--muted)">${esc(a.ml_item_id)}${a.sku?' · SKU '+esc(a.sku):''}</div></td>
+  // SKU idêntico (case-insensitive) entre anúncio e produto do Nuvix já vem
+  // pré-selecionado — em catálogo grande, evita abrir o dropdown e procurar
+  // manualmente produto por produto pra cada anúncio.
+  const produtoPorSku = new Map(produtosDisponiveis.filter(p=>p.sku).map(p=>[String(p.sku).trim().toLowerCase(), p]));
+  const opcoesSelect = (sugeridoId)=>['<option value="">Vincular a...</option>']
+    .concat(produtosDisponiveis.map(p=>`<option value="${p.id}" ${p.id===sugeridoId?'selected':''}>${esc(p.nome)}</option>`))
+    .join('');
+
+  let qtdSugeridos = 0;
+  setHTML('mlAnunciosTable', lista.map(a=>{
+    const sugerido = a.sku ? produtoPorSku.get(String(a.sku).trim().toLowerCase()) : null;
+    if(sugerido) qtdSugeridos++;
+    return `<tr ${sugerido?'style="background:var(--green-bg)"':''} data-ml-item="${esc(a.ml_item_id)}" data-sugerido="${sugerido?esc(sugerido.id):''}">
+      <td><b>${esc(a.titulo)}</b><div style="font-size:11px;color:var(--muted)">${esc(a.ml_item_id)}${a.sku?' · SKU '+esc(a.sku):''}</div>${sugerido?`<div style="font-size:11px;color:#16a34a;font-weight:700">✓ SKU compatível com "${esc(sugerido.nome)}"</div>`:''}</td>
       <td>${money(a.preco)}</td>
       <td>${esc(a.quantidade_disponivel ?? '—')}</td>
       <td style="white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <select id="mlVincSel_${esc(a.ml_item_id)}" style="max-width:160px;font-size:11px"><option value="">Vincular a...</option>${opcoesSelect}</select>
+        <select id="mlVincSel_${esc(a.ml_item_id)}" style="max-width:160px;font-size:11px">${opcoesSelect(sugerido?.id)}</select>
         <button class="btn2" onclick="vincularAnuncioML('${esc(a.ml_item_id)}')" style="font-size:11px;padding:5px 8px">Vincular</button>
         <button class="btn2" onclick="criarProdutoDeAnuncioML('${esc(a.ml_item_id)}')" style="font-size:11px;padding:5px 8px">Criar produto novo</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr>');
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr>');
+
+  setHTML('mlAnunciosBulkAcao', qtdSugeridos
+    ? `<div style="margin-bottom:12px"><button class="btn" onclick="vincularTodosSugeridosML()" style="font-size:12px;padding:8px 16px">Vincular todos com SKU compatível (${qtdSugeridos})</button></div>`
+    : '');
+}
+async function vincularTodosSugeridosML(){
+  const linhas = Array.from(document.querySelectorAll('#mlAnunciosTable tr[data-sugerido]')).filter(tr=>tr.dataset.sugerido);
+  if(!linhas.length) return;
+  let ok=0, falhas=0;
+  for(const tr of linhas){
+    const mlItemId = tr.dataset.mlItem;
+    try{
+      const resp = await chamarEdgeML('ml-importar-anuncios', { acao:'vincular', ml_item_id: mlItemId, produto_id: tr.dataset.sugerido });
+      if(resp.ok){ ok++; dados.mlAnuncios = (dados.mlAnuncios||[]).filter(a=>a.ml_item_id!==mlItemId); }
+      else falhas++;
+    }catch(e){ falhas++; }
+  }
+  toast(falhas ? `${ok} vinculados, ${falhas} com erro.` : `${ok} produtos vinculados por SKU!`, falhas?'err':'ok');
+  await loadData();
+  renderAnunciosML();
 }
 async function vincularAnuncioML(mlItemId){
   const sel = $('mlVincSel_'+mlItemId);
