@@ -3,10 +3,11 @@
 //
 // Chamada pelo trigger ml_sync_estoque_trigger (Postgres, via pg_net.http_post)
 // toda vez que a quantidade muda em estoque_por_loja na loja de referência do
-// Mercado Livre de um produto com ml_item_id vinculado. Faz PUT /items/{id}
-// com available_quantity na API do ML — é a metade "Nuvix → ML" da
-// sincronização (a outra metade, pedido novo no ML baixando estoque no Nuvix,
-// já acontece em ml-webhook via finalizar_venda).
+// Mercado Livre de um produto vinculado em ml_produto_mapeamento (mesmo padrão
+// de produto_nuvemshop_mapeamento). Faz PUT /items/{id} com available_quantity
+// na API do ML — é a metade "Nuvix → ML" da sincronização (a outra metade,
+// pedido novo no ML baixando estoque no Nuvix, já acontece em ml-webhook via
+// finalizar_venda).
 //
 // PÚBLICA de propósito (verify_jwt desligado): quem chama é o Postgres via
 // pg_net, que não carrega um JWT do Supabase Auth — mesma razão de
@@ -19,7 +20,7 @@
 // Nunca propaga erro pro chamador de um jeito que travaria alguma coisa: o
 // trigger já é fire-and-forget (pg_net é assíncrono) e a venda que gerou a
 // mudança de estoque já foi concluída antes disso rodar. Falha aqui só marca
-// produtos.ml_sync_status='erro' pra aparecer na tela de Integrações.
+// ml_produto_mapeamento.sync_status='erro' pra aparecer na tela de Integrações.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -86,11 +87,11 @@ async function garantirTokenValido(cred: any): Promise<string> {
   return data.access_token;
 }
 
-async function marcarSyncStatus(produtoId: string, status: "ok" | "erro", erro: string | null) {
+async function marcarSyncStatus(mapeamentoId: string, status: "ok" | "erro", erro: string | null) {
   try {
-    await sbPatch(`produtos?id=eq.${produtoId}`, { ml_sync_status: status, ml_sync_erro: erro, ml_sync_at: new Date().toISOString() });
+    await sbPatch(`ml_produto_mapeamento?id=eq.${mapeamentoId}`, { sync_status: status, sync_erro: erro, sync_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   } catch (e) {
-    console.error("Falha ao gravar ml_sync_status (não propaga):", e);
+    console.error("Falha ao gravar sync_status (não propaga):", e);
   }
 }
 
@@ -101,19 +102,19 @@ Deno.serve(async (req) => {
     const { produto_id, quantidade } = await req.json().catch(() => ({}) as any);
     if (!produto_id) return json({ ok: false, erro: "produto_id é obrigatório" }, 400);
 
-    const [produto] = await sbGet(`produtos?id=eq.${produto_id}&select=id,empresa_id,ml_item_id,nome`);
-    if (!produto?.ml_item_id) return json({ ok: true, ignorado: "sem_ml_item_id" });
+    const [mapeamento] = await sbGet(`ml_produto_mapeamento?produto_id=eq.${produto_id}&select=id,empresa_id,ml_item_id`);
+    if (!mapeamento) return json({ ok: true, ignorado: "sem_mapeamento" });
 
-    const [cred] = await sbGet(`ml_credenciais?empresa_id=eq.${produto.empresa_id}&access_token=not.is.null&select=*`);
+    const [cred] = await sbGet(`ml_credenciais?empresa_id=eq.${mapeamento.empresa_id}&access_token=not.is.null&select=*`);
     if (!cred) {
-      await marcarSyncStatus(produto_id, "erro", "Empresa não está conectada ao Mercado Livre. Conecte em Integrações.");
+      await marcarSyncStatus(mapeamento.id, "erro", "Empresa não está conectada ao Mercado Livre. Conecte em Integrações.");
       return json({ ok: true, ignorado: "empresa_nao_conectada" });
     }
 
     const accessToken = await garantirTokenValido(cred);
     const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
 
-    const r = await fetch(`https://api.mercadolibre.com/items/${produto.ml_item_id}`, {
+    const r = await fetch(`https://api.mercadolibre.com/items/${mapeamento.ml_item_id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ available_quantity: quantidadeFinal }),
@@ -122,12 +123,12 @@ Deno.serve(async (req) => {
 
     if (!r.ok) {
       const mensagem = data?.message || data?.error || `Erro desconhecido do Mercado Livre (HTTP ${r.status}).`;
-      console.error(`Falha ao sincronizar estoque do produto ${produto_id} (anúncio ${produto.ml_item_id}):`, data);
-      await marcarSyncStatus(produto_id, "erro", mensagem);
+      console.error(`Falha ao sincronizar estoque do produto ${produto_id} (anúncio ${mapeamento.ml_item_id}):`, data);
+      await marcarSyncStatus(mapeamento.id, "erro", mensagem);
       return json({ ok: false, erro: mensagem }, 502);
     }
 
-    await marcarSyncStatus(produto_id, "ok", null);
+    await marcarSyncStatus(mapeamento.id, "ok", null);
     return json({ ok: true });
   } catch (e) {
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);

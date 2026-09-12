@@ -214,6 +214,21 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      <!-- ══ ANÚNCIOS PENDENTES DE VÍNCULO ══ -->
+      <div class="card" id="mlAnunciosCard" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Anúncios pendentes de vínculo</h2>
+          <button class="btn2" id="mlBtnBuscarAnuncios" onclick="buscarAnunciosML()" style="font-size:12px;padding:6px 12px">Buscar anúncios no Mercado Livre</button>
+        </div>
+        <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta do Mercado Livre que ainda não têm produto vinculado no Nuvix — quem cria o anúncio direto lá não precisa cadastrar o produto de novo aqui. Vincule a um produto já existente ou crie um produto novo a partir do anúncio.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Anúncio</th><th>Preço</th><th>Estoque no ML</th><th>Ação</th></tr></thead>
+            <tbody id="mlAnunciosTable"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ══ MAPEAMENTO DE PRODUTOS ══ -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
@@ -420,7 +435,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
 <script>
 const session = requireAuth();
-let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[] };
+let dados = { produtos:[], lojas:[], empresaAtual:{}, nsLojas:[], mlAnuncios:[] };
 
 function intTab(id, nome, btn){
   document.querySelectorAll('.par-pane').forEach(p=>p.classList.remove('active'));
@@ -470,12 +485,18 @@ function tratarRetornoOAuth(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos, lojas, empresaRows] = await Promise.all([
-      dbGetTodas('produtos', `?select=id,nome,sku,codigo_barras,ml_item_id,ml_sync_status,ml_sync_erro&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
+    const [produtos, lojas, empresaRows, mlMapeamentos] = await Promise.all([
+      dbGetTodas('produtos', `?select=id,nome,sku,codigo_barras&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
       db.get('lojas', `?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
       db.get('empresas', `?select=id,ml_loja_estoque_id&id=eq.${session.empresa_id}`),
+      dbGetTodas('ml_produto_mapeamento', `?select=id,produto_id,ml_item_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}`),
     ]);
-    dados.produtos = produtos;
+    // Junta o mapeamento ML no próprio produto (p._ml) — mesma ideia de join
+    // client-side que a tabela de erro já faz com o payload do ML, só que aqui
+    // é pra tabela separada (ml_produto_mapeamento, mesmo padrão de
+    // produto_nuvemshop_mapeamento) em vez de colunas soltas em produtos.
+    const mlPorProduto = new Map(mlMapeamentos.map(m=>[m.produto_id,m]));
+    dados.produtos = produtos.map(p=>({ ...p, _ml: mlPorProduto.get(p.id)||null }));
     dados.lojas = lojas;
     dados.empresaAtual = empresaRows?.[0] || {};
     renderLojaEstoque();
@@ -602,6 +623,7 @@ function renderStatusML(data){
     $('mlSuporteInfo').style.display='none';
     $('mlBtnConectar').style.display='none';
     $('mlBtnDesconectar').style.display='inline-flex';
+    $('mlAnunciosCard').style.display='block';
   } else {
     badge.textContent='Não conectado';
     badge.className='badge off';
@@ -610,7 +632,65 @@ function renderStatusML(data){
     $('mlSuporteInfo').style.display='block';
     $('mlBtnConectar').style.display='inline-flex';
     $('mlBtnDesconectar').style.display='none';
+    $('mlAnunciosCard').style.display='none';
   }
+}
+
+// ══ Anúncios pendentes de vínculo (importar do Mercado Livre) ══
+async function buscarAnunciosML(){
+  const btn=$('mlBtnBuscarAnuncios'); btn.disabled=true; btn.textContent='Buscando...';
+  try{
+    const resp = await chamarEdgeML('ml-importar-anuncios', { acao:'listar' });
+    if(!resp.ok){
+      toast(resp.erro==='empresa_nao_conectada' ? 'Conecte o Mercado Livre primeiro.' : ('Erro ao buscar anúncios: '+(resp.erro||'')), 'err');
+    } else {
+      dados.mlAnuncios = resp.anuncios||[];
+      renderAnunciosML();
+      if(!dados.mlAnuncios.length) toast('Nenhum anúncio pendente — todos os seus anúncios ativos já estão vinculados.');
+    }
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+  btn.disabled=false; btn.textContent='Buscar anúncios no Mercado Livre';
+}
+function renderAnunciosML(){
+  const lista = dados.mlAnuncios||[];
+  const produtosDisponiveis = (dados.produtos||[]).filter(p=>!p._ml);
+  const opcoesSelect = produtosDisponiveis.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
+  setHTML('mlAnunciosTable', lista.map(a=>`<tr>
+      <td><b>${esc(a.titulo)}</b><div style="font-size:11px;color:var(--muted)">${esc(a.ml_item_id)}${a.sku?' · SKU '+esc(a.sku):''}</div></td>
+      <td>${money(a.preco)}</td>
+      <td>${esc(a.quantidade_disponivel ?? '—')}</td>
+      <td style="white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="mlVincSel_${esc(a.ml_item_id)}" style="max-width:160px;font-size:11px"><option value="">Vincular a...</option>${opcoesSelect}</select>
+        <button class="btn2" onclick="vincularAnuncioML('${esc(a.ml_item_id)}')" style="font-size:11px;padding:5px 8px">Vincular</button>
+        <button class="btn2" onclick="criarProdutoDeAnuncioML('${esc(a.ml_item_id)}')" style="font-size:11px;padding:5px 8px">Criar produto novo</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Clique em "Buscar anúncios" pra ver o que ainda falta vincular.</td></tr>');
+}
+async function vincularAnuncioML(mlItemId){
+  const sel = $('mlVincSel_'+mlItemId);
+  const produtoId = sel?.value;
+  if(!produtoId){ toast('Selecione um produto pra vincular.','err'); return; }
+  try{
+    const resp = await chamarEdgeML('ml-importar-anuncios', { acao:'vincular', ml_item_id: mlItemId, produto_id: produtoId });
+    if(!resp.ok) throw new Error(resp.erro||'Erro desconhecido');
+    toast('Vinculado com sucesso!');
+    dados.mlAnuncios = (dados.mlAnuncios||[]).filter(a=>a.ml_item_id!==mlItemId);
+    await loadData();
+    renderAnunciosML();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function criarProdutoDeAnuncioML(mlItemId){
+  const anuncio = (dados.mlAnuncios||[]).find(a=>a.ml_item_id===mlItemId);
+  if(!anuncio) return;
+  if(!await confirmarAcao(`Criar um produto novo no Nuvix chamado "${anuncio.titulo}", com preço ${money(anuncio.preco)}? Você poderá completar o cadastro fiscal (NCM/CSOSN) depois em Produtos.`,{labelOk:'Criar produto'})) return;
+  try{
+    const resp = await chamarEdgeML('ml-importar-anuncios', { acao:'criar', ml_item_id: mlItemId, titulo: anuncio.titulo, preco: anuncio.preco, sku: anuncio.sku });
+    if(!resp.ok) throw new Error(resp.erro||'Erro desconhecido');
+    toast('Produto criado e vinculado! Complete o cadastro fiscal em Produtos antes de vender, se sua empresa emite nota.');
+    dados.mlAnuncios = (dados.mlAnuncios||[]).filter(a=>a.ml_item_id!==mlItemId);
+    await loadData();
+    renderAnunciosML();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
 async function conectarML(){
@@ -659,13 +739,13 @@ function renderMapeamento(){
   const lista=(dados.produtos||[]).filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
   renderPaginacao('mlProdutosTable', lista.length, 'renderMapeamento');
   setHTML('mlProdutosTable', paginar(lista,'mlProdutosTable').map(p=>{
-    const badge = p.ml_item_id
-      ? `<span class="badge ${ML_SYNC_CLASSE[p.ml_sync_status]||'off'}" title="${esc(p.ml_sync_erro||'')}">${ML_SYNC_LABEL[p.ml_sync_status]||'Nunca sincronizado'}</span>`
+    const badge = p._ml?.ml_item_id
+      ? `<span class="badge ${ML_SYNC_CLASSE[p._ml.sync_status]||'off'}" title="${esc(p._ml.sync_erro||'')}">${ML_SYNC_LABEL[p._ml.sync_status]||'Nunca sincronizado'}</span>`
       : '<span class="badge off">Sem anúncio</span>';
     return `<tr>
       <td><b>${esc(p.nome||'')}</b></td>
       <td style="font-size:12px;color:var(--muted)">${esc(p.sku||'')}${p.sku&&p.codigo_barras?' · ':''}${esc(p.codigo_barras||'')}</td>
-      <td><input id="mlItem_${p.id}" value="${esc(p.ml_item_id||'')}" placeholder="MLB..." style="max-width:170px"></td>
+      <td><input id="mlItem_${p.id}" value="${esc(p._ml?.ml_item_id||'')}" placeholder="MLB..." style="max-width:170px"></td>
       <td>${badge}</td>
       <td><button class="btn2" onclick="salvarMlItemId('${p.id}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
     </tr>`;
@@ -674,11 +754,22 @@ function renderMapeamento(){
 async function salvarMlItemId(id){
   const campo=$('mlItem_'+id);
   const v=(campo?.value||'').trim();
+  const p=dados.produtos.find(x=>x.id===id);
   try{
-    await db.patch('produtos', id, { ml_item_id: v||null, ml_sync_status: v?'pendente':null, ml_sync_erro:null });
-    toast(v?'Vinculação salva!':'Vinculação removida.');
-    const p=dados.produtos.find(x=>x.id===id);
-    if(p){ p.ml_item_id=v||null; p.ml_sync_status=v?'pendente':null; p.ml_sync_erro=null; }
+    if(v){
+      if(p?._ml){
+        await db.patch('ml_produto_mapeamento', p._ml.id, { ml_item_id: v, sync_status:'pendente', sync_erro:null, updated_at:new Date().toISOString() });
+        Object.assign(p._ml, { ml_item_id:v, sync_status:'pendente', sync_erro:null });
+      } else {
+        const [novo] = await db.post('ml_produto_mapeamento', withEmpresa({ produto_id:id, ml_item_id:v, sync_status:'pendente' }));
+        if(p) p._ml = novo;
+      }
+      toast('Vinculação salva!');
+    } else if(p?._ml){
+      await db.delete('ml_produto_mapeamento', p._ml.id);
+      p._ml = null;
+      toast('Vinculação removida.');
+    }
     renderMapeamento();
     // Sem isso, o produto só sincronizaria no PRÓXIMO movimento de estoque (a
     // trigger do banco só dispara quando a quantidade muda) — dispara aqui pra

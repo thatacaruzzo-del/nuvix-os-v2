@@ -14,10 +14,17 @@
 // reenvia notificação em retry/reentrega, então antes de processar sempre
 // confere se já existe uma venda com esse ml_order_id.
 //
-// Item do pedido sem produto correspondente (produtos.ml_item_id) NUNCA vira
-// venda incompleta — fica registrado em ml_pedidos_erro pra revisão manual em
-// Integrações, e a função responde erro (o ML tenta de novo depois; se a
-// pessoa corrigir o mapeamento antes do próximo retry, processa normal).
+// Item do pedido sem produto correspondente (tabela ml_produto_mapeamento,
+// mesmo padrão de produto_nuvemshop_mapeamento) NUNCA vira venda incompleta —
+// fica registrado em ml_pedidos_erro pra revisão manual em Integrações, e a
+// função responde erro (o ML tenta de novo depois; se a pessoa corrigir o
+// mapeamento antes do próximo retry, processa normal).
+//
+// Gate fiscal: se a empresa emite NFC-e (nfce_ativo=true) e não é MEI, todo
+// item do pedido precisa ter NCM + CSOSN/CST cadastrados — sem isso a venda
+// NÃO é registrada (bloqueia, não deixa passar sem nota). MEI ou empresa sem
+// nfce_ativo nunca passam por essa checagem — nunca precisaram de nota pra
+// vender no balcão, não seria coerente exigir só porque o canal é o ML.
 //
 // A baixa de estoque, o lançamento no Financeiro e a criação da venda em si
 // reaproveitam a função transacional finalizar_venda (mesma que o Caixa usa)
@@ -145,6 +152,22 @@ function arred2(v: number) {
   return Math.round((v + Number.EPSILON) * 100) / 100;
 }
 
+// MEI é dispensado de nota na venda a consumidor final na prática (regime
+// simplificado) — checar aqui evita bloquear venda de empresa que nunca
+// precisou de NCM/CSOSN pra vender no balcão. regime_tributario é o campo
+// específico; regime é o mais antigo/genérico — usa o que tiver preenchido.
+function empresaEhMei(empresa: any): boolean {
+  return String(empresa?.regime_tributario || empresa?.regime || "").trim().toUpperCase() === "MEI";
+}
+
+// Confere se algum item do pedido está sem NCM ou CSOSN/CST — os dois campos
+// que emitir-nfce realmente precisa pra SEFAZ aceitar a nota (cclasstrib/
+// cst_ibs_cbs da Reforma Tributária ainda são opcionais em 2026 pro Simples
+// Nacional, ver comentário em emitir-nfce/index.ts).
+function itensSemFiscalCompleto(itensDetalhados: any[]): string[] {
+  return itensDetalhados.filter((i) => !i.ncm || !i.csosn_cst).map((i) => i.produto_nome);
+}
+
 // Mesmo formato de payload que caixa.html monta em emitirNfceSeAtivo() — replica
 // aqui pro pedido do ML receber o mesmo tratamento fiscal de uma venda de balcão.
 async function emitirNfceMLSeAtivo(empresa: any, vendaId: string, itensDetalhados: any[], total: number, clienteNome: string, dataVenda: string, mlOrderId: string) {
@@ -216,10 +239,12 @@ async function processarPedidoML(empresa: any, cred: any, accessToken: string, o
 
   const orderItems: any[] = order.order_items || [];
   const itemIds: string[] = orderItems.map((oi) => String(oi.item?.id)).filter(Boolean);
-  const produtosMapeados: any[] = itemIds.length
-    ? await sbGet(`produtos?empresa_id=eq.${empresa.id}&ml_item_id=in.(${itemIds.join(",")})&select=id,nome,ml_item_id,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`)
+  const mapeamentos: any[] = itemIds.length
+    ? await sbGet(
+        `ml_produto_mapeamento?empresa_id=eq.${empresa.id}&ml_item_id=in.(${itemIds.join(",")})&select=ml_item_id,produtos(id,nome,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins)`
+      )
     : [];
-  const porMlItemId = new Map(produtosMapeados.map((p) => [p.ml_item_id, p]));
+  const porMlItemId = new Map(mapeamentos.map((m) => [m.ml_item_id, m.produtos]));
 
   const semMapeamento = orderItems.filter((oi) => !porMlItemId.has(String(oi.item?.id)));
   if (semMapeamento.length) {
@@ -252,6 +277,19 @@ async function processarPedidoML(empresa: any, cred: any, accessToken: string, o
       aliquota_cofins: p.aliquota_cofins,
     };
   });
+
+  if (empresa.nfce_ativo && !empresaEhMei(empresa)) {
+    const semFiscal = itensSemFiscalCompleto(itensDetalhados);
+    if (semFiscal.length) {
+      await registrarErroPedido(
+        empresa.id,
+        mlOrderId,
+        `Esta empresa emite nota fiscal e o(s) produto(s) a seguir estão sem NCM ou CSOSN/CST cadastrado: ${semFiscal.join(", ")}. Complete o cadastro fiscal em Produtos e aguarde o próximo reenvio do Mercado Livre.`,
+        order
+      );
+      return { erro: "itens_sem_fiscal_completo", itens: semFiscal };
+    }
+  }
 
   const total = arred2(itensDetalhados.reduce((a, i) => a + i.quantidade * i.valor_unitario, 0));
   const buyer = order.buyer || {};
