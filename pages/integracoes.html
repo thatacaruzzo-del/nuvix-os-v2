@@ -606,13 +606,18 @@ async function loadData(){
     renderLojaEstoqueShopee();
     renderMapeamentoShopee();
   }catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
-  await carregarStatusML();
-  await carregarErrosPedidos();
-  await carregarStatusNS();
-  await carregarStatusPK();
-  await carregarStatusShopee();
-  await carregarErrosPedidosShopee();
-  await carregarRadar();
+  // As 7 chamadas abaixo são independentes entre si (cada uma fala com uma
+  // function/tabela diferente) — rodar em paralelo em vez de uma esperando a
+  // outra terminar é o que faz a tela carregar rápido mesmo com 4 canais.
+  await Promise.all([
+    carregarStatusML(),
+    carregarErrosPedidos(),
+    carregarStatusNS(),
+    carregarStatusPK(),
+    carregarStatusShopee(),
+    carregarErrosPedidosShopee(),
+    carregarRadar(),
+  ]);
 }
 
 // ══ Pedidos com erro de importação — Mercado Livre ══
