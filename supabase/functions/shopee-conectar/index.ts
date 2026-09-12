@@ -5,16 +5,25 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // NUVIX — Edge Function: shopee-conectar
 //
 // Primeiro passo da autorização da Shopee — mesmo papel que ml-conectar tem
-// pro Mercado Livre, mas o mecanismo de autorização da Shopee é diferente:
-// não é OAuth2 padrão, é uma assinatura própria (HMAC-SHA256 de
-// partner_id+path+timestamp, usando o partner_key) que autentica a PRÓPRIA
-// Nuvix como app perante a Shopee. O `state` que protege contra CSRF aqui é
-// nosso, embutido na própria redirect URL — a Shopee não tem um parâmetro
-// `state` nativo como o Mercado Livre, só devolve de volta o que mandamos.
+// pro Mercado Livre. IMPORTANTE (descoberto lendo a doc oficial em
+// open.shopee.com/developer-guide, seção "Autorização e Autenticação" —
+// os exemplos de código Python/Java/PHP publicados por aí, inclusive os que
+// guiaram a primeira versão deste arquivo, mostram o endpoint ANTIGO
+// `/api/v2/shop/auth_partner` com HMAC assinado): o link de autorização
+// ATUAL não leva sign/timestamp nenhum — é uma URL simples em
+// open(.sandbox.test-stable)?.shopee.com(.br)/auth com partner_id,
+// auth_type=seller, redirect_uri e response_type=code. A Shopee valida só o
+// DOMÍNIO do redirect_uri contra o que está cadastrado no Console (não a URL
+// inteira), então o `state` (nosso, anti-CSRF) vai embutido como SEGMENTO DE
+// CAMINHO da redirect_uri (não como query string) — assim, quando a Shopee
+// devolve `?code=...&shop_id=...`, não colide com um `?` que já existisse.
+//
+// A troca do code por token (shopee-oauth-callback → auth/token/get) SEGUE
+// precisando de sign — isso não mudou, só o passo de autorização em si.
 //
 // SHOPEE_PARTNER_ID/SHOPEE_PARTNER_KEY vêm do app aprovado no Shopee Open
-// Platform (open.shopeemobile.com) — configurar como secret da function,
-// nunca no código. Ver SHOPEE-ATIVACAO.md.
+// Platform (open.shopee.com) — configurar como secret da function, nunca no
+// código. Ver SHOPEE-ATIVACAO.md.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -22,14 +31,12 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SHOPEE_PARTNER_ID = Deno.env.get("SHOPEE_PARTNER_ID");
 const SHOPEE_PARTNER_KEY = Deno.env.get("SHOPEE_PARTNER_KEY");
-// Host confirmado direto na "Ferramenta de Teste de API" do Console da Shopee
-// (a doc pública, desatualizada, ainda cita o domínio antigo partner.shopeemobile.com
-// — apps novos registrados em open.shopee.com usam openplatform.*.shopee.sg/.cn).
-// Sandbox: setar SHOPEE_HOST=https://openplatform.sandbox.test-stable.shopee.sg como
-// secret enquanto a conta usa Partner ID/Key de teste — trocar quando a Shopee aprovar
-// o app pra produção (host de produção ainda não confirmado contra uma chamada real,
-// ver SHOPEE-ATIVACAO.md).
-const SHOPEE_HOST = Deno.env.get("SHOPEE_HOST") || "https://openplatform.shopee.sg";
+// Domínio do LINK DE AUTORIZAÇÃO (browser) — família open.shopee.com(.br),
+// diferente do domínio das CHAMADAS DE API (SHOPEE_HOST, família
+// openplatform.*.shopee.sg). Nuvix atende empresa brasileira, por isso o
+// padrão já é o domínio BR; setar SHOPEE_AUTH_HOST como secret pra trocar de
+// ambiente (sandbox → produção: tirar o "sandbox.test-stable.").
+const SHOPEE_AUTH_HOST = Deno.env.get("SHOPEE_AUTH_HOST") || "https://open.sandbox.test-stable.shopee.com.br";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -88,14 +95,14 @@ Deno.serve(async (req) => {
     const assinatura = await hmacHex(SHOPEE_PARTNER_KEY, encoded);
     const state = `${encoded}.${assinatura}`;
 
-    const path = "/api/v2/shop/auth_partner";
-    const timestamp = Math.floor(Date.now() / 1000);
-    const sign = await hmacHex(SHOPEE_PARTNER_KEY, `${SHOPEE_PARTNER_ID}${path}${timestamp}`);
-    const redirect = `${SUPABASE_URL}/functions/v1/shopee-oauth-callback?state=${encodeURIComponent(state)}`;
+    // state no CAMINHO, não na query string — ver aviso no topo do arquivo
+    // sobre por que (evita colidir com o "?code=...&shop_id=..." que a
+    // Shopee acrescenta na volta).
+    const redirectUri = `${SUPABASE_URL}/functions/v1/shopee-oauth-callback/${encodeURIComponent(state)}`;
 
     const url =
-      `${SHOPEE_HOST}${path}?partner_id=${SHOPEE_PARTNER_ID}&timestamp=${timestamp}&sign=${sign}` +
-      `&redirect=${encodeURIComponent(redirect)}`;
+      `${SHOPEE_AUTH_HOST}/auth?partner_id=${SHOPEE_PARTNER_ID}&auth_type=seller` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
 
     return json({ ok: true, url });
   } catch (e) {

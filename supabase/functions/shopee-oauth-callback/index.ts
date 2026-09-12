@@ -2,9 +2,10 @@
 // NUVIX — Edge Function: shopee-oauth-callback
 //
 // Redirect URI da autorização da Shopee — mesmo papel de ml-oauth-callback.
-// A Shopee chama isto com ?code=...&shop_id=...&state=... (state é o nosso
-// próprio, embutido na redirect URL que shopee-conectar montou — a Shopee só
-// devolve de volta o que mandamos, sem interpretar).
+// A Shopee chama isto com ?code=...&shop_id=... (query) — o `state` (nosso,
+// anti-CSRF) vem no CAMINHO da URL, não na query (ver shopee-conectar/
+// index.ts: a Shopee só valida o domínio do redirect_uri, então colocar
+// state ali evitaria colisão de "?" se fosse query string).
 //
 // PÚBLICA de propósito (verify_jwt desligado no deploy) — é a Shopee quem
 // redireciona o navegador do usuário pra cá, sem Authorization header.
@@ -13,6 +14,15 @@
 // shopee-conectar — aqui só confere a assinatura e a validade (10min) antes
 // de confiar no empresa_id embutido nele. Mesmo raciocínio anti-CSRF de
 // ml-oauth-callback.
+//
+// ATENÇÃO — ponto ainda em aberto (ver SHOPEE-ATIVACAO.md): a assinatura do
+// POST /auth/token/get abaixo segue a fórmula oficial (partner_id+path+
+// timestamp, HMAC-SHA256 com a partner_key, hex minúsculo) confirmada na doc
+// em open.shopee.com/developer-guide — mas em teste manual via curl essa
+// mesma fórmula, com a mesma chave, não bateu com o `sign` gerado pela
+// própria Ferramenta de Teste de API do Console pro mesmo timestamp. Ainda
+// não identificado se é peculiaridade desta conta/app de teste — testar de
+// novo aqui é o próximo passo antes de confiar 100% neste trecho.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -63,7 +73,11 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const shopId = url.searchParams.get("shop_id");
-    const state = url.searchParams.get("state");
+    // state vem no caminho: /shopee-oauth-callback/<state> — pega o último
+    // segmento não vazio (Supabase roteia tudo depois do slug da function
+    // pra cá, acessível via req.url normalmente).
+    const segmentos = url.pathname.split("/").filter(Boolean);
+    const state = decodeURIComponent(segmentos[segmentos.length - 1] || "");
 
     if (!code || !shopId || !state) return redirecionar("erro", "parametros_ausentes");
     if (!SHOPEE_PARTNER_ID || !SHOPEE_PARTNER_KEY) return redirecionar("erro", "shopee_nao_configurado");
