@@ -181,6 +181,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
               <option value="valor_desc">Preço: maior → menor</option>
               <option value="valor_asc">Preço: menor → maior</option>
             </select>
+            <button class="btn2" onclick="abrirModalCsosnPadrao()">CSOSN padrão</button>
             <button class="btn2" onclick="abrirModalImportarProdutos()">Importar CSV</button>
             <button class="btn" onclick="abrirModalProduto()">+ Novo produto</button>
           </div>
@@ -375,6 +376,24 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalConsignador')">Cancelar</button>
     <button class="btn" onclick="salvarConsignador()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CSOSN PADRÃO -->
+<div class="modal-overlay" id="modalCsosnPadrao">
+<div class="modal">
+  <h3>CSOSN/CST padrão da empresa</h3>
+  <p class="field-hint" style="margin-bottom:12px">Na prática é o mesmo código pra quase todo o catálogo — depende do regime tributário da empresa, não do produto. Configure uma vez aqui e todo produto novo (inclusive os importados do Mercado Livre) já nasce preenchido. Não sabe o valor certo? Confirme com seu contador.</p>
+  <div class="field"><label>CSOSN/CST padrão</label><input id="csosnPadraoInput" placeholder="Ex: 102"></div>
+  <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:12px 0 4px">
+    <input type="checkbox" id="csosnPadraoAplicarTodos" checked>
+    Aplicar agora aos produtos que ainda estão sem CST/CSOSN
+  </label>
+  <div id="csosnPadraoMsg" class="msg"></div>
+  <div style="display:flex;gap:10px;margin-top:14px">
+    <button class="btn2" onclick="fecharModal('modalCsosnPadrao')" style="flex:1">Cancelar</button>
+    <button class="btn" onclick="salvarCsosnPadrao()" style="flex:1">Salvar</button>
   </div>
 </div>
 </div>
@@ -752,7 +771,8 @@ function toggleFornecedorConsignado(){
 function abrirModalProduto(){
   $('modalProdutoTitulo').textContent='Novo produto';
   $('prodId').value=''; $('prodNome').value=''; $('prodSku').value=''; $('prodCodigoBarras').value='';
-  $('prodNcm').value=''; $('prodCest').value=''; $('prodCfop').value='5102'; $('prodUnidade').value='UN'; $('prodOrigem').value='0'; $('prodCstCsosn').value='';
+  $('prodNcm').value=''; $('prodCest').value=''; $('prodCfop').value='5102'; $('prodUnidade').value='UN'; $('prodOrigem').value='0';
+  $('prodCstCsosn').value=session?.empresa?.csosn_cst_padrao||'';
   $('prodAliqIcms').value=''; $('prodAliqPis').value=''; $('prodAliqCofins').value='';
   $('prodCstIbsCbs').value='000'; $('prodCclasstrib').value='000001';
   $('prodCusto').value=''; $('prodSugerido').value=money(0); $('prodPrecoFinal').value='';
@@ -765,6 +785,31 @@ function abrirModalProduto(){
   renderEstoqueInicialCampos();
   atualizarPrecoSugerido();
   abrirModal('modalProduto');
+}
+
+function abrirModalCsosnPadrao(){
+  $('csosnPadraoInput').value = session?.empresa?.csosn_cst_padrao||'';
+  $('csosnPadraoAplicarTodos').checked = true;
+  $('csosnPadraoMsg').textContent=''; $('csosnPadraoMsg').className='msg';
+  abrirModal('modalCsosnPadrao');
+}
+async function salvarCsosnPadrao(){
+  const v=val('csosnPadraoInput').trim();
+  if(!v){ msg('csosnPadraoMsg','Informe o CSOSN/CST.','err'); return; }
+  try{
+    await db.patch('empresas', session.empresa_id, { csosn_cst_padrao: v });
+    if(session.empresa) session.empresa.csosn_cst_padrao = v;
+    if($('csosnPadraoAplicarTodos').checked){
+      const semCsosn = (dados.produtos||[]).filter(p=>!p.csosn_cst);
+      if(semCsosn.length){
+        await Promise.all(semCsosn.map(p=>db.patch('produtos', p.id, { csosn_cst: v })));
+        semCsosn.forEach(p=>p.csosn_cst=v);
+      }
+    }
+    toast('CSOSN padrão salvo!');
+    fecharModal('modalCsosnPadrao');
+    renderProdutos();
+  }catch(e){ msg('csosnPadraoMsg','Erro: '+e.message,'err'); }
 }
 function editarProduto(id){
   const p=dados.produtos.find(x=>x.id===id);

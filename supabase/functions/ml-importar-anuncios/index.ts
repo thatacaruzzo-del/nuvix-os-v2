@@ -11,10 +11,14 @@
 // vincular a um produto que já existe, ou criar um produto novo pré-
 // preenchido (nome/preço/SKU do próprio anúncio).
 //
-// Produto criado por aqui NASCE sem NCM/CSOSN — o ML não manda esses campos,
-// são fiscais e o cliente que decide. Fica igual a um produto cadastrado à
-// mão sem completar o fiscal: some da lista de "sem anúncio" mas ainda
-// bloqueia venda por NF se a empresa emitir NFC-e (ver ml-webhook).
+// Fiscal do produto criado por aqui: CSOSN/CST vem do padrão configurado em
+// Produtos → "CSOSN padrão da empresa" (empresas.csosn_cst_padrao) — não tem
+// como vir do ML, marketplace não tem esse conceito. NCM às vezes VEM do
+// próprio anúncio (atributo "NCM" nos attributes do item, quando a categoria
+// pede e o vendedor preencheu no ML) — usa se existir, senão fica em branco
+// pro cliente completar. Sem os dois, ainda bloqueia venda por NF se a
+// empresa emitir NFC-e (ver ml-webhook) — mas na prática, com o padrão
+// configurado, isso deixa de acontecer pra CSOSN.
 //
 // Chamada só pelo navegador autenticado (verify_jwt=true) — diferente de
 // ml-webhook/ml-sync-estoque, aqui sempre tem uma sessão de usuário real por
@@ -133,6 +137,16 @@ async function listarItemIdsAtivos(mlUserId: string, accessToken: string): Promi
   return ids;
 }
 
+// A categoria do anúncio às vezes tem um atributo "NCM" (id exato confirmado
+// na doc de categorias do ML — nem toda categoria pede, e mesmo quando pede
+// o vendedor pode ter deixado em branco). Quando existe e foi preenchido,
+// poupa o cliente de digitar de novo no Nuvix.
+function extrairNcm(attributes: any[] | undefined): string | null {
+  const attr = (attributes || []).find((a) => a?.id === "NCM");
+  const valor = attr?.value_name || attr?.values?.[0]?.name || null;
+  return valor ? String(valor).replace(/\D/g, "").slice(0, 8) || null : null;
+}
+
 // Multiget da API do ML aceita até 20 ids por chamada.
 async function buscarDetalhesItens(ids: string[], accessToken: string): Promise<any[]> {
   const detalhes: any[] = [];
@@ -171,6 +185,7 @@ async function acaoListar(empresaId: string) {
     quantidade_disponivel: it.available_quantity,
     sku: it.seller_custom_field || it.seller_sku || null,
     thumbnail: it.thumbnail || null,
+    ncm: extrairNcm(it.attributes),
   }));
   return json({ ok: true, anuncios });
 }
@@ -187,7 +202,8 @@ async function acaoVincular(empresaId: string, mlItemId: string, produtoId: stri
   return json({ ok: true, mapeamento: novo });
 }
 
-async function acaoCriar(empresaId: string, mlItemId: string, titulo: string, preco: number, sku: string | null) {
+async function acaoCriar(empresaId: string, mlItemId: string, titulo: string, preco: number, sku: string | null, ncm: string | null) {
+  const [empresa] = await sbGet(`empresas?id=eq.${empresaId}&select=csosn_cst_padrao`);
   const [produto] = await sbPost("produtos", {
     empresa_id: empresaId,
     nome: titulo,
@@ -195,6 +211,8 @@ async function acaoCriar(empresaId: string, mlItemId: string, titulo: string, pr
     custo_atual: 0,
     preco_venda_final: Number(preco) || 0,
     preco_sobrescrito: true,
+    ncm: ncm || null,
+    csosn_cst: empresa?.csosn_cst_padrao || null,
   });
   const [mapeamento] = await sbPost("ml_produto_mapeamento", {
     empresa_id: empresaId,
@@ -225,7 +243,14 @@ Deno.serve(async (req) => {
 
     if (acao === "criar") {
       if (!body?.ml_item_id || !body?.titulo) return json({ ok: false, erro: "ml_item_id_e_titulo_obrigatorios" }, 400);
-      return await acaoCriar(empresaId, String(body.ml_item_id), String(body.titulo), Number(body.preco) || 0, body.sku ? String(body.sku) : null);
+      return await acaoCriar(
+        empresaId,
+        String(body.ml_item_id),
+        String(body.titulo),
+        Number(body.preco) || 0,
+        body.sku ? String(body.sku) : null,
+        body.ncm ? String(body.ncm) : null
+      );
     }
 
     return json({ ok: false, erro: "acao_invalida" }, 400);
