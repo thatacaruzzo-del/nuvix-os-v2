@@ -880,6 +880,9 @@ async function salvarMlItemId(id){
       await db.delete('ml_produto_mapeamento', p._ml.id);
       p._ml = null;
       toast('Vinculação removida.');
+    } else {
+      toast('Informe o ID do anúncio (ex: MLB1234567890) antes de salvar.','err');
+      return;
     }
     renderMapeamento();
     // Sem isso, o produto só sincronizaria no PRÓXIMO movimento de estoque (a
