@@ -40,11 +40,33 @@ dela, em Integrações.
 ## Passo a passo pra ativar de verdade
 
 ### 1. Acessar o app já aprovado no Shopee Open Platform
-Você mencionou que a Shopee já aprovou o cadastro de parceiro — falta entrar
-em open.shopeemobile.com (ou o portal específico do Brasil) e pegar, no
-painel do app:
-- **Partner ID**
-- **Partner Key**
+O portal certo é **open.shopee.com** (não `open.shopeemobile.com`, que é um
+domínio antigo/diferente — não confundir). Dentro do Console → "Lista de
+Aplicativos" → cria/abre o app (categoria "Sistema ERP" serve bem) e pega:
+- **Partner ID** (ex: `1244217`)
+- **Partner Key** ("Chave de Parceiro da API de Teste" na tela do app, em
+  ambiente de Desenvolvimento/sandbox)
+
+**Host da API — ponto que quebrou na primeira tentativa real**: a
+documentação pública (inclusive buscas na web) ainda referencia o domínio
+antigo `partner.shopeemobile.com` / `partner.test-stable.shopeemobile.com`.
+Isso está **desatualizado** para apps novos registrados em open.shopee.com —
+o host real, confirmado direto na "Ferramenta de Teste de API" do próprio
+Console (Tools → Ferramenta de Teste de API → escolher qualquer endpoint →
+campo "URL do pedido"), é:
+- Sandbox: `https://openplatform.sandbox.test-stable.shopee.sg`
+- Produção: ainda não confirmada contra uma chamada real — por analogia,
+  provavelmente `https://openplatform.shopee.sg`, mas **conferir na mesma
+  Ferramenta de Teste de API** trocando pro ambiente de produção antes de ir
+  pra cliente real.
+
+Também vale notar: o ambiente sandbox exige uma **conta de vendedor de
+teste** (Console → Tools → "Test Account-Sandbox" → já vem uma criada, ou
+"Criar Conta de Teste") — e é preciso **logar nela primeiro** (botão "Login
+no Centro de Vendedores" naquela tela) no mesmo navegador antes de testar o
+fluxo de autorização; a API bloqueia a chamada (`Gw_block: openapi`, erro
+`error_sign` genérico e enganoso) se não houver sessão de vendedor sandbox
+ativa.
 
 ### 2. Configurar os secrets das edge functions
 Nunca colar essas credenciais em código nem no chat — configurar direto no
@@ -53,7 +75,13 @@ Supabase:
 ```
 supabase secrets set SHOPEE_PARTNER_ID=...
 supabase secrets set SHOPEE_PARTNER_KEY=...
+supabase secrets set SHOPEE_HOST=https://openplatform.sandbox.test-stable.shopee.sg
 ```
+
+Depois de setar/trocar um secret, **sempre redeployar as functions que o
+usam** — instância já em execução não recarrega sozinha, mesmo o secret
+já estando salvo (foi o segundo problema real que apareceu na ativação:
+o `SHOPEE_HOST` novo só passou a valer depois do redeploy).
 
 ### 3. Cadastrar a Push Config URL (webhook de pedidos)
 No painel do app, em "Push Configuration" (ou nome equivalente na versão

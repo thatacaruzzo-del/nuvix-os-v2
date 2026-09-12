@@ -22,7 +22,14 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SHOPEE_PARTNER_ID = Deno.env.get("SHOPEE_PARTNER_ID");
 const SHOPEE_PARTNER_KEY = Deno.env.get("SHOPEE_PARTNER_KEY");
-const SHOPEE_HOST = "https://partner.shopeemobile.com";
+// Host confirmado direto na "Ferramenta de Teste de API" do Console da Shopee
+// (a doc pública, desatualizada, ainda cita o domínio antigo partner.shopeemobile.com
+// — apps novos registrados em open.shopee.com usam openplatform.*.shopee.sg/.cn).
+// Sandbox: setar SHOPEE_HOST=https://openplatform.sandbox.test-stable.shopee.sg como
+// secret enquanto a conta usa Partner ID/Key de teste — trocar quando a Shopee aprovar
+// o app pra produção (host de produção ainda não confirmado contra uma chamada real,
+// ver SHOPEE-ATIVACAO.md).
+const SHOPEE_HOST = Deno.env.get("SHOPEE_HOST") || "https://openplatform.shopee.sg";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

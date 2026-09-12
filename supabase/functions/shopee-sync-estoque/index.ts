@@ -24,7 +24,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SHOPEE_PARTNER_ID = Deno.env.get("SHOPEE_PARTNER_ID");
 const SHOPEE_PARTNER_KEY = Deno.env.get("SHOPEE_PARTNER_KEY");
-const SHOPEE_HOST = "https://partner.shopeemobile.com";
+// Ver mesmo comentário em shopee-conectar/index.ts sobre SHOPEE_HOST de sandbox.
+const SHOPEE_HOST = Deno.env.get("SHOPEE_HOST") || "https://openplatform.shopee.sg";
 
 const sbHeaders = {
   apikey: SERVICE_KEY,
