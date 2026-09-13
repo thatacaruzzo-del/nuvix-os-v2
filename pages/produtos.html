@@ -246,7 +246,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-validade" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
           <h2 style="margin:0 0 4px">Entrada de mercadoria</h2>
-          <p class="field-hint" style="margin-bottom:14px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote — a venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
+          <p class="field-hint" style="margin-bottom:8px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote — a venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
+          <div class="insight-line" style="margin-bottom:14px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;margin-top:2px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>É uma compra de um fornecedor, com nota fiscal (XML ou não)? Use <a href="notas-fiscais.html" style="color:var(--p);font-weight:700">Notas Fiscais → Notas de Entrada</a> — além do estoque e do lote, já registra o fornecedor e lança a conta a pagar no Financeiro sozinho.</span>
+          </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:1;min-width:180px"><label>Loja *</label><select id="entLoja"></select></div>
             <div class="field" style="flex:2;min-width:220px"><label>Produto *</label><select id="entProduto" onchange="atualizarCamposEntrada()"></select></div>

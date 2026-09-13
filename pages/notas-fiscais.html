@@ -36,6 +36,16 @@
 .entrada-item-sub{font-size:11px;color:var(--muted)}
 .entrada-parcela-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
 @media(max-width:760px){.entrada-item-row{grid-template-columns:1fr 1fr}}
+.entrada-busca-field{position:relative}
+.entrada-busca-resultados{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,.12));margin-top:6px;max-height:220px;overflow-y:auto;z-index:30;display:none}
+.entrada-busca-resultados.open{display:block}
+.entrada-busca-item{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);font-size:12px}
+.entrada-busca-item:last-child{border-bottom:none}
+.entrada-busca-item:hover{background:var(--p-light)}
+.entrada-barras-input{font-family:monospace;font-size:14px;letter-spacing:.03em}
+.man-item-row{display:grid;grid-template-columns:1.6fr .8fr .8fr 1fr;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.man-item-row:last-child{border-bottom:none}
+.man-item-row input{width:100%;padding:6px 8px;font-size:12px}
 @media(max-width:900px){.nf-strip{grid-template-columns:1fr 1fr}#hambBtn{display:block!important}}
 @media(max-width:600px){.nf-strip{grid-template-columns:1fr}}
 </style>
@@ -169,6 +179,8 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
               <input type="file" id="entradaXmlInput" accept=".xml">
               <button class="btn" id="entradaImportarBtn" onclick="importarXmlEntrada()">Importar XML</button>
+              <span style="color:var(--muted);font-size:12px">ou</span>
+              <button class="btn2" onclick="abrirModalEntradaManual()">Lançar sem XML</button>
             </div>
           </div>
 
@@ -203,6 +215,33 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
     <button class="btn2" id="detVerBtn" style="display:none" onclick="verImprimir()">Ver / Imprimir</button>
     <button class="btn2" id="detXmlBtn" style="display:none" onclick="baixarXml()">Baixar XML</button>
     <button class="danger" id="detCancelarBtn" style="display:none" onclick="cancelarNota()">Cancelar nota</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL LANÇAMENTO MANUAL (sem XML) -->
+<div class="modal-overlay" id="modalEntradaManual">
+<div class="modal" style="max-width:680px">
+  <h3>Lançar entrada sem XML</h3>
+  <div class="det-section">Fornecedor</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div class="field" style="flex:2;min-width:200px"><label>Nome</label><input id="manFornecedorNome" list="manFornecedoresList" placeholder="Nome do fornecedor"></div>
+    <div class="field" style="flex:1;min-width:160px"><label>CNPJ (opcional)</label><input id="manFornecedorCnpj" placeholder="00.000.000/0000-00"></div>
+  </div>
+  <datalist id="manFornecedoresList"></datalist>
+  <div class="field"><label>Número do documento (opcional)</label><input id="manNumero" placeholder="Nº da nota/recibo, se tiver — pode deixar em branco"></div>
+
+  <div class="det-section">Itens</div>
+  <div class="pdv-scan-row" style="margin-bottom:6px">
+    <div class="field pdv-scan-field"><label>Bipar código de barras</label><input id="manBarras" class="entrada-barras-input" placeholder="Leia com o leitor ou digite e tecle Enter" autocomplete="off"></div>
+    <div class="field pdv-busca-field entrada-busca-field"><label>Buscar produto (nome, SKU ou código)</label><input id="manBusca" placeholder="Digite pra buscar..." autocomplete="off" oninput="buscarProdutoManualEntrada()"><div class="entrada-busca-resultados" id="manBuscaResultados"></div></div>
+  </div>
+  <div id="manItensLista"></div>
+  <div id="entradaManualMsg" class="msg"></div>
+
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEntradaManual')">Cancelar</button>
+    <button class="btn" onclick="criarRascunhoManual()">Criar rascunho e conferir</button>
   </div>
 </div>
 </div>
@@ -639,7 +678,7 @@ function renderListaEntrada(){
       <td style="font-weight:700">${money(n.valor_total)}</td>
       <td><span class="badge ${cor}">${label}</span></td>
     </tr>`;
-  }).join('')||`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota de entrada ainda. Importe o XML de uma compra pra começar.</td></tr>`);
+  }).join('')||`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota de entrada ainda. Importe o XML de uma compra ou lance sem XML pra começar.</td></tr>`);
 }
 
 async function importarXmlEntrada(){
@@ -669,6 +708,8 @@ async function importarXmlEntrada(){
   $('entradaImportarBtn').disabled=false;
 }
 
+let itensEmEdicaoProduto=new Set();
+
 async function abrirEntrada(id){
   const nota=notasEntrada.find(n=>n.id===id);
   if(!nota)return;
@@ -679,14 +720,43 @@ async function abrirEntrada(id){
   parcelasEntradaAtual=Array.isArray(nota.parcelas_sugeridas)&&nota.parcelas_sugeridas.length
     ?JSON.parse(JSON.stringify(nota.parcelas_sugeridas))
     :[{numero:'1',vencimento:nota.data_emissao,valor:Number(nota.valor_total||0)}];
+  itensEmEdicaoProduto=new Set(itensEntradaAtual.map((it,i)=>it.produto_id?null:i).filter(i=>i!==null));
   $('entradaModalMsg').textContent='';$('entradaModalMsg').className='msg';
   if(nota.status==='processada')renderEntradaLeitura();
   else renderEntradaRevisao();
   abrirModal('modalEntrada');
 }
 
-function nomeProdutoOptions(selecionadoId){
-  return'<option value="">— selecionar produto —</option>'+produtosCacheEntrada.map(p=>`<option value="${p.id}" ${p.id===selecionadoId?'selected':''}>${esc(p.nome)}${p.sku?' ('+esc(p.sku)+')':''}</option>`).join('');
+// Busca com suporte a bipagem, por item — mesmo padrão do Caixa (pdvBarras/
+// pdvBusca): campo dedicado pro leitor (compara exato contra codigo_barras) e
+// campo de busca livre (nome/SKU/código), cada um com sua caixinha de
+// resultado, escopada por índice do item na nota.
+function trocarProdutoItem(i){
+  coletarEdicoesEntradaDoDom();
+  itensEmEdicaoProduto.add(i);
+  renderEntradaRevisao();
+}
+function selecionarProdutoParaItem(i,produtoId){
+  coletarEdicoesEntradaDoDom();
+  itensEntradaAtual[i].produto_id=produtoId;
+  itensEmEdicaoProduto.delete(i);
+  renderEntradaRevisao();
+}
+function bipouProdutoParaItem(i,codigo){
+  codigo=(codigo||'').trim();
+  if(!codigo)return;
+  const produto=produtosCacheEntrada.find(p=>p.codigo_barras===codigo);
+  if(!produto){toast('Nenhum produto com esse código de barras.','err');return;}
+  selecionarProdutoParaItem(i,produto.id);
+}
+function buscarProdutoParaItemEntrada(i,q){
+  const box=$(`entItemBusca${i}`);
+  if(!box)return;
+  q=(q||'').trim().toLowerCase();
+  if(!q){box.classList.remove('open');box.innerHTML='';return;}
+  const achados=produtosCacheEntrada.filter(p=>p.nome.toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').includes(q)).slice(0,12);
+  box.innerHTML=achados.map(p=>`<div class="entrada-busca-item" onclick="selecionarProdutoParaItem(${i},'${p.id}')"><span>${esc(p.nome)}${p.sku?' ('+esc(p.sku)+')':''}</span><span>${money(p.custo_atual||0)}</span></div>`).join('')||'<div class="entrada-busca-item">Nenhum produto encontrado.</div>';
+  box.classList.add('open');
 }
 
 // Lê os valores que o usuário já digitou no DOM de volta pro estado em memória —
@@ -720,12 +790,23 @@ function renderEntradaRevisao(){
   const itensHtml=itensEntradaAtual.map((it,i)=>{
     const produto=produtosCacheEntrada.find(p=>p.id===it.produto_id);
     const controlaValidade=produto?.controla_validade;
+    const emEdicao=!it.produto_id||itensEmEdicaoProduto.has(i);
+    const blocoProduto=emEdicao?`
+        <div class="entrada-busca-field" style="margin-top:6px">
+          <input class="entrada-barras-input" style="font-size:12px" placeholder="Bipar código de barras" onkeydown="if(event.key==='Enter'){bipouProdutoParaItem(${i},this.value);this.value='';}">
+          <input style="margin-top:4px;font-size:12px" placeholder="ou buscar por nome/SKU..." oninput="buscarProdutoParaItemEntrada(${i},this.value)">
+          <div class="entrada-busca-resultados" id="entItemBusca${i}"></div>
+        </div>
+        <button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="criarProdutoRapido(${i})">+ Criar produto novo</button>
+      `:`
+        <div class="entrada-item-sub" style="color:var(--green);font-weight:700;margin-top:4px">✓ ${esc(produto?.nome||'')}</div>
+        <button type="button" class="btn2" style="padding:3px 8px;font-size:11px;margin-top:4px" onclick="trocarProdutoItem(${i})">Trocar produto</button>
+      `;
     return`<div class="entrada-item-row" data-item-idx="${i}">
       <div>
         <div class="entrada-item-label">${esc(it.descricao)}</div>
         <div class="entrada-item-sub">Cód. fornecedor: ${esc(it.codigo_fornecedor||'—')}${it.codigo_barras?' · EAN '+esc(it.codigo_barras):''}</div>
-        <select class="ent-produto" onchange="mudouProdutoItem(${i},this.value)">${nomeProdutoOptions(it.produto_id)}</select>
-        ${it.produto_id?'':`<button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="criarProdutoRapido(${i})">+ Criar produto novo</button>`}
+        ${blocoProduto}
       </div>
       <input class="ent-qtd" type="number" step="0.01" min="0.01" value="${it.quantidade}" title="Quantidade">
       <input class="ent-valor" type="number" step="0.01" min="0" value="${it.valor_unitario}" title="Valor unitário">
@@ -744,7 +825,7 @@ function renderEntradaRevisao(){
     <div class="det-section">Nota</div>
     <div class="det-row"><span class="det-lbl">Fornecedor</span><span class="det-val">${esc(n.fornecedores?.nome||'—')}</span></div>
     <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
-    <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso)}</span></div>
+    <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso||'— (lançamento manual, sem XML)')}</span></div>
     <div class="det-row"><span class="det-lbl">Valor total da nota</span><span class="det-val">${money(n.valor_total)}</span></div>
 
     <div class="det-section">Onde recebe</div>
@@ -759,12 +840,6 @@ function renderEntradaRevisao(){
     <button type="button" class="btn2" style="padding:6px 12px;font-size:12px" onclick="adicionarParcela()">+ Adicionar parcela</button>
   `);
   $('entradaConfirmarBtn').style.display='block';
-}
-
-function mudouProdutoItem(i,produtoId){
-  coletarEdicoesEntradaDoDom();
-  itensEntradaAtual[i].produto_id=produtoId||null;
-  renderEntradaRevisao();
 }
 
 async function criarProdutoRapido(i){
@@ -788,6 +863,7 @@ async function criarProdutoRapido(i){
     produtosCacheEntrada.push(novo);
     produtosCacheEntrada.sort((a,b)=>a.nome.localeCompare(b.nome));
     itensEntradaAtual[i].produto_id=novo.id;
+    itensEmEdicaoProduto.delete(i);
     toast('Produto criado e vinculado — revise preço e NCM depois em Produtos.','ok');
     renderEntradaRevisao();
   }catch(e){toast('Erro ao criar produto: '+e.message,'err');}
@@ -859,6 +935,131 @@ function renderEntradaLeitura(){
   `);
   $('entradaConfirmarBtn').style.display='none';
 }
+
+// ══ LANÇAMENTO MANUAL (sem XML) — mesmo motor de confirmar_entrada_nf, só
+// muda como o rascunho nasce: em vez de ler de um XML, monta a nota com o que
+// foi bipado/buscado aqui. Termina abrindo a MESMA tela de conferência do
+// fluxo por XML — um motor só, duas portas de entrada. ══
+let manItensAtuais=[];
+
+async function abrirModalEntradaManual(){
+  manItensAtuais=[];
+  $('manFornecedorNome').value='';$('manFornecedorCnpj').value='';$('manNumero').value='';
+  $('entradaManualMsg').textContent='';$('entradaManualMsg').className='msg';
+  renderManItensLista();
+  try{
+    const lista=await db.get('fornecedores',`?empresa_id=eq.${session.empresa_id}&select=nome&order=nome.asc`);
+    setHTML('manFornecedoresList',lista.map(f=>`<option value="${esc(f.nome)}">`).join(''));
+  }catch(e){}
+  if(!produtosCacheEntrada.length){
+    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+  }
+  abrirModal('modalEntradaManual');
+  setTimeout(()=>$('manBarras')?.focus(),80);
+}
+
+function buscarProdutoManualEntrada(){
+  const q=val('manBusca').trim().toLowerCase();
+  const box=$('manBuscaResultados');
+  if(!q){box.classList.remove('open');box.innerHTML='';return;}
+  const achados=produtosCacheEntrada.filter(p=>p.nome.toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').includes(q)).slice(0,15);
+  box.innerHTML=achados.map(p=>`<div class="entrada-busca-item" onclick="adicionarItemManualPorId('${p.id}')"><span>${esc(p.nome)}${p.sku?' ('+esc(p.sku)+')':''}</span><span>${money(p.custo_atual||0)}</span></div>`).join('')||'<div class="entrada-busca-item">Nenhum produto encontrado.</div>';
+  box.classList.add('open');
+}
+function adicionarItemManualPorId(id){
+  const p=produtosCacheEntrada.find(x=>x.id===id);
+  if(p)adicionarItemManual(p);
+  $('manBusca').value='';$('manBuscaResultados').classList.remove('open');
+}
+function adicionarItemManual(produto){
+  coletarEdicoesManualDoDom();
+  const existente=manItensAtuais.find(it=>it.produto_id===produto.id);
+  if(existente)existente.quantidade=Number(existente.quantidade)+1;
+  else manItensAtuais.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.custo_atual||0)});
+  renderManItensLista();
+}
+function removerItemManual(i){
+  coletarEdicoesManualDoDom();
+  manItensAtuais.splice(i,1);
+  renderManItensLista();
+}
+function coletarEdicoesManualDoDom(){
+  document.querySelectorAll('.man-item-row').forEach(row=>{
+    const i=Number(row.dataset.idx);
+    if(!manItensAtuais[i])return;
+    manItensAtuais[i].quantidade=Number(row.querySelector('.man-qtd')?.value||manItensAtuais[i].quantidade);
+    manItensAtuais[i].valor_unitario=Number(row.querySelector('.man-valor')?.value??manItensAtuais[i].valor_unitario);
+  });
+}
+function renderManItensLista(){
+  setHTML('manItensLista',manItensAtuais.length?manItensAtuais.map((it,i)=>`<div class="man-item-row" data-idx="${i}">
+    <div class="entrada-item-label">${esc(it.nome)}</div>
+    <input class="man-qtd" type="number" step="0.01" min="0.01" value="${it.quantidade}" title="Quantidade">
+    <input class="man-valor" type="number" step="0.01" min="0" value="${it.valor_unitario}" title="Valor unitário">
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px"><span class="entrada-item-sub">${money(Number(it.quantidade)*Number(it.valor_unitario))}</span><button type="button" class="btn2" style="padding:4px 8px;font-size:11px" onclick="removerItemManual(${i})">Remover</button></div>
+  </div>`).join(''):'<p class="field-hint">Nenhum item adicionado ainda — bipe ou busque um produto acima.</p>');
+}
+
+async function criarRascunhoManual(){
+  coletarEdicoesManualDoDom();
+  if(!manItensAtuais.length){msg('entradaManualMsg','Adicione pelo menos 1 item.','err');return;}
+  const itemInvalido=manItensAtuais.find(it=>!(Number(it.quantidade)>0));
+  if(itemInvalido){msg('entradaManualMsg','Todo item precisa ter quantidade maior que zero.','err');return;}
+  const nomeFornecedor=val('manFornecedorNome').trim();
+  const cnpjDigitado=val('manFornecedorCnpj').replace(/\D/g,'');
+  try{
+    let fornecedorId=null;
+    if(cnpjDigitado){
+      const achados=await db.get('fornecedores',`?empresa_id=eq.${session.empresa_id}&cnpj=eq.${cnpjDigitado}&select=id`);
+      if(achados[0])fornecedorId=achados[0].id;
+    }
+    if(!fornecedorId&&nomeFornecedor){
+      const achados=await db.get('fornecedores',`?empresa_id=eq.${session.empresa_id}&nome=eq.${encodeURIComponent(nomeFornecedor)}&select=id`);
+      if(achados[0])fornecedorId=achados[0].id;
+    }
+    if(!fornecedorId&&nomeFornecedor){
+      const[criado]=await db.post('fornecedores',{empresa_id:session.empresa_id,nome:nomeFornecedor,cnpj:cnpjDigitado||null});
+      fornecedorId=criado.id;
+    }
+    const valorTotal=manItensAtuais.reduce((a,it)=>a+Number(it.quantidade)*Number(it.valor_unitario),0);
+    const[nota]=await db.post('notas_fiscais_entrada',{
+      empresa_id:session.empresa_id,
+      fornecedor_id:fornecedorId,
+      numero:val('manNumero').trim()||null,
+      data_emissao:new Date().toISOString().slice(0,10),
+      valor_produtos:valorTotal,
+      valor_total:valorTotal,
+      status:'rascunho',
+      parcelas_sugeridas:[{numero:'1',vencimento:null,valor:valorTotal}],
+    });
+    await db.post('notas_fiscais_entrada_itens',manItensAtuais.map(it=>({
+      empresa_id:session.empresa_id,
+      nota_fiscal_entrada_id:nota.id,
+      produto_id:it.produto_id,
+      descricao:it.nome,
+      quantidade:it.quantidade,
+      valor_unitario:it.valor_unitario,
+      valor_total:Number(it.quantidade)*Number(it.valor_unitario),
+    })));
+    toast('Rascunho criado — confira antes de confirmar.','ok');
+    fecharModal('modalEntradaManual');
+    await loadDataEntrada();
+    abrirEntrada(nota.id);
+  }catch(e){msg('entradaManualMsg','Erro ao criar rascunho: '+e.message,'err');}
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  $('manBarras')?.addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    const codigo=val('manBarras').trim();
+    if(!codigo)return;
+    const produto=produtosCacheEntrada.find(p=>p.codigo_barras===codigo);
+    if(!produto)msg('entradaManualMsg','Nenhum produto com esse código de barras.','err');
+    else{adicionarItemManual(produto);msg('entradaManualMsg',`${produto.nome} adicionado.`,'ok');}
+    $('manBarras').value='';$('manBarras').focus();
+  });
+  document.addEventListener('click',e=>{if(!e.target.closest('.pdv-busca-field, .entrada-busca-field'))document.querySelectorAll('.entrada-busca-resultados, .pdv-busca-resultados').forEach(b=>b.classList.remove('open'));});
+});
 
 init();
 </script>
