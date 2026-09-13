@@ -28,6 +28,14 @@
 .nf-tipo-tabs{display:flex;gap:8px;margin-bottom:16px}
 .nf-tipo-tab{padding:8px 18px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
 .nf-tipo-tab.active{background:var(--p);border-color:var(--p);color:#fff}
+.field-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.entrada-item-row{display:grid;grid-template-columns:1.6fr .8fr .8fr 1.2fr .9fr;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.entrada-item-row:last-child{border-bottom:none}
+.entrada-item-row input,.entrada-item-row select{width:100%;padding:6px 8px;font-size:12px}
+.entrada-item-label{font-size:12px;font-weight:600}
+.entrada-item-sub{font-size:11px;color:var(--muted)}
+.entrada-parcela-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+@media(max-width:760px){.entrada-item-row{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.nf-strip{grid-template-columns:1fr 1fr}#hambBtn{display:block!important}}
 @media(max-width:600px){.nf-strip{grid-template-columns:1fr}}
 </style>
@@ -111,44 +119,69 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
         <div class="nf-tipo-tabs">
           <button class="nf-tipo-tab active" data-tipo="nfse" onclick="trocarTipo('nfse')">NFS-e (serviço)</button>
           <button class="nf-tipo-tab" data-tipo="nfce" onclick="trocarTipo('nfce')">NFC-e (produto/Caixa)</button>
+          <button class="nf-tipo-tab" data-tipo="entrada" onclick="trocarTipo('entrada')">Notas de Entrada (compra)</button>
         </div>
 
-        <div id="nfSimulacaoAviso" class="nf-simulacao-aviso" style="display:none">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Modo simulação ativo — nenhuma nota fiscal real é emitida. Números e documentos aqui são só pra testar a tela.
-        </div>
+        <div id="painelSaida">
+          <div id="nfSimulacaoAviso" class="nf-simulacao-aviso" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Modo simulação ativo — nenhuma nota fiscal real é emitida. Números e documentos aqui são só pra testar a tela.
+          </div>
 
-        <div class="nf-strip" id="nfStrip"></div>
+          <div class="nf-strip" id="nfStrip"></div>
 
-        <div class="card" style="margin-bottom:20px">
-          <div class="nf-filters">
-            <div class="field">
-              <label>Status</label>
-              <select id="filtStatus" onchange="renderLista()">
-                <option value="">Todos</option>
-                <option value="nao_emitida">Não emitida</option>
-                <option value="processando">Processando</option>
-                <option value="autorizada">Autorizada</option>
-                <option value="erro">Erro</option>
-                <option value="cancelada">Cancelada</option>
-              </select>
+          <div class="card" style="margin-bottom:20px">
+            <div class="nf-filters">
+              <div class="field">
+                <label>Status</label>
+                <select id="filtStatus" onchange="renderLista()">
+                  <option value="">Todos</option>
+                  <option value="nao_emitida">Não emitida</option>
+                  <option value="processando">Processando</option>
+                  <option value="autorizada">Autorizada</option>
+                  <option value="erro">Erro</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </div>
+              <div class="field grow">
+                <label>Buscar</label>
+                <input type="text" id="filtBusca" placeholder="Cliente, descrição, número da nota..." oninput="renderLista()">
+              </div>
             </div>
-            <div class="field grow">
-              <label>Buscar</label>
-              <input type="text" id="filtBusca" placeholder="Cliente, descrição, número da nota..." oninput="renderLista()">
+          </div>
+
+          <div class="card">
+            <h2 style="margin-bottom:14px" id="nfListTitulo">Notas fiscais</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Emitida em</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Número</th><th>Status</th></tr></thead>
+                <tbody id="nfTable"></tbody>
+              </table>
             </div>
+            <div id="nfTablePaginacao"></div>
           </div>
         </div>
 
-        <div class="card">
-          <h2 style="margin-bottom:14px" id="nfListTitulo">Notas fiscais</h2>
-          <div class="tablewrap">
-            <table>
-              <thead><tr><th>Emitida em</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Número</th><th>Status</th></tr></thead>
-              <tbody id="nfTable"></tbody>
-            </table>
+        <div id="painelEntrada" style="display:none">
+          <div class="card" style="margin-bottom:20px">
+            <h2 style="margin-bottom:6px">Importar nota de compra (XML)</h2>
+            <p class="field-hint" style="margin-bottom:14px">Suba o XML da NF-e que o fornecedor te mandou. O sistema lê os itens, tenta casar com produtos já cadastrados, e você confere tudo antes de confirmar — nada entra em estoque ou financeiro sozinho sem sua conferência.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <input type="file" id="entradaXmlInput" accept=".xml">
+              <button class="btn" id="entradaImportarBtn" onclick="importarXmlEntrada()">Importar XML</button>
+            </div>
           </div>
-          <div id="nfTablePaginacao"></div>
+
+          <div class="card">
+            <h2 style="margin-bottom:14px">Notas de entrada</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Emissão</th><th>Fornecedor</th><th>Número</th><th>Valor</th><th>Status</th></tr></thead>
+                <tbody id="entradaTable"></tbody>
+              </table>
+            </div>
+            <div id="entradaTablePaginacao"></div>
+          </div>
         </div>
 
       </div>
@@ -170,6 +203,19 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
     <button class="btn2" id="detVerBtn" style="display:none" onclick="verImprimir()">Ver / Imprimir</button>
     <button class="btn2" id="detXmlBtn" style="display:none" onclick="baixarXml()">Baixar XML</button>
     <button class="danger" id="detCancelarBtn" style="display:none" onclick="cancelarNota()">Cancelar nota</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL NOTA DE ENTRADA -->
+<div class="modal-overlay" id="modalEntrada">
+<div class="modal" style="max-width:760px">
+  <h3 id="entradaModalTitulo">Nota de entrada</h3>
+  <div id="entradaModalConteudo"></div>
+  <div id="entradaModalMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEntrada')">Fechar</button>
+    <button class="btn" id="entradaConfirmarBtn" style="display:none" onclick="confirmarEntrada()">Confirmar entrada</button>
   </div>
 </div>
 </div>
@@ -204,7 +250,10 @@ function trocarTipo(t){
   if(tipoAtual===t)return;
   tipoAtual=t;
   document.querySelectorAll('.nf-tipo-tab').forEach(b=>b.classList.toggle('active',b.dataset.tipo===t));
-  loadData();
+  $('painelSaida').style.display=t==='entrada'?'none':'block';
+  $('painelEntrada').style.display=t==='entrada'?'block':'none';
+  if(t==='entrada') loadDataEntrada();
+  else loadData();
 }
 
 async function init(){
@@ -551,6 +600,264 @@ function baixarXml(){
   a.href=URL.createObjectURL(blob);
   a.download=`nota-simulada-${notaAtual.numero||notaAtual.numero_nfse||notaAtual.id}.xml`;
   a.click();
+}
+
+// ══ NOTAS DE ENTRADA (compra — importação de XML) ══
+async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+
+let notasEntrada=[];
+let lojasCacheEntrada=[];
+let produtosCacheEntrada=[];
+let notaEntradaAtual=null;
+let itensEntradaAtual=[];
+let parcelasEntradaAtual=[];
+
+async function loadDataEntrada(){
+  if(!session?.empresa_id)return;
+  try{
+    notasEntrada=await db.get('notas_fiscais_entrada',`?select=*,fornecedores(nome)&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
+  }catch(e){notasEntrada=[];toast('Erro ao carregar notas de entrada: '+e.message,'err');}
+  if(!lojasCacheEntrada.length){
+    try{lojasCacheEntrada=await db.get('lojas',`?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true`);}catch(e){}
+  }
+  if(!produtosCacheEntrada.length){
+    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+  }
+  renderListaEntrada();
+}
+
+const STATUS_LABEL_ENTRADA={rascunho:['Aguardando conferência','warn'],processada:['Processada','ok'],cancelada:['Cancelada','off']};
+
+function renderListaEntrada(){
+  renderPaginacao('entradaTable',notasEntrada.length,'renderListaEntrada');
+  setHTML('entradaTable',paginar(notasEntrada,'entradaTable').map(n=>{
+    const[label,cor]=STATUS_LABEL_ENTRADA[n.status]||['—','off'];
+    return`<tr style="cursor:pointer" onclick="abrirEntrada('${n.id}')">
+      <td>${fmtData(n.data_emissao)}</td>
+      <td><b>${esc(n.fornecedores?.nome||'—')}</b></td>
+      <td style="font-size:12px">${esc(n.numero||'—')}</td>
+      <td style="font-weight:700">${money(n.valor_total)}</td>
+      <td><span class="badge ${cor}">${label}</span></td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota de entrada ainda. Importe o XML de uma compra pra começar.</td></tr>`);
+}
+
+async function importarXmlEntrada(){
+  const arquivo=$('entradaXmlInput').files[0];
+  if(!arquivo){toast('Selecione um arquivo XML.','err');return;}
+  const texto=await arquivo.text();
+  $('entradaImportarBtn').disabled=true;
+  try{
+    const r=await fetch(`${SB}/functions/v1/nf-entrada-importar`,{method:'POST',headers:H,body:JSON.stringify({xml:texto})});
+    const resp=await r.json().catch(()=>null);
+    if(!r.ok||!resp?.ok){
+      const mensagens={
+        nota_ja_importada:`Essa nota${resp?.numero?' (nº '+resp.numero+')':''} já foi importada antes.`,
+        cnpj_destinatario_diferente:resp?.detalhe||'Essa nota foi emitida pra outro CNPJ.',
+        chave_acesso_invalida:'Não consegui identificar a chave de acesso nesse XML — confira se é o arquivo certo.',
+        xml_sem_infnfe:'Esse arquivo não parece ser um XML de NF-e.',
+        xml_invalido:'Não consegui ler esse arquivo XML.',
+      };
+      toast(mensagens[resp?.erro]||'Não foi possível importar essa nota.','err');
+    } else {
+      toast('Nota importada — confira os itens antes de confirmar.','ok');
+      $('entradaXmlInput').value='';
+      await loadDataEntrada();
+      abrirEntrada(resp.nota_fiscal_entrada.id);
+    }
+  }catch(e){toast('Erro ao importar: '+e.message,'err');}
+  $('entradaImportarBtn').disabled=false;
+}
+
+async function abrirEntrada(id){
+  const nota=notasEntrada.find(n=>n.id===id);
+  if(!nota)return;
+  notaEntradaAtual=nota;
+  try{
+    itensEntradaAtual=await db.get('notas_fiscais_entrada_itens',`?select=*&nota_fiscal_entrada_id=eq.${id}&order=created_at.asc`);
+  }catch(e){itensEntradaAtual=[];}
+  parcelasEntradaAtual=Array.isArray(nota.parcelas_sugeridas)&&nota.parcelas_sugeridas.length
+    ?JSON.parse(JSON.stringify(nota.parcelas_sugeridas))
+    :[{numero:'1',vencimento:nota.data_emissao,valor:Number(nota.valor_total||0)}];
+  $('entradaModalMsg').textContent='';$('entradaModalMsg').className='msg';
+  if(nota.status==='processada')renderEntradaLeitura();
+  else renderEntradaRevisao();
+  abrirModal('modalEntrada');
+}
+
+function nomeProdutoOptions(selecionadoId){
+  return'<option value="">— selecionar produto —</option>'+produtosCacheEntrada.map(p=>`<option value="${p.id}" ${p.id===selecionadoId?'selected':''}>${esc(p.nome)}${p.sku?' ('+esc(p.sku)+')':''}</option>`).join('');
+}
+
+// Lê os valores que o usuário já digitou no DOM de volta pro estado em memória —
+// chamado ANTES de qualquer ação que force um re-render (trocar produto de um
+// item, criar produto, adicionar/remover parcela), senão o re-render apagava
+// o que a pessoa tinha acabado de editar nas OUTRAS linhas.
+function coletarEdicoesEntradaDoDom(){
+  document.querySelectorAll('.entrada-item-row').forEach(row=>{
+    const i=Number(row.dataset.itemIdx);
+    if(!itensEntradaAtual[i])return;
+    itensEntradaAtual[i].quantidade=Number(row.querySelector('.ent-qtd')?.value||itensEntradaAtual[i].quantidade);
+    itensEntradaAtual[i].valor_unitario=Number(row.querySelector('.ent-valor')?.value??itensEntradaAtual[i].valor_unitario);
+    const validadeInput=row.querySelector('.ent-validade');
+    if(validadeInput)itensEntradaAtual[i].data_validade=validadeInput.value||null;
+  });
+  document.querySelectorAll('.entrada-parcela-row').forEach(row=>{
+    const i=Number(row.dataset.parcelaIdx);
+    if(!parcelasEntradaAtual[i])return;
+    parcelasEntradaAtual[i].vencimento=row.querySelector('.ent-parc-venc')?.value||parcelasEntradaAtual[i].vencimento;
+    parcelasEntradaAtual[i].valor=Number(row.querySelector('.ent-parc-valor')?.value??parcelasEntradaAtual[i].valor);
+  });
+}
+
+function renderEntradaRevisao(){
+  const n=notaEntradaAtual;
+  $('entradaModalTitulo').textContent=`Conferir nota${n.numero?' nº '+n.numero:''}`;
+  const lojaAtual=val('entLojaDestino');
+  const lojaOptions='<option value="">— selecione —</option>'+lojasCacheEntrada.map(l=>`<option value="${l.id}" ${l.id===lojaAtual?'selected':''}>${esc(l.nome)}</option>`).join('');
+  const atualizarCustoAtual=$('entAtualizarCusto')?$('entAtualizarCusto').checked:true;
+
+  const itensHtml=itensEntradaAtual.map((it,i)=>{
+    const produto=produtosCacheEntrada.find(p=>p.id===it.produto_id);
+    const controlaValidade=produto?.controla_validade;
+    return`<div class="entrada-item-row" data-item-idx="${i}">
+      <div>
+        <div class="entrada-item-label">${esc(it.descricao)}</div>
+        <div class="entrada-item-sub">Cód. fornecedor: ${esc(it.codigo_fornecedor||'—')}${it.codigo_barras?' · EAN '+esc(it.codigo_barras):''}</div>
+        <select class="ent-produto" onchange="mudouProdutoItem(${i},this.value)">${nomeProdutoOptions(it.produto_id)}</select>
+        ${it.produto_id?'':`<button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="criarProdutoRapido(${i})">+ Criar produto novo</button>`}
+      </div>
+      <input class="ent-qtd" type="number" step="0.01" min="0.01" value="${it.quantidade}" title="Quantidade">
+      <input class="ent-valor" type="number" step="0.01" min="0" value="${it.valor_unitario}" title="Valor unitário">
+      <div>${controlaValidade?`<input class="ent-validade" type="date" value="${it.data_validade||''}" title="Validade"><div class="entrada-item-sub">Controla validade</div>`:'<span class="entrada-item-sub">Não controla validade</span>'}</div>
+      <div class="entrada-item-sub" style="text-align:right">${money(Number(it.quantidade)*Number(it.valor_unitario))}</div>
+    </div>`;
+  }).join('');
+
+  const parcelasHtml=parcelasEntradaAtual.map((p,i)=>`<div class="entrada-parcela-row" data-parcela-idx="${i}">
+    <input class="ent-parc-venc" type="date" value="${p.vencimento||''}">
+    <input class="ent-parc-valor" type="number" step="0.01" min="0" value="${p.valor}">
+    <button type="button" class="btn2" style="padding:4px 10px" onclick="removerParcela(${i})">Remover</button>
+  </div>`).join('');
+
+  setHTML('entradaModalConteudo',`
+    <div class="det-section">Nota</div>
+    <div class="det-row"><span class="det-lbl">Fornecedor</span><span class="det-val">${esc(n.fornecedores?.nome||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+    <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso)}</span></div>
+    <div class="det-row"><span class="det-lbl">Valor total da nota</span><span class="det-val">${money(n.valor_total)}</span></div>
+
+    <div class="det-section">Onde recebe</div>
+    <div class="field"><label>Loja</label><select id="entLojaDestino">${lojaOptions}</select></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="entAtualizarCusto" ${atualizarCustoAtual?'checked':''}> Atualizar o custo dos produtos pelo custo médio ponderado</label>
+
+    <div class="det-section">Itens (${itensEntradaAtual.length})</div>
+    ${itensHtml}
+
+    <div class="det-section">Parcelas no Financeiro (${parcelasEntradaAtual.length})</div>
+    ${parcelasHtml}
+    <button type="button" class="btn2" style="padding:6px 12px;font-size:12px" onclick="adicionarParcela()">+ Adicionar parcela</button>
+  `);
+  $('entradaConfirmarBtn').style.display='block';
+}
+
+function mudouProdutoItem(i,produtoId){
+  coletarEdicoesEntradaDoDom();
+  itensEntradaAtual[i].produto_id=produtoId||null;
+  renderEntradaRevisao();
+}
+
+async function criarProdutoRapido(i){
+  coletarEdicoesEntradaDoDom();
+  const item=itensEntradaAtual[i];
+  const nome=await promptAcao('Nome do novo produto:',{placeholder:item.descricao,labelOk:'Criar produto'});
+  if(!nome)return;
+  try{
+    const[novo]=await db.post('produtos',{
+      empresa_id:session.empresa_id,
+      nome,
+      sku:item.codigo_fornecedor||null,
+      codigo_barras:item.codigo_barras||null,
+      ncm:item.ncm||null,
+      custo_atual:item.valor_unitario,
+      preco_venda_final:Number((item.valor_unitario*2).toFixed(2)),
+      preco_venda_sugerido:Number((item.valor_unitario*2).toFixed(2)),
+      unidade_medida:'UN',
+      ativo:true,
+    });
+    produtosCacheEntrada.push(novo);
+    produtosCacheEntrada.sort((a,b)=>a.nome.localeCompare(b.nome));
+    itensEntradaAtual[i].produto_id=novo.id;
+    toast('Produto criado e vinculado — revise preço e NCM depois em Produtos.','ok');
+    renderEntradaRevisao();
+  }catch(e){toast('Erro ao criar produto: '+e.message,'err');}
+}
+
+function adicionarParcela(){
+  coletarEdicoesEntradaDoDom();
+  parcelasEntradaAtual.push({numero:String(parcelasEntradaAtual.length+1),vencimento:notaEntradaAtual.data_emissao,valor:0});
+  renderEntradaRevisao();
+}
+function removerParcela(i){
+  if(parcelasEntradaAtual.length<=1){toast('Precisa ter pelo menos 1 parcela.','err');return;}
+  coletarEdicoesEntradaDoDom();
+  parcelasEntradaAtual.splice(i,1);
+  renderEntradaRevisao();
+}
+
+async function confirmarEntrada(){
+  if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para confirmar notas de entrada.','err');return;}
+  coletarEdicoesEntradaDoDom();
+  const lojaId=val('entLojaDestino');
+  if(!lojaId){msg('entradaModalMsg','Selecione a loja que vai receber a mercadoria.','err');return;}
+  const semVinculo=itensEntradaAtual.filter(it=>!it.produto_id);
+  if(semVinculo.length){msg('entradaModalMsg',`${semVinculo.length} item(ns) ainda sem produto vinculado — selecione ou crie um produto pra cada linha.`,'err');return;}
+  const itemInvalido=itensEntradaAtual.find(it=>!(Number(it.quantidade)>0));
+  if(itemInvalido){msg('entradaModalMsg','Todo item precisa ter quantidade maior que zero.','err');return;}
+  const parcelaInvalida=parcelasEntradaAtual.find(p=>!p.vencimento||!(Number(p.valor)>0));
+  if(parcelaInvalida){msg('entradaModalMsg','Toda parcela precisa ter vencimento e valor preenchidos.','err');return;}
+
+  const atualizarCusto=$('entAtualizarCusto').checked;
+  $('entradaConfirmarBtn').disabled=true;
+  try{
+    await dbRpc('confirmar_entrada_nf',{p:{
+      nota_fiscal_entrada_id:notaEntradaAtual.id,
+      loja_id:lojaId,
+      atualizar_custo:atualizarCusto,
+      usuario_id:session.id,
+      itens:itensEntradaAtual.map(it=>({item_id:it.id,produto_id:it.produto_id,quantidade:it.quantidade,valor_unitario:it.valor_unitario,data_validade:it.data_validade||null})),
+      parcelas:parcelasEntradaAtual.map(p=>({valor:p.valor,vencimento:p.vencimento})),
+    }});
+    toast('Entrada confirmada — estoque, custo e financeiro atualizados.','ok');
+    fecharModal('modalEntrada');
+    await loadDataEntrada();
+  }catch(e){msg('entradaModalMsg','Erro ao confirmar: '+e.message,'err');}
+  $('entradaConfirmarBtn').disabled=false;
+}
+
+function renderEntradaLeitura(){
+  const n=notaEntradaAtual;
+  $('entradaModalTitulo').textContent=`Nota${n.numero?' nº '+n.numero:''} — processada`;
+  const itensHtml=itensEntradaAtual.map(it=>{
+    const produto=produtosCacheEntrada.find(p=>p.id===it.produto_id);
+    return`<div class="det-row"><span class="det-lbl">${esc(produto?.nome||it.descricao)} (${it.quantidade}x)</span><span class="det-val">${money(it.valor_total)}</span></div>`;
+  }).join('');
+  setHTML('entradaModalConteudo',`
+    <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor total</div>
+        <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor_total)}</div>
+      </div>
+      <span class="badge ok" style="font-size:13px;padding:6px 14px">Processada</span>
+    </div>
+    <div class="det-section">Nota</div>
+    <div class="det-row"><span class="det-lbl">Fornecedor</span><span class="det-val">${esc(n.fornecedores?.nome||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+    <div class="det-row"><span class="det-lbl">Processada em</span><span class="det-val">${fmtDataHora(n.processada_em)}</span></div>
+    <div class="det-section">Itens</div>
+    ${itensHtml}
+  `);
+  $('entradaConfirmarBtn').style.display='none';
 }
 
 init();
