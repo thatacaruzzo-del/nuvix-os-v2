@@ -647,6 +647,7 @@ async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${
 let notasEntrada=[];
 let lojasCacheEntrada=[];
 let produtosCacheEntrada=[];
+let categoriasCacheEntrada=[];
 let notaEntradaAtual=null;
 let itensEntradaAtual=[];
 let parcelasEntradaAtual=[];
@@ -660,7 +661,10 @@ async function loadDataEntrada(){
     try{lojasCacheEntrada=await db.get('lojas',`?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true`);}catch(e){}
   }
   if(!produtosCacheEntrada.length){
-    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm,categoria_id&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+  }
+  if(!categoriasCacheEntrada.length){
+    try{categoriasCacheEntrada=await db.get('categorias_produto',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);}catch(e){}
   }
   renderListaEntrada();
 }
@@ -709,6 +713,7 @@ async function importarXmlEntrada(){
 }
 
 let itensEmEdicaoProduto=new Set();
+let itensCriandoProduto=new Set();
 
 async function abrirEntrada(id){
   const nota=notasEntrada.find(n=>n.id===id);
@@ -721,6 +726,7 @@ async function abrirEntrada(id){
     ?JSON.parse(JSON.stringify(nota.parcelas_sugeridas))
     :[{numero:'1',vencimento:nota.data_emissao,valor:Number(nota.valor_total||0)}];
   itensEmEdicaoProduto=new Set(itensEntradaAtual.map((it,i)=>it.produto_id?null:i).filter(i=>i!==null));
+  itensCriandoProduto=new Set();
   $('entradaModalMsg').textContent='';$('entradaModalMsg').className='msg';
   if(nota.status==='processada')renderEntradaLeitura();
   else renderEntradaRevisao();
@@ -787,21 +793,39 @@ function renderEntradaRevisao(){
   const lojaOptions='<option value="">— selecione —</option>'+lojasCacheEntrada.map(l=>`<option value="${l.id}" ${l.id===lojaAtual?'selected':''}>${esc(l.nome)}</option>`).join('');
   const atualizarCustoAtual=$('entAtualizarCusto')?$('entAtualizarCusto').checked:true;
 
+  const categoriaOptions=(selecionadaId)=>'<option value="">— sem categoria —</option>'+categoriasCacheEntrada.map(c=>`<option value="${c.id}" ${c.id===selecionadaId?'selected':''}>${esc(c.nome)}</option>`).join('');
+
   const itensHtml=itensEntradaAtual.map((it,i)=>{
     const produto=produtosCacheEntrada.find(p=>p.id===it.produto_id);
     const controlaValidade=produto?.controla_validade;
     const emEdicao=!it.produto_id||itensEmEdicaoProduto.has(i);
-    const blocoProduto=emEdicao?`
+    const criandoProduto=itensCriandoProduto.has(i);
+    let blocoProduto;
+    if(criandoProduto){
+      blocoProduto=`
+        <div style="margin-top:6px;background:var(--bg);border-radius:10px;padding:10px">
+          <div class="field" style="margin:0 0 8px"><label style="font-size:11px">Nome do produto</label><input id="entNovoNome${i}" value="${esc(it.descricao)}" style="font-size:12px"></div>
+          <div class="field" style="margin:0 0 8px"><label style="font-size:11px">Categoria</label><select id="entNovoCategoria${i}" style="font-size:12px">${categoriaOptions(null)}</select></div>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn2" style="padding:5px 12px;font-size:11px;flex:1" onclick="cancelarCriarProdutoRapido(${i})">Cancelar</button>
+            <button type="button" class="btn" style="padding:5px 12px;font-size:11px;flex:1" onclick="confirmarCriarProdutoRapido(${i})">Criar produto</button>
+          </div>
+        </div>`;
+    } else if(emEdicao){
+      blocoProduto=`
         <div class="entrada-busca-field" style="margin-top:6px">
           <input class="entrada-barras-input" style="font-size:12px" placeholder="Bipar código de barras" onkeydown="if(event.key==='Enter'){bipouProdutoParaItem(${i},this.value);this.value='';}">
           <input style="margin-top:4px;font-size:12px" placeholder="ou buscar por nome/SKU..." oninput="buscarProdutoParaItemEntrada(${i},this.value)">
           <div class="entrada-busca-resultados" id="entItemBusca${i}"></div>
         </div>
-        <button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="criarProdutoRapido(${i})">+ Criar produto novo</button>
-      `:`
+        <button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="iniciarCriarProdutoRapido(${i})">+ Criar produto novo</button>`;
+    } else {
+      const categoriaNome=categoriasCacheEntrada.find(c=>c.id===produto?.categoria_id)?.nome;
+      blocoProduto=`
         <div class="entrada-item-sub" style="color:var(--green);font-weight:700;margin-top:4px">✓ ${esc(produto?.nome||'')}</div>
-        <button type="button" class="btn2" style="padding:3px 8px;font-size:11px;margin-top:4px" onclick="trocarProdutoItem(${i})">Trocar produto</button>
-      `;
+        <div class="entrada-item-sub">Categoria: ${esc(categoriaNome||'sem categoria')}</div>
+        <button type="button" class="btn2" style="padding:3px 8px;font-size:11px;margin-top:4px" onclick="trocarProdutoItem(${i})">Trocar produto</button>`;
+    }
     return`<div class="entrada-item-row" data-item-idx="${i}">
       <div>
         <div class="entrada-item-label">${esc(it.descricao)}</div>
@@ -842,15 +866,27 @@ function renderEntradaRevisao(){
   $('entradaConfirmarBtn').style.display='block';
 }
 
-async function criarProdutoRapido(i){
+function iniciarCriarProdutoRapido(i){
+  coletarEdicoesEntradaDoDom();
+  itensCriandoProduto.add(i);
+  renderEntradaRevisao();
+}
+function cancelarCriarProdutoRapido(i){
+  coletarEdicoesEntradaDoDom();
+  itensCriandoProduto.delete(i);
+  renderEntradaRevisao();
+}
+async function confirmarCriarProdutoRapido(i){
   coletarEdicoesEntradaDoDom();
   const item=itensEntradaAtual[i];
-  const nome=await promptAcao('Nome do novo produto:',{placeholder:item.descricao,labelOk:'Criar produto'});
-  if(!nome)return;
+  const nome=val(`entNovoNome${i}`).trim();
+  if(!nome){toast('Informe o nome do produto.','err');return;}
+  const categoriaId=val(`entNovoCategoria${i}`)||null;
   try{
     const[novo]=await db.post('produtos',{
       empresa_id:session.empresa_id,
       nome,
+      categoria_id:categoriaId,
       sku:item.codigo_fornecedor||null,
       codigo_barras:item.codigo_barras||null,
       ncm:item.ncm||null,
@@ -864,6 +900,7 @@ async function criarProdutoRapido(i){
     produtosCacheEntrada.sort((a,b)=>a.nome.localeCompare(b.nome));
     itensEntradaAtual[i].produto_id=novo.id;
     itensEmEdicaoProduto.delete(i);
+    itensCriandoProduto.delete(i);
     toast('Produto criado e vinculado — revise preço e NCM depois em Produtos.','ok');
     renderEntradaRevisao();
   }catch(e){toast('Erro ao criar produto: '+e.message,'err');}
@@ -952,7 +989,10 @@ async function abrirModalEntradaManual(){
     setHTML('manFornecedoresList',lista.map(f=>`<option value="${esc(f.nome)}">`).join(''));
   }catch(e){}
   if(!produtosCacheEntrada.length){
-    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+    try{produtosCacheEntrada=await db.get('produtos',`?select=id,nome,sku,codigo_barras,controla_validade,custo_atual,preco_venda_final,ncm,categoria_id&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);}catch(e){}
+  }
+  if(!categoriasCacheEntrada.length){
+    try{categoriasCacheEntrada=await db.get('categorias_produto',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);}catch(e){}
   }
   abrirModal('modalEntradaManual');
   setTimeout(()=>$('manBarras')?.focus(),80);
