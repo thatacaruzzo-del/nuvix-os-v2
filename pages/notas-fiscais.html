@@ -874,7 +874,7 @@ function renderEntradaRevisao(){
 
     <div class="det-section">Onde recebe</div>
     <div class="field"><label>Loja</label><select id="entLojaDestino">${lojaOptions}</select></div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="entAtualizarCusto" ${atualizarCustoAtual?'checked':''}> Atualizar o custo dos produtos pelo custo médio ponderado</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="entAtualizarCusto" style="width:auto" ${atualizarCustoAtual?'checked':''}> Atualizar o custo dos produtos pelo custo médio ponderado</label>
 
     <div class="det-section">Itens (${itensEntradaAtual.length})</div>
     ${itensHtml}
