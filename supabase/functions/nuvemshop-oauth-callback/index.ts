@@ -11,8 +11,8 @@
 //
 // A Nuvemshop não manda `state`, então esta função NÃO sabe ainda de qual
 // empresa Nuvix é essa instalação — só troca o `code` pelo access_token +
-// store_id, registra os webhooks que precisamos (order/paid, app/uninstalled)
-// e GUARDA o resultado numa tabela de staging (nuvemshop_instalacoes_pendentes),
+// store_id, registra os webhooks que precisamos (order/paid, order/cancelled,
+// app/uninstalled) e GUARDA o resultado numa tabela de staging (nuvemshop_instalacoes_pendentes),
 // depois redireciona o navegador de volta pra integracoes.html com o id desse
 // registro. É lá, já com o usuário autenticado no Nuvix, que
 // nuvemshop-vincular reivindica esse registro pra empresa certa — ver esse
@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
 
     await Promise.all([
       registrarWebhook(storeId, accessToken, "order/paid"),
+      registrarWebhook(storeId, accessToken, "order/cancelled"),
       registrarWebhook(storeId, accessToken, "app/uninstalled"),
     ]);
 

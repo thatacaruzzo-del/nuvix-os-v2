@@ -1,9 +1,12 @@
 // ============================================================
 // NUVIX — Edge Function: nuvemshop-webhook
 //
-// Recebe as notificações da Nuvemshop — dois tópicos, registrados por
+// Recebe as notificações da Nuvemshop — três tópicos, registrados por
 // nuvemshop-oauth-callback na hora da conexão de cada loja:
 //   - order/paid: pedido pago, importar como venda
+//   - order/cancelled: pedido cancelado/estornado — se já tinha virado venda,
+//     reverte sozinho (cancelar_venda); loja conectada antes desse tópico
+//     existir só passa a receber depois de reconectar (ou registrar manualmente).
 //   - app/uninstalled: lojista removeu o app, marcar a loja como desconectada
 // PÚBLICA de propósito (verify_jwt desligado): a Nuvemshop manda um POST
 // direto, sem Authorization nenhum — mesma razão de ml-webhook ser pública.
@@ -17,9 +20,12 @@
 // vendas (índice parcial) — a Nuvemshop pode reenviar notificação; antes de
 // processar sempre confere se já existe uma venda com esse par.
 //
-// Item do pedido sem produto correspondente (produto_nuvemshop_mapeamento)
-// NUNCA vira venda incompleta — fica em nuvemshop_pedidos_erro pra revisão
-// manual em Integrações, mesmo tratamento de ml_pedidos_erro.
+// Item do pedido sem produto correspondente (produto_nuvemshop_mapeamento) —
+// típico de produto cadastrado direto na Nuvemshop, nunca passado pelo
+// NuvixHub: em vez de travar esperando mapeamento manual, cria o cadastro
+// básico sozinho (nome/preço do próprio pedido, estoque inicial = quantidade
+// vendida agora) e segue a venda normal. Só cai em nuvemshop_pedidos_erro pra
+// revisão manual se essa criação automática falhar por algum motivo.
 //
 // A baixa de estoque, o lançamento no Financeiro e a criação da venda em si
 // reaproveitam finalizar_venda (mesma função transacional do Caixa e do
@@ -167,15 +173,40 @@ async function tratarDesinstalacao(storeId: string) {
 // quanto pelo "Tentar novamente" (tela de Pedidos com erro, em Integrações) —
 // mesma resolução de produto/estoque/finalizar_venda nos dois casos, só muda
 // como o pedido chega até aqui (notificação da Nuvemshop vs busca manual por id).
+
+// payment_status documentado pela Nuvemshop pra pedido que teve o dinheiro
+// devolvido — diferente do Mercado Livre (onde "cancelled" no pedido não
+// significa reembolso de verdade, ver ml-webhook), aqui o próprio campo que já
+// usamos pra decidir se importa a venda ("paid") também cobre estorno direto,
+// sem precisar de uma checagem por fora tipo mediação/reclamação.
+const STATUS_REEMBOLSO_NS = ["voided", "refunded", "partially_refunded"];
+
 async function processarPedidoNS(empresa: any, cred: any, order: any) {
+  const nsOrderId = String(order.id);
+  const [vendaExistente] = await sbGet(`vendas?nuvemshop_credencial_id=eq.${cred.id}&nuvemshop_order_id=eq.${nsOrderId}&select=id,status`);
+
+  // Pedido que JÁ virou venda no Nuvix e teve o pagamento estornado/cancelado
+  // na Nuvemshop depois — reverte automaticamente pelo mesmo cancelar_venda
+  // que o ml-webhook e o cancelamento manual do Caixa usam (devolve estoque,
+  // remove do Financeiro, marca Cancelada). Dispara tanto pelo tópico
+  // order/cancelled quanto por um reenvio de order/paid com status mudado.
+  if (vendaExistente?.status === "Concluída" && STATUS_REEMBOLSO_NS.includes(order.payment_status)) {
+    const motivo = `Pedido cancelado/estornado na Nuvemshop (pedido #${nsOrderId}, status "${order.payment_status}")`;
+    try {
+      await sbRpc("cancelar_venda", { p: { venda_id: vendaExistente.id, motivo } });
+      return { cancelado: true, venda_id: vendaExistente.id };
+    } catch (e) {
+      console.error(`Falha ao cancelar automaticamente a venda do pedido Nuvemshop ${nsOrderId}:`, e);
+      return { erro: "falha_cancelar_venda_automatico" };
+    }
+  }
+
   // Só importa pedido efetivamente pago — outros status (pending, voided...)
   // podem nunca virar venda de verdade. O tópico já é order/paid, mas confere
   // de novo aqui porque o pedido pode ter mudado de status entre o disparo do
   // webhook e esta consulta (ex: estorno quase imediato).
   if (order.payment_status !== "paid") return { ignorado: `payment_status_${order.payment_status}` };
 
-  const nsOrderId = String(order.id);
-  const [vendaExistente] = await sbGet(`vendas?nuvemshop_credencial_id=eq.${cred.id}&nuvemshop_order_id=eq.${nsOrderId}&select=id`);
   if (vendaExistente) return { ja_processado: true, venda_id: vendaExistente.id };
 
   if (!cred.loja_estoque_id) {
@@ -192,14 +223,55 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
     : [];
   const porVarianteId = new Map(mapeamentos.map((m) => [m.nuvemshop_variante_id, m.produto_id]));
 
+  // Produto cadastrado direto na Nuvemshop (nunca passou pelo NuvixHub) —
+  // em vez de travar o pedido esperando alguém mapear manualmente, cria o
+  // cadastro básico aqui (nome/preço vêm do próprio pedido) e já entra na
+  // venda normal. Estoque inicial = a própria quantidade vendida agora (não
+  // temos como saber o estoque real da Nuvemshop nesse momento) — fica em 0
+  // depois da baixa desta venda, sinalizando pro lojista conferir/ajustar o
+  // saldo de verdade. sync_erro é usado só como nota informativa (aparece no
+  // tooltip do badge em Integrações → Mapeamento de produtos), não é erro.
   const semMapeamento = products.filter((p) => !porVarianteId.has(String(p.variant_id)));
-  if (semMapeamento.length) {
-    const nomes = semMapeamento.map((p) => p.name || p.variant_id).join(", ");
+  for (const p of semMapeamento) {
+    try {
+      const [novoProduto] = await sbPost("produtos", {
+        empresa_id: empresa.id,
+        nome: String(p.name || `Produto Nuvemshop ${p.variant_id}`).slice(0, 200),
+        sku: p.sku || null,
+        preco_venda_final: Number(p.price || 0),
+        unidade_medida: "UN",
+        ativo: true,
+      });
+      await sbPost("estoque_por_loja", {
+        empresa_id: empresa.id,
+        produto_id: novoProduto.id,
+        loja_id: cred.loja_estoque_id,
+        quantidade: Number(p.quantity || 0),
+      });
+      await sbPost("produto_nuvemshop_mapeamento", {
+        empresa_id: empresa.id,
+        produto_id: novoProduto.id,
+        nuvemshop_credencial_id: cred.id,
+        nuvemshop_produto_id: p.product_id != null ? String(p.product_id) : null,
+        nuvemshop_variante_id: String(p.variant_id),
+        sync_status: "ok",
+        sync_erro: "Criado automaticamente a partir de um pedido da Nuvemshop — confira o estoque real, foi estimado como a quantidade vendida nesta venda.",
+        sync_at: new Date().toISOString(),
+      });
+      porVarianteId.set(String(p.variant_id), novoProduto.id);
+    } catch (e) {
+      console.error(`Falha ao auto-criar produto da Nuvemshop (variante ${p.variant_id}):`, e);
+    }
+  }
+
+  const aindaSemMapeamento = products.filter((p) => !porVarianteId.has(String(p.variant_id)));
+  if (aindaSemMapeamento.length) {
+    const nomes = aindaSemMapeamento.map((p) => p.name || p.variant_id).join(", ");
     await registrarErroPedido(
       empresa.id,
       cred.id,
       nsOrderId,
-      `Produto(s) sem vínculo no Nuvix: ${nomes}. Mapeie a variante em Integrações → Mapeamento de produtos e aguarde o próximo reenvio da Nuvemshop.`,
+      `Não foi possível criar o cadastro automático de: ${nomes}. Mapeie a variante em Integrações → Mapeamento de produtos e tente novamente.`,
       order
     );
     return { erro: "itens_sem_mapeamento", itens: nomes };
@@ -387,7 +459,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    if (event === "order/paid") {
+    if (event === "order/paid" || event === "order/cancelled") {
       if (!resourceId) return json({ ok: true, ignorado: "sem_id_do_pedido" });
       return await tratarPedidoPago(storeId, resourceId);
     }

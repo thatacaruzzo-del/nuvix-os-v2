@@ -199,13 +199,32 @@ async function resolverCliente(headers: Record<string, string>, empresaId: strin
 
 async function processarPedido(headers: Record<string, string>, empresa: any, cred: any, pedido: any) {
   const pedidoId = String(pedido.id);
+  const [vendaExistente] = await sbGet(`vendas?pedidook_credencial_id=eq.${cred.id}&pedidook_pedido_id=eq.${pedidoId}&select=id,status`);
 
   // Só 'pedido' vira venda — 'orcamento' é cotação (não confirmada),
   // 'troca'/'bonificacao' têm natureza financeira diferente de uma venda a
   // prazo normal e ficam fora do escopo desta primeira versão.
-  if (pedido.status !== "pedido") return { ignorado: "status_nao_e_pedido" };
+  if (pedido.status !== "pedido") {
+    // Pedido que JÁ virou venda no Nuvix e voltou num pull seguinte com outro
+    // status — pode ser cancelamento do lado do PedidoOK, mas AO CONTRÁRIO do
+    // ml-webhook/nuvemshop-webhook, aqui NÃO reverte sozinho: a API do
+    // PedidoOK não documenta um status explícito de "cancelado" (só
+    // pedido/orcamento/troca/bonificacao), então não dá pra saber com certeza
+    // se essa mudança É de fato um cancelamento sem confirmar com um caso
+    // real primeiro — e reverter uma venda a prazo errado é pior que deixar
+    // pendente pra revisão manual. Só avisa em Integrações → Pedidos com erro.
+    if (vendaExistente?.status === "Concluída") {
+      await registrarErroPedido(
+        empresa.id,
+        cred.id,
+        pedidoId,
+        `Este pedido já virou venda no Nuvix, mas voltou do PedidoOK com status "${pedido.status}" (era "pedido" antes) — pode ser cancelamento. Confira no PedidoOK e, se for mesmo cancelado, cancele manualmente esta venda no Caixa.`,
+        pedido
+      );
+    }
+    return { ignorado: "status_nao_e_pedido" };
+  }
 
-  const [vendaExistente] = await sbGet(`vendas?pedidook_credencial_id=eq.${cred.id}&pedidook_pedido_id=eq.${pedidoId}&select=id`);
   if (vendaExistente) return { ja_processado: true, venda_id: vendaExistente.id };
 
   const itens: any[] = Array.isArray(pedido.itens) ? pedido.itens : [];

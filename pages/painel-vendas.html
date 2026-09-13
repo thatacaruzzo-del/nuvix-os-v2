@@ -29,6 +29,14 @@
 .tablewrap{min-width:0}
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
 .badge-amber{background:var(--amber-bg,#FEF3C7);color:var(--p2,#92400E)}
+.cancel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.cancel-card{background:#fff;border:1px solid var(--line);border-left:3px solid var(--red);border-radius:14px;padding:16px}
+.cancel-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.cancel-valor{font-size:18px;font-weight:600;color:var(--txt)}
+.cancel-produto{font-size:13px;color:var(--txt);margin-bottom:6px;line-height:1.4}
+.cancel-motivo{font-size:12px;color:var(--muted);background:var(--bg,#FAFAFB);border-radius:8px;padding:8px 10px;margin-top:6px}
+.cancel-data{font-size:11px;color:var(--muted2);margin-top:8px}
+.field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 @media(max-width:768px){#hambBtn{display:block!important}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -119,6 +127,13 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <tbody id="painelLojaTable"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="card" id="cancelWrap" style="margin-bottom:16px;display:none">
+        <h2 style="margin-bottom:4px">Cancelamentos no período</h2>
+        <div class="field-hint" style="margin-bottom:14px" id="cancelResumo"></div>
+        <div class="cancel-grid" id="cancelGrid"></div>
+        <div id="cancelGridPaginacao"></div>
       </div>
 
       <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
@@ -247,6 +262,46 @@ async function buscarVendasCompletas(de,ate,canal){
   const itens=paginas.flat();
   return itens.map(i=>({...i, loja_id:vendaPorId[i.venda_id]?.loja_id, total_venda:vendaPorId[i.venda_id]}));
 }
+// Cancelamentos não entram em nenhum número do painel (faturamento, ABC, giro —
+// todos filtram status=eq.Concluída), mas o operador precisa enxergar onde e por que
+// perdeu venda. Busca à parte, mesma paginação/filtro de canal e período da tela.
+async function buscarCancelamentos(de,ate,canal){
+  const filtroCanal=canal?`&canal=eq.${encodeURIComponent(canal)}`:'';
+  const vendas=await dbGetTodas('vendas',`?empresa_id=eq.${session.empresa_id}&status=eq.Cancelada&data_venda=gte.${de}&data_venda=lte.${ate}${filtroCanal}&select=id,canal,total,motivo_cancelamento,cancelado_em,data_venda`);
+  if(!vendas.length)return[];
+  const ids=vendas.map(v=>v.id);
+  const TAM_BLOCO=400;
+  const blocos=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
+  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('itens_venda',`?venda_id=in.(${bloco.join(',')})&select=venda_id,produto_nome,quantidade`)));
+  const itens=paginas.flat();
+  const itensPorVenda={};
+  itens.forEach(i=>{(itensPorVenda[i.venda_id]=itensPorVenda[i.venda_id]||[]).push(i)});
+  return vendas.map(v=>({...v, itens:itensPorVenda[v.id]||[]})).sort((a,b)=>new Date(b.cancelado_em||b.data_venda)-new Date(a.cancelado_em||a.data_venda));
+}
+let _ultimoCancelamentos=[];
+function renderCancelamentos(cancelamentos){
+  if(cancelamentos===undefined){ cancelamentos=_ultimoCancelamentos; }
+  else{ _ultimoCancelamentos=cancelamentos; }
+  const wrap=$('cancelWrap');
+  if(!cancelamentos.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const total=cancelamentos.reduce((a,c)=>a+Number(c.total||0),0);
+  $('cancelResumo').textContent=`${cancelamentos.length} venda${cancelamentos.length===1?'':'s'} cancelada${cancelamentos.length===1?'':'s'} no período, somando ${money(total)} que não entram no faturamento acima.`;
+  renderPaginacao('cancelGrid',cancelamentos.length,'renderCancelamentos');
+  $('cancelGrid').innerHTML=paginar(cancelamentos,'cancelGrid').map(c=>{
+    const produtos=c.itens.length?c.itens.map(i=>`${esc(i.produto_nome)} (${i.quantidade}x)`).join(', '):'—';
+    return `<div class="cancel-card">
+      <div class="cancel-card-top">
+        <span class="badge badge-red">${esc(c.canal||'Loja')}</span>
+        <span class="cancel-valor">${money(c.total)}</span>
+      </div>
+      <div class="cancel-produto">${produtos}</div>
+      ${c.motivo_cancelamento?`<div class="cancel-motivo">${esc(c.motivo_cancelamento)}</div>`:''}
+      <div class="cancel-data">${fmtData(c.cancelado_em||c.data_venda)}</div>
+    </div>`;
+  }).join('');
+}
 // Valor líquido de uma linha de item — desconta proporcionalmente o desconto aplicado
 // na venda inteira (venda.total/venda.subtotal).
 function valorLiquidoLinha(l){
@@ -325,20 +380,22 @@ async function carregarPainel(){
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
   const canal=val('painelCanal')||'';
   const ant=periodoAnteriorPainel(de,ate);
-  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo;
+  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos;
   try{
-    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo]=await Promise.all([
+    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos]=await Promise.all([
       buscarVendasCompletas(de,ate,canal),
       totaisPeriodoLeve(ant.de,ant.ate,canal),
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
       dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
       buscarAReceberPainel(de,ate,canal),
+      buscarCancelamentos(de,ate,canal),
     ]);
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
 
   renderEvolucao(linhas,de,ate);
   renderVendasPorLojaPainel(linhas);
+  renderCancelamentos(cancelamentos);
 
   const porProduto={};
   let fatProprio=0, fatConsignado=0;

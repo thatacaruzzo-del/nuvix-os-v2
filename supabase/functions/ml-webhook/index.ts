@@ -225,12 +225,71 @@ async function emitirNfceMLSeAtivo(empresa: any, vendaId: string, itensDetalhado
 // mesma resolução de produto/estoque/finalizar_venda nos dois casos, só muda
 // como o pedido chega até aqui (notificação do ML vs busca manual por id).
 async function processarPedidoML(empresa: any, cred: any, accessToken: string, order: any) {
-  // Só importa pedido pago — antes disso pode ser cancelado/expirar sem nunca virar venda de verdade.
-  if (order.status !== "paid") return { ignorado: `status_${order.status}` };
-
   const mlOrderId = String(order.id);
-  const [vendaExistente] = await sbGet(`vendas?ml_order_id=eq.${mlOrderId}&select=id`);
-  if (vendaExistente) return { ja_processado: true, venda_id: vendaExistente.id };
+  const [vendaExistente] = await sbGet(`vendas?ml_order_id=eq.${mlOrderId}&select=id,status`);
+
+  // Reembolso de verdade (dinheiro já voltou pro comprador) — sinal definitivo e
+  // seguro pra reverter a venda sozinho. DESCOBERTO EM TESTE REAL (13/09/2026):
+  // quando o comprador abre um cancelamento pra pedido já pago, o Mercado Livre
+  // NÃO muda order.status pra "cancelled" — o pedido continua "paid", só ganha uma
+  // entrada em order.mediations e a tag "not_delivered" enquanto a reclamação está
+  // em aberto. Só quando o estorno é efetivado de verdade é que o pagamento em
+  // order.payments[].status vira "refunded"/"charged_back" — esse é o sinal certo
+  // pra cancelar automaticamente, não o status do pedido.
+  const pagamentoEstornado = (order.payments || []).some((pg: any) => ["refunded", "charged_back", "cancelled"].includes(pg?.status));
+  if (vendaExistente?.status === "Concluída" && pagamentoEstornado) {
+    const motivo = `Pagamento estornado no Mercado Livre (pedido #${mlOrderId})`;
+    try {
+      await sbRpc("cancelar_venda", { p: { venda_id: vendaExistente.id, motivo } });
+      return { cancelado: true, venda_id: vendaExistente.id };
+    } catch (e) {
+      console.error(`Falha ao cancelar automaticamente a venda do pedido ML ${mlOrderId} (pagamento estornado):`, e);
+      return { erro: "falha_cancelar_venda_automatico" };
+    }
+  }
+
+  // Só importa pedido pago — antes disso pode ser cancelado/expirar sem nunca virar venda de verdade.
+  if (order.status !== "paid") {
+    // Exceção: pedido que JÁ virou venda no Nuvix e teve o status mudado direto pra
+    // "cancelled"/"invalid" (acontece quando o pedido é cancelado ANTES de qualquer
+    // reclamação chegar a abrir mediação — ex: erro de digitação, endereço inválido).
+    // Caminho secundário ao de "pagamento estornado" acima, que é o que cobre o caso
+    // mais comum (cancelamento de pedido já pago, via mediação).
+    if (vendaExistente?.status === "Concluída" && (order.status === "cancelled" || order.status === "invalid")) {
+      const detalhe = order.cancel_detail?.description;
+      const motivo = detalhe
+        ? `Cancelado no Mercado Livre: ${detalhe} (pedido #${mlOrderId})`
+        : `Pedido cancelado no Mercado Livre (#${mlOrderId})`;
+      try {
+        await sbRpc("cancelar_venda", { p: { venda_id: vendaExistente.id, motivo } });
+        return { cancelado: true, venda_id: vendaExistente.id };
+      } catch (e) {
+        console.error(`Falha ao cancelar automaticamente a venda do pedido ML ${mlOrderId}:`, e);
+        return { erro: "falha_cancelar_venda_automatico" };
+      }
+    }
+    return { ignorado: `status_${order.status}` };
+  }
+
+  if (vendaExistente) {
+    // Pedido "paid" reenviado de novo pro webhook depois de já virar venda — o
+    // motivo mais comum é uma mediação/reclamação aberta (ver comentário acima).
+    // Como o pagamento ainda não foi estornado de verdade, NÃO mexe na venda —
+    // só avisa quem usa o sistema que tem uma reclamação em andamento nesse
+    // pedido, pra acompanhar manualmente até ela se resolver de um jeito ou de
+    // outro. on_conflict em registrarErroPedido faz isso ser idempotente mesmo
+    // que o ML reenvie a notificação várias vezes enquanto a mediação segue aberta.
+    const temMediacaoAberta = (order.mediations || []).length > 0 || (order.tags || []).includes("not_delivered");
+    if (temMediacaoAberta) {
+      await registrarErroPedido(
+        empresa.id,
+        mlOrderId,
+        `Pedido com reclamação/mediação aberta no Mercado Livre — a venda continua registrada normalmente aqui, mas acompanhe o desfecho no ML. O Nuvix só cancela sozinho quando o pagamento for de fato estornado.`,
+        order
+      );
+    }
+    return { ja_processado: true, venda_id: vendaExistente.id };
+  }
 
   if (!empresa.ml_loja_estoque_id) {
     await registrarErroPedido(empresa.id, mlOrderId, "Empresa sem loja de referência de estoque configurada em Integrações.", order);

@@ -1557,26 +1557,13 @@ async function cancelarVenda(vendaId){
       if(!confirmou)return;
     }
 
-    const itens=await dbGet('itens_venda',`?venda_id=eq.${vendaId}&select=*`);
+    const motivo=await promptAcao('Motivo do cancelamento (aparece no histórico e no Painel de Vendas):',{placeholder:'Ex: cliente desistiu, erro no lançamento, produto com defeito...',labelOk:'Cancelar venda'});
+    if(motivo===null)return; // usuário fechou o prompt sem confirmar
 
-    for(const item of itens){
-      if(!item.produto_id)continue; // produto já foi excluído do catálogo — não tem onde devolver estoque
-      const linhaEstoque=await dbGet('estoque_por_loja',`?produto_id=eq.${item.produto_id}&loja_id=eq.${venda.loja_id}&select=*`).then(r=>r[0]);
-      if(!linhaEstoque)continue;
-      const estAnt=Number(linhaEstoque.quantidade||0);
-      const estPost=estAnt+Number(item.quantidade||0);
-      await dbPatch('estoque_por_loja',linhaEstoque.id,{quantidade:estPost,updated_at:new Date().toISOString()});
-      await dbPost('estoque_movimentacoes',withEmpresa({
-        produto_id:item.produto_id, loja_id:venda.loja_id, tipo:'entrada', quantidade:item.quantidade,
-        estoque_anterior:estAnt, estoque_posterior:estPost, motivo:'Cancelamento de venda',
-        referencia_tipo:'venda', referencia_id:vendaId, usuario_id:session.id,
-      }));
-    }
-
-    if(venda.financeiro_id){
-      await fetch(`${SB_URL}/rest/v1/financeiro?id=eq.${venda.financeiro_id}`,{method:'DELETE',headers:H});
-    }
-    await dbPatch('vendas',vendaId,{status:'Cancelada'});
+    // A reversão em si (estoque, financeiro, status) roda dentro de cancelar_venda —
+    // mesmo RPC transacional que o ml-webhook usa pra cancelamento automático vindo
+    // do Mercado Livre, pra não ter duas lógicas de estorno divergindo com o tempo.
+    await dbRpc('cancelar_venda',{p:{venda_id:vendaId, motivo:motivo||'Cancelamento manual no Caixa', usuario_id:session.id}});
     toast('Venda cancelada — estoque devolvido e receita removida do Financeiro.','ok');
     await carregarProdutosLoja();
     await carregarHistoricoVendas();
