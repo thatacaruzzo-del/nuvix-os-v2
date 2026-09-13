@@ -737,6 +737,22 @@ async function abrirEntrada(id){
 // pdvBusca): campo dedicado pro leitor (compara exato contra codigo_barras) e
 // campo de busca livre (nome/SKU/código), cada um com sua caixinha de
 // resultado, escopada por índice do item na nota.
+// Corrige a categoria do produto direto do catálogo (produtos.categoria_id) —
+// não é um dado da nota, é do cadastro do produto, então salva na hora, sem
+// esperar "Confirmar entrada". Não força um re-render da tela toda: evita
+// perder qualquer edição de quantidade/valor que a pessoa já tenha digitado
+// em outras linhas antes de terminar de conferir a nota.
+async function atualizarCategoriaProdutoInline(i,categoriaId){
+  const item=itensEntradaAtual[i];
+  const produto=produtosCacheEntrada.find(p=>p.id===item?.produto_id);
+  if(!produto)return;
+  try{
+    await db.patch('produtos',produto.id,{categoria_id:categoriaId||null,updated_at:new Date().toISOString()});
+    produto.categoria_id=categoriaId||null;
+    toast('Categoria do produto atualizada.','ok');
+  }catch(e){toast('Erro ao atualizar categoria: '+e.message,'err');}
+}
+
 function trocarProdutoItem(i){
   coletarEdicoesEntradaDoDom();
   itensEmEdicaoProduto.add(i);
@@ -820,10 +836,9 @@ function renderEntradaRevisao(){
         </div>
         <button type="button" class="btn2" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="iniciarCriarProdutoRapido(${i})">+ Criar produto novo</button>`;
     } else {
-      const categoriaNome=categoriasCacheEntrada.find(c=>c.id===produto?.categoria_id)?.nome;
       blocoProduto=`
         <div class="entrada-item-sub" style="color:var(--green);font-weight:700;margin-top:4px">✓ ${esc(produto?.nome||'')}</div>
-        <div class="entrada-item-sub">Categoria: ${esc(categoriaNome||'sem categoria')}</div>
+        <select style="font-size:11px;margin-top:4px;padding:4px 6px" onchange="atualizarCategoriaProdutoInline(${i},this.value)">${categoriaOptions(produto?.categoria_id)}</select>
         <button type="button" class="btn2" style="padding:3px 8px;font-size:11px;margin-top:4px" onclick="trocarProdutoItem(${i})">Trocar produto</button>`;
     }
     return`<div class="entrada-item-row" data-item-idx="${i}">
