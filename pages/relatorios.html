@@ -720,7 +720,7 @@ function renderRelatorioVendas(){
       data: venda?.data_venda||null, vendedor: venda?.vendedor_nome||'—', loja: nomeLoja[venda?.loja_id]||'—',
       consignador: nomeConsignador[i.consignador_id]||'—',
       produto: i.produto_nome||'—', qtd: Number(i.quantidade||0), valorUnit: Number(i.valor_unitario||0),
-      valorLiquido: bruto*fator,
+      valorLiquido: bruto*fator, desconto: bruto-(bruto*fator),
     };
   }).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
 
@@ -890,13 +890,16 @@ function renderRelatorioVendas(){
     // Cache separado pra exportar essa lista sem refazer a montagem no clique.
     _relDadosConsignadoItens = itensConsignadoOrdenados.map(it=>({
       Data: fmtData(it.data), Vendedor: it.vendedor, Loja: it.loja, Consignador: it.consignador,
-      Produto: it.produto, 'Qtd.': it.qtd, 'Valor unit.': money(it.valorUnit), Valor: money(it.valorLiquido),
+      Produto: it.produto, 'Qtd.': it.qtd, 'Valor unit.': money(it.valorUnit), Desconto: money(it.desconto), 'Valor líquido': money(it.valorLiquido),
     }));
     const totalPaginasConsigItens=Math.max(1,Math.ceil(itensConsignadoOrdenados.length/VENDAS_REL_POR_PAGINA));
     if(paginaConsignadoItensRel>totalPaginasConsigItens)paginaConsignadoItensRel=totalPaginasConsigItens;
     const inicioConsigItens=(paginaConsignadoItensRel-1)*VENDAS_REL_POR_PAGINA;
     const paginaConsigItens=itensConsignadoOrdenados.slice(inicioConsigItens,inicioConsigItens+VENDAS_REL_POR_PAGINA);
     const paginacaoConsigItensHTML = totalPaginasConsigItens>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${Array.from({length:totalPaginasConsigItens},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaConsignadoItensRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaConsignadoItensRel(${p})">${p}</button>`).join('')}</div>` : '';
+    const totalQtdConsigItens=itensConsignadoOrdenados.reduce((a,it)=>a+it.qtd,0);
+    const totalDescontoConsigItens=itensConsignadoOrdenados.reduce((a,it)=>a+it.desconto,0);
+    const totalValorConsigItens=itensConsignadoOrdenados.reduce((a,it)=>a+it.valorLiquido,0);
     consignadoHTML += `
     <div class="card" style="margin:0 0 20px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -904,10 +907,15 @@ function renderRelatorioVendas(){
         <button class="btn2" style="padding:6px 12px;font-size:12px" onclick="exportarConsignadoItens()">⬇ Exportar Excel</button>
       </div>
       <div class="tablewrap"><table>
-        <thead><tr><th>Data</th><th>Vendedor</th><th>Loja</th><th>Consignador</th><th>Produto</th><th>Qtd.</th><th>Valor unit.</th><th>Valor</th></tr></thead>
-        <tbody>${paginaConsigItens.map(it=>`<tr><td>${fmtData(it.data)}</td><td>${esc(it.vendedor)}</td><td>${esc(it.loja)}</td><td>${esc(it.consignador)}</td><td>${esc(it.produto)}</td><td>${it.qtd}</td><td>${money(it.valorUnit)}</td><td><b>${money(it.valorLiquido)}</b></td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum item consignado vendido nesse período</td></tr>'}</tbody>
+        <thead><tr><th>Data</th><th>Vendedor</th><th>Loja</th><th>Consignador</th><th>Produto</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Valor líquido</th></tr></thead>
+        <tbody>${paginaConsigItens.map(it=>`<tr><td>${fmtData(it.data)}</td><td>${esc(it.vendedor)}</td><td>${esc(it.loja)}</td><td>${esc(it.consignador)}</td><td>${esc(it.produto)}</td><td>${it.qtd}</td><td>${money(it.valorUnit)}</td><td>${it.desconto>0.004?money(it.desconto):'—'}</td><td><b>${money(it.valorLiquido)}</b></td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted)">Nenhum item consignado vendido nesse período</td></tr>'}</tbody>
       </table></div>
       ${paginacaoConsigItensHTML}
+      ${itensConsignadoOrdenados.length?`<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:24px;flex-wrap:wrap">
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Itens vendidos</div><div style="font-size:16px;font-weight:800">${totalQtdConsigItens}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Desconto total</div><div style="font-size:16px;font-weight:800">${money(totalDescontoConsigItens)}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Valor total (líquido)</div><div style="font-size:16px;font-weight:800">${money(totalValorConsigItens)}</div></div>
+      </div>`:''}
     </div>`;
   }
 
