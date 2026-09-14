@@ -434,7 +434,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[], consignadores:[], usuarios:[] };
+let dados = { produtos:[], estoque:[], lojas:[], colaboradores:[], consignadores:[], usuarios:[], kits:[], kitItens:[] };
 let carrinho = [];
 let pagamentos = [];
 let sessaoAtual = null;
@@ -560,7 +560,7 @@ async function verificarCaixaAberto(){
 
 async function carregarProdutosLoja(lojaIdOverride){
   const lojaId=lojaIdOverride||sessaoAtual.loja_id;
-  const [produtos,estoque,consignadores,precos]=await Promise.all([
+  const [produtos,estoque,consignadores,precos,kits,kitItens]=await Promise.all([
     dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,is_consignado,consignador_id,ncm,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
     dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
     dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&select=id,percentual_repasse`).catch(()=>[]),
@@ -569,6 +569,8 @@ async function carregarProdutosLoja(lojaIdOverride){
     // de idas ao banco só pra abrir o Caixa. Best-effort: se falhar, cada produto usa
     // o próprio preco_venda_final (nunca trava a venda por causa de promoção).
     dbRpc('obter_precos_vigentes',{p_empresa_id:session.empresa_id,p_loja_id:lojaId}).catch(()=>[]),
+    dbGet('kits',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true`).catch(()=>[]),
+    dbGet('kit_itens',`?empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
   ]);
   const precoPorProduto={};
   precos.forEach(p=>{precoPorProduto[p.produto_id]={preco:Number(p.preco),emPromocao:!!p.em_promocao};});
@@ -577,7 +579,7 @@ async function carregarProdutosLoja(lojaIdOverride){
     p.preco_vigente=info?info.preco:Number(p.preco_venda_final||0);
     p.em_promocao=info?info.emPromocao:false;
   });
-  dados.produtos=produtos; dados.estoque=estoque; dados.consignadores=consignadores;
+  dados.produtos=produtos; dados.estoque=estoque; dados.consignadores=consignadores; dados.kits=kits; dados.kitItens=kitItens;
 }
 
 function mostrarTelaPdv(){
@@ -679,18 +681,67 @@ async function abrirCaixaSessao(){
 
 // ══ BUSCA / CARRINHO ══
 function disponivel(produtoId){return Number(dados.estoque.find(e=>e.produto_id===produtoId)?.quantidade||0)}
+// Kit não tem estoque próprio — "disponível" é o quanto dá pra montar com o que sobrou
+// de CADA componente, ou seja, o mínimo entre eles. Se faltar carvão mas sobrar carne,
+// o kit fica limitado pelo carvão, igual venderia numa loja física.
+function disponivelKit(kit){
+  const componentes=dados.kitItens.filter(ki=>ki.kit_id===kit.id);
+  if(!componentes.length)return 0;
+  return Math.min(...componentes.map(ki=>Math.floor(disponivel(ki.produto_id)/Number(ki.quantidade||1))));
+}
+function precoKit(kit){
+  const soma=dados.kitItens.filter(ki=>ki.kit_id===kit.id).reduce((a,ki)=>a+Number(ki.quantidade)*Number(dados.produtos.find(p=>p.id===ki.produto_id)?.preco_venda_final||0),0);
+  return kit.tipo_preco==='fixo'?Number(kit.preco_fixo||0):arred2(soma*(1-Number(kit.desconto_pct||0)/100));
+}
 function buscarProdutoManual(){
   const q=val('pdvBusca').trim().toLowerCase();
   const box=$('pdvBuscaResultados');
   if(!q){box.classList.remove('open');box.innerHTML='';return;}
   const achados=dados.produtos.filter(p=>(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q)).slice(0,10);
-  box.innerHTML=achados.map(p=>`<div class="pdv-busca-item" onclick="adicionarAoCarrinhoPorId('${p.id}')"><span>${esc(p.nome)}</span><span class="qtd-disp">${disponivel(p.id)} disp. · ${p.em_promocao?`<span style="text-decoration:line-through;color:var(--muted)">${money(p.preco_venda_final)}</span> <b style="color:var(--red)">${money(p.preco_vigente)}</b>`:money(p.preco_vigente)}</span></div>`).join('')||'<div class="pdv-busca-item">Nenhum produto encontrado.</div>';
+  const achadosKits=dados.kits.filter(k=>(k.nome||'').toLowerCase().includes(q)||(k.codigo_barras||'').toLowerCase().includes(q)).slice(0,5);
+  const htmlProdutos=achados.map(p=>`<div class="pdv-busca-item" onclick="adicionarAoCarrinhoPorId('${p.id}')"><span>${esc(p.nome)}</span><span class="qtd-disp">${disponivel(p.id)} disp. · ${p.em_promocao?`<span style="text-decoration:line-through;color:var(--muted)">${money(p.preco_venda_final)}</span> <b style="color:var(--red)">${money(p.preco_vigente)}</b>`:money(p.preco_vigente)}</span></div>`).join('');
+  const htmlKits=achadosKits.map(k=>`<div class="pdv-busca-item" onclick="adicionarKitAoCarrinhoPorId('${k.id}')"><span>${esc(k.nome)} <span class="badge badge-amber">Kit</span></span><span class="qtd-disp">${disponivelKit(k)} disp. · ${money(precoKit(k))}</span></div>`).join('');
+  box.innerHTML=(htmlProdutos+htmlKits)||'<div class="pdv-busca-item">Nenhum produto encontrado.</div>';
   box.classList.add('open');
 }
 function adicionarAoCarrinhoPorId(id){
   const p=dados.produtos.find(x=>x.id===id);
   if(p)adicionarAoCarrinho(p);
   $('pdvBusca').value=''; $('pdvBuscaResultados').classList.remove('open');
+}
+function adicionarKitAoCarrinhoPorId(id){
+  const k=dados.kits.find(x=>x.id===id);
+  if(k)adicionarKitAoCarrinho(k);
+  $('pdvBusca').value=''; $('pdvBuscaResultados').classList.remove('open');
+}
+// Kit vira UMA linha no carrinho (fácil de olhar/editar quantidade), mas carrega dentro
+// de si os componentes reais já com o preço rateado — é só na hora de montar o payload
+// pro finalizar_venda que isso vira N linhas de verdade (ver finalizarVenda).
+function adicionarKitAoCarrinho(kit){
+  const disp=disponivelKit(kit);
+  const item=carrinho.find(i=>i.kit_id===kit.id);
+  const qtdAtual=item?item.quantidade:0;
+  if(qtdAtual+1>disp){ toast(`Estoque insuficiente pra montar mais "${kit.nome}" (${disp} disponível).`,'err'); return; }
+  if(item){ item.quantidade+=1; renderCarrinho(); return; }
+  const componentes=dados.kitItens.filter(ki=>ki.kit_id===kit.id);
+  const somaCatalogo=componentes.reduce((a,ki)=>a+Number(ki.quantidade)*Number(dados.produtos.find(p=>p.id===ki.produto_id)?.preco_venda_final||0),0);
+  const precoDoKit=precoKit(kit);
+  const fatorKit=somaCatalogo>0?precoDoKit/somaCatalogo:1;
+  const itensComponentes=componentes.map(ki=>{
+    const p=dados.produtos.find(x=>x.id===ki.produto_id);
+    return {
+      produto_id:ki.produto_id, nome:p?.nome||'—', quantidade_unit:Number(ki.quantidade),
+      valor_unitario_rateado:arred2(Number(p?.preco_venda_final||0)*fatorKit),
+      custo_unitario:Number(p?.custo_atual||0),
+      is_consignado:!!p?.is_consignado, consignador_id:p?.consignador_id||null,
+    };
+  });
+  carrinho.push({
+    kit_id:kit.id, produto_id:null, nome:kit.nome, quantidade:1, valor_unitario:precoDoKit,
+    custo_unitario:itensComponentes.reduce((a,c)=>a+c.custo_unitario*c.quantidade_unit,0),
+    is_consignado:false, consignador_id:null, estoque_disponivel:disp, componentes:itensComponentes,
+  });
+  renderCarrinho();
 }
 function adicionarAoCarrinho(produto){
   const disp=disponivel(produto.id);
@@ -735,8 +786,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     const codigo=val('pdvBarras').trim();
     if(!codigo)return;
     const produto=dados.produtos.find(p=>p.codigo_barras===codigo);
-    if(!produto){ msg('pdvScanMsg','Nenhum produto com esse código de barras.','err'); }
-    else{ adicionarAoCarrinho(produto); msg('pdvScanMsg',`${produto.nome} adicionado.`,'ok'); }
+    if(produto){ adicionarAoCarrinho(produto); msg('pdvScanMsg',`${produto.nome} adicionado.`,'ok'); }
+    else{
+      const kit=dados.kits.find(k=>k.codigo_barras===codigo);
+      if(kit){ adicionarKitAoCarrinho(kit); msg('pdvScanMsg',`${kit.nome} adicionado.`,'ok'); }
+      else{ msg('pdvScanMsg','Nenhum produto com esse código de barras.','err'); }
+    }
     $('pdvBarras').value=''; $('pdvBarras').focus();
   });
   document.addEventListener('click',e=>{ if(!e.target.closest('.pdv-busca-field'))$('pdvBuscaResultados')?.classList.remove('open'); });
@@ -747,7 +802,7 @@ function renderCarrinho(){
   else{
     $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
       <tr>
-        <td>${esc(i.nome)}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}${i.avulso?' <span class="badge badge-blue" title="Sem cadastro no catálogo">Avulso</span>':''}</td>
+        <td>${esc(i.nome)}${i.kit_id?' <span class="badge badge-amber" title="Vira '+i.componentes.length+' item(ns) reais na venda, cada um baixando seu próprio estoque">Kit</span>':''}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}${i.avulso?' <span class="badge badge-blue" title="Sem cadastro no catálogo">Avulso</span>':''}</td>
         <td><input type="text" inputmode="numeric" class="pdv-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
         <td><input type="text" inputmode="decimal" class="pdv-qtd-input" value="${i.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}" oninput="sanitizarDecimal(this)" onchange="alterarPrecoCarrinho(${idx},this.value)" style="width:90px;text-align:right" title="Preço combinado com o cliente pode ser diferente do preço de tabela — edite aqui se precisar."></td>
         <td>${money(i.quantidade*i.valor_unitario)}</td>
@@ -766,7 +821,17 @@ function alterarPrecoCarrinho(idx,novoValor){
   const item=carrinho[idx]; if(!item)return;
   const preco=numBR(novoValor);
   if(!preco||preco<0){ toast('Preço inválido.','err'); renderCarrinho(); return; }
-  item.valor_unitario=arred2(preco); renderCarrinho();
+  item.valor_unitario=arred2(preco);
+  // Kit não tem "o" preço gravado em lugar nenhum — o que vai pro banco é o preço de
+  // cada componente real. Editar o preço do kit na hora redistribui essa mudança pelos
+  // componentes na mesma proporção que já estavam, senão o valor editado no carrinho
+  // nunca chegaria no finalizar_venda (que lê dos componentes, não do total do kit).
+  if(item.kit_id&&item.componentes?.length){
+    const somaAtual=item.componentes.reduce((a,c)=>a+c.valor_unitario_rateado*c.quantidade_unit,0);
+    const fator=somaAtual>0?item.valor_unitario/somaAtual:1;
+    item.componentes.forEach(c=>{ c.valor_unitario_rateado=arred2(c.valor_unitario_rateado*fator); });
+  }
+  renderCarrinho();
 }
 function removerDoCarrinho(idx){ carrinho.splice(idx,1); renderCarrinho(); }
 function limparCarrinho(){
@@ -966,6 +1031,16 @@ async function finalizarVenda(){
 
   for(const item of carrinho){
     if(item.avulso)continue; // sem cadastro = sem registro de estoque pra checar
+    if(item.kit_id){
+      const kitAtual=dados.kits.find(k=>k.id===item.kit_id);
+      const dispAtual=kitAtual?disponivelKit(kitAtual):0;
+      if(item.quantidade>dispAtual){
+        msg('pdvMsg',`Estoque pra montar "${item.nome}" mudou — disponível agora: ${dispAtual}.`,'err');
+        await carregarProdutosLoja(modoRetroativo?lojaId:undefined);
+        return;
+      }
+      continue;
+    }
     if(item.quantidade>disponivel(item.produto_id)){
       msg('pdvMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${disponivel(item.produto_id)}.`,'err');
       await carregarProdutosLoja(modoRetroativo?lojaId:undefined);
@@ -1031,14 +1106,32 @@ async function finalizarVenda(){
       // qual era o % combinado NA HORA da venda — se o % mudar depois no cadastro,
       // essa venda já feita não muda de valor retroativamente (mesmo motivo do
       // custo_unitario_snapshot).
-      itens:carrinho.map(i=>({
-        produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
-        valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
-        is_consignado:!!i.is_consignado,
-        consignador_id:i.is_consignado?(i.consignador_id||null):null,
-        percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
-        avulso:!!i.avulso,
-      })),
+      //
+      // Kit vira N linhas aqui — uma por componente real — porque é assim que o banco
+      // baixa estoque (por produto_id) e emite NFC-e (item a item, exigência fiscal).
+      // Cada componente carrega kit_id só pra relatório saber que veio de um kit; a
+      // baixa de estoque/lote/consignado em si nunca soube que existe kit, e não
+      // precisa saber — trata como venda normal de cada produto.
+      itens:carrinho.flatMap(i=>{
+        if(i.kit_id){
+          return i.componentes.map(c=>({
+            produto_id:c.produto_id, produto_nome:c.nome, quantidade:c.quantidade_unit*i.quantidade,
+            valor_unitario:c.valor_unitario_rateado, custo_unitario_snapshot:c.custo_unitario,
+            is_consignado:!!c.is_consignado,
+            consignador_id:c.is_consignado?(c.consignador_id||null):null,
+            percentual_repasse_snapshot:c.is_consignado?(dados.consignadores.find(x=>x.id===c.consignador_id)?.percentual_repasse??null):null,
+            avulso:false, kit_id:i.kit_id,
+          }));
+        }
+        return [{
+          produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
+          valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
+          is_consignado:!!i.is_consignado,
+          consignador_id:i.is_consignado?(i.consignador_id||null):null,
+          percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
+          avulso:!!i.avulso, kit_id:null,
+        }];
+      }),
       formas_pagamento:pagamentos.filter(p=>p.valor>0).map(p=>({
         forma_pagamento:p.forma, valor:p.valor, parcelas:p.forma==='Cartão Crédito'?(p.parcelas||1):null,
       })),
@@ -1052,8 +1145,16 @@ async function finalizarVenda(){
 
     // Atualização otimista do cache local de estoque (o banco já baixou de verdade
     // dentro da transação) — evita esperar um reload completo pra refletir na tela.
+    // Kit não tem linha de estoque própria — quem baixa é cada componente real.
     for(const item of carrinho){
       if(item.avulso)continue;
+      if(item.kit_id){
+        item.componentes.forEach(c=>{
+          const linhaEstoque=dados.estoque.find(e=>e.produto_id===c.produto_id);
+          if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-(c.quantidade_unit*item.quantidade);
+        });
+        continue;
+      }
       const linhaEstoque=dados.estoque.find(e=>e.produto_id===item.produto_id);
       if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-item.quantidade;
     }
@@ -1112,15 +1213,22 @@ async function carregarConfigFiscal(){
 async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce){
   if(!empresaFiscal.nfce_ativo){ janelaDanfce?.close(); return false; }
   try{
-    const itensPayload=itensCarrinho.filter(i=>!i.avulso).map(i=>{
-      const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
-      return {
-        produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||'5102',
-        quantidade:i.quantidade, valor_unitario:i.valor_unitario, valor_total:arred2(i.quantidade*i.valor_unitario),
-        csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
-        unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
-        aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
-      };
+    // Kit não pode sair na nota como um item genérico "Kit X" — não tem NCM nem
+    // tributação próprios, e a SEFAZ exige isso por item. Por isso a NFC-e sempre
+    // expande o kit nos produtos reais que o compõem, cada um com seu próprio
+    // NCM/CFOP/CSOSN — mesma expansão que o finalizar_venda já faz pro estoque.
+    const itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
+      const linhas=i.kit_id?i.componentes.map(c=>({produto_id:c.produto_id,nome:c.nome,quantidade:c.quantidade_unit*i.quantidade,valor_unitario:c.valor_unitario_rateado})):[i];
+      return linhas.map(l=>{
+        const p=dados.produtos.find(x=>x.id===l.produto_id)||{};
+        return {
+          produto_id:l.produto_id, descricao:l.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||'5102',
+          quantidade:l.quantidade, valor_unitario:l.valor_unitario, valor_total:arred2(l.quantidade*l.valor_unitario),
+          csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
+          unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
+          aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
+        };
+      });
     });
     if(!itensPayload.length){ janelaDanfce?.close(); return false; } // venda só com item(ns) avulso(s) — sem cadastro/NCM não dá pra emitir
     const nota=await dbPost('notas_fiscais_nfce',withEmpresa({

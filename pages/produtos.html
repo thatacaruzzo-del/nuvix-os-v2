@@ -56,6 +56,7 @@ function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
 function sanitizarInteiro(el){el.value=el.value.replace(/[^0-9]/g,'');}
 function numBR(id){let s=val(id).trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function arred2(v){return Math.round(Number(v||0)*100)/100}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
 function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}
 function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -76,6 +77,7 @@ async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_UR
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
 async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbDelete(t,q){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{method:'DELETE',headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 // Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, catálogo/estoque
 // acima de 1000 linhas fica cortado silenciosamente pela paginação padrão do
 // PostgREST, sem erro nenhum: produto ou lote some da tela sem ninguém perceber.
@@ -166,6 +168,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <button class="pdv-tab" onclick="abaTab('lojas',this)">Lojas</button>
         <button class="pdv-tab" onclick="abaTab('consignadores',this)">Consignadores</button>
         <button class="pdv-tab" onclick="abaTab('promocoes',this)">Promoções</button>
+        <button class="pdv-tab" onclick="abaTab('kits',this)">Kits</button>
       </div>
 
       <!-- ══ PRODUTOS ══ -->
@@ -359,6 +362,58 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <table>
               <thead><tr><th>Status</th><th>Produto</th><th>Loja</th><th>Período</th><th>Catálogo</th><th>Promocional</th><th></th></tr></thead>
               <tbody id="promocoesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ KITS / COMBOS ══ -->
+      <div id="pane-kits" class="pdv-pane">
+        <div class="card" style="margin-bottom:20px">
+          <h2 style="margin:0 0 4px" id="kitFormTitulo">Novo kit</h2>
+          <p class="field-hint" style="margin-bottom:14px">O kit não tem estoque próprio — ao vender, cada produto que faz parte dele é baixado do estoque normalmente. Preço combinado é feito na venda toda, item a item, igual um desconto.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" style="flex:2;min-width:220px"><label>Nome do kit *</label><input id="kitNome" placeholder="Ex: Kit Churrasco"></div>
+            <div class="field" style="flex:1;min-width:180px"><label>Código de barras</label><input id="kitCodigoBarras" placeholder="Opcional"></div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="width:210px"><label>Tipo de preço</label>
+              <select id="kitTipoPreco" onchange="atualizarTipoPrecoKit()">
+                <option value="fixo">Preço fixo do kit</option>
+                <option value="desconto_pct">Desconto % sobre a soma</option>
+              </select>
+            </div>
+            <div class="field" style="width:150px" id="kitPrecoFixoWrap"><label>Preço do kit (R$) *</label><input id="kitPrecoFixo" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);atualizarResumoKit()"></div>
+            <div class="field" style="width:150px;display:none" id="kitDescontoPctWrap"><label>Desconto (%) *</label><input id="kitDescontoPct" type="text" inputmode="decimal" placeholder="0" oninput="atualizarResumoKit()"></div>
+            <div class="field" style="flex:1;min-width:140px"><label>Status</label><label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:400"><input id="kitAtivo" type="checkbox" checked style="width:auto">Ativo</label></div>
+          </div>
+
+          <div class="field-hint" style="margin:10px 0 8px;font-weight:700;color:var(--txt)">Produtos do kit</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+            <div class="field" style="flex:2;min-width:220px;margin:0"><label>Produto</label><select id="kitCompProduto"></select></div>
+            <div class="field" style="width:110px;margin:0"><label>Qtd. no kit</label><input id="kitCompQtd" type="text" inputmode="decimal" value="1"></div>
+            <button class="btn2" onclick="adicionarComponenteKit()">+ Adicionar</button>
+          </div>
+          <div class="tablewrap" style="margin-bottom:12px">
+            <table>
+              <thead><tr><th>Produto</th><th>Qtd. no kit</th><th>Preço de catálogo</th><th></th></tr></thead>
+              <tbody id="kitComponentesTable"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhum produto adicionado ainda.</td></tr></tbody>
+            </table>
+          </div>
+          <div id="kitResumo" class="field-hint" style="margin-bottom:10px"></div>
+          <div id="kitMsg" class="msg"></div>
+          <div style="display:flex;gap:10px">
+            <button class="btn" onclick="salvarKit()" id="kitBtnSalvar">Criar kit</button>
+            <button class="btn2" onclick="cancelarEdicaoKit()" id="kitBtnCancelar" style="display:none">Cancelar edição</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 14px">Kits cadastrados</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Status</th><th>Kit</th><th>Componentes</th><th>Preço</th><th></th></tr></thead>
+              <tbody id="kitsTable"></tbody>
             </table>
           </div>
         </div>
@@ -575,7 +630,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <script>
 // ══ ESTADO ══
 const session = requireAuth();
-let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[], lotes:[], promocoes:[] };
+let dados = { produtos:[], categorias:[], lojas:[], estoque:[], transferencias:[], consignadores:[], lotes:[], promocoes:[], kits:[], kitItens:[] };
 const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.';
 
 // ══ PAGINAÇÃO — tabelas de Produtos e Estoque crescem sem limite, então em vez de
@@ -626,7 +681,7 @@ async function init(){
 async function carregarTudo(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes,promocoes]=await Promise.all([
+    const [produtos,categorias,lojas,estoque,transferencias,consignadores,lotes,promocoes,kits,kitItens]=await Promise.all([
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('categorias_produto',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
       dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`),
@@ -635,8 +690,10 @@ async function carregarTudo(){
       dbGet('consignadores',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
       dbGetTodas('lotes_produto',`?empresa_id=eq.${session.empresa_id}&order=data_validade.asc`).catch(()=>[]),
       dbGet('promocoes_listagem',`?empresa_id=eq.${session.empresa_id}&order=data_inicio.desc`).catch(()=>[]),
+      dbGet('kits',`?empresa_id=eq.${session.empresa_id}&order=nome.asc`).catch(()=>[]),
+      dbGet('kit_itens',`?empresa_id=eq.${session.empresa_id}`).catch(()=>[]),
     ]);
-    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes; dados.promocoes=promocoes;
+    dados.produtos=produtos; dados.categorias=categorias; dados.lojas=lojas; dados.estoque=estoque; dados.transferencias=transferencias; dados.consignadores=consignadores; dados.lotes=lotes; dados.promocoes=promocoes; dados.kits=kits; dados.kitItens=kitItens;
     reconstruirMapaEstoque();
   }catch(e){toast('Erro ao carregar dados: '+e.message,'err');return;}
   // Empresa Varejo sem nenhuma loja ainda (ex: acabou de trocar de segmento, ou é
@@ -649,7 +706,7 @@ async function carregarTudo(){
       toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
-  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade(); renderPromocoes();
+  renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade(); renderPromocoes(); renderKits();
   popularSelectsComuns();
 }
 
@@ -1479,6 +1536,134 @@ async function desativarPromocao(id){
   }catch(e){toast('Erro ao desativar: '+e.message,'err');}
 }
 
+// ══ KITS / COMBOS — kit não tem estoque próprio: é uma receita de produtos reais,
+// cada um com seu próprio estoque. Vender 1 kit expande em N itens de venda no Caixa
+// (um por componente), então cancelamento e baixa de lote reaproveitam 100% do que já
+// existe pra venda normal — nada disso precisou mudar pra kit funcionar. ══
+let _kitComponentesForm = []; // [{produto_id, nome, quantidade, preco_catalogo}] — rascunho do form, antes de salvar
+let _kitEditandoId = null;
+function nomeProduto(id){return dados.produtos.find(p=>p.id===id)?.nome||'—'}
+function atualizarTipoPrecoKit(){
+  const fixo=val('kitTipoPreco')==='fixo';
+  $('kitPrecoFixoWrap').style.display=fixo?'block':'none';
+  $('kitDescontoPctWrap').style.display=fixo?'none':'block';
+  atualizarResumoKit();
+}
+function adicionarComponenteKit(){
+  const produtoId=val('kitCompProduto');
+  const qtd=numBR('kitCompQtd');
+  if(!produtoId){msg('kitMsg','Selecione um produto.','err');return;}
+  if(!qtd||qtd<=0){msg('kitMsg','Informe uma quantidade válida.','err');return;}
+  const produto=dados.produtos.find(p=>p.id===produtoId);
+  const existente=_kitComponentesForm.find(c=>c.produto_id===produtoId);
+  if(existente){ existente.quantidade+=qtd; }
+  else{ _kitComponentesForm.push({produto_id:produtoId, nome:produto?.nome||'—', quantidade:qtd, preco_catalogo:Number(produto?.preco_venda_final||0)}); }
+  $('kitCompQtd').value='1';
+  renderKitComponentesForm();
+}
+function removerComponenteKitForm(idx){ _kitComponentesForm.splice(idx,1); renderKitComponentesForm(); }
+function renderKitComponentesForm(){
+  $('kitComponentesTable').innerHTML=_kitComponentesForm.length?_kitComponentesForm.map((c,idx)=>`
+    <tr>
+      <td>${esc(c.nome)}</td>
+      <td>${c.quantidade}</td>
+      <td>${money(c.preco_catalogo)}</td>
+      <td><button class="btn2" style="padding:4px 10px" onclick="removerComponenteKitForm(${idx})">✕</button></td>
+    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhum produto adicionado ainda.</td></tr>';
+  atualizarResumoKit();
+}
+function atualizarResumoKit(){
+  const soma=_kitComponentesForm.reduce((a,c)=>a+c.quantidade*c.preco_catalogo,0);
+  if(!_kitComponentesForm.length){ setHTML('kitResumo',''); return; }
+  const fixo=val('kitTipoPreco')==='fixo';
+  const precoKit=fixo?numBR('kitPrecoFixo'):arred2(soma*(1-(numBR('kitDescontoPct')||0)/100));
+  const economia=soma-precoKit;
+  setHTML('kitResumo',`Soma dos produtos: <b>${money(soma)}</b> · Preço do kit: <b>${money(precoKit)}</b>${economia>0.004?` · Economia de <b>${money(economia)}</b> (${soma?((economia/soma)*100).toFixed(1):'0'}%)`:economia<-0.004?' · <span style="color:var(--red,#dc2626)">preço do kit maior que a soma dos produtos</span>':''}`);
+}
+function renderKits(){
+  const lista=[...dados.kits].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  $('kitsTable').innerHTML=lista.length?lista.map(k=>{
+    const componentes=dados.kitItens.filter(ki=>ki.kit_id===k.id);
+    const soma=componentes.reduce((a,ki)=>a+ki.quantidade*Number(dados.produtos.find(p=>p.id===ki.produto_id)?.preco_venda_final||0),0);
+    const preco=k.tipo_preco==='fixo'?Number(k.preco_fixo||0):arred2(soma*(1-Number(k.desconto_pct||0)/100));
+    return `<tr>
+      <td>${k.ativo===false?'<span class="badge badge-muted">inativo</span>':'<span class="badge badge-green">ativo</span>'}</td>
+      <td><b>${esc(k.nome)}</b>${k.codigo_barras?` <span class="field-hint">${esc(k.codigo_barras)}</span>`:''}</td>
+      <td>${componentes.map(ki=>`${ki.quantidade}× ${esc(nomeProduto(ki.produto_id))}`).join(', ')||'—'}</td>
+      <td><b>${money(preco)}</b>${k.tipo_preco==='desconto_pct'?` <span class="field-hint">(-${Number(k.desconto_pct)}%)</span>`:''}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn2" style="padding:6px 12px" onclick="editarKit('${k.id}')">Editar</button>
+        <button class="btn2" style="padding:6px 12px" onclick="alternarAtivoKit('${k.id}',${k.ativo===false})">${k.ativo===false?'Ativar':'Desativar'}</button>
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum kit cadastrado.</td></tr>';
+}
+function editarKit(id){
+  const k=dados.kits.find(x=>x.id===id);
+  if(!k)return;
+  _kitEditandoId=id;
+  $('kitFormTitulo').textContent='Editar kit';
+  $('kitNome').value=k.nome||''; $('kitCodigoBarras').value=k.codigo_barras||'';
+  $('kitTipoPreco').value=k.tipo_preco;
+  $('kitPrecoFixo').value=k.preco_fixo||'';
+  $('kitDescontoPct').value=k.desconto_pct??'';
+  $('kitAtivo').checked=k.ativo!==false;
+  atualizarTipoPrecoKit();
+  _kitComponentesForm=dados.kitItens.filter(ki=>ki.kit_id===id).map(ki=>({produto_id:ki.produto_id, nome:nomeProduto(ki.produto_id), quantidade:Number(ki.quantidade), preco_catalogo:Number(dados.produtos.find(p=>p.id===ki.produto_id)?.preco_venda_final||0)}));
+  renderKitComponentesForm();
+  $('kitBtnSalvar').textContent='Salvar alterações';
+  $('kitBtnCancelar').style.display='inline-block';
+  $('kitNome').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function cancelarEdicaoKit(){
+  _kitEditandoId=null; _kitComponentesForm=[];
+  $('kitFormTitulo').textContent='Novo kit';
+  $('kitNome').value=''; $('kitCodigoBarras').value=''; $('kitTipoPreco').value='fixo';
+  $('kitPrecoFixo').value=''; $('kitDescontoPct').value=''; $('kitAtivo').checked=true;
+  atualizarTipoPrecoKit();
+  renderKitComponentesForm();
+  $('kitBtnSalvar').textContent='Criar kit';
+  $('kitBtnCancelar').style.display='none';
+}
+async function salvarKit(){
+  const nome=val('kitNome').trim();
+  const tipoPreco=val('kitTipoPreco');
+  const precoFixo=numBR('kitPrecoFixo');
+  const descontoPct=numBR('kitDescontoPct');
+  if(!nome){msg('kitMsg','Informe o nome do kit.','err');return;}
+  if(!_kitComponentesForm.length){msg('kitMsg','Adicione pelo menos um produto ao kit.','err');return;}
+  if(tipoPreco==='fixo'&&(!precoFixo||precoFixo<0)){msg('kitMsg','Informe o preço do kit.','err');return;}
+  if(tipoPreco==='desconto_pct'&&(descontoPct===null||descontoPct===undefined||descontoPct<0||descontoPct>100)){msg('kitMsg','Informe um desconto entre 0 e 100%.','err');return;}
+  const codigoBarras=val('kitCodigoBarras').trim()||null;
+  if(codigoBarras&&dados.kits.some(k=>k.codigo_barras===codigoBarras&&k.id!==_kitEditandoId)){msg('kitMsg','Já existe outro kit com esse código de barras.','err');return;}
+  const payload={
+    nome, codigo_barras:codigoBarras, tipo_preco:tipoPreco,
+    preco_fixo:tipoPreco==='fixo'?precoFixo:null, desconto_pct:tipoPreco==='desconto_pct'?descontoPct:null,
+    ativo:$('kitAtivo').checked,
+  };
+  try{
+    let kitId=_kitEditandoId;
+    if(kitId){
+      await dbPatch('kits',kitId,payload);
+      await dbDelete('kit_itens',`?kit_id=eq.${kitId}`);
+    }else{
+      const novo=await dbPost('kits',withEmpresa(payload));
+      kitId=Array.isArray(novo)?novo[0]?.id:novo?.id;
+    }
+    await dbPost('kit_itens',_kitComponentesForm.map(c=>withEmpresa({kit_id:kitId, produto_id:c.produto_id, quantidade:c.quantidade})));
+    toast(_kitEditandoId?'Kit atualizado.':'Kit criado.','ok');
+    cancelarEdicaoKit();
+    await carregarTudo();
+  }catch(e){msg('kitMsg',e.message,'err');}
+}
+async function alternarAtivoKit(id,ativar){
+  try{
+    await dbPatch('kits',id,{ativo:ativar});
+    toast(ativar?'Kit ativado.':'Kit desativado.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
 // ══ LOJAS ══
 function renderLojas(){
   paginaLojas=renderPaginacao('lojasPaginacao',dados.lojas.length,paginaLojas,'irParaPaginaLojas');
@@ -1589,6 +1774,7 @@ function popularSelectsComuns(){
   const lojasAtivasCount=dados.lojas.filter(l=>l.ativo).length;
   if($('promoLojaWrap'))$('promoLojaWrap').style.display=lojasAtivasCount>1?'block':'none';
   if($('promoLoja'))$('promoLoja').innerHTML='<option value="">Todas as lojas</option>'+lojaOpts;
+  if($('kitCompProduto'))$('kitCompProduto').innerHTML=dados.produtos.filter(p=>p.ativo!==false).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
