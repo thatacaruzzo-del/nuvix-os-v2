@@ -234,10 +234,14 @@ async function processarPedido(headers: Record<string, string>, empresa: any, cr
   }
 
   const idsProdutoPedidook = [...new Set(itens.map((i) => String(i.id_produto)))];
+  // kit_id: o produto do PedidoOK pode estar vinculado a um kit em vez de um
+  // produto avulso (pedidook_produto_mapeamento.kit_id).
   const mapeamentos: any[] = await sbGet(
-    `pedidook_produto_mapeamento?pedidook_credencial_id=eq.${cred.id}&id_produto_pedidook=in.(${idsProdutoPedidook.join(",")})&select=produto_id,id_produto_pedidook`
+    `pedidook_produto_mapeamento?pedidook_credencial_id=eq.${cred.id}&id_produto_pedidook=in.(${idsProdutoPedidook.join(",")})&select=produto_id,kit_id,id_produto_pedidook`
   );
-  const porIdPedidook = new Map(mapeamentos.map((m) => [m.id_produto_pedidook, m.produto_id]));
+  const porIdPedidook = new Map<string, { produto_id: string | null; kit_id: string | null }>(
+    mapeamentos.map((m) => [m.id_produto_pedidook, { produto_id: m.produto_id, kit_id: m.kit_id }])
+  );
   const semMapeamento = idsProdutoPedidook.filter((id) => !porIdPedidook.has(id));
   if (semMapeamento.length) {
     await registrarErroPedido(
@@ -250,18 +254,47 @@ async function processarPedido(headers: Record<string, string>, empresa: any, cr
     return { erro: "itens_sem_mapeamento" };
   }
 
-  const produtoIds = [...new Set(idsProdutoPedidook.map((id) => porIdPedidook.get(id)))];
-  const produtosDetalhe: any[] = await sbGet(
-    `produtos?empresa_id=eq.${empresa.id}&id=in.(${produtoIds.join(",")})&select=id,nome,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`
-  );
+  const CAMPOS_FISCAIS = "id,nome,custo_atual,preco_venda_final,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins";
+  const produtoIds = [...new Set([...porIdPedidook.values()].map((v) => v.produto_id).filter(Boolean))] as string[];
+  const kitIds = [...new Set([...porIdPedidook.values()].map((v) => v.kit_id).filter(Boolean))] as string[];
+  const [produtosDetalhe, kitsDetalhe]: [any[], any[]] = await Promise.all([
+    produtoIds.length ? sbGet(`produtos?empresa_id=eq.${empresa.id}&id=in.(${produtoIds.join(",")})&select=${CAMPOS_FISCAIS}`) : [],
+    kitIds.length ? sbGet(`kits?empresa_id=eq.${empresa.id}&id=in.(${kitIds.join(",")})&select=id,nome,kit_itens(quantidade,produtos(${CAMPOS_FISCAIS}))`) : [],
+  ]);
   const porProdutoId = new Map(produtosDetalhe.map((p) => [p.id, p]));
+  const porKitId = new Map(kitsDetalhe.map((k) => [k.id, k]));
 
-  const itensVenda = itens.map((i) => {
-    const produtoId = porIdPedidook.get(String(i.id_produto));
-    const prod = porProdutoId.get(produtoId) || {};
+  // Kit não é vendido como uma linha só no banco — vira uma linha por produto
+  // real que o compõe, cada uma com seu próprio NCM/CSOSN. O preço unitário
+  // do kit no pedido do PedidoOK é rateado entre os componentes
+  // proporcionalmente ao preço de catálogo — mesma conta do Caixa.
+  const itensVenda = itens.flatMap((i) => {
+    const vinculo = porIdPedidook.get(String(i.id_produto))!;
     const valorUnitario = Number(i.preco_liquido || i.preco_bruto || 0);
-    return {
-      produto_id: produtoId,
+    if (vinculo.kit_id) {
+      const kit = porKitId.get(vinculo.kit_id);
+      if (!kit) return [];
+      const somaCatalogo = kit.kit_itens.reduce((a: number, ki: any) => a + Number(ki.quantidade) * Number(ki.produtos?.preco_venda_final || 0), 0);
+      const fator = somaCatalogo > 0 ? valorUnitario / somaCatalogo : 1;
+      return kit.kit_itens.map((ki: any) => {
+        const prod = ki.produtos;
+        return {
+          produto_id: prod.id,
+          produto_nome: prod.nome,
+          quantidade: Number(ki.quantidade) * Number(i.quantidade),
+          valor_unitario: Math.round(Number(prod.preco_venda_final || 0) * fator * 100) / 100,
+          custo_unitario_snapshot: prod.custo_atual ?? null,
+          is_consignado: false,
+          consignador_id: null,
+          percentual_repasse_snapshot: null,
+          avulso: false,
+          kit_id: kit.id,
+        };
+      });
+    }
+    const prod = porProdutoId.get(vinculo.produto_id) || {};
+    return [{
+      produto_id: vinculo.produto_id,
       produto_nome: prod.nome || `Produto ${i.id_produto}`,
       quantidade: Number(i.quantidade),
       valor_unitario: valorUnitario,
@@ -270,7 +303,8 @@ async function processarPedido(headers: Record<string, string>, empresa: any, cr
       consignador_id: null,
       percentual_repasse_snapshot: null,
       avulso: false,
-    };
+      kit_id: null,
+    }];
   });
 
   const subtotal = itensVenda.reduce((acc, i) => acc + i.quantidade * i.valor_unitario, 0);

@@ -247,6 +247,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div id="mlProdutosTablePaginacao"></div>
       </div>
 
+      <!-- ══ MAPEAMENTO DE KITS ══ -->
+      <div class="card" id="mlKitsCard" style="display:none">
+        <h2 style="margin:0 0 6px">Mapeamento de kits</h2>
+        <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio anúncio no Mercado Livre — o estoque publicado é sempre o mínimo entre os componentes (não deixa vender o que não dá pra montar).</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Kit</th><th>Componentes</th><th>ID do anúncio (ML)</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="mlKitsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ══ PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
       <div class="card" id="mlErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
@@ -305,7 +317,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
           <h2 style="margin:0">Mapeamento de produtos — Nuvemshop</h2>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <select id="nsMapLojaSelect" onchange="renderMapeamentoNS()" style="max-width:220px"></select>
+            <select id="nsMapLojaSelect" onchange="renderMapeamentoNS();renderMapeamentoKitsNS()" style="max-width:220px"></select>
             <input id="nsBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoNS()" style="max-width:260px">
           </div>
         </div>
@@ -317,6 +329,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </table>
         </div>
         <div id="nsProdutosTablePaginacao"></div>
+      </div>
+
+      <!-- ══ NUVEMSHOP — MAPEAMENTO DE KITS ══ -->
+      <div class="card" id="nsKitsCard" style="display:none">
+        <h2 style="margin:0 0 6px">Mapeamento de kits — Nuvemshop</h2>
+        <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio produto na Nuvemshop. Deixe os dois campos em branco e clique em Salvar — o produto é criado sozinho na Nuvemshop e os IDs voltam preenchidos.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Kit</th><th>Componentes</th><th>ID produto (Nuvemshop)</th><th>ID variante (Nuvemshop)</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="nsKitsTable"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ══ NUVEMSHOP — PEDIDOS COM ERRO ══ -->
@@ -409,6 +433,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </table>
         </div>
         <div id="pkProdutosTablePaginacao"></div>
+      </div>
+
+      <!-- ══ PEDIDOOK — MAPEAMENTO DE KITS ══ -->
+      <div class="card" id="pkKitsCard" style="display:none">
+        <h2 style="margin:0 0 6px">Mapeamento de kits — PedidoOK</h2>
+        <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio produto no PedidoOK. Deixe em branco pra criar automaticamente.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Kit</th><th>Componentes</th><th>ID no PedidoOK</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="pkKitsTable"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ══ PEDIDOOK — PEDIDOS COM ERRO ══ -->
@@ -509,6 +545,18 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div id="shopeeProdutosTablePaginacao"></div>
       </div>
 
+      <!-- ══ SHOPEE — MAPEAMENTO DE KITS ══ -->
+      <div class="card" id="shopeeKitsCard" style="display:none">
+        <h2 style="margin:0 0 6px">Mapeamento de kits</h2>
+        <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio anúncio na Shopee — o estoque publicado é sempre o mínimo entre os componentes.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Kit</th><th>Componentes</th><th>ID do anúncio (Shopee)</th><th>ID da variação</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="shopeeKitsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ══ SHOPEE — PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
       <div class="card" id="shopeeErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
@@ -586,12 +634,16 @@ function tratarRetornoOAuth(){
 async function loadData(){
   if(!session?.empresa_id)return;
   try{
-    const [produtos, lojas, empresaRows, mlMapeamentos, shopeeMapeamentos] = await Promise.all([
+    const [produtos, lojas, empresaRows, mlMapeamentos, shopeeMapeamentos, kits, kitItens, mlKitMapeamentos, shopeeKitMapeamentos] = await Promise.all([
       dbGetTodas('produtos', `?select=id,nome,sku,codigo_barras&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
       db.get('lojas', `?select=id,nome&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
       db.get('empresas', `?select=id,ml_loja_estoque_id,shopee_loja_estoque_id&id=eq.${session.empresa_id}`),
       dbGetTodas('ml_produto_mapeamento', `?select=id,produto_id,ml_item_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}`),
       dbGetTodas('shopee_produto_mapeamento', `?select=id,produto_id,shopee_item_id,shopee_model_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}`),
+      dbGetTodas('kits', `?select=id,nome,ativo&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`),
+      dbGetTodas('kit_itens', `?select=kit_id,produto_id,quantidade&empresa_id=eq.${session.empresa_id}`),
+      dbGetTodas('ml_produto_mapeamento', `?select=id,kit_id,ml_item_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}&kit_id=not.is.null`),
+      dbGetTodas('shopee_produto_mapeamento', `?select=id,kit_id,shopee_item_id,shopee_model_id,sync_status,sync_erro&empresa_id=eq.${session.empresa_id}&kit_id=not.is.null`),
     ]);
     // Junta o mapeamento de cada canal no próprio produto (p._ml, p._shopee) —
     // mesma ideia de join client-side que a tabela de erro já faz com o
@@ -602,10 +654,21 @@ async function loadData(){
     dados.produtos = produtos.map(p=>({ ...p, _ml: mlPorProduto.get(p.id)||null, _shopee: shopeePorProduto.get(p.id)||null }));
     dados.lojas = lojas;
     dados.empresaAtual = empresaRows?.[0] || {};
+    const nomeProdutoPorId = new Map(produtos.map(p=>[p.id,p.nome]));
+    const mlKitPorId = new Map(mlKitMapeamentos.map(m=>[m.kit_id,m]));
+    const shopeeKitPorId = new Map(shopeeKitMapeamentos.map(m=>[m.kit_id,m]));
+    dados.kits = kits.map(k=>({
+      ...k,
+      componentes: kitItens.filter(ki=>ki.kit_id===k.id).map(ki=>`${ki.quantidade}× ${nomeProdutoPorId.get(ki.produto_id)||'—'}`).join(', '),
+      _ml: mlKitPorId.get(k.id)||null,
+      _shopee: shopeeKitPorId.get(k.id)||null,
+    }));
     renderLojaEstoque();
     renderMapeamento();
+    renderMapeamentoKitsML();
     renderLojaEstoqueShopee();
     renderMapeamentoShopee();
+    renderMapeamentoKitsShopee();
   }catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
   // As 7 chamadas abaixo são independentes entre si (cada uma fala com uma
   // function/tabela diferente) — rodar em paralelo em vez de uma esperando a
@@ -937,6 +1000,76 @@ async function sincronizarEstoqueAgora(produtoId){
   await loadData();
 }
 
+// ══ MAPEAMENTO DE KITS (ML) ══
+// Mesmo padrão de renderMapeamento/salvarMlItemId, só que a chave é kit_id em
+// vez de produto_id — kit_id/produto_id são mutuamente exclusivos na tabela
+// (constraint no banco), então isso NUNCA colide com o mapeamento de produto.
+function renderMapeamentoKitsML(){
+  const lista = dados.kits||[];
+  $('mlKitsCard').style.display = lista.length ? 'block' : 'none';
+  if(!lista.length) return;
+  setHTML('mlKitsTable', lista.map(k=>{
+    const badge = k._ml?.ml_item_id
+      ? `<span class="badge ${ML_SYNC_CLASSE[k._ml.sync_status]||'off'}" title="${esc(k._ml.sync_erro||'')}">${ML_SYNC_LABEL[k._ml.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem anúncio</span>';
+    return `<tr>
+      <td><b>${esc(k.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(k.componentes||'—')}</td>
+      <td><input id="mlKitItem_${k.id}" value="${esc(k._ml?.ml_item_id||'')}" placeholder="MLB..." style="max-width:170px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarMlKitItemId('${k.id}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join(''));
+}
+async function salvarMlKitItemId(kitId){
+  const campo=$('mlKitItem_'+kitId);
+  const v=(campo?.value||'').trim();
+  const k=dados.kits.find(x=>x.id===kitId);
+  try{
+    if(v){
+      if(k?._ml){
+        await db.patch('ml_produto_mapeamento', k._ml.id, { ml_item_id: v, sync_status:'pendente', sync_erro:null, updated_at:new Date().toISOString() });
+        Object.assign(k._ml, { ml_item_id:v, sync_status:'pendente', sync_erro:null });
+      } else {
+        const [novo] = await db.post('ml_produto_mapeamento', withEmpresa({ kit_id:kitId, ml_item_id:v, sync_status:'pendente' }));
+        if(k) k._ml = novo;
+      }
+      toast('Vinculação salva!');
+    } else if(k?._ml){
+      await db.delete('ml_produto_mapeamento', k._ml.id);
+      k._ml = null;
+      toast('Vinculação removida.');
+    } else {
+      toast('Informe o ID do anúncio (ex: MLB1234567890) antes de salvar.','err');
+      return;
+    }
+    renderMapeamentoKitsML();
+    if(v) await sincronizarEstoqueKitAgora(kitId);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+// Kit não tem produto_id — pra empurrar a sincronização na hora (sem esperar
+// a próxima venda), usa o produto_id de QUALQUER componente do kit: o
+// ml-sync-estoque, ao receber esse produto_id, já resolve sozinho "isso é
+// componente de qual kit" e recalcula a disponibilidade certa (mínimo entre
+// TODOS os componentes, não só o que foi usado pra disparar a chamada).
+async function sincronizarEstoqueKitAgora(kitId){
+  const lojaId = dados.empresaAtual?.ml_loja_estoque_id;
+  if(!lojaId) return;
+  try{
+    const [componente] = await db.get('kit_itens', `?kit_id=eq.${kitId}&select=produto_id&limit=1`);
+    if(!componente) return;
+    // Manda a quantidade REAL desse componente (não 0/omitido) — esse mesmo
+    // produto pode também estar mapeado direto pra um anúncio próprio, e
+    // omitir quantidade zeraria esse anúncio por engano.
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${componente.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/ml-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produto_id: componente.produto_id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
+  await loadData();
+}
+
 // ══ NUVEMSHOP ══
 // Uma empresa pode ter mais de uma loja conectada (diferente do ML) — ver
 // NUVEMSHOP-ATIVACAO.md pro porquê disso e do fluxo de conexão em 2 etapas.
@@ -1018,6 +1151,7 @@ async function carregarStatusNS(){
   renderLojasNS();
   renderMapLojaSelectNS();
   await renderMapeamentoNS();
+  await renderMapeamentoKitsNS();
   await carregarErrosNS();
 }
 
@@ -1147,11 +1281,86 @@ async function sincronizarEstoqueAgoraNS(produtoId, credencialId){
     if(!mapeamento) return;
     await fetch(`${SUPABASE_URL}/functions/v1/nuvemshop-sync-estoque`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mapeamento_id: mapeamento.id, quantidade: linha?.quantidade||0 }),
+      body: JSON.stringify({ mapeamento_id: mapeamento.id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
     });
   }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
   delete _nsMapeamentosCache[credencialId];
   await renderMapeamentoNS();
+}
+
+// ══ MAPEAMENTO DE KITS (NUVEMSHOP) — mesmo padrão dos produtos, chave kit_id,
+// mesmo select de loja (#nsMapLojaSelect) já usado pro mapeamento de produtos.
+let _nsKitMapeamentosCache = {};
+async function renderMapeamentoKitsNS(){
+  const lista = dados.kits||[];
+  $('nsKitsCard').style.display = (dados.nsLojas.length && lista.length) ? 'block' : 'none';
+  if(!dados.nsLojas.length || !lista.length) return;
+  const credencialId = val('nsMapLojaSelect') || dados.nsLojas[0]?.id;
+  if(!credencialId) return;
+  if(!_nsKitMapeamentosCache[credencialId]){
+    try{
+      _nsKitMapeamentosCache[credencialId] = await db.get('produto_nuvemshop_mapeamento', `?nuvemshop_credencial_id=eq.${credencialId}&kit_id=not.is.null&select=id,kit_id,nuvemshop_produto_id,nuvemshop_variante_id,sync_status,sync_erro`);
+    }catch(e){ _nsKitMapeamentosCache[credencialId]=[]; }
+  }
+  const mapeamentos = _nsKitMapeamentosCache[credencialId];
+  const porKitId = {}; mapeamentos.forEach(m=>{ porKitId[m.kit_id]=m; });
+  setHTML('nsKitsTable', lista.map(k=>{
+    const m = porKitId[k.id];
+    const badge = m
+      ? `<span class="badge ${NS_SYNC_CLASSE[m.sync_status]||'off'}" title="${esc(m.sync_erro||'')}">${NS_SYNC_LABEL[m.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem vínculo</span>';
+    return `<tr>
+      <td><b>${esc(k.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(k.componentes||'—')}</td>
+      <td><input id="nsKitProd_${k.id}" value="${esc(m?.nuvemshop_produto_id||'')}" placeholder="ID produto" style="max-width:130px"></td>
+      <td><input id="nsKitVar_${k.id}" value="${esc(m?.nuvemshop_variante_id||'')}" placeholder="ID variante" style="max-width:130px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarMapeamentoKitNS('${k.id}','${credencialId}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join(''));
+}
+async function salvarMapeamentoKitNS(kitId, credencialId){
+  const nsProdutoId = ($('nsKitProd_'+kitId)?.value||'').trim();
+  const nsVarianteId = ($('nsKitVar_'+kitId)?.value||'').trim();
+  try{
+    const mapeamentos = _nsKitMapeamentosCache[credencialId]||[];
+    const existente = mapeamentos.find(m=>m.kit_id===kitId);
+    if(!nsProdutoId && !nsVarianteId && existente){
+      await db.delete('produto_nuvemshop_mapeamento', existente.id);
+      _nsKitMapeamentosCache[credencialId] = mapeamentos.filter(m=>m.id!==existente.id);
+      toast('Vinculação removida.');
+      await renderMapeamentoKitsNS();
+      return;
+    }
+    if(existente){
+      await db.patch('produto_nuvemshop_mapeamento', existente.id, { nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId||null, sync_status:'pendente', sync_erro:null });
+      existente.nuvemshop_produto_id = nsProdutoId||null; existente.nuvemshop_variante_id = nsVarianteId||null; existente.sync_status='pendente'; existente.sync_erro=null;
+    }else{
+      const novo = await db.post('produto_nuvemshop_mapeamento', withEmpresa({ kit_id: kitId, nuvemshop_credencial_id: credencialId, nuvemshop_produto_id: nsProdutoId||null, nuvemshop_variante_id: nsVarianteId||null, sync_status:'pendente' }));
+      _nsKitMapeamentosCache[credencialId].push(Array.isArray(novo)?novo[0]:novo);
+    }
+    toast('Vinculação salva!');
+    await renderMapeamentoKitsNS();
+    await sincronizarEstoqueKitAgoraNS(kitId, credencialId);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueKitAgoraNS(kitId, credencialId){
+  const cred = dados.nsLojas.find(l=>l.id===credencialId);
+  const lojaId = cred?.loja_estoque_id;
+  if(!lojaId) return;
+  try{
+    const [componente] = await db.get('kit_itens', `?kit_id=eq.${kitId}&select=produto_id&limit=1`);
+    if(!componente) return;
+    const mapeamento = (_nsKitMapeamentosCache[credencialId]||[]).find(m=>m.kit_id===kitId);
+    if(!mapeamento) return;
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${componente.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/nuvemshop-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mapeamento_id: mapeamento.id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort */ }
+  delete _nsKitMapeamentosCache[credencialId];
+  await renderMapeamentoKitsNS();
 }
 
 // ══ Pedidos com erro — Nuvemshop ══
@@ -1262,6 +1471,7 @@ async function carregarStatusPK(){
   renderStatusPK();
   renderConfigPK();
   await renderMapeamentoPK();
+  await renderMapeamentoKitsPK();
   await carregarErrosPK();
 }
 
@@ -1392,11 +1602,74 @@ async function sincronizarEstoqueAgoraPK(produtoId, credencialId){
     if(!mapeamento) return;
     await fetch(`${SUPABASE_URL}/functions/v1/pedidook-sync-estoque`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mapeamento_id: mapeamento.id, quantidade: linha?.quantidade||0 }),
+      body: JSON.stringify({ mapeamento_id: mapeamento.id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
     });
   }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
   _pkMapeamentosCache = null;
   await renderMapeamentoPK();
+}
+
+// ══ MAPEAMENTO DE KITS (PEDIDOOK) — mesmo padrão dos produtos, chave kit_id.
+// id_parceiro usa o próprio kit_id (mesma convenção do produto, que usa
+// produto_id) — só precisa ser único do lado do PedidoOK pra permitir dedupe.
+let _pkKitMapeamentosCache = null;
+async function renderMapeamentoKitsPK(){
+  const credencialId = dados.pkStatus?.credencial_id;
+  const lista = dados.kits||[];
+  $('pkKitsCard').style.display = (credencialId && lista.length) ? 'block' : 'none';
+  if(!credencialId || !lista.length) return;
+  if(_pkKitMapeamentosCache===null){
+    try{
+      _pkKitMapeamentosCache = await db.get('pedidook_produto_mapeamento', `?pedidook_credencial_id=eq.${credencialId}&kit_id=not.is.null&select=id,kit_id,id_produto_pedidook,sync_status,sync_erro`);
+    }catch(e){ _pkKitMapeamentosCache=[]; }
+  }
+  const porKitId = {}; _pkKitMapeamentosCache.forEach(m=>{ porKitId[m.kit_id]=m; });
+  setHTML('pkKitsTable', lista.map(k=>{
+    const m = porKitId[k.id];
+    const badge = m
+      ? `<span class="badge ${PK_SYNC_CLASSE[m.sync_status]||'off'}" title="${esc(m.sync_erro||'')}">${PK_SYNC_LABEL[m.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem vínculo</span>';
+    return `<tr>
+      <td><b>${esc(k.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(k.componentes||'—')}</td>
+      <td><input id="pkKitProd_${k.id}" value="${esc(m?.id_produto_pedidook||'')}" placeholder="Deixe em branco pra criar" style="max-width:170px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarMapeamentoKitPK('${k.id}','${credencialId}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join(''));
+}
+async function salvarMapeamentoKitPK(kitId, credencialId){
+  const idProdutoPedidook = ($('pkKitProd_'+kitId)?.value||'').trim();
+  try{
+    const existente = (_pkKitMapeamentosCache||[]).find(m=>m.kit_id===kitId);
+    if(existente){
+      await db.patch('pedidook_produto_mapeamento', existente.id, { id_produto_pedidook: idProdutoPedidook||null, sync_status:'pendente', sync_erro:null });
+      existente.id_produto_pedidook = idProdutoPedidook||null; existente.sync_status='pendente'; existente.sync_erro=null;
+    }else{
+      const novo = await db.post('pedidook_produto_mapeamento', withEmpresa({ kit_id: kitId, pedidook_credencial_id: credencialId, id_parceiro: kitId, id_produto_pedidook: idProdutoPedidook||null, sync_status:'pendente' }));
+      _pkKitMapeamentosCache.push(Array.isArray(novo)?novo[0]:novo);
+    }
+    toast('Vinculação salva!');
+    await renderMapeamentoKitsPK();
+    await sincronizarEstoqueKitAgoraPK(kitId, credencialId);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueKitAgoraPK(kitId, credencialId){
+  const lojaId = dados.pkStatus?.loja_estoque_id;
+  if(!lojaId) return;
+  try{
+    const [componente] = await db.get('kit_itens', `?kit_id=eq.${kitId}&select=produto_id&limit=1`);
+    if(!componente) return;
+    const mapeamento = (_pkKitMapeamentosCache||[]).find(m=>m.kit_id===kitId);
+    if(!mapeamento) return;
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${componente.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/pedidook-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mapeamento_id: mapeamento.id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort */ }
+  _pkKitMapeamentosCache = null;
+  await renderMapeamentoKitsPK();
 }
 
 // ══ Pedidos com erro — PedidoOK ══
@@ -1649,6 +1922,64 @@ async function sincronizarEstoqueAgoraShopee(produtoId){
       body: JSON.stringify({ produto_id: produtoId, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
     });
   }catch(e){ /* best-effort — a próxima venda/ajuste de estoque tenta de novo via trigger */ }
+  await loadData();
+}
+
+// ══ MAPEAMENTO DE KITS (SHOPEE) — mesmo padrão do ML, chave kit_id ══
+function renderMapeamentoKitsShopee(){
+  const lista = dados.kits||[];
+  $('shopeeKitsCard').style.display = lista.length ? 'block' : 'none';
+  if(!lista.length) return;
+  setHTML('shopeeKitsTable', lista.map(k=>{
+    const badge = k._shopee?.shopee_item_id
+      ? `<span class="badge ${ML_SYNC_CLASSE[k._shopee.sync_status]||'off'}" title="${esc(k._shopee.sync_erro||'')}">${ML_SYNC_LABEL[k._shopee.sync_status]||'Nunca sincronizado'}</span>`
+      : '<span class="badge off">Sem anúncio</span>';
+    return `<tr>
+      <td><b>${esc(k.nome||'')}</b></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(k.componentes||'—')}</td>
+      <td><input id="shopeeKitItem_${k.id}" value="${esc(k._shopee?.shopee_item_id||'')}" placeholder="ID do anúncio" style="max-width:150px"></td>
+      <td><input id="shopeeKitModel_${k.id}" value="${esc(k._shopee?.shopee_model_id||'')}" placeholder="Opcional" style="max-width:120px"></td>
+      <td>${badge}</td>
+      <td><button class="btn2" onclick="salvarShopeeKitItemId('${k.id}')" style="font-size:11px;padding:5px 8px">Salvar</button></td>
+    </tr>`;
+  }).join(''));
+}
+async function salvarShopeeKitItemId(kitId){
+  const campoItem=$('shopeeKitItem_'+kitId), campoModel=$('shopeeKitModel_'+kitId);
+  const v=(campoItem?.value||'').trim();
+  const modelo=(campoModel?.value||'').trim();
+  const k=dados.kits.find(x=>x.id===kitId);
+  try{
+    if(v){
+      if(k?._shopee){
+        await db.patch('shopee_produto_mapeamento', k._shopee.id, { shopee_item_id: v, shopee_model_id: modelo||null, sync_status:'pendente', sync_erro:null, updated_at:new Date().toISOString() });
+        Object.assign(k._shopee, { shopee_item_id:v, shopee_model_id:modelo||null, sync_status:'pendente', sync_erro:null });
+      } else {
+        const [novo] = await db.post('shopee_produto_mapeamento', withEmpresa({ kit_id:kitId, shopee_item_id:v, shopee_model_id:modelo||null, sync_status:'pendente' }));
+        if(k) k._shopee = novo;
+      }
+      toast('Vinculação salva!');
+    } else if(k?._shopee){
+      await db.delete('shopee_produto_mapeamento', k._shopee.id);
+      k._shopee = null;
+      toast('Vinculação removida.');
+    }
+    renderMapeamentoKitsShopee();
+    if(v) await sincronizarEstoqueKitAgoraShopee(kitId);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function sincronizarEstoqueKitAgoraShopee(kitId){
+  const lojaId = dados.empresaAtual?.shopee_loja_estoque_id;
+  if(!lojaId) return;
+  try{
+    const [componente] = await db.get('kit_itens', `?kit_id=eq.${kitId}&select=produto_id&limit=1`);
+    if(!componente) return;
+    const [linha] = await db.get('estoque_por_loja', `?produto_id=eq.${componente.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    await fetch(`${SUPABASE_URL}/functions/v1/shopee-sync-estoque`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produto_id: componente.produto_id, loja_id: lojaId, quantidade: linha?.quantidade||0 }),
+    });
+  }catch(e){ /* best-effort */ }
   await loadData();
 }
 

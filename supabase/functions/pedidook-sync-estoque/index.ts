@@ -81,9 +81,10 @@ function extrairErroPedidook(data: any): { codigo: number | null; mensagem: stri
 
 async function criarProdutoPedidook(headers: Record<string, string>, mapeamento: any, produto: any): Promise<{ ok: true; idProdutoPedidook: string } | { ok: false; mensagem: string; statusCode: number }> {
   // codigo é obrigatório (string, max 15) na API — sku pode ser vazio ou passar
-  // de 15 caracteres no cadastro do Nuvix; nesse caso cai pro produto_id como
-  // último recurso, só pra nunca falhar a criação por falta desse campo.
-  const codigo = String(produto.sku || mapeamento.produto_id).slice(0, 15);
+  // de 15 caracteres no cadastro do Nuvix (kit nunca tem sku), nesse caso cai
+  // pro id do produto/kit como último recurso, só pra nunca falhar a criação
+  // por falta desse campo.
+  const codigo = String(produto.sku || produto.id).slice(0, 15);
   const embalagem = String(produto.unidade_medida || "UN").slice(0, 4);
 
   const r = await fetch(`${PEDIDOOK_BASE_URL}/produtos`, {
@@ -109,18 +110,58 @@ async function criarProdutoPedidook(headers: Record<string, string>, mapeamento:
   return { ok: true, idProdutoPedidook };
 }
 
+// Kit não tem estoque próprio — "disponível pro PedidoOK" é o mínimo entre o
+// quanto dá pra montar de cada componente na loja de referência. Mesma conta
+// do caixa.html (disponivelKit), rodando no servidor.
+async function calcularDisponibilidadeKit(kitId: string, lojaId: string): Promise<number> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kitId}&select=produto_id,quantidade`);
+  if (!itens.length) return 0;
+  let minDisp = Infinity;
+  for (const it of itens) {
+    const [estoque] = await sbGet(`estoque_por_loja?produto_id=eq.${it.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    const disp = Math.floor(Number(estoque?.quantidade || 0) / Number(it.quantidade || 1));
+    if (disp < minDisp) minDisp = disp;
+  }
+  return minDisp === Infinity ? 0 : Math.max(0, minDisp);
+}
+
+// Custo/venda inicial do kit — usado só na criação do produto do lado do PedidoOK.
+async function calcularPrecosKit(kit: any): Promise<{ venda: number; custo: number }> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kit.id}&select=produto_id,quantidade`);
+  let somaVenda = 0, somaCusto = 0;
+  for (const it of itens) {
+    const [produto] = await sbGet(`produtos?id=eq.${it.produto_id}&select=preco_venda_final,custo_atual`);
+    somaVenda += Number(it.quantidade || 0) * Number(produto?.preco_venda_final || 0);
+    somaCusto += Number(it.quantidade || 0) * Number(produto?.custo_atual || 0);
+  }
+  const venda = kit.tipo_preco === "fixo" ? Number(kit.preco_fixo || 0) : Math.round(somaVenda * (1 - Number(kit.desconto_pct || 0) / 100) * 100) / 100;
+  return { venda, custo: somaCusto };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { mapeamento_id, quantidade } = await req.json().catch(() => ({}) as any);
+    const { mapeamento_id, loja_id, quantidade } = await req.json().catch(() => ({}) as any);
     if (!mapeamento_id) return json({ ok: false, erro: "mapeamento_id é obrigatório" }, 400);
 
     const [mapeamento] = await sbGet(`pedidook_produto_mapeamento?id=eq.${mapeamento_id}&select=*`);
     if (!mapeamento) return json({ ok: true, ignorado: "mapeamento_nao_encontrado" });
 
-    const [produto] = await sbGet(`produtos?id=eq.${mapeamento.produto_id}&select=id,nome,sku,unidade_medida,preco_venda_final,custo_atual`);
-    if (!produto) return json({ ok: true, ignorado: "produto_nao_encontrado" });
+    let produto: any;
+    let quantidadeFinal: number;
+    if (mapeamento.kit_id) {
+      const [kit] = await sbGet(`kits?id=eq.${mapeamento.kit_id}&select=*`);
+      if (!kit) return json({ ok: true, ignorado: "kit_nao_encontrado" });
+      const precos = await calcularPrecosKit(kit);
+      produto = { id: kit.id, nome: kit.nome, sku: null, unidade_medida: "UN", preco_venda_final: precos.venda, custo_atual: precos.custo };
+      quantidadeFinal = loja_id ? await calcularDisponibilidadeKit(mapeamento.kit_id, loja_id) : Math.max(0, Math.trunc(Number(quantidade) || 0));
+    } else {
+      const [p] = await sbGet(`produtos?id=eq.${mapeamento.produto_id}&select=id,nome,sku,unidade_medida,preco_venda_final,custo_atual`);
+      if (!p) return json({ ok: true, ignorado: "produto_nao_encontrado" });
+      produto = p;
+      quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
+    }
 
     const [cred] = await sbGet(`pedidook_credenciais?id=eq.${mapeamento.pedidook_credencial_id}&token_pedidook=not.is.null&select=*`);
     if (!cred) {
@@ -129,7 +170,6 @@ Deno.serve(async (req) => {
     }
 
     const headers = { token_parceiro: cred.token_parceiro, token_pedidook: cred.token_pedidook, "Content-Type": "application/json" };
-    const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
 
     let idProdutoPedidook: string | null = mapeamento.id_produto_pedidook || null;
     let statusCode: number | null = null;
@@ -181,7 +221,7 @@ Deno.serve(async (req) => {
 
       if (!r.ok) {
         const erroFinal = extrairErroPedidook(data);
-        console.error(`Falha ao sincronizar estoque do produto ${mapeamento.produto_id} (PedidoOK id ${idProdutoPedidook}):`, data);
+        console.error(`Falha ao sincronizar estoque ${mapeamento.kit_id ? "do kit" : "do produto"} ${produto.id} (PedidoOK id ${idProdutoPedidook}):`, data);
         await marcarSyncStatus(mapeamento_id, "erro", erroFinal.mensagem);
         await logRequisicao(mapeamento.empresa_id, statusCode);
         return json({ ok: false, erro: erroFinal.mensagem }, 502);

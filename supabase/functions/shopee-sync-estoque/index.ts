@@ -98,50 +98,85 @@ async function marcarSyncStatus(mapeamentoId: string, status: "ok" | "erro", err
   }
 }
 
+// Kit não tem estoque próprio — "disponível pra Shopee" é o mínimo entre o
+// quanto dá pra montar de cada componente na loja de referência. Mesma conta
+// do caixa.html (disponivelKit), rodando no servidor.
+async function calcularDisponibilidadeKit(kitId: string, lojaId: string): Promise<number> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kitId}&select=produto_id,quantidade`);
+  if (!itens.length) return 0;
+  let minDisp = Infinity;
+  for (const it of itens) {
+    const [estoque] = await sbGet(`estoque_por_loja?produto_id=eq.${it.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    const disp = Math.floor(Number(estoque?.quantidade || 0) / Number(it.quantidade || 1));
+    if (disp < minDisp) minDisp = disp;
+  }
+  return minDisp === Infinity ? 0 : Math.max(0, minDisp);
+}
+
+async function sincronizarItemShopee(mapeamento: { id: string; empresa_id: string; shopee_item_id: string; shopee_model_id: string | null }, quantidade: number) {
+  const [cred] = await sbGet(`shopee_credenciais?empresa_id=eq.${mapeamento.empresa_id}&access_token=not.is.null&select=*`);
+  if (!cred) {
+    await marcarSyncStatus(mapeamento.id, "erro", "Empresa não está conectada à Shopee. Conecte em Integrações.");
+    return;
+  }
+
+  const accessToken = await garantirTokenValido(cred);
+  const quantidadeFinal = Math.max(0, Math.trunc(quantidade));
+  const modelId = mapeamento.shopee_model_id ? Number(mapeamento.shopee_model_id) : 0;
+
+  const path = "/api/v2/product/update_stock";
+  const timestamp = Math.floor(Date.now() / 1000);
+  const sign = await hmacHex(SHOPEE_PARTNER_KEY!, `${SHOPEE_PARTNER_ID}${path}${timestamp}${accessToken}${cred.shop_id}`);
+  const r = await fetch(
+    `${SHOPEE_HOST}${path}?partner_id=${SHOPEE_PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${cred.shop_id}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_id: Number(mapeamento.shopee_item_id),
+        stock_list: [{ model_id: modelId, seller_stock: [{ stock: quantidadeFinal }] }],
+      }),
+    }
+  );
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok || data?.error) {
+    const mensagem = data?.message || data?.error || `Erro desconhecido da Shopee (HTTP ${r.status}).`;
+    console.error(`Falha ao sincronizar estoque (item Shopee ${mapeamento.shopee_item_id}):`, data);
+    await marcarSyncStatus(mapeamento.id, "erro", mensagem);
+    return;
+  }
+  await marcarSyncStatus(mapeamento.id, "ok", null);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { produto_id, quantidade } = await req.json().catch(() => ({}) as any);
+    const { produto_id, loja_id, quantidade } = await req.json().catch(() => ({}) as any);
     if (!produto_id) return json({ ok: false, erro: "produto_id é obrigatório" }, 400);
 
-    const [mapeamento] = await sbGet(`shopee_produto_mapeamento?produto_id=eq.${produto_id}&select=id,empresa_id,shopee_item_id,shopee_model_id`);
-    if (!mapeamento) return json({ ok: true, ignorado: "sem_mapeamento" });
-
-    const [cred] = await sbGet(`shopee_credenciais?empresa_id=eq.${mapeamento.empresa_id}&access_token=not.is.null&select=*`);
-    if (!cred) {
-      await marcarSyncStatus(mapeamento.id, "erro", "Empresa não está conectada à Shopee. Conecte em Integrações.");
-      return json({ ok: true, ignorado: "empresa_nao_conectada" });
-    }
-
-    const accessToken = await garantirTokenValido(cred);
     const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
-    const modelId = mapeamento.shopee_model_id ? Number(mapeamento.shopee_model_id) : 0;
+    let algumMapeamento = false;
 
-    const path = "/api/v2/product/update_stock";
-    const timestamp = Math.floor(Date.now() / 1000);
-    const sign = await hmacHex(SHOPEE_PARTNER_KEY!, `${SHOPEE_PARTNER_ID}${path}${timestamp}${accessToken}${cred.shop_id}`);
-    const r = await fetch(
-      `${SHOPEE_HOST}${path}?partner_id=${SHOPEE_PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${cred.shop_id}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          item_id: Number(mapeamento.shopee_item_id),
-          stock_list: [{ model_id: modelId, seller_stock: [{ stock: quantidadeFinal }] }],
-        }),
-      }
-    );
-    const data = await r.json().catch(() => ({}));
-
-    if (!r.ok || data?.error) {
-      const mensagem = data?.message || data?.error || `Erro desconhecido da Shopee (HTTP ${r.status}).`;
-      console.error(`Falha ao sincronizar estoque do produto ${produto_id} (item Shopee ${mapeamento.shopee_item_id}):`, data);
-      await marcarSyncStatus(mapeamento.id, "erro", mensagem);
-      return json({ ok: false, erro: mensagem }, 502);
+    const [mapeamentoDireto] = await sbGet(`shopee_produto_mapeamento?produto_id=eq.${produto_id}&select=id,empresa_id,shopee_item_id,shopee_model_id`);
+    if (mapeamentoDireto) {
+      algumMapeamento = true;
+      await sincronizarItemShopee(mapeamentoDireto, quantidadeFinal);
     }
 
-    await marcarSyncStatus(mapeamento.id, "ok", null);
+    if (loja_id) {
+      const componentesDeKit = await sbGet(`kit_itens?produto_id=eq.${produto_id}&select=kit_id`);
+      for (const comp of componentesDeKit) {
+        const [mapeamentoKit] = await sbGet(`shopee_produto_mapeamento?kit_id=eq.${comp.kit_id}&select=id,empresa_id,shopee_item_id,shopee_model_id`);
+        if (!mapeamentoKit) continue;
+        algumMapeamento = true;
+        const disponivel = await calcularDisponibilidadeKit(comp.kit_id, loja_id);
+        await sincronizarItemShopee(mapeamentoKit, disponivel);
+      }
+    }
+
+    if (!algumMapeamento) return json({ ok: true, ignorado: "sem_mapeamento" });
     return json({ ok: true });
   } catch (e) {
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);

@@ -250,12 +250,16 @@ async function processarPedidoShopee(empresa: any, order: any) {
 
   const itemList: any[] = order.item_list || [];
   const itemIds = Array.from(new Set(itemList.map((i) => String(i.item_id))));
+  const CAMPOS_FISCAIS = "id,nome,custo_atual,preco_venda_final,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins";
+  // kit_id: o anúncio da Shopee pode estar vinculado a um kit em vez de um
+  // produto avulso (shopee_produto_mapeamento.kit_id) — vem com kits(kit_itens(...))
+  // embutido, pra expandir o pedido nos produtos reais mais abaixo.
   const mapeamentos: any[] = itemIds.length
     ? await sbGet(
-        `shopee_produto_mapeamento?empresa_id=eq.${empresa.id}&shopee_item_id=in.(${itemIds.join(",")})&select=shopee_item_id,shopee_model_id,produtos(id,nome,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins)`
+        `shopee_produto_mapeamento?empresa_id=eq.${empresa.id}&shopee_item_id=in.(${itemIds.join(",")})&select=shopee_item_id,shopee_model_id,produtos(${CAMPOS_FISCAIS}),kits(id,nome,kit_itens(quantidade,produtos(${CAMPOS_FISCAIS})))`
       )
     : [];
-  const porChave = new Map(mapeamentos.map((m) => [chaveMapeamento(m.shopee_item_id, m.shopee_model_id), m.produtos]));
+  const porChave = new Map(mapeamentos.map((m) => [chaveMapeamento(m.shopee_item_id, m.shopee_model_id), m]));
 
   const semMapeamento = itemList.filter((i) => !porChave.has(chaveMapeamento(i.item_id, i.model_id)));
   if (semMapeamento.length) {
@@ -269,10 +273,40 @@ async function processarPedidoShopee(empresa: any, order: any) {
     return { erro: "itens_sem_mapeamento", itens: nomes };
   }
 
-  const itensDetalhados = itemList.map((i) => {
-    const p = porChave.get(chaveMapeamento(i.item_id, i.model_id));
+  // Kit não é vendido como uma linha só no banco — vira uma linha por produto
+  // real que o compõe, cada uma com seu próprio NCM/CSOSN (a SEFAZ exige isso
+  // por item). O preço unitário do kit na Shopee é rateado entre os
+  // componentes proporcionalmente ao preço de catálogo — mesma conta do Caixa.
+  const itensDetalhados = itemList.flatMap((i) => {
+    const mapeamento = porChave.get(chaveMapeamento(i.item_id, i.model_id))!;
     const precoUnit = Number(i.model_discounted_price ?? i.model_original_price ?? 0);
-    return {
+    if (mapeamento.kits) {
+      const kit = mapeamento.kits;
+      const somaCatalogo = kit.kit_itens.reduce((a: number, ki: any) => a + Number(ki.quantidade) * Number(ki.produtos?.preco_venda_final || 0), 0);
+      const fator = somaCatalogo > 0 ? precoUnit / somaCatalogo : 1;
+      return kit.kit_itens.map((ki: any) => {
+        const p = ki.produtos;
+        return {
+          produto_id: p.id,
+          produto_nome: p.nome,
+          quantidade: Number(ki.quantidade) * Number(i.model_quantity_purchased),
+          valor_unitario: arred2(Number(p.preco_venda_final || 0) * fator),
+          custo_unitario_snapshot: p.custo_atual ?? null,
+          ncm: p.ncm,
+          cfop_padrao: p.cfop_padrao,
+          csosn_cst: p.csosn_cst,
+          cclasstrib: p.cclasstrib,
+          cst_ibs_cbs: p.cst_ibs_cbs,
+          unidade_medida: p.unidade_medida,
+          aliquota_icms: p.aliquota_icms,
+          aliquota_pis: p.aliquota_pis,
+          aliquota_cofins: p.aliquota_cofins,
+          kit_id: kit.id,
+        };
+      });
+    }
+    const p = mapeamento.produtos;
+    return [{
       produto_id: p.id,
       produto_nome: p.nome,
       quantidade: Number(i.model_quantity_purchased),
@@ -287,7 +321,8 @@ async function processarPedidoShopee(empresa: any, order: any) {
       aliquota_icms: p.aliquota_icms,
       aliquota_pis: p.aliquota_pis,
       aliquota_cofins: p.aliquota_cofins,
-    };
+      kit_id: null,
+    }];
   });
 
   if (empresa.nfce_ativo && !empresaEhMei(empresa)) {
@@ -340,6 +375,7 @@ async function processarPedidoShopee(empresa: any, order: any) {
           consignador_id: null,
           percentual_repasse_snapshot: null,
           avulso: false,
+          kit_id: i.kit_id ?? null,
         })),
         formas_pagamento: [],
         desconto: null,

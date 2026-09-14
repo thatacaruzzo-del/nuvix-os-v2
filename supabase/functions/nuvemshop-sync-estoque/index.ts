@@ -5,11 +5,17 @@
 // toda vez que a quantidade muda em estoque_por_loja numa loja que é referência
 // de estoque de alguma loja Nuvemshop conectada, pra um produto com mapeamento
 // (produto_nuvemshop_mapeamento) pra aquela credencial específica. Faz
-// PUT /products/{id}/variants/{id} com stock E price na API da Nuvemshop — é a
+// PUT /products/{id}/variants/{id} só com stock na API da Nuvemshop — é a
 // metade "Nuvix → Nuvemshop" da sincronização (a outra metade, pedido pago na
 // Nuvemshop baixando estoque no Nuvix, acontece em nuvemshop-webhook via
-// finalizar_venda). Sincroniza preço junto por ser o mesmo request, sem custo
-// extra — diferente do Mercado Livre, que hoje só sincroniza estoque.
+// finalizar_venda).
+//
+// Preço NUNCA sincroniza sozinho, de propósito, igual o Mercado Livre — cada
+// canal cobra taxa diferente (comissão do ML, gateway da Nuvemshop) e o preço
+// de cada um é decisão de margem de quem vende, não um espelho automático do
+// catálogo. Isso já foi tentado aqui antes (enviava preco_venda_final/promoção
+// junto do stock) e sobrescrevia silenciosamente qualquer preço que o lojista
+// tivesse ajustado direto na Nuvemshop pra cobrir a taxa do canal — removido.
 //
 // PÚBLICA de propósito (verify_jwt desligado): quem chama é o Postgres via
 // pg_net, sem JWT — mesma razão de ml-sync-estoque ser pública. Baixo risco
@@ -62,12 +68,6 @@ async function sbPatch(pathWithFilter: string, body: unknown) {
   if (!r.ok) throw new Error(`Supabase PATCH ${pathWithFilter} falhou: ${await r.text()}`);
 }
 
-async function sbRpc(nome: string, params: unknown) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`, { method: "POST", headers: sbHeaders, body: JSON.stringify(params) });
-  if (!r.ok) throw new Error(`Supabase RPC ${nome} falhou: ${await r.text()}`);
-  return r.json();
-}
-
 async function marcarSyncStatus(mapeamentoId: string, status: "ok" | "erro", erro: string | null) {
   try {
     await sbPatch(`produto_nuvemshop_mapeamento?id=eq.${mapeamentoId}`, { sync_status: status, sync_erro: erro, sync_at: new Date().toISOString() });
@@ -102,18 +102,56 @@ async function criarProdutoNuvemshop(
   return { ok: true, produtoId, varianteId };
 }
 
+// Kit não tem estoque próprio — "disponível pra Nuvemshop" é o mínimo entre o
+// quanto dá pra montar de cada componente na loja de referência. Mesma conta
+// do caixa.html (disponivelKit), rodando no servidor.
+async function calcularDisponibilidadeKit(kitId: string, lojaId: string): Promise<number> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kitId}&select=produto_id,quantidade`);
+  if (!itens.length) return 0;
+  let minDisp = Infinity;
+  for (const it of itens) {
+    const [estoque] = await sbGet(`estoque_por_loja?produto_id=eq.${it.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    const disp = Math.floor(Number(estoque?.quantidade || 0) / Number(it.quantidade || 1));
+    if (disp < minDisp) minDisp = disp;
+  }
+  return minDisp === Infinity ? 0 : Math.max(0, minDisp);
+}
+
+// Preço inicial do kit — usado só na criação do produto do lado da Nuvemshop
+// (mesmo racional do preço de produto normal: nunca sincroniza de novo depois).
+async function calcularPrecoKit(kit: any): Promise<number> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kit.id}&select=produto_id,quantidade`);
+  let soma = 0;
+  for (const it of itens) {
+    const [produto] = await sbGet(`produtos?id=eq.${it.produto_id}&select=preco_venda_final`);
+    soma += Number(it.quantidade || 0) * Number(produto?.preco_venda_final || 0);
+  }
+  return kit.tipo_preco === "fixo" ? Number(kit.preco_fixo || 0) : Math.round(soma * (1 - Number(kit.desconto_pct || 0) / 100) * 100) / 100;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { mapeamento_id, quantidade } = await req.json().catch(() => ({}) as any);
+    const { mapeamento_id, loja_id, quantidade } = await req.json().catch(() => ({}) as any);
     if (!mapeamento_id) return json({ ok: false, erro: "mapeamento_id é obrigatório" }, 400);
 
     const [mapeamento] = await sbGet(`produto_nuvemshop_mapeamento?id=eq.${mapeamento_id}&select=*`);
     if (!mapeamento) return json({ ok: true, ignorado: "mapeamento_nao_encontrado" });
 
-    const [produto] = await sbGet(`produtos?id=eq.${mapeamento.produto_id}&select=id,nome,sku,preco_venda_final`);
-    if (!produto) return json({ ok: true, ignorado: "produto_nao_encontrado" });
+    let produto: any;
+    let quantidadeFinal: number;
+    if (mapeamento.kit_id) {
+      const [kit] = await sbGet(`kits?id=eq.${mapeamento.kit_id}&select=*`);
+      if (!kit) return json({ ok: true, ignorado: "kit_nao_encontrado" });
+      produto = { id: kit.id, nome: kit.nome, sku: null, preco_venda_final: await calcularPrecoKit(kit) };
+      quantidadeFinal = loja_id ? await calcularDisponibilidadeKit(mapeamento.kit_id, loja_id) : Math.max(0, Math.trunc(Number(quantidade) || 0));
+    } else {
+      const [p] = await sbGet(`produtos?id=eq.${mapeamento.produto_id}&select=id,nome,sku,preco_venda_final`);
+      if (!p) return json({ ok: true, ignorado: "produto_nao_encontrado" });
+      produto = p;
+      quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
+    }
 
     const [cred] = await sbGet(`nuvemshop_credenciais?id=eq.${mapeamento.nuvemshop_credencial_id}&access_token=not.is.null&select=*`);
     if (!cred) {
@@ -121,26 +159,17 @@ Deno.serve(async (req) => {
       return json({ ok: true, ignorado: "loja_nao_conectada" });
     }
 
-    const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
-    // Fonte única de verdade pra "quanto cobrar agora" — respeita promoção de preço
-    // por período (produtos.preco_venda_final é só o cadastro, não o preço vigente).
-    let preco = Number(produto.preco_venda_final || 0);
-    try {
-      const precoVigente = await sbRpc("obter_preco_vigente", {
-        p_produto_id: mapeamento.produto_id,
-        p_loja_id: cred.loja_estoque_id ?? null,
-      });
-      if (precoVigente != null) preco = Number(precoVigente);
-    } catch (e) {
-      console.error("Falha ao resolver preço vigente, usando preco_venda_final de cadastro:", e);
-    }
+    // Preço de catálogo — usado só UMA VEZ, se o produto (ou kit) ainda não existe do
+    // lado da Nuvemshop (a API exige um preço pra criar o produto). Depois de criado,
+    // nenhuma chamada daqui em diante volta a tocar no preço — só estoque.
+    const precoInicial = Number(produto.preco_venda_final || 0);
 
     let produtoId: string | null = mapeamento.nuvemshop_produto_id || null;
     let varianteId: string | null = mapeamento.nuvemshop_variante_id || null;
 
     // Produto ainda não tem par de ids do lado da Nuvemshop — cria antes de tentar o PUT.
     if (!produtoId || !varianteId) {
-      const criado = await criarProdutoNuvemshop(cred.store_id, cred.access_token, produto, preco);
+      const criado = await criarProdutoNuvemshop(cred.store_id, cred.access_token, produto, precoInicial);
       if (!criado.ok) {
         await marcarSyncStatus(mapeamento_id, "erro", criado.mensagem);
         return json({ ok: false, erro: criado.mensagem }, 502);
@@ -153,14 +182,14 @@ Deno.serve(async (req) => {
     let r = await fetch(`https://api.nuvemshop.com.br/2025-03/${cred.store_id}/products/${produtoId}/variants/${varianteId}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${cred.access_token}`, "Content-Type": "application/json; charset=utf-8", "User-Agent": USER_AGENT },
-      body: JSON.stringify({ stock: quantidadeFinal, price: preco.toFixed(2) }),
+      body: JSON.stringify({ stock: quantidadeFinal }),
     });
     let data = await r.json().catch(() => ({}));
 
     // 404: o par de ids gravado ficou obsoleto (produto excluído/recriado do
     // lado da Nuvemshop) — recria e tenta o PUT de novo, uma única vez.
     if (!r.ok && r.status === 404) {
-      const criado = await criarProdutoNuvemshop(cred.store_id, cred.access_token, produto, preco);
+      const criado = await criarProdutoNuvemshop(cred.store_id, cred.access_token, produto, precoInicial);
       if (!criado.ok) {
         await marcarSyncStatus(mapeamento_id, "erro", criado.mensagem);
         return json({ ok: false, erro: criado.mensagem }, 502);
@@ -172,14 +201,14 @@ Deno.serve(async (req) => {
       r = await fetch(`https://api.nuvemshop.com.br/2025-03/${cred.store_id}/products/${produtoId}/variants/${varianteId}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${cred.access_token}`, "Content-Type": "application/json; charset=utf-8", "User-Agent": USER_AGENT },
-        body: JSON.stringify({ stock: quantidadeFinal, price: preco.toFixed(2) }),
+        body: JSON.stringify({ stock: quantidadeFinal }),
       });
       data = await r.json().catch(() => ({}));
     }
 
     if (!r.ok) {
       const mensagem = data?.message || data?.error || `Erro desconhecido da Nuvemshop (HTTP ${r.status}).`;
-      console.error(`Falha ao sincronizar produto ${mapeamento.produto_id} (variante ${varianteId}):`, data);
+      console.error(`Falha ao sincronizar ${mapeamento.kit_id ? "kit" : "produto"} ${produto.id} (variante ${varianteId}):`, data);
       await marcarSyncStatus(mapeamento_id, "erro", mensagem);
       return json({ ok: false, erro: mensagem }, 502);
     }

@@ -216,12 +216,17 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
 
   const products: any[] = order.products || [];
   const varianteIds: string[] = products.map((p) => String(p.variant_id)).filter(Boolean);
+  // kit_id: a variante pode estar vinculada a um kit em vez de um produto avulso
+  // (produto_nuvemshop_mapeamento.kit_id) — nesse caso NÃO entra no fallback de
+  // auto-criação abaixo (não faz sentido "criar produto" pra algo que já é kit).
   const mapeamentos: any[] = varianteIds.length
     ? await sbGet(
-        `produto_nuvemshop_mapeamento?nuvemshop_credencial_id=eq.${cred.id}&nuvemshop_variante_id=in.(${varianteIds.join(",")})&select=produto_id,nuvemshop_variante_id`
+        `produto_nuvemshop_mapeamento?nuvemshop_credencial_id=eq.${cred.id}&nuvemshop_variante_id=in.(${varianteIds.join(",")})&select=produto_id,kit_id,nuvemshop_variante_id`
       )
     : [];
-  const porVarianteId = new Map(mapeamentos.map((m) => [m.nuvemshop_variante_id, m.produto_id]));
+  const porVarianteId = new Map<string, { produto_id: string | null; kit_id: string | null }>(
+    mapeamentos.map((m) => [m.nuvemshop_variante_id, { produto_id: m.produto_id, kit_id: m.kit_id }])
+  );
 
   // Produto cadastrado direto na Nuvemshop (nunca passou pelo NuvixHub) —
   // em vez de travar o pedido esperando alguém mapear manualmente, cria o
@@ -258,7 +263,7 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
         sync_erro: "Criado automaticamente a partir de um pedido da Nuvemshop — confira o estoque real, foi estimado como a quantidade vendida nesta venda.",
         sync_at: new Date().toISOString(),
       });
-      porVarianteId.set(String(p.variant_id), novoProduto.id);
+      porVarianteId.set(String(p.variant_id), { produto_id: novoProduto.id, kit_id: null });
     } catch (e) {
       console.error(`Falha ao auto-criar produto da Nuvemshop (variante ${p.variant_id}):`, e);
     }
@@ -277,17 +282,51 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
     return { erro: "itens_sem_mapeamento", itens: nomes };
   }
 
-  const produtoIds = products.map((p) => porVarianteId.get(String(p.variant_id)));
-  const produtosDetalhe: any[] = await sbGet(
-    `produtos?empresa_id=eq.${empresa.id}&id=in.(${produtoIds.join(",")})&select=id,nome,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`
-  );
+  const CAMPOS_FISCAIS = "id,nome,custo_atual,preco_venda_final,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins";
+  const produtoIds = [...porVarianteId.values()].map((v) => v.produto_id).filter(Boolean) as string[];
+  const kitIds = [...porVarianteId.values()].map((v) => v.kit_id).filter(Boolean) as string[];
+  const [produtosDetalhe, kitsDetalhe]: [any[], any[]] = await Promise.all([
+    produtoIds.length ? sbGet(`produtos?empresa_id=eq.${empresa.id}&id=in.(${produtoIds.join(",")})&select=${CAMPOS_FISCAIS}`) : [],
+    kitIds.length ? sbGet(`kits?empresa_id=eq.${empresa.id}&id=in.(${kitIds.join(",")})&select=id,nome,kit_itens(quantidade,produtos(${CAMPOS_FISCAIS}))`) : [],
+  ]);
   const porProdutoId = new Map(produtosDetalhe.map((p) => [p.id, p]));
+  const porKitId = new Map(kitsDetalhe.map((k) => [k.id, k]));
 
-  const itensDetalhados = products.map((p) => {
-    const produtoId = porVarianteId.get(String(p.variant_id));
-    const prod = porProdutoId.get(produtoId) || {};
-    return {
-      produto_id: produtoId,
+  // Kit não é vendido como uma linha só no banco — vira uma linha por produto
+  // real que o compõe, cada uma com seu próprio NCM/CSOSN (a SEFAZ exige isso
+  // por item). O preço unitário do kit na Nuvemshop é rateado entre os
+  // componentes proporcionalmente ao preço de catálogo — mesma conta do Caixa.
+  const itensDetalhados = products.flatMap((p) => {
+    const vinculo = porVarianteId.get(String(p.variant_id))!;
+    if (vinculo.kit_id) {
+      const kit = porKitId.get(vinculo.kit_id);
+      if (!kit) return [];
+      const somaCatalogo = kit.kit_itens.reduce((a: number, ki: any) => a + Number(ki.quantidade) * Number(ki.produtos?.preco_venda_final || 0), 0);
+      const fator = somaCatalogo > 0 ? Number(p.price) / somaCatalogo : 1;
+      return kit.kit_itens.map((ki: any) => {
+        const prod = ki.produtos;
+        return {
+          produto_id: prod.id,
+          produto_nome: prod.nome,
+          quantidade: Number(ki.quantidade) * Number(p.quantity),
+          valor_unitario: arred2(Number(prod.preco_venda_final || 0) * fator),
+          custo_unitario_snapshot: prod.custo_atual ?? null,
+          ncm: prod.ncm,
+          cfop_padrao: prod.cfop_padrao,
+          csosn_cst: prod.csosn_cst,
+          cclasstrib: prod.cclasstrib,
+          cst_ibs_cbs: prod.cst_ibs_cbs,
+          unidade_medida: prod.unidade_medida,
+          aliquota_icms: prod.aliquota_icms,
+          aliquota_pis: prod.aliquota_pis,
+          aliquota_cofins: prod.aliquota_cofins,
+          kit_id: kit.id,
+        };
+      });
+    }
+    const prod = porProdutoId.get(vinculo.produto_id) || {};
+    return [{
+      produto_id: vinculo.produto_id,
       produto_nome: prod.nome || p.name,
       quantidade: Number(p.quantity),
       valor_unitario: Number(p.price),
@@ -301,7 +340,8 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
       aliquota_icms: prod.aliquota_icms,
       aliquota_pis: prod.aliquota_pis,
       aliquota_cofins: prod.aliquota_cofins,
-    };
+      kit_id: null,
+    }];
   });
 
   const total = arred2(Number(order.total ?? itensDetalhados.reduce((a, i) => a + i.quantidade * i.valor_unitario, 0)));
@@ -346,6 +386,7 @@ async function processarPedidoNS(empresa: any, cred: any, order: any) {
           consignador_id: null,
           percentual_repasse_snapshot: null,
           avulso: false,
+          kit_id: i.kit_id ?? null,
         })),
         formas_pagamento: [],
         desconto: null,

@@ -21,6 +21,13 @@
 // trigger já é fire-and-forget (pg_net é assíncrono) e a venda que gerou a
 // mudança de estoque já foi concluída antes disso rodar. Falha aqui só marca
 // ml_produto_mapeamento.sync_status='erro' pra aparecer na tela de Integrações.
+//
+// Kit: além do produto em si, também verifica se ele é componente de algum
+// kit anunciado no ML (ml_produto_mapeamento.kit_id) — se for, recalcula o
+// quanto dá pra montar desse kit com o estoque atual de TODOS os componentes
+// (mínimo entre eles) e atualiza o anúncio do kit também. Kit não tem linha
+// própria em estoque_por_loja, então nunca dispara o trigger sozinho — só
+// reage quando um dos produtos que o compõem muda de estoque.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -95,40 +102,79 @@ async function marcarSyncStatus(mapeamentoId: string, status: "ok" | "erro", err
   }
 }
 
+// Kit não tem estoque próprio — "disponível pro ML" é o mínimo entre o quanto
+// dá pra montar de cada componente na loja de referência. Mesma conta que o
+// Caixa já faz (disponivelKit em caixa.html), só que aqui rodando no servidor
+// pra decidir o que o anúncio do kit no ML deve anunciar como estoque.
+async function calcularDisponibilidadeKit(kitId: string, lojaId: string): Promise<number> {
+  const itens = await sbGet(`kit_itens?kit_id=eq.${kitId}&select=produto_id,quantidade`);
+  if (!itens.length) return 0;
+  let minDisp = Infinity;
+  for (const it of itens) {
+    const [estoque] = await sbGet(`estoque_por_loja?produto_id=eq.${it.produto_id}&loja_id=eq.${lojaId}&select=quantidade`);
+    const disp = Math.floor(Number(estoque?.quantidade || 0) / Number(it.quantidade || 1));
+    if (disp < minDisp) minDisp = disp;
+  }
+  return minDisp === Infinity ? 0 : Math.max(0, minDisp);
+}
+
+async function sincronizarItemMl(mapeamento: { id: string; empresa_id: string; ml_item_id: string }, quantidade: number) {
+  const [cred] = await sbGet(`ml_credenciais?empresa_id=eq.${mapeamento.empresa_id}&access_token=not.is.null&select=*`);
+  if (!cred) {
+    await marcarSyncStatus(mapeamento.id, "erro", "Empresa não está conectada ao Mercado Livre. Conecte em Integrações.");
+    return;
+  }
+
+  const accessToken = await garantirTokenValido(cred);
+  const quantidadeFinal = Math.max(0, Math.trunc(quantidade));
+
+  const r = await fetch(`https://api.mercadolibre.com/items/${mapeamento.ml_item_id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ available_quantity: quantidadeFinal }),
+  });
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    const mensagem = data?.message || data?.error || `Erro desconhecido do Mercado Livre (HTTP ${r.status}).`;
+    console.error(`Falha ao sincronizar estoque (anúncio ${mapeamento.ml_item_id}):`, data);
+    await marcarSyncStatus(mapeamento.id, "erro", mensagem);
+    return;
+  }
+  await marcarSyncStatus(mapeamento.id, "ok", null);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { produto_id, quantidade } = await req.json().catch(() => ({}) as any);
+    const { produto_id, loja_id, quantidade } = await req.json().catch(() => ({}) as any);
     if (!produto_id) return json({ ok: false, erro: "produto_id é obrigatório" }, 400);
 
-    const [mapeamento] = await sbGet(`ml_produto_mapeamento?produto_id=eq.${produto_id}&select=id,empresa_id,ml_item_id`);
-    if (!mapeamento) return json({ ok: true, ignorado: "sem_mapeamento" });
-
-    const [cred] = await sbGet(`ml_credenciais?empresa_id=eq.${mapeamento.empresa_id}&access_token=not.is.null&select=*`);
-    if (!cred) {
-      await marcarSyncStatus(mapeamento.id, "erro", "Empresa não está conectada ao Mercado Livre. Conecte em Integrações.");
-      return json({ ok: true, ignorado: "empresa_nao_conectada" });
-    }
-
-    const accessToken = await garantirTokenValido(cred);
     const quantidadeFinal = Math.max(0, Math.trunc(Number(quantidade) || 0));
+    let algumMapeamento = false;
 
-    const r = await fetch(`https://api.mercadolibre.com/items/${mapeamento.ml_item_id}`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ available_quantity: quantidadeFinal }),
-    });
-    const data = await r.json().catch(() => ({}));
-
-    if (!r.ok) {
-      const mensagem = data?.message || data?.error || `Erro desconhecido do Mercado Livre (HTTP ${r.status}).`;
-      console.error(`Falha ao sincronizar estoque do produto ${produto_id} (anúncio ${mapeamento.ml_item_id}):`, data);
-      await marcarSyncStatus(mapeamento.id, "erro", mensagem);
-      return json({ ok: false, erro: mensagem }, 502);
+    // 1) O próprio produto está anunciado no ML (caso comum, produto vendido avulso).
+    const [mapeamentoDireto] = await sbGet(`ml_produto_mapeamento?produto_id=eq.${produto_id}&select=id,empresa_id,ml_item_id`);
+    if (mapeamentoDireto) {
+      algumMapeamento = true;
+      await sincronizarItemMl(mapeamentoDireto, quantidadeFinal);
     }
 
-    await marcarSyncStatus(mapeamento.id, "ok", null);
+    // 2) Esse produto é componente de algum kit anunciado no ML — recalcula a
+    // disponibilidade do kit inteiro (mínimo entre os componentes) e atualiza.
+    if (loja_id) {
+      const componentesDeKit = await sbGet(`kit_itens?produto_id=eq.${produto_id}&select=kit_id`);
+      for (const comp of componentesDeKit) {
+        const [mapeamentoKit] = await sbGet(`ml_produto_mapeamento?kit_id=eq.${comp.kit_id}&select=id,empresa_id,ml_item_id`);
+        if (!mapeamentoKit) continue;
+        algumMapeamento = true;
+        const disponivel = await calcularDisponibilidadeKit(comp.kit_id, loja_id);
+        await sincronizarItemMl(mapeamentoKit, disponivel);
+      }
+    }
+
+    if (!algumMapeamento) return json({ ok: true, ignorado: "sem_mapeamento" });
     return json({ ok: true });
   } catch (e) {
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);
