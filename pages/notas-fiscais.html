@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nuvix — Notas Fiscais</title>
 <link rel="stylesheet" href="../css/nuvix.css">
+<script src="../js/vendor/jszip.min.js"></script>
 <style>
 .nf-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .nf-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
@@ -158,11 +159,22 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
                 <label>Buscar</label>
                 <input type="text" id="filtBusca" placeholder="Cliente, descrição, número da nota..." oninput="renderLista()">
               </div>
+              <div class="field">
+                <label>Emitida de</label>
+                <input type="date" id="filtDe" onchange="renderLista()">
+              </div>
+              <div class="field">
+                <label>Até</label>
+                <input type="date" id="filtAte" onchange="renderLista()">
+              </div>
             </div>
           </div>
 
           <div class="card">
-            <h2 style="margin-bottom:14px" id="nfListTitulo">Notas fiscais</h2>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+              <h2 style="margin:0" id="nfListTitulo">Notas fiscais</h2>
+              <button class="btn2" id="btnBaixarXmls" onclick="baixarXmlsEmLote()">⬇ Baixar XMLs (.zip)</button>
+            </div>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Emitida em</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Número</th><th>Status</th></tr></thead>
@@ -345,13 +357,25 @@ function renderStrip(){
   ].map(c=>`<div class="nf-card" style="border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.cor}">${c.val}</div></div>`).join(''));
 }
 
-function renderLista(){
+// Data de referência da nota pra filtro de período — usa data_emissao quando
+// tem (nota já saiu do "nao_emitida"/"erro"), senão cai pra created_at, mesma
+// regra que a lista já usa pra exibir a coluna "Emitida em".
+function dataRefNota(n){ return String(n.data_emissao||n.created_at||'').slice(0,10); }
+function listaFiltrada(){
   const cfg=TIPO_CFG[tipoAtual];
   const status=val('filtStatus');
   const busca=val('filtBusca').toLowerCase();
+  const de=val('filtDe'), ate=val('filtAte');
   let lista=notas;
   if(status)lista=lista.filter(n=>n.status===status);
   if(busca)lista=lista.filter(n=>(n.cliente_nome||'').toLowerCase().includes(busca)||(cfg.campoDescricao&&(n[cfg.campoDescricao]||'').toLowerCase().includes(busca))||(n[cfg.campoNumero]||'').toLowerCase().includes(busca));
+  if(de)lista=lista.filter(n=>dataRefNota(n)>=de);
+  if(ate)lista=lista.filter(n=>dataRefNota(n)<=ate);
+  return lista;
+}
+function renderLista(){
+  const lista=listaFiltrada();
+  const cfg=TIPO_CFG[tipoAtual];
   renderPaginacao('nfTable',lista.length,'renderLista');
   setHTML('nfTable',paginar(lista,'nfTable').map(n=>{
     const[label,cor]=STATUS_LABEL[n.status]||['—','off'];
@@ -364,6 +388,53 @@ function renderLista(){
       <td><span class="badge ${cor}">${label}</span></td>
     </tr>`;
   }).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">${esc(cfg.vazio)}</td></tr>`);
+}
+
+// Baixa em lote o XML de cada nota que passa nos filtros atuais (Status,
+// Buscar, período) — mesmo filtro que a lista na tela já mostra, pra "o que
+// você tá vendo é o que baixa" ficar óbvio. Só entra no ZIP quem realmente
+// tem arquivo (link_xml) — nota "Não emitida"/"Erro" nunca teve XML gerado,
+// então é ignorada silenciosamente (contabilizada no aviso final).
+async function baixarXmlsEmLote(){
+  const cfg=TIPO_CFG[tipoAtual];
+  const lista=listaFiltrada().filter(n=>n.link_xml);
+  const ignoradas=listaFiltrada().length-lista.length;
+  if(!lista.length){
+    toast(ignoradas?'Nenhuma nota com XML disponível nesse filtro (as demais ainda não foram emitidas).':'Nenhuma nota encontrada com esse filtro.','err');
+    return;
+  }
+  const btn=$('btnBaixarXmls');
+  const textoOriginal=btn.textContent;
+  btn.disabled=true;
+  try{
+    const zip=new JSZip();
+    let baixados=0, falharam=0;
+    for(const n of lista){
+      btn.textContent=`Baixando... (${baixados+falharam}/${lista.length})`;
+      try{
+        const r=await fetch(n.link_xml);
+        if(!r.ok)throw new Error('http '+r.status);
+        const conteudo=await r.blob();
+        const numero=n[cfg.campoNumero]||n.id.slice(0,8);
+        zip.file(`${tipoAtual==='nfce'?'NFCe':'NFSe'}-${numero}.xml`, conteudo);
+        baixados++;
+      }catch(e){ falharam++; }
+    }
+    if(!baixados){ toast('Não foi possível baixar nenhum XML agora. Tente de novo em instantes.','err'); return; }
+    btn.textContent='Compactando...';
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    const sufixoPeriodo=(val('filtDe')||val('filtAte'))?`_${val('filtDe')||'inicio'}_a_${val('filtAte')||'hoje'}`:'';
+    a.download=`xmls-${tipoAtual}${sufixoPeriodo}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast(`${baixados} XML(s) baixado(s)${falharam?` — ${falharam} falharam`:''}${ignoradas?` — ${ignoradas} nota(s) sem XML foram ignoradas`:''}.`,'ok');
+  }catch(e){
+    toast('Erro ao gerar o ZIP: '+e.message,'err');
+  }finally{
+    btn.disabled=false; btn.textContent=textoOriginal;
+  }
 }
 
 async function verDetalhe(id){
