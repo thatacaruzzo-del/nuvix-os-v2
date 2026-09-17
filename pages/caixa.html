@@ -253,7 +253,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             <h2 style="margin-bottom:14px">Carrinho</h2>
             <div class="tablewrap">
               <table>
-                <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Subtotal</th><th></th></tr></thead>
+                <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Desconto</th><th>Subtotal</th><th></th></tr></thead>
                 <tbody id="carrinhoTable"></tbody>
               </table>
             </div>
@@ -732,12 +732,13 @@ function adicionarKitAoCarrinho(kit){
     return {
       produto_id:ki.produto_id, nome:p?.nome||'—', quantidade_unit:Number(ki.quantidade),
       valor_unitario_rateado:arred2(Number(p?.preco_venda_final||0)*fatorKit),
+      precoOriginalUnit:Number(p?.preco_venda_final||0),
       custo_unitario:Number(p?.custo_atual||0),
       is_consignado:!!p?.is_consignado, consignador_id:p?.consignador_id||null,
     };
   });
   carrinho.push({
-    kit_id:kit.id, produto_id:null, nome:kit.nome, quantidade:1, valor_unitario:precoDoKit,
+    kit_id:kit.id, produto_id:null, nome:kit.nome, quantidade:1, valor_unitario:precoDoKit, precoOriginal:precoDoKit,
     custo_unitario:itensComponentes.reduce((a,c)=>a+c.custo_unitario*c.quantidade_unit,0),
     is_consignado:false, consignador_id:null, estoque_disponivel:disp, componentes:itensComponentes,
   });
@@ -753,7 +754,8 @@ function adicionarAoCarrinho(produto){
     // via obter_precos_vigentes(), então uma promoção ativa entra automaticamente
     // aqui, sem precisar de nenhuma lógica de promoção espalhada pelo Caixa: daqui
     // pra frente (finalizar_venda, NFC-e, histórico) tudo usa esse valor gravado.
-    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:Number(produto.preco_vigente??produto.preco_venda_final??0),custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,consignador_id:produto.consignador_id||null,estoque_disponivel:disp});
+    const precoVigente=Number(produto.preco_vigente??produto.preco_venda_final??0);
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:precoVigente,precoOriginal:precoVigente,custo_unitario:Number(produto.custo_atual||0),is_consignado:!!produto.is_consignado,consignador_id:produto.consignador_id||null,estoque_disponivel:disp});
   }
   renderCarrinho();
 }
@@ -775,7 +777,7 @@ function adicionarItemAvulso(){
   if(!nome){toast('Informe o nome do produto.','err');return;}
   if(!valor||valor<=0){toast('Informe o valor unitário.','err');return;}
   if(!qtd||qtd<=0){toast('Informe a quantidade.','err');return;}
-  carrinho.push({produto_id:null,nome,quantidade:qtd,valor_unitario:arred2(valor),custo_unitario:0,is_consignado:false,estoque_disponivel:Infinity,avulso:true});
+  carrinho.push({produto_id:null,nome,quantidade:qtd,valor_unitario:arred2(valor),precoOriginal:arred2(valor),custo_unitario:0,is_consignado:false,estoque_disponivel:Infinity,avulso:true});
   $('avulsoNome').value=''; $('avulsoValor').value=''; $('avulsoQtd').value='1';
   renderCarrinho();
   toast(`"${nome}" adicionado ao carrinho.`,'ok');
@@ -800,14 +802,23 @@ function renderCarrinho(){
   $('carrinhoVazio').style.display=carrinho.length?'none':'block';
   if(!carrinho.length){ $('carrinhoTable').innerHTML=''; }
   else{
-    $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>`
+    $('carrinhoTable').innerHTML=carrinho.map((i,idx)=>{
+      const original=Number(i.precoOriginal??i.valor_unitario);
+      const descUnit=arred2(Math.max(0,original-i.valor_unitario));
+      const descPct=original>0?(descUnit/original*100):0;
+      return `
       <tr>
         <td>${esc(i.nome)}${i.kit_id?' <span class="badge badge-amber" title="Vira '+i.componentes.length+' item(ns) reais na venda, cada um baixando seu próprio estoque">Kit</span>':''}${i.is_consignado?' <span class="badge badge-amber">Consignado</span>':''}${i.avulso?' <span class="badge badge-blue" title="Sem cadastro no catálogo">Avulso</span>':''}</td>
         <td><input type="text" inputmode="numeric" class="pdv-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinho(${idx},this.value)" style="width:64px;text-align:center"></td>
         <td><input type="text" inputmode="decimal" class="pdv-qtd-input" value="${i.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}" oninput="sanitizarDecimal(this)" onchange="alterarPrecoCarrinho(${idx},this.value)" style="width:90px;text-align:right" title="Preço combinado com o cliente pode ser diferente do preço de tabela — edite aqui se precisar."></td>
+        <td>
+          <input type="text" inputmode="decimal" class="pdv-qtd-input" value="${descUnit>0?descUnit.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):''}" placeholder="0 ou 10%" onchange="alterarDescontoCarrinho(${idx},this.value)" style="width:80px;text-align:right" title="Desconto por unidade — digite um valor em R$ ou termine com % (ex: 10%). Conta junto com o desconto total na hora de pedir aprovação.">
+          ${descUnit>0?`<div class="field-hint" style="margin:2px 0 0">${descPct.toFixed(1)}%</div>`:''}
+        </td>
         <td>${money(i.quantidade*i.valor_unitario)}</td>
         <td><button class="btn2" style="padding:4px 10px" onclick="removerDoCarrinho(${idx})">✕</button></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
   renderTotais();
 }
@@ -820,7 +831,9 @@ function alterarQtdCarrinho(idx,novoValor){
 function alterarPrecoCarrinho(idx,novoValor){
   const item=carrinho[idx]; if(!item)return;
   const preco=numBR(novoValor);
-  if(!preco||preco<0){ toast('Preço inválido.','err'); renderCarrinho(); return; }
+  // preco===0 é válido de propósito (desconto de 100%, item de cortesia/brinde) —
+  // só bloqueia valor negativo ou entrada que não deu pra interpretar como número.
+  if(preco<0||Number.isNaN(preco)){ toast('Preço inválido.','err'); renderCarrinho(); return; }
   item.valor_unitario=arred2(preco);
   // Kit não tem "o" preço gravado em lugar nenhum — o que vai pro banco é o preço de
   // cada componente real. Editar o preço do kit na hora redistribui essa mudança pelos
@@ -832,6 +845,32 @@ function alterarPrecoCarrinho(idx,novoValor){
     item.componentes.forEach(c=>{ c.valor_unitario_rateado=arred2(c.valor_unitario_rateado*fator); });
   }
   renderCarrinho();
+}
+// Desconto por item — digita valor em R$ (por unidade) ou termina com % (ex:
+// "10%"). Só traduz o que foi digitado num preço final e reaproveita
+// alterarPrecoCarrinho pra aplicar (já sabe tratar o rateio de kit) — o
+// desconto em si nunca fica guardado à parte, é sempre a diferença entre
+// precoOriginal (capturado na hora que o item entrou no carrinho) e o preço
+// atual. Isso vale tanto pra quem usa este campo quanto pra quem edita o
+// preço direto na coluna ao lado — os dois caminhos viram a mesma coisa na
+// hora de finalizar a venda (ver finalizarVenda), fechando a brecha de
+// desconto sem controle que só editar o preço direto permitia antes.
+function alterarDescontoCarrinho(idx,textoDigitado){
+  const item=carrinho[idx]; if(!item)return;
+  const original=Number(item.precoOriginal??item.valor_unitario);
+  const t=(textoDigitado||'').trim();
+  if(!t){ alterarPrecoCarrinho(idx,String(original)); return; }
+  let novoPreco;
+  if(t.includes('%')){
+    const pct=numBR(t.replace('%',''));
+    if(pct<0||pct>100){ toast('Desconto percentual precisa estar entre 0% e 100%.','err'); renderCarrinho(); return; }
+    novoPreco=arred2(original*(1-pct/100));
+  }else{
+    const valorReais=numBR(t);
+    if(valorReais<0){ toast('Desconto inválido.','err'); renderCarrinho(); return; }
+    novoPreco=Math.max(0,arred2(original-valorReais));
+  }
+  alterarPrecoCarrinho(idx,String(novoPreco));
 }
 function removerDoCarrinho(idx){ carrinho.splice(idx,1); renderCarrinho(); }
 function limparCarrinho(){
@@ -880,6 +919,12 @@ async function buscarClientePdv(){
   }catch(e){setHTML('pdvClienteStatus','');}
 }
 function totalCarrinho(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
+// Soma do carrinho pelo preço DE CATÁLOGO (antes de qualquer desconto de item) —
+// usada só pra calcular o desconto real da venda pra fins de aprovação/auditoria.
+// totalCarrinho() continua sendo o subtotal "como vendido" (já com desconto de
+// item embutido) — é o que vai pro banco como vendas.subtotal, sem mudar o que
+// os relatórios já esperam desse campo.
+function subtotalCatalogo(){ return carrinho.reduce((a,i)=>a+Number(i.precoOriginal??i.valor_unitario)*i.quantidade,0); }
 function arred2(v){ return Math.round(Number(v||0)*100)/100; }
 function valorDesconto(subtotal){
   const tipo=val('descTipo'); const v=numBR('descValor');
@@ -892,12 +937,18 @@ function renderTotais(){
   const desconto=valorDesconto(subtotal);
   const total=arred2(Math.max(0,subtotal-desconto));
   $('pdvTotalVal').textContent=money(total);
-  const pctEquiv=descontoPctEquivalente(subtotal,desconto);
+  // Desconto "real" pra aviso/aprovação: soma o que já foi descontado item a
+  // item (preço editado ou campo de desconto da linha) com o desconto da
+  // caixinha acima — um limite só olhando pro abatimento total da venda,
+  // não só o que foi digitado neste campo específico.
+  const catalogo=subtotalCatalogo();
+  const descontoReal=arred2(Math.max(0,catalogo-total));
+  const pctEquiv=descontoPctEquivalente(catalogo,descontoReal);
   const limite=limiteDescontoPct();
-  if(desconto>0 && pctEquiv>limite && !aprovacaoDescontoOk){
-    $('descAprovacaoHint').innerHTML=`<span style="color:var(--red)">Desconto de ${pctEquiv.toFixed(1)}% passa do seu limite (${limite}%) — vai pedir aprovação ao finalizar.</span>`;
-  }else if(desconto>0){
-    $('descAprovacaoHint').textContent=`Desconto: ${money(desconto)} (${pctEquiv.toFixed(1)}%)`;
+  if(descontoReal>0 && pctEquiv>limite && !aprovacaoDescontoOk){
+    $('descAprovacaoHint').innerHTML=`<span style="color:var(--red)">Desconto de ${pctEquiv.toFixed(1)}% (item + total) passa do seu limite (${limite}%) — vai pedir aprovação ao finalizar.</span>`;
+  }else if(descontoReal>0){
+    $('descAprovacaoHint').textContent=`Desconto total: ${money(descontoReal)} (${pctEquiv.toFixed(1)}%)`;
   }else{ $('descAprovacaoHint').textContent=''; }
   // Com uma única forma de pagamento (o caso comum), mantém o valor sempre igual ao
   // total — só passa a exigir alocação manual quando o caixa dividir em mais de uma.
@@ -1050,11 +1101,18 @@ async function finalizarVenda(){
   const subtotal=totalCarrinho();
   const desconto=valorDesconto(subtotal);
   const total=arred2(Math.max(0,subtotal-desconto));
-  const pctEquiv=descontoPctEquivalente(subtotal,desconto);
-  if(desconto>0 && pctEquiv>limiteDescontoPct() && !aprovacaoDescontoOk){
+  // Desconto real da venda pra aprovação/auditoria: catálogo vs total final,
+  // então cobre tanto desconto por item quanto o da caixinha acima — a mesma
+  // conta que renderTotais() já mostra na tela, agora usada pra valer no
+  // gate de aprovação (fecha a brecha de só editar o preço da linha sem
+  // controle nenhum).
+  const catalogo=subtotalCatalogo();
+  const descontoReal=arred2(Math.max(0,catalogo-total));
+  const pctEquiv=descontoPctEquivalente(catalogo,descontoReal);
+  if(descontoReal>0 && pctEquiv>limiteDescontoPct() && !aprovacaoDescontoOk){
     abrirModalAprovacao(); return;
   }
-  if(desconto>0 && !val('descMotivo')){ msg('pdvMsg','Selecione o motivo do desconto.','err'); return; }
+  if(descontoReal>0 && !val('descMotivo')){ msg('pdvMsg','Selecione o motivo do desconto (algum item teve o preço reduzido ou a venda tem desconto no total).','err'); return; }
   if(!pagamentos.length) renderPagamentos();
   const alocado=pagamentos.reduce((a,p)=>a+Number(p.valor||0),0);
   if(Math.abs(alocado-total)>0.01){ msg('pdvMsg','A soma das formas de pagamento precisa bater com o total.','err'); return; }
@@ -1121,6 +1179,7 @@ async function finalizarVenda(){
             consignador_id:c.is_consignado?(c.consignador_id||null):null,
             percentual_repasse_snapshot:c.is_consignado?(dados.consignadores.find(x=>x.id===c.consignador_id)?.percentual_repasse??null):null,
             avulso:false, kit_id:i.kit_id,
+            desconto_item:arred2(Math.max(0,Number(c.precoOriginalUnit??c.valor_unitario_rateado)-c.valor_unitario_rateado)*(c.quantidade_unit*i.quantidade)),
           }));
         }
         return [{
@@ -1130,13 +1189,17 @@ async function finalizarVenda(){
           consignador_id:i.is_consignado?(i.consignador_id||null):null,
           percentual_repasse_snapshot:i.is_consignado?(dados.consignadores.find(c=>c.id===i.consignador_id)?.percentual_repasse??null):null,
           avulso:!!i.avulso, kit_id:null,
+          desconto_item:arred2(Math.max(0,Number(i.precoOriginal??i.valor_unitario)-i.valor_unitario)*i.quantidade),
         }];
       }),
       formas_pagamento:pagamentos.filter(p=>p.valor>0).map(p=>({
         forma_pagamento:p.forma, valor:p.valor, parcelas:p.forma==='Cartão Crédito'?(p.parcelas||1):null,
       })),
-      desconto:desconto>0?{
-        tipo:val('descTipo'), valor_desconto:desconto, motivo:val('descMotivo'),
+      // valor_desconto aqui é o desconto REAL da venda (item + caixinha), não só
+      // o campo "Desconto" acima — é isso que fica registrado em
+      // descontos_aplicados pra auditoria valer pra tudo, não só a caixinha.
+      desconto:descontoReal>0?{
+        tipo:val('descTipo')||'Valor fixo', valor_desconto:descontoReal, motivo:val('descMotivo'),
         aplicado_por_id:session.id, requer_aprovacao:pctEquiv>limiteDescontoPct(),
         aprovado_por_id:aprovacaoDescontoUsuarioId, aprovado_em:aprovacaoDescontoUsuarioId?new Date().toISOString():null,
       }:null,
