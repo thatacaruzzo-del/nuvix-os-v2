@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
       empresa_id,
       ativo,
       deve_trocar_senha: true,
+      deve_trocar_senha_desde: new Date().toISOString(),
     });
     if (insertErr) {
       // Desfaz a conta de auth criada — senão sobra auth.users sem usuarios,

@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const { error: updErr } = await admin.auth.admin.updateUserById(callerAuth.user.id, { password: novaSenha });
     if (updErr) return json({ error: updErr.message }, 400);
 
-    await admin.from('usuarios').update({ deve_trocar_senha: false }).eq('id', callerAuth.user.id);
+    await admin.from('usuarios').update({ deve_trocar_senha: false, deve_trocar_senha_desde: null }).eq('id', callerAuth.user.id);
 
     return json({ ok: true }, 200);
   } catch (e) {

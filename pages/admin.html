@@ -1482,7 +1482,7 @@ async function carregarTudo(){
     const desde60d=new Date();desde60d.setDate(desde60d.getDate()-60);
     [empresas,usuarios,assinaturas,eventosConta,accessLogsPortfolio]=await Promise.all([
       dbGet('empresas','?select=*&order=created_at.desc'),
-      dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at,limite_desconto_pct&order=created_at.desc'),
+      dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at,limite_desconto_pct,deve_trocar_senha,deve_trocar_senha_desde&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
       dbGet('eventos_conta','?select=empresa_id,tipo_evento,created_at').catch(()=>[]),
       dbGet('access_logs',`?select=empresa_id,modulo,created_at&created_at=gte.${desde60d.toISOString()}`).catch(()=>[]),
@@ -2136,6 +2136,17 @@ function filtrarUsuarios(){
   renderUsuarios();
 }
 
+// Lembrete visual de senha temporária pendente — admin digitou a senha (criação ou
+// "Redefinir senha") e o usuário ainda não completou a troca obrigatória
+// (trocar-senha-obrigatoria.html). Fica mais chamativo (vermelho) a partir de 3 dias,
+// porque enquanto isso a senha que o admin digitou continua sendo a senha real de acesso.
+function badgeTrocaSenha(u){
+  if(!u.deve_trocar_senha)return'';
+  const dias=u.deve_trocar_senha_desde?Math.floor((Date.now()-new Date(u.deve_trocar_senha_desde).getTime())/86400000):null;
+  const urgente=dias!==null&&dias>=3;
+  const texto=dias===null?'Aguardando troca de senha':dias<=0?'Aguardando troca (hoje)':`Aguardando troca há ${dias} dia${dias>1?'s':''}`;
+  return`<div style="margin-top:4px"><span class="badge ${urgente?'badge-inadimplente':'badge-trial'}" title="O usuário ainda está logando com a senha temporária digitada pelo admin">🔑 ${texto}</span></div>`;
+}
 function renderUsuarios(){
   const empMap={};empresas.forEach(e=>empMap[e.id]=e.fantasia||e.razao||'—');
   renderPaginacao('tabelaUsuarios',usuFiltrados.length,'renderUsuarios');
@@ -2146,7 +2157,7 @@ function renderUsuarios(){
       <td style="font-size:12px;color:var(--muted)">${esc(u.email||'')}</td>
       <td style="font-size:12px">${esc(empMap[u.empresa_id]||'—')}</td>
       <td><span class="badge badge-start">${esc(u.perfil||'Colaborador')}</span></td>
-      <td><span class="badge ${ativo?'badge-ativo':'badge-bloqueado'}">${ativo?'Ativo':'Inativo'}</span></td>
+      <td><span class="badge ${ativo?'badge-ativo':'badge-bloqueado'}">${ativo?'Ativo':'Inativo'}</span>${badgeTrocaSenha(u)}</td>
       <td style="font-size:11px;color:var(--muted)">${u.ultimo_acesso?fmtData(u.ultimo_acesso):'Nunca'}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">

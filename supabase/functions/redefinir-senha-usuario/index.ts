@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // saber a senha final da pessoa. Marca a conta pra trocar na próxima vez que logar
     // (index.html checa essa flag e força a tela trocar-senha-obrigatoria.html antes de
     // deixar entrar no sistema).
-    await admin.from('usuarios').update({ deve_trocar_senha: true }).eq('id', id);
+    await admin.from('usuarios').update({ deve_trocar_senha: true, deve_trocar_senha_desde: new Date().toISOString() }).eq('id', id);
 
     return json({ ok: true }, 200);
   } catch (e) {
