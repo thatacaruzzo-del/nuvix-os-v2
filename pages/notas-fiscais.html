@@ -687,9 +687,29 @@ function verImprimir(){
   window.open(URL.createObjectURL(blob),'_blank');
 }
 
-function baixarXml(){
+async function baixarXml(){
   if(!notaAtual)return;
-  if(notaAtual.link_xml){window.open(notaAtual.link_xml,'_blank');return;}
+  if(notaAtual.link_xml){
+    // Antes disso era window.open(link,'_blank') — o Storage serve XML como
+    // text/plain (proteção deles contra phishing hospedado lá), então só abria
+    // o texto cru numa aba, nunca baixava um arquivo de verdade. Busca o
+    // conteúdo e força o download via blob, mesmo padrão de baixarXmlsEmLote().
+    try{
+      const r=await fetch(notaAtual.link_xml);
+      if(!r.ok)throw new Error('http '+r.status);
+      const blob=await r.blob();
+      const cfg=TIPO_CFG[tipoAtual];
+      const numero=notaAtual[cfg.campoNumero]||notaAtual.id.slice(0,8);
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=`${tipoAtual==='nfce'?'NFCe':'NFSe'}-${numero}.xml`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }catch(e){
+      toast('Não foi possível baixar o XML agora. Tente de novo em instantes.','err');
+    }
+    return;
+  }
   const xml=tipoAtual==='nfce'?`<?xml version="1.0" encoding="UTF-8"?>
 <NFCeSimulada observacao="Documento de teste — sem validade fiscal">
   <numero>${esc(notaAtual.numero||'')}</numero>
