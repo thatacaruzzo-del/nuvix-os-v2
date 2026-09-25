@@ -70,6 +70,12 @@ Deno.serve(async (req) => {
     const { error: updErr } = await admin.auth.admin.updateUserById(id, { password: novaSenha });
     if (updErr) return json({ error: updErr.message }, 400);
 
+    // A senha que o admin acabou de digitar é temporária por definição — ele não pode
+    // saber a senha final da pessoa. Marca a conta pra trocar na próxima vez que logar
+    // (index.html checa essa flag e força a tela trocar-senha-obrigatoria.html antes de
+    // deixar entrar no sistema).
+    await admin.from('usuarios').update({ deve_trocar_senha: true }).eq('id', id);
+
     return json({ ok: true }, 200);
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);

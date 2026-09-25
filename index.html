@@ -363,8 +363,9 @@ async function entrar(){
       // Administrador/SuperAdmin não depende de permissões (acesso completo por padrão),
       // então erro de rede aqui não trava o login — degrada pra lista vazia.
       fetch(`${SUPABASE_URL}/rest/v1/usuario_permissoes?usuario_id=eq.${claims.sub}&select=modulo,pode_ver,pode_criar,pode_editar,pode_excluir,pode_exportar`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      // null usa o padrão do perfil (ver limiteDescontoPct no Caixa).
-      fetch(`${SUPABASE_URL}/rest/v1/usuarios?id=eq.${claims.sub}&select=limite_desconto_pct`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      // null usa o padrão do perfil (ver limiteDescontoPct no Caixa). deve_trocar_senha
+      // vem junto porque é a mesma linha — evita mais uma chamada de rede só pra isso.
+      fetch(`${SUPABASE_URL}/rest/v1/usuarios?id=eq.${claims.sub}&select=limite_desconto_pct,deve_trocar_senha`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       // Módulo sem linha aqui (ex: ordens_servico/servicos/notas_fiscais/cotacao, que ainda
       // não fazem parte desse sistema) conta como liberado — mesma regra fail-open.
       fetch(`${SUPABASE_URL}/rest/v1/empresa_modulos?empresa_id=eq.${claims.empresa_id}&select=modulo,liberado`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
@@ -373,6 +374,14 @@ async function entrar(){
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
     empresa.modulos_liberados=modulos_liberados;
     const limite_desconto_pct=limitePct?.[0]?.limite_desconto_pct??null;
+    // Senha digitada por um admin (criação de usuário ou "Redefinir senha") é sempre
+    // temporária — ele não pode saber a senha final de outra conta. Em vez de abrir o
+    // sistema, manda pra tela que obriga trocar antes de qualquer outra coisa.
+    if(limitePct?.[0]?.deve_trocar_senha===true){
+      sessionStorage.setItem('nuvix_troca_senha_pendente',JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,email}));
+      window.location.href='trocar-senha-obrigatoria.html';
+      return;
+    }
     const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix,usuario_permissoes,limite_desconto_pct};
     sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
     // Log de acesso é best-effort (auditoria) e não deve atrasar o redirect — dispara sem
