@@ -392,25 +392,26 @@ function renderLista(){
 
 // Baixa em lote o XML de cada nota que passa nos filtros atuais (Status,
 // Buscar, período) — mesmo filtro que a lista na tela já mostra, pra "o que
-// você tá vendo é o que baixa" ficar óbvio. Só entra no ZIP quem realmente
-// tem arquivo (link_xml) — nota "Não emitida"/"Erro" nunca teve XML gerado,
-// então é ignorada silenciosamente (contabilizada no aviso final).
+// você tá vendo é o que baixa" ficar óbvio. Nem toda nota tem arquivo: "Não
+// emitida"/"Erro" nunca chegou a ser autorizada pela SEFAZ/prefeitura, então
+// não existe XML nenhum pra ela — mas a contabilidade precisa saber que essa
+// venda existe e por que não gerou nota, não só receber os XMLs das que deram
+// certo. Por isso o ZIP sempre sai com dois tipos de conteúdo: os XMLs de
+// verdade (só quem tem link_xml) + um relatorio-notas.csv listando TODAS as
+// notas do período filtrado, inclusive as sem XML, com o motivo do erro.
 async function baixarXmlsEmLote(){
   const cfg=TIPO_CFG[tipoAtual];
-  const lista=listaFiltrada().filter(n=>n.link_xml);
-  const ignoradas=listaFiltrada().length-lista.length;
-  if(!lista.length){
-    toast(ignoradas?'Nenhuma nota com XML disponível nesse filtro (as demais ainda não foram emitidas).':'Nenhuma nota encontrada com esse filtro.','err');
-    return;
-  }
+  const todasFiltradas=listaFiltrada();
+  const comXml=todasFiltradas.filter(n=>n.link_xml);
+  if(!todasFiltradas.length){ toast('Nenhuma nota encontrada com esse filtro.','err'); return; }
   const btn=$('btnBaixarXmls');
   const textoOriginal=btn.textContent;
   btn.disabled=true;
   try{
     const zip=new JSZip();
     let baixados=0, falharam=0;
-    for(const n of lista){
-      btn.textContent=`Baixando... (${baixados+falharam}/${lista.length})`;
+    for(const n of comXml){
+      btn.textContent=`Baixando... (${baixados+falharam}/${comXml.length})`;
       try{
         const r=await fetch(n.link_xml);
         if(!r.ok)throw new Error('http '+r.status);
@@ -420,7 +421,27 @@ async function baixarXmlsEmLote(){
         baixados++;
       }catch(e){ falharam++; }
     }
-    if(!baixados){ toast('Não foi possível baixar nenhum XML agora. Tente de novo em instantes.','err'); return; }
+
+    // ';' como separador (não ',') porque o Excel em português abre CSV
+    // assim direto sem pedir pra escolher o delimitador na hora de importar.
+    // BOM (﻿) no início é o que faz o Excel reconhecer acento/ç certo,
+    // sem isso "Descrição" vira "DescriÃ§Ã£o" ao abrir.
+    const csvEsc=v=>{ const s=String(v??''); return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+    const linhasCsv=[['Emitida em','Cliente','Descrição','Valor','Número','Status','Motivo do erro'].map(csvEsc).join(';')];
+    todasFiltradas.forEach(n=>{
+      const [label]=STATUS_LABEL[n.status]||['—'];
+      linhasCsv.push([
+        n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at),
+        n.cliente_nome||'—',
+        cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV',
+        money(n[cfg.campoValor]),
+        n[cfg.campoNumero]||'—',
+        label,
+        n.status==='erro'?(n.mensagem_erro||''):'',
+      ].map(csvEsc).join(';'));
+    });
+    zip.file(`relatorio-notas-${tipoAtual}.csv`, '﻿'+linhasCsv.join('\r\n'));
+
     btn.textContent='Compactando...';
     const blob=await zip.generateAsync({type:'blob'});
     const a=document.createElement('a');
@@ -429,7 +450,8 @@ async function baixarXmlsEmLote(){
     a.download=`xmls-${tipoAtual}${sufixoPeriodo}.zip`;
     a.click();
     URL.revokeObjectURL(a.href);
-    toast(`${baixados} XML(s) baixado(s)${falharam?` — ${falharam} falharam`:''}${ignoradas?` — ${ignoradas} nota(s) sem XML foram ignoradas`:''}.`,'ok');
+    const semXml=todasFiltradas.length-comXml.length;
+    toast(`${baixados} XML(s) baixado(s)${falharam?` — ${falharam} falharam`:''} + relatório com as ${todasFiltradas.length} nota(s) do período${semXml?` (${semXml} sem XML, listada(s) no relatório)`:''}.`,'ok');
   }catch(e){
     toast('Erro ao gerar o ZIP: '+e.message,'err');
   }finally{
