@@ -302,7 +302,16 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
     // Focus NFe na hora de cadastrar o CNPJ (NFCE-ATIVACAO.md) — se a API exigir também no payload,
     // adicionar aqui usando os nomes exatos da doc.
     indicador_inscricao_estadual_destinatario: 9, // 9 = não contribuinte (consumidor final)
-    valor_desconto: nota.desconto_total || undefined,
+    // NUNCA declarar valor_desconto aqui (nível da nota) sem um vDesc por item que
+    // some pro mesmo total — a SEFAZ valida os dois batendo, e rejeita com
+    // "Total do Desconto difere do somatório dos itens" quando não bate. BUG REAL
+    // encontrado em 25/09/2026: isso rejeitou 37 notas da YUP desde 04/09 (toda
+    // venda do Caixa com desconto, item ou total). it.valor_unitario/valor_total já
+    // vêm da nota gravada com o preço LÍQUIDO (pós-desconto) — não existe hoje um
+    // "preço de catálogo" separado por item nessa tabela pra declarar vDesc por
+    // item corretamente. Reportar o preço líquido como valor do produto (sem
+    // desconto separado) é uma NFC-e igualmente válida — só não mostra a linha
+    // "desconto" destacada no cupom.
     items: itens.map((it, idx) => {
       // IBS/CBS (Reforma Tributária) — base × alíquota/100, calculado aqui porque a
       // Focus NFe exige o VALOR já pronto junto da alíquota (cbs_valor/ibs_uf_valor/
