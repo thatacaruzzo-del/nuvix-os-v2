@@ -677,6 +677,7 @@ function aplicarPresetPapel(nome){
 <div class="admin-tabs">
   <button class="admin-tab active" onclick="showTab('inicio',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Início</button>
   <button class="admin-tab" onclick="showTab('clientes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg> Clientes</button>
+  <button class="admin-tab" onclick="showTab('comercial',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Comercial</button>
   <button class="admin-tab" onclick="showTab('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Usuários</button>
   <button class="admin-tab" onclick="showTab('modulos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
   <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Financeiro</button>
@@ -772,6 +773,28 @@ function aplicarPresetPapel(nome){
       </table>
       <div id="tabelaEmpresasPaginacao"></div>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PANE: COMERCIAL (pipeline de leads, antes de virar cliente pagante) ═══ -->
+<div id="pane-comercial" class="admin-pane">
+<div class="content">
+  <div class="grid-4" id="kpisComercial" style="margin-bottom:20px"></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Pipeline comercial</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="filtroOrigemLead" onchange="renderComercial()" style="max-width:170px">
+          <option value="">Todas as origens</option>
+          <option>Tráfego pago</option><option>Indicação</option><option>LinkedIn</option>
+          <option>Orgânico</option><option>Outro</option>
+        </select>
+        <button class="btn" onclick="abrirModalLead()">+ Novo lead</button>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads antes de virar cliente pagante. Quando fechar, use "Converter em cliente" pra já abrir o cadastro de empresa preenchido.</p>
+    <div class="kanban" id="kanbanComercial"></div>
   </div>
 </div>
 </div>
@@ -1357,6 +1380,60 @@ function aplicarPresetPapel(nome){
     <button class="btn2" onclick="fecharModal('modalTarefa')">Cancelar</button>
     <button class="danger" id="btnExcluirTarefa" style="display:none" onclick="excluirTarefa()">Excluir</button>
     <button class="btn" onclick="salvarTarefa()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Lead (Comercial) -->
+<div class="modal-overlay" id="modalLead">
+<div class="modal" style="max-width:480px">
+  <h3 id="tituloModalLead">Novo lead</h3>
+  <input type="hidden" id="leadId">
+  <div class="form-grid" style="grid-template-columns:1fr">
+    <div class="field"><label>Nome (empresa ou pessoa) *</label><input id="leadNome" placeholder="Ex: Loja XPTO"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Contato</label><input id="leadContatoNome" placeholder="Nome de quem falou"></div>
+    <div class="field"><label>Telefone</label><input id="leadContatoTelefone"></div>
+    <div class="field" style="grid-column:1/-1"><label>E-mail</label><input type="email" id="leadContatoEmail"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Origem</label>
+      <select id="leadOrigem">
+        <option>Tráfego pago</option><option>Indicação</option><option>LinkedIn</option>
+        <option>Orgânico</option><option>Outro</option>
+      </select>
+    </div>
+    <div class="field"><label>Segmento</label>
+      <select id="leadSegmento">
+        <option>Prestação de Serviço</option><option>Transporte</option>
+        <option>Venda de Produto</option><option>Mista</option><option>Comércio</option><option>Indústria</option>
+      </select>
+    </div>
+    <div class="field"><label>Valor estimado (R$/mês)</label><input type="number" id="leadValorEstimado" step="0.01" placeholder="0,00"></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px">
+    <div class="field"><label>Estágio</label>
+      <select id="leadEstagio" onchange="atualizarCamposEstagioLead()">
+        <option value="novo">Novo</option>
+        <option value="contatado">Contatado</option>
+        <option value="demonstracao">Demonstração</option>
+        <option value="proposta">Proposta</option>
+        <option value="fechado">Fechado</option>
+        <option value="perdido">Perdido</option>
+      </select>
+    </div>
+    <div class="field" id="wrapMotivoPerda" style="display:none"><label>Motivo da perda</label><input id="leadMotivoPerda" placeholder="Preço, timing, concorrente..."></div>
+  </div>
+  <div class="form-grid" style="margin-top:14px;grid-template-columns:1fr">
+    <div class="field"><label>Observação</label><textarea id="leadObservacao" rows="3" placeholder="Contexto, próximos passos..."></textarea></div>
+  </div>
+  <div id="leadConvertidoAviso" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;background:var(--p-light);color:var(--p);font-size:12px;font-weight:600"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalLead')">Cancelar</button>
+    <button class="danger" id="btnExcluirLead" style="display:none" onclick="excluirLead()">Excluir</button>
+    <button class="btn2" id="btnConverterLead" style="display:none" onclick="converterLeadEmCliente()">Converter em cliente</button>
+    <button class="btn" onclick="salvarLead()">Salvar</button>
   </div>
 </div>
 </div>
@@ -2024,6 +2101,14 @@ async function salvarEmpresa(){
       return;
     }
 
+    // Veio do pipeline Comercial (botão "Converter em cliente")? Marca o lead como
+    // convertido pra essa empresa nova. Falha aqui não desfaz a empresa já criada —
+    // só fica sem o vínculo, dá pra ajustar depois direto no lead.
+    if(leadEmConversao){
+      try{ await dbPatch('leads_comerciais',leadEmConversao,{convertido_empresa_id:emp.id}); }catch(e){}
+      leadEmConversao=null;
+    }
+
     // Passos 2 e 3 (auxiliares): a empresa JÁ EXISTE a partir daqui — se algo falhar
     // daqui pra baixo, isso não pode aparecer como "deu tudo errado", senão o admin
     // clica de novo achando que não salvou e cria outra empresa duplicada.
@@ -2654,6 +2739,7 @@ function showTab(id,btn){
   if(id==='logs')carregarLogs();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
   if(id==='planejamento')carregarPlanejamento();
+  if(id==='comercial')carregarComercial();
   if(id==='inicio')carregarInicio();
 }
 
@@ -3108,6 +3194,146 @@ async function excluirTarefa(){
     fecharModal('modalTarefa');toast('Tarefa excluída.');
     await carregarPlanejamento();
   }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ═══ COMERCIAL (pipeline de leads, antes de virar cliente pagante) ═══
+let leadsComerciais=[];
+// id do lead sendo convertido, lido por salvarEmpresa() depois que a empresa é criada
+// com sucesso, pra marcar o lead como convertido sem duplicar a lógica de criação.
+let leadEmConversao=null;
+const LEAD_ESTAGIO_COLS=[
+  {id:'novo',lbl:'Novo'},{id:'contatado',lbl:'Contatado'},{id:'demonstracao',lbl:'Demonstração'},
+  {id:'proposta',lbl:'Proposta'},{id:'fechado',lbl:'Fechado'},{id:'perdido',lbl:'Perdido'},
+];
+const LEAD_ESTAGIO_COR={novo:'var(--muted2)',contatado:'var(--blue)',demonstracao:'var(--amber)',proposta:'var(--p)',fechado:'var(--green)',perdido:'var(--red)'};
+
+async function carregarComercial(){
+  try{
+    leadsComerciais=await dbGet('leads_comerciais','?select=*&order=created_at.desc');
+    renderKpisComercial();
+    renderComercial();
+  }catch(e){
+    setHTML('kanbanComercial',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+
+function renderKpisComercial(){
+  const emAberto=leadsComerciais.filter(l=>l.estagio!=='fechado'&&l.estagio!=='perdido');
+  const valorPipeline=emAberto.reduce((s,l)=>s+Number(l.valor_estimado||0),0);
+  const mesAtual=hoje().slice(0,7);
+  const fechadosMes=leadsComerciais.filter(l=>l.estagio==='fechado'&&l.fechado_em&&String(l.fechado_em).slice(0,7)===mesAtual).length;
+  const totalDecididos=leadsComerciais.filter(l=>l.estagio==='fechado'||l.estagio==='perdido').length;
+  const fechados=leadsComerciais.filter(l=>l.estagio==='fechado').length;
+  const taxaConversao=totalDecididos?Math.round(fechados/totalDecididos*100)+'%':'—';
+  setHTML('kpisComercial',[
+    {lbl:'Leads em aberto',val:emAberto.length,cor:'var(--txt)'},
+    {lbl:'Valor em pipeline',val:money(valorPipeline),cor:'var(--p)'},
+    {lbl:'Fechados no mês',val:fechadosMes,cor:'var(--green)'},
+    {lbl:'Taxa de conversão',val:taxaConversao,cor:'var(--txt)'},
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.lbl}</div><div class="kpi-value" style="color:${k.cor}">${k.val}</div></div>`).join(''));
+}
+
+function renderComercial(){
+  const origem=val('filtroOrigemLead');
+  const filtrados=leadsComerciais.filter(l=>!origem||l.origem===origem);
+  setHTML('kanbanComercial',LEAD_ESTAGIO_COLS.map(col=>{
+    const leads=filtrados.filter(l=>l.estagio===col.id);
+    const cards=leads.map(l=>`<div class="kanban-card" onclick="abrirModalLead('${l.id}')" style="cursor:pointer">
+      <div class="kanban-card-title">${esc(l.nome)}</div>
+      ${l.contato_nome?`<div class="kanban-card-desc">${esc(l.contato_nome)}</div>`:''}
+      <div class="kanban-card-meta">
+        <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;color:#fff;background:${LEAD_ESTAGIO_COR[l.estagio]}">${esc(l.origem||'')}</span>
+        <span style="font-size:10px;color:var(--muted2)">${l.valor_estimado?money(l.valor_estimado):''}</span>
+      </div>
+    </div>`).join('')||'<p style="font-size:11px;color:var(--muted2)">Vazio</p>';
+    return `<div class="kanban-col"><div class="kanban-col-title">${col.lbl}<span>${leads.length}</span></div>${cards}</div>`;
+  }).join(''));
+}
+
+function atualizarCamposEstagioLead(){
+  $('wrapMotivoPerda').style.display=val('leadEstagio')==='perdido'?'':'none';
+}
+
+function abrirModalLead(id){
+  const l=id?leadsComerciais.find(x=>x.id===id):null;
+  $('tituloModalLead').textContent=l?'Editar lead':'Novo lead';
+  $('leadId').value=l?.id||'';
+  $('leadNome').value=l?.nome||'';
+  $('leadContatoNome').value=l?.contato_nome||'';
+  $('leadContatoTelefone').value=l?.contato_telefone||'';
+  $('leadContatoEmail').value=l?.contato_email||'';
+  $('leadOrigem').value=l?.origem||'Tráfego pago';
+  $('leadSegmento').value=l?.segmento||'Prestação de Serviço';
+  $('leadValorEstimado').value=l?.valor_estimado||'';
+  $('leadEstagio').value=l?.estagio||'novo';
+  $('leadMotivoPerda').value=l?.motivo_perda||'';
+  $('leadObservacao').value=l?.observacao||'';
+  atualizarCamposEstagioLead();
+  $('btnExcluirLead').style.display=l?'':'none';
+  const jaConvertido=!!l?.convertido_empresa_id;
+  $('btnConverterLead').style.display=(l&&l.estagio==='fechado'&&!jaConvertido)?'':'none';
+  const aviso=$('leadConvertidoAviso');
+  if(jaConvertido){
+    const emp=empresas.find(e=>e.id===l.convertido_empresa_id);
+    aviso.style.display='';
+    aviso.textContent='Já convertido em cliente: '+(emp?(emp.fantasia||emp.razao):'empresa removida');
+  }else aviso.style.display='none';
+  abrirModal('modalLead');
+}
+
+async function salvarLead(){
+  const nome=val('leadNome').trim();
+  if(!nome){toast('Preencha o nome do lead.','err');return;}
+  const id=val('leadId');
+  const estagio=val('leadEstagio');
+  const existente=id?leadsComerciais.find(x=>x.id===id):null;
+  const dados={
+    nome,contato_nome:val('leadContatoNome').trim()||null,
+    contato_telefone:val('leadContatoTelefone').trim()||null,
+    contato_email:val('leadContatoEmail').trim()||null,
+    origem:val('leadOrigem'),segmento:val('leadSegmento'),
+    valor_estimado:num('leadValorEstimado'),
+    estagio,motivo_perda:estagio==='perdido'?(val('leadMotivoPerda').trim()||null):null,
+    observacao:val('leadObservacao').trim()||null,
+    updated_by:adminSession.id,
+  };
+  // Só marca fechado_em na hora que entra em "fechado" de verdade, não sobrescreve
+  // se já tinha fechado antes e só editou outra coisa.
+  if(estagio==='fechado'&&existente?.estagio!=='fechado')dados.fechado_em=new Date().toISOString();
+  try{
+    if(id)await dbPatch('leads_comerciais',id,dados);
+    else await dbPost('leads_comerciais',{...dados,created_by:adminSession.id});
+    fecharModal('modalLead');toast('Lead salvo.');
+    await carregarComercial();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function excluirLead(){
+  const id=val('leadId');
+  if(!id)return;
+  if(!await confirmarAcao('Excluir este lead?'))return;
+  try{
+    await dbDelete('leads_comerciais',id);
+    fecharModal('modalLead');toast('Lead excluído.');
+    await carregarComercial();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// Abre o modal de Nova Empresa já preenchido com os dados do lead. salvarEmpresa()
+// (fluxo normal de criar cliente, sem nenhuma mudança nele) checa leadEmConversao
+// depois de criar a empresa com sucesso e marca o lead como convertido.
+function converterLeadEmCliente(){
+  const id=val('leadId');
+  const l=leadsComerciais.find(x=>x.id===id);
+  if(!l)return;
+  leadEmConversao=l.id;
+  fecharModal('modalLead');
+  abrirModalNovaEmpresa();
+  $('empFantasia').value=l.nome||'';
+  $('empEmail').value=l.contato_email||'';
+  $('empTel').value=l.contato_telefone||'';
+  if(l.segmento)$('empSegmento').value=l.segmento;
+  $('empObs').value=`Convertido do pipeline comercial (lead: ${l.nome}).`;
 }
 
 // ═══ MODAIS ═══
