@@ -16,22 +16,26 @@
   --red:#DC2626;--red-bg:#FEF2F2;
   --amber:#D97706;--amber-bg:#FEF3E2;
   --blue:#2563EB;--blue-bg:#DBEAFE;
-  --shadow:0 1px 2px rgba(31,41,55,.04),0 3px 12px rgba(31,41,55,.05);
-  --shadow-md:0 8px 28px rgba(31,41,55,.09);
-  --radius:14px;
+  --shadow:0 1px 2px rgba(16,24,40,.03),0 1px 3px rgba(16,24,40,.04);
+  --shadow-md:0 4px 16px rgba(16,24,40,.07);
+  --radius:18px;--radius-sm:12px;--radius-lg:20px;
 }
 html,body{height:100%;font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.5}
 button,input,select,textarea{font-family:inherit}
 input,select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--txt);font-size:14px;transition:border-color .2s}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px rgba(99,67,164,.1)}
 label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:6px}
-.btn{background:var(--p);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s}
+/* Botões em pílula (radius 999px) com altura fixa e sombra colorida no primário —
+   mesmo padrão visual do resto do sistema (css/nuvix.css), que a Admin tinha
+   duplicado com cantos só levemente arredondados em vez de pílula, sem sombra. */
+.btn,.btn2,.danger{border-radius:999px;height:42px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;cursor:pointer;font-size:14px;border:none;transition:all .15s}
+.btn{background:var(--p);color:#fff;box-shadow:0 6px 16px rgba(99,67,164,.25)}
 .btn:hover{background:var(--p2)}
-.btn2{background:var(--p-light);color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s}
-.btn2:hover{background:#DDD6FE}
-.danger{background:#FEF2F2;color:#991b1b;border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px}
+.btn2{background:var(--p-light);color:var(--p);border:1px solid var(--line)}
+.btn2:hover{background:#E3E0FD}
+.danger{background:var(--red-bg);color:#991b1b;height:auto;padding:8px 14px;font-size:13px}
 .danger:hover{background:#FECACA}
-.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;background:var(--p-light);color:var(--p2)}
 .badge-ativo{background:#ECFDF5;color:#059669}
 .badge-trial{background:#FEF3C7;color:#92400E}
 .badge-inadimplente{background:#FEF2F2;color:#DC2626}
@@ -80,14 +84,14 @@ body{background:#F0EEF8}
 #adminMainContent{background:#F0EEF8;min-height:100vh}
 
 /* ── CARDS ── */
-.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
-.card h2{font-size:16px;font-weight:800;margin-bottom:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);margin-bottom:18px;transition:box-shadow .2s ease,transform .2s ease}
+.card h2{font-size:16px;font-weight:800;margin-bottom:16px;letter-spacing:-.01em}
 .card h3{font-size:14px;font-weight:700;margin-bottom:12px}
 
 /* ── GRID ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .field{margin-bottom:0}
@@ -131,7 +135,7 @@ body{background:#F0EEF8}
 .kpi-trend svg{width:11px;height:11px;stroke-width:2}
 
 /* ── TABLE ── */
-.tablewrap{overflow-x:auto;border-radius:10px}
+.tablewrap{overflow-x:auto;border-radius:var(--radius-sm)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{padding:10px 12px;color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1.5px solid var(--line);text-align:left;white-space:nowrap;font-weight:700}
 td{padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
