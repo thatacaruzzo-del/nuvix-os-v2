@@ -851,6 +851,26 @@ function toggleSenhaAdmin(){
     </div>
   </div>
 
+  <!-- Cobrança automática (Efí) — hoje 100% manual. Placeholder honesto: só existe
+       cadastro de cartão/cobrança recorrente depois que o CNPJ do Grupo Caruzzo sair
+       e a conta no Efí for aberta (não dá pra ter credencial de API sem conta). -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h2 style="margin:0">Cobrança automática</h2>
+      <span class="badge badge-trial">Aguardando conta Efí</span>
+    </div>
+    <p style="color:var(--muted);font-size:13px;line-height:1.6;max-width:640px">
+      Cliente testa 7 dias sem cartão. Ao final do trial, cadastra o cartão e a cobrança
+      passa a ser automática todo mês, sem precisar registrar pagamento aqui manualmente.
+      Isso entra assim que o CNPJ do Grupo Caruzzo sair e a conta no Efí for aberta
+      (a API só libera credencial depois da conta existir).
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-ativo" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Trial de 7 dias controlado pela própria Nuvix (sem Efí)</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-trial" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Cadastro de cartão e cobrança recorrente — depende da conta Efí</span>
+    </div>
+  </div>
+
   <div class="grid-2" style="margin-bottom:16px">
     <div class="card">
       <h2>Registrar pagamento de cliente</h2>
