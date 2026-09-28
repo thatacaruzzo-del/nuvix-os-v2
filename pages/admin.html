@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nuvix Hub — Painel Admin</title>
+<title>Nuvix Hub | Painel Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -300,7 +300,7 @@ function validarCNPJ(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==14
 function validarCpfCnpj(v){const d=String(v||'').replace(/\D/g,'');if(!d)return true;if(d.length===11)return validarCPF(d);if(d.length===14)return validarCNPJ(d);return false;}
 
 // DB helpers
-function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';if(/permission denied|row-level security|RLS/i.test(m))return'Sem permissão para esta ação — sua sessão pode estar desatualizada. Saia e entre de novo e tente outra vez.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir: esse registro está vinculado a outro cadastro.';if(/permission denied|row-level security|RLS/i.test(m))return'Sem permissão para esta ação, sua sessão pode estar desatualizada. Saia e entre de novo e tente outra vez.';return'Algo deu errado. Tente novamente, se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 // usuarios usa return=minimal: a coluna senha fica travada pra leitura via
 // API (ver sql/seguranca_senhas.sql), então um "RETURNING *" implícito do
@@ -310,7 +310,7 @@ async function dbPost(t,d){let r;try{const headers=t==='usuarios'?{...H,Prefer:'
 async function dbPatch(t,id,d){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();
   // PostgREST responde 200 com array vazio quando o RLS barra a linha (ou o id não existe) —
   // sem isso, o front-end achava que salvou com sucesso mesmo quando nada mudou no banco.
-  if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada — confira se o registro ainda existe ou se você tem permissão pra editá-lo.');
+  if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');
   return j}
 async function dbDelete(t,id){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
@@ -321,7 +321,7 @@ async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t
 // no dado de negócio, sem existir em auth.users, que é o que o login de verdade verifica.
 async function criarUsuarioComLogin({nome,email,senha,perfil,empresa_id,ativo}){
   const token=tokenAtual();
-  if(!token) throw new Error('Sessão inválida — saia e entre de novo.');
+  if(!token) throw new Error('Sessão inválida, saia e entre de novo.');
   let r;
   try{
     r=await fetch(`${SB_URL}/functions/v1/criar-usuario`,{
@@ -340,7 +340,7 @@ async function criarUsuarioComLogin({nome,email,senha,perfil,empresa_id,ativo}){
 // o e-mail pra sempre — o mesmo problema que já tínhamos na exclusão de empresa.
 async function excluirUsuarioComLogin(id){
   const token=tokenAtual();
-  if(!token) throw new Error('Sessão inválida — saia e entre de novo.');
+  if(!token) throw new Error('Sessão inválida, saia e entre de novo.');
   let r;
   try{
     r=await fetch(`${SB_URL}/functions/v1/excluir-usuario`,{
@@ -393,7 +393,7 @@ const MODULOS_PLANO={
 // app.html, pra ficar consistente entre o painel do cliente e o painel Nuvix.
 const PRESETS_PAPEL={
   'Vendedor/Caixa':{
-    resumo:'Caixa e vendas. Vê produtos e estoque só pra consultar — sem editar preço ou custo.',
+    resumo:'Caixa e vendas. Vê produtos e estoque só pra consultar, sem editar preço ou custo.',
     modulos:{
       dashboard:{ver:1},
       caixa:{ver:1,criar:1,editar:1},
@@ -419,7 +419,7 @@ const PRESETS_PAPEL={
     },
   },
   'Estoquista':{
-    resumo:'Produtos e estoque — sem acesso ao Caixa nem ao Financeiro.',
+    resumo:'Produtos e estoque, sem acesso ao Caixa nem ao Financeiro.',
     modulos:{
       produtos:{ver:1,criar:1,editar:1},
       estoque:{ver:1,criar:1,editar:1},
@@ -472,7 +472,7 @@ function aplicarPresetPapel(nome){
       if(tr){tr.classList.remove('perm-flash');void tr.offsetWidth;tr.classList.add('perm-flash');}
     }
   });
-  toast(`Modelo "${nome}" aplicado — revise as linhas destacadas e clique em Salvar.`,'ok');
+  toast(`Modelo "${nome}" aplicado. Revise as linhas destacadas e clique em Salvar.`,'ok');
 }
 </script>
 
@@ -697,7 +697,7 @@ function aplicarPresetPapel(nome){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Novo aviso</h2>
     </div>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Fixa uma frase nova pra todo mundo (você, Thiago, Giovanna) ver assim que entrar no admin — a mais recente vira a frase-guia acima.</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Fixa uma frase nova pra todo mundo (você, Thiago, Giovanna) ver assim que entrar no admin. A mais recente vira a frase-guia acima.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <input type="text" id="novoAvisoTexto" placeholder="Escreva o aviso ou frase-guia..." style="flex:1;min-width:240px">
       <button class="btn" onclick="salvarAviso()">Fixar</button>
@@ -838,7 +838,7 @@ function aplicarPresetPapel(nome){
        a soma bruta de tudo que foi lançado, sem separar por mês nem descontar custo
        nenhum. Isso é a primeira peça do financeiro de verdade da própria Nuvix. -->
   <div class="card" style="margin-bottom:16px">
-    <h2>Financeiro real — receita × custo</h2>
+    <h2>Financeiro real: receita × custo</h2>
     <div id="resumoFinanceiroReal"></div>
     <div class="tablewrap" style="margin-top:16px">
       <table>
@@ -960,7 +960,7 @@ function aplicarPresetPapel(nome){
         <button class="btn2" onclick="carregarMarketing()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar</button>
       </div>
     </div>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Registro manual — pesquisado e estruturado sob demanda no chat, sempre com fonte e data. Nenhum item aqui foi gerado por IA sem verificação.</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Registro manual: pesquisado e estruturado sob demanda no chat, sempre com fonte e data. Nenhum item aqui foi gerado por IA sem verificação.</p>
     <div id="listaMarketing"></div>
   </div>
   </div>
@@ -993,7 +993,7 @@ function aplicarPresetPapel(nome){
           <button class="btn" onclick="abrirModalPost()">+ Novo post</button>
         </div>
       </div>
-      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">100% manual — rascunho gerado no claude.ai (ou escrito à mão) e colado aqui. Sem chamada a nenhuma API de IA.</p>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">100% manual: rascunho gerado no claude.ai (ou escrito à mão) e colado aqui. Sem chamada a nenhuma API de IA.</p>
       <div class="kanban" id="kanbanConteudo"></div>
     </div>
   </div>
@@ -1029,7 +1029,7 @@ function aplicarPresetPapel(nome){
        da média em vez de virar um número forçado. -->
   <div class="card" style="margin-top:20px">
     <h2 style="margin:0 0 4px">Métricas</h2>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Calculado a partir das tarefas reais do Planejamento — sem estimativa.</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Calculado a partir das tarefas reais do Planejamento, sem estimativa.</p>
 
     <div class="grid-4" id="kpisMetricasPlan" style="margin-bottom:20px"></div>
 
@@ -1145,10 +1145,10 @@ function aplicarPresetPapel(nome){
   </div>
   <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
     <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">Nota Fiscal (NFS-e)</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Preencha só depois de cadastrar o CNPJ desta empresa na Focus NFe. O token em si NÃO é preenchido aqui — veja NFSE-ATIVACAO.md.</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Preencha só depois de cadastrar o CNPJ desta empresa na Focus NFe. O token em si NÃO é preenchido aqui, veja NFSE-ATIVACAO.md.</div>
     <div class="form-grid">
       <div class="field"><label>Inscrição municipal</label><input id="editEmpInscMun"></div>
-      <div class="field"><label>Inscrição Estadual (IE)</label><input id="editEmpInscEst"><div class="field-hint">Obrigatória pra emitir NFC-e — sem ela a SEFAZ rejeita a nota.</div></div>
+      <div class="field"><label>Inscrição Estadual (IE)</label><input id="editEmpInscEst"><div class="field-hint">Obrigatória pra emitir NFC-e, sem ela a SEFAZ rejeita a nota.</div></div>
       <div class="field"><label>CNAE principal</label><input id="editEmpCnae" placeholder="Ex: 4711-3/02"></div>
       <div class="field"><label>Regime tributário</label>
         <select id="editEmpRegime">
@@ -1171,13 +1171,13 @@ function aplicarPresetPapel(nome){
       </div>
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpNfseSimulacao" style="width:16px;height:16px">
-        <label style="margin:0" for="editEmpNfseSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade — só pra testar a tela. Nunca deixar ligado em cliente real)</label>
+        <label style="margin:0" for="editEmpNfseSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade, só pra testar a tela. Nunca deixar ligado em cliente real)</label>
       </div>
     </div>
   </div>
   <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
     <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">NFC-e (varejo/Caixa)</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Nota de produto — fala com a SEFAZ do estado, não a prefeitura. Preencha só depois de cadastrar o certificado digital e o CSC desta empresa no painel da Focus NFe (o mesmo token da NFS-e acima serve pra NFC-e também). Veja NFCE-ATIVACAO.md. Regime tributário usa o mesmo campo preenchido acima.</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Nota de produto: fala com a SEFAZ do estado, não a prefeitura. Preencha só depois de cadastrar o certificado digital e o CSC desta empresa no painel da Focus NFe (o mesmo token da NFS-e acima serve pra NFC-e também). Veja NFCE-ATIVACAO.md. Regime tributário usa o mesmo campo preenchido acima.</div>
     <div class="form-grid">
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpNfceAtivo" style="width:16px;height:16px">
@@ -1185,7 +1185,7 @@ function aplicarPresetPapel(nome){
       </div>
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpNfceSimulacao" style="width:16px;height:16px">
-        <label style="margin:0" for="editEmpNfceSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade — só pra testar a tela. Nunca deixar ligado em cliente real)</label>
+        <label style="margin:0" for="editEmpNfceSimulacao">Modo simulação (NÃO chama a Focus NFe de verdade, só pra testar a tela. Nunca deixar ligado em cliente real)</label>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpCteAtivo" style="width:16px;height:16px">
@@ -1209,7 +1209,7 @@ function aplicarPresetPapel(nome){
 <div class="modal-overlay" id="modalConvidarAdmin">
 <div class="modal" style="max-width:420px">
   <h3>Convidar admin Nuvix</h3>
-  <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Ela recebe um e-mail com link pra criar a própria senha — acesso completo, igual você e o Thiago.</p>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Ela recebe um e-mail com link pra criar a própria senha, com acesso completo, igual você e o Thiago.</p>
   <div class="field"><label>Nome</label><input id="convNome" placeholder="Giovanna"></div>
   <div class="field" style="margin-top:12px"><label>E-mail</label><input type="email" id="convEmail" placeholder="nome@email.com"></div>
   <div id="convMsg" class="msg" style="margin-top:12px"></div>
@@ -1270,7 +1270,7 @@ function aplicarPresetPapel(nome){
 <!-- Modal Permissões do usuário -->
 <div class="modal-overlay" id="modalPermissoes">
 <div class="modal" style="max-width:700px">
-  <h3>Permissões — <span id="permUsuNome"></span></h3>
+  <h3>Permissões de <span id="permUsuNome"></span></h3>
   <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Empresa: <b id="permUsuEmpresa"></b> · Perfil: <b id="permUsuPerfil"></b></p>
   <input type="hidden" id="permUsuId">
   <input type="hidden" id="permEmpId">
@@ -1279,7 +1279,7 @@ function aplicarPresetPapel(nome){
     <input type="number" id="permLimiteDesconto" min="0" max="100" step="0.5" placeholder="Padrão: 5%">
     <div class="field-hint">Em branco usa o padrão do sistema (5%). Acima disso, a venda pede senha de um Administrador pra aprovar o desconto.</div>
   </div>
-  <div class="field" style="margin-bottom:4px"><label>Modelos de acesso — aplica de uma vez, você revisa e salva depois</label></div>
+  <div class="field" style="margin-bottom:4px"><label>Modelos de acesso: aplica de uma vez, você revisa e salva depois</label></div>
   <div class="papel-presets" id="papelPresets"></div>
   <div class="tablewrap">
     <table class="perm-table">
@@ -1299,7 +1299,7 @@ function aplicarPresetPapel(nome){
      priorização nem narrativa formatada — isso é a Fase 4, ainda não construída. -->
 <div class="modal-overlay" id="modalSinais">
 <div class="modal" style="max-width:560px">
-  <h3>Sinais — <span id="sinaisEmpresaNome"></span></h3>
+  <h3>Sinais de <span id="sinaisEmpresaNome"></span></h3>
   <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Gerados pelo motor de regras a partir dos eventos reais desta conta.</p>
   <div id="sinaisLista"></div>
   <div class="modal-actions">
@@ -1405,7 +1405,7 @@ function aplicarPresetPapel(nome){
 <!-- Modal Métricas do post publicado -->
 <div class="modal-overlay" id="modalMetricasPost">
 <div class="modal" style="max-width:480px">
-  <h3>Métricas — <span id="metricasPostTema"></span></h3>
+  <h3>Métricas de <span id="metricasPostTema"></span></h3>
   <input type="hidden" id="metricasPostId">
   <div class="form-grid" style="grid-template-columns:1fr">
     <div class="field"><label>Link do post</label><input id="metricasLinkPost" placeholder="https://..."></div>
@@ -1420,7 +1420,7 @@ function aplicarPresetPapel(nome){
     <div class="field"><label>Cliques</label><input type="number" id="metricasCliques" min="0"></div>
     <div class="field"><label>Leads gerados</label><input type="number" id="metricasLeadsGerados" min="0"></div>
   </div>
-  <p style="color:var(--muted);font-size:12px;margin-top:14px">O LinkedIn estabiliza os números depois de 48–72h — volte aqui e atualize na semana seguinte.</p>
+  <p style="color:var(--muted);font-size:12px;margin-top:14px">O LinkedIn estabiliza os números depois de 48–72h. Volte aqui e atualize na semana seguinte.</p>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalMetricasPost')">Fechar</button>
     <button class="btn" onclick="salvarMetricasPost()">Salvar métricas</button>
@@ -1765,7 +1765,7 @@ const REGRAS_PORTFOLIO=[
     if(!usoConfiavel(metrica))return;
     if(comp.atual<EVENTOS_MIN_UPGRADE_ELEGIVEL)return;
     return{id:'upgrade-elegivel',categoria:'oportunidade',titulo:'Uso alto para o plano atual',
-      detalhe:`${comp.atual} eventos nos últimos 30 dias num plano Start — volume consistente com uma conta que pode se beneficiar de um plano maior.`,
+      detalhe:`${comp.atual} eventos nos últimos 30 dias num plano Start, volume consistente com uma conta que pode se beneficiar de um plano maior.`,
       recomendacao:'Bom momento para uma conversa comercial sobre upgrade de plano.',confianca:'media'};
   },
 ];
@@ -1863,7 +1863,7 @@ function renderRadarPortfolio(){
           <b style="font-size:13px">${esc(empresa.fantasia||empresa.razao||'—')}</b>
           ${totalSinais>1?`<span style="font-size:10px;color:var(--muted2)">+${totalSinais-1} outro${totalSinais-1!==1?'s':''}</span>`:''}
         </div>
-        <div style="font-size:12px;color:var(--muted)">${esc(sinal.titulo)} — ${esc(sinal.detalhe)}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(sinal.titulo)}: ${esc(sinal.detalhe)}</div>
       </div>
       <button class="btn2" style="font-size:11px;padding:5px 9px;flex-shrink:0" onclick="abrirSinais('${empresa.id}')">Ver detalhes</button>
     </div>`).join(''));
@@ -2027,12 +2027,12 @@ async function salvarEmpresa(){
       for(const m of MODULOS_TODOS){
         await dbUpsert('empresa_modulos',{empresa_id:emp.id,modulo:m.id,liberado:modsPadrao.includes(m.id),liberado_por:'Admin Nuvix'},'empresa_id,modulo');
       }
-    }catch(e){ avisos.push('módulos padrão não foram liberados ('+e.message+') — libere manualmente na aba Módulos'); }
+    }catch(e){ avisos.push('módulos padrão não foram liberados ('+e.message+'), libere manualmente na aba Módulos'); }
 
     if(adminEmail){
       try{
         await criarUsuarioComLogin({nome:adminNome||adminEmail,email:adminEmail,senha:adminSenha,perfil:'Administrador',empresa_id:emp.id,ativo:true});
-      }catch(e){ avisos.push('usuário admin não foi criado ('+e.message+') — crie manualmente na aba Usuários'); }
+      }catch(e){ avisos.push('usuário admin não foi criado ('+e.message+'), crie manualmente na aba Usuários'); }
     }
 
     if(avisos.length){
@@ -2147,7 +2147,7 @@ async function excluirEmpresa(id,nome){
 
   toast('Excluindo empresa e todos os dados... aguarde.','ok');
   const token=tokenAtual();
-  if(!token){toast('Sessão inválida — saia e entre de novo.','err');return;}
+  if(!token){toast('Sessão inválida, saia e entre de novo.','err');return;}
   try{
     const r=await fetch(`${SB_URL}/functions/v1/excluir-empresa`,{
       method:'POST',
@@ -2333,7 +2333,7 @@ async function confirmarSenha(){
   const id=val('senhaUsuId'),senha=val('novaSenha').trim();
   if(!senha||senha.length<8){msgEl('senhaMsg','Senha mínima: 8 caracteres.','err');return;}
   const token=tokenAtual();
-  if(!token){msgEl('senhaMsg','Sessão inválida — saia e entre de novo.','err');return;}
+  if(!token){msgEl('senhaMsg','Sessão inválida, saia e entre de novo.','err');return;}
   try{
     const r=await fetch(`${SB_URL}/functions/v1/redefinir-senha-usuario`,{
       method:'POST',
@@ -2435,7 +2435,7 @@ async function carregarModulosEmpresa(){
   if(!empId){$('modulosEmpresaArea').classList.add('hidden');return;}
   const emp=empresas.find(x=>x.id===empId);
   empAtualId=empId;empAtualPlano=emp?.plano||'Start';
-  $('modulosEmpresaNome').textContent=`Módulos — ${emp?.fantasia||emp?.razao||''}`;
+  $('modulosEmpresaNome').textContent=`Módulos de ${emp?.fantasia||emp?.razao||''}`;
   $('modulosEmpresaPlano').textContent=empAtualPlano;
   try{
     const mods=await dbGet('empresa_modulos',`?empresa_id=eq.${empId}`);
@@ -2844,7 +2844,7 @@ async function carregarInicio(){
       dbGet('equipe_avisos','?select=*&fixado=eq.true&order=created_at.desc&limit=1'),
       dbGet('marketing_monitoramento','?select=*&order=data_verificacao.desc,created_at.desc&limit=5'),
     ]);
-    setHTML('fraseGuiaTexto',avisos[0]?esc(avisos[0].texto):'Nenhuma frase fixada ainda — escreva a primeira aqui embaixo.');
+    setHTML('fraseGuiaTexto',avisos[0]?esc(avisos[0].texto):'Nenhuma frase fixada ainda, escreva a primeira aqui embaixo.');
     setHTML('feedInicioMarketing',marketingRecente.map(marketingCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Nenhuma pesquisa registrada ainda.</p>');
   }catch(e){
     setHTML('fraseGuiaTexto','Erro ao carregar: '+esc(e.message));
@@ -3020,7 +3020,7 @@ function renderMetricasPlanejamento(){
       <div class="trend-day" style="${ehHoje?'color:var(--p);font-weight:800':''}">${d.slice(8,10)}/${d.slice(5,7)}</div>
     </div>`;
   }).join(''));
-  setHTML('metricasNota',`Nada aqui é estimado — lead time só considera tarefa com data de conclusão registrada pelo sistema. Ritmo mostrado por dia até acumular histórico suficiente pra uma visão semanal real.`);
+  setHTML('metricasNota',`Nada aqui é estimado: lead time só considera tarefa com data de conclusão registrada pelo sistema. Ritmo mostrado por dia até acumular histórico suficiente pra uma visão semanal real.`);
 }
 
 function abrirModalTarefa(id){
