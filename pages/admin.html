@@ -494,168 +494,138 @@ function aplicarPresetPapel(nome){
   #adminLoginH1{font-size:34px !important}
 }
 </style>
-<div id="adminLoginScreen" style="display:none;position:fixed;inset:0;z-index:9999;font-family:'Hanken Grotesk',system-ui,sans-serif;overflow:hidden">
-
-  <!-- Canvas 3D background -->
-  <canvas id="adminBgCanvas" style="position:absolute;inset:0;z-index:0"></canvas>
-
-  <!-- Gradient overlay -->
-  <div style="position:absolute;inset:0;z-index:1;
-    background:radial-gradient(ellipse 80% 70% at 30% 50%,rgba(108,49,227,.4) 0%,transparent 65%),
-    radial-gradient(ellipse 50% 60% at 80% 80%,rgba(60,15,120,.5) 0%,transparent 60%),
-    linear-gradient(150deg,#080318 0%,#0D0730 50%,#0A0520 100%)">
-  </div>
-
-  <!-- Stars -->
-  <div id="adminStars" style="position:absolute;inset:0;z-index:1;pointer-events:none"></div>
+<div id="adminLoginScreen" style="display:none;position:fixed;inset:0;z-index:9999;font-family:'Hanken Grotesk',system-ui,sans-serif;overflow:auto;background:#F8F9FC">
 
   <!-- Content -->
-  <div id="adminLoginGrid" style="position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:1fr 460px">
+  <div id="adminLoginGrid" style="position:relative;min-height:100vh;display:grid;grid-template-columns:1fr 480px">
 
     <!-- LEFT -->
-    <div id="adminLoginLeft" style="display:flex;flex-direction:column;justify-content:center;padding:60px">
+    <div id="adminLoginLeft" style="display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;background:linear-gradient(160deg,#fff 0%,#fff 45%,#EFEEFE 100%)">
       <!-- Brand -->
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:60px">
-        <div style="width:48px;height:48px;background:linear-gradient(135deg,#6343A4,#D2BCFF);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(99,67,164,.6)">
-          <svg width="26" height="20" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 6px 20px rgba(109,94,245,.22)">
+          <img src="../assets/logo.png" alt="Nuvix" style="width:100%;height:100%;object-fit:cover;display:block">
         </div>
         <div>
-          <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-.04em">Nuvix</div>
-          <div style="font-size:10px;font-weight:700;color:#D2BCFF;letter-spacing:.22em;text-transform:uppercase">Hub</div>
+          <div style="font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1;color:#101828">Nuvix</div>
+          <div style="font-size:10px;font-weight:700;color:#6D5EF5;letter-spacing:.22em;text-transform:uppercase;margin-top:2px">Hub</div>
         </div>
       </div>
 
       <!-- Hero -->
-      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(99,67,164,.12);border:1px solid rgba(99,67,164,.3);border-radius:99px;padding:6px 16px;font-size:11px;font-weight:600;color:#D2BCFF;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
-        <span style="width:6px;height:6px;background:#A855F7;border-radius:50%;display:inline-block"></span>
-        Painel Administrativo
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px">
+        <div style="display:inline-flex;align-items:center;gap:8px;background:#EFEEFE;border:1px solid #DAD3FC;border-radius:99px;padding:6px 16px;font-size:11px;font-weight:700;color:#5B4CF0;letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content">
+          <span style="width:6px;height:6px;background:#6D5EF5;border-radius:50%;display:inline-block"></span>
+          Painel Administrativo
+        </div>
+        <h1 id="adminLoginH1" style="font-size:clamp(32px,3.6vw,50px);font-weight:800;line-height:1.1;letter-spacing:-.03em;color:#101828;margin-bottom:20px">
+          Controle total<br>da <span style="color:#6D5EF5">plataforma.</span>
+        </h1>
+        <p style="font-size:16px;color:#667085;line-height:1.7;max-width:480px;margin-bottom:28px">
+          Gerencie empresas, usuários, módulos, assinaturas e monitore todos os acessos da plataforma Nuvix Hub.
+        </p>
+        <!-- Feature pills -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.03)">
+            <span style="width:30px;height:30px;border-radius:8px;background:#EFEEFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Gestão de Clientes
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.03)">
+            <span style="width:30px;height:30px;border-radius:8px;background:#EFEEFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Controle de Módulos
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.03)">
+            <span style="width:30px;height:30px;border-radius:8px;background:#EFEEFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></span>Logs de Acesso
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.03)">
+            <span style="width:30px;height:30px;border-radius:8px;background:#EFEEFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Assinaturas
+          </div>
+        </div>
       </div>
-      <h1 id="adminLoginH1" style="font-size:52px;font-weight:900;line-height:1.06;letter-spacing:-.03em;color:#fff;margin-bottom:20px">
-        Controle total<br>da <span style="background:linear-gradient(135deg,#D2BCFF,#6343A4);-webkit-background-clip:text;-webkit-text-fill-color:transparent">plataforma.</span>
-      </h1>
-      <p style="font-size:16px;color:rgba(200,185,255,.6);line-height:1.7;max-width:440px;margin-bottom:40px">
-        Gerencie empresas, usuários, módulos, assinaturas e monitore todos os acessos da plataforma Nuvix Hub.
-      </p>
-      <!-- Feature pills -->
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#533294,#6343A4);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Gestão de Clientes
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#533294,#6343A4);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Controle de Módulos
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#533294,#6343A4);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg></span>Logs de Acesso
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:rgba(220,210,255,.85)">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#533294,#6343A4);display:flex;align-items:center;justify-content:center;font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Assinaturas
-        </div>
-      </div>
+
+      <div style="font-size:12px;color:#667085">© 2026 Nuvix Hub · Acesso restrito à equipe interna</div>
     </div>
 
     <!-- RIGHT — Login card -->
-    <div id="adminLoginRight" style="display:flex;align-items:center;justify-content:center;padding:32px 44px;background:rgba(255,255,255,.02);border-left:1px solid rgba(139,92,246,.12);backdrop-filter:blur(10px)">
-      <div style="width:100%;max-width:340px">
+    <div id="adminLoginRight" style="display:flex;align-items:center;justify-content:center;padding:32px 44px;background:#F8F9FC">
+      <div style="width:100%;max-width:400px;background:#fff;border:1px solid #EAECF0;border-radius:20px;padding:32px 36px;box-shadow:0 4px 16px rgba(16,24,40,.06)">
 
         <!-- Card logo -->
-        <div style="text-align:center;margin-bottom:32px">
-          <div style="width:60px;height:60px;background:linear-gradient(135deg,#533294,#8B5CF6);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 0 36px rgba(99,67,164,.6),0 0 72px rgba(99,67,164,.2)">
-            <svg width="32" height="24" viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px">
+          <div style="width:56px;height:56px;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(109,94,245,.2);margin-bottom:4px">
+            <img src="../assets/logo.png" alt="Nuvix" style="width:100%;height:100%;object-fit:cover;display:block">
           </div>
-          <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.04em">Nuvix Hub</div>
-          <div style="font-size:10px;font-weight:700;color:#D2BCFF;letter-spacing:.2em;text-transform:uppercase;margin-top:2px">Painel Administrativo</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:-.04em;color:#2A145D">Nuvix Hub</div>
         </div>
 
-        <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.3),transparent);margin-bottom:24px"></div>
-        <div style="font-size:13px;color:rgba(180,171,249,.5);text-align:center;margin-bottom:22px">Acesso restrito à equipe Nuvix</div>
+        <div style="margin-bottom:24px;text-align:left">
+          <div style="font-size:18px;font-weight:800;color:#2A145D;letter-spacing:-.03em;margin-bottom:8px;line-height:1.2">Painel Administrativo</div>
+          <div style="font-size:14px;color:#6A58A5;font-weight:400;line-height:1.5">Acesso restrito à equipe Nuvix.</div>
+        </div>
 
         <!-- Email -->
-        <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#D2BCFF;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">E-mail</label>
-          <input type="email" id="adminEmail" placeholder="seu@nuvixhub.com.br"
-            onkeydown="if(event.key==='Enter')document.getElementById('adminSenha').focus()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(99,67,164,.15)'"
-            onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
-            style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
+        <div style="margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5935C8;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">E-mail</label>
+          <div style="position:relative">
+            <span style="position:absolute;left:20px;top:50%;transform:translateY(-50%);color:#6D5EF5;display:flex;align-items:center;pointer-events:none">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <input type="email" id="adminEmail" placeholder="seu@nuvixhub.com.br" autocomplete="email"
+              onkeydown="if(event.key==='Enter')document.getElementById('adminSenha').focus()"
+              onfocus="this.style.borderColor='#6D5EF5';this.style.boxShadow='0 0 0 4px rgba(109,94,245,.18)'"
+              onblur="this.style.borderColor='#DDD6FF';this.style.boxShadow='0 1px 3px rgba(88,40,180,.06)'"
+              style="width:100%;height:52px;padding:0 18px 0 48px;background:#fff;border:1.5px solid #DDD6FF;border-radius:18px;color:#2A145D;font-size:15px;font-weight:500;font-family:inherit;outline:none;transition:all .2s;box-shadow:0 1px 3px rgba(88,40,180,.06)">
+          </div>
         </div>
 
         <!-- Senha -->
-        <div style="margin-bottom:20px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#D2BCFF;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Senha</label>
-          <input type="password" id="adminSenha" placeholder="••••••••••••"
-            onkeydown="if(event.key==='Enter')fazerLoginAdmin()"
-            onfocus="this.style.borderColor='#8B5CF6';this.style.boxShadow='0 0 0 3px rgba(99,67,164,.15)'"
-            onblur="this.style.borderColor='rgba(139,92,246,.22)';this.style.boxShadow='none'"
-            style="width:100%;padding:13px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.22);border-radius:12px;color:#fff;font-size:14px;font-weight:500;font-family:inherit;outline:none;transition:all .2s">
+        <div style="margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5935C8;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Senha</label>
+          <div style="position:relative">
+            <span style="position:absolute;left:20px;top:50%;transform:translateY(-50%);color:#6D5EF5;display:flex;align-items:center;pointer-events:none">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            <input type="password" id="adminSenha" placeholder="••••••••••••" autocomplete="current-password"
+              onkeydown="if(event.key==='Enter')fazerLoginAdmin()"
+              onfocus="this.style.borderColor='#6D5EF5';this.style.boxShadow='0 0 0 4px rgba(109,94,245,.18)'"
+              onblur="this.style.borderColor='#DDD6FF';this.style.boxShadow='0 1px 3px rgba(88,40,180,.06)'"
+              style="width:100%;height:52px;padding:0 52px 0 48px;background:#fff;border:1.5px solid #DDD6FF;border-radius:18px;color:#2A145D;font-size:15px;font-weight:500;font-family:inherit;outline:none;transition:all .2s;box-shadow:0 1px 3px rgba(88,40,180,.06)">
+            <span style="position:absolute;right:18px;top:50%;transform:translateY(-50%);color:#9B8EC4;cursor:pointer;display:flex;align-items:center" onclick="toggleSenhaAdmin()" id="adminEyeBtn" title="Mostrar senha">
+              <svg id="adminEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+          </div>
         </div>
 
         <!-- Error -->
-        <div id="adminLoginErr" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:#fff;text-align:center;margin-bottom:14px"></div>
+        <div id="adminLoginErr" style="display:none;margin-bottom:14px;padding:14px 18px;background:#F1EFF7;border:1px solid #E8E8F1;border-radius:14px;font-size:13px;font-weight:600;color:#1F2937;text-align:center"></div>
 
         <!-- Button -->
         <button id="adminLoginBtn" onclick="fazerLoginAdmin()"
-          style="width:100%;padding:14px;background:linear-gradient(135deg,#533294,#8B5CF6);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 28px rgba(83,50,148,.45);transition:all .25s;position:relative;overflow:hidden"
-          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 14px 40px rgba(83,50,148,.6)'"
-          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 28px rgba(83,50,148,.45)'">
+          style="width:100%;height:52px;background:#6D5EF5;border:none;border-radius:18px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s ease-in-out;letter-spacing:.02em"
+          onmouseover="this.style.background='#5B4CF0'"
+          onmouseout="this.style.background='#6D5EF5'">
           Entrar no painel
         </button>
 
-        <p style="text-align:center;margin-top:18px;font-size:12px;color:rgba(180,171,249,.4);line-height:1.6">
+        <p style="text-align:center;margin-top:18px;font-size:12px;color:#9B8EC4;line-height:1.6">
           Acesso exclusivo para administradores Nuvix<br>
-          <a href="../index.html" style="color:rgba(180,171,249,.5);text-decoration:none;font-size:11px">← Voltar ao sistema</a>
+          <a href="../index.html" style="color:#6D5EF5;text-decoration:none;font-weight:600;font-size:11px">← Voltar ao sistema</a>
         </p>
       </div>
     </div>
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── Admin 3D Background ──
-(function(){
-  const canvas = document.getElementById('adminBgCanvas');
-  if(!canvas) return;
-  const W = window.innerWidth, H = window.innerHeight;
-  canvas.width = W; canvas.height = H;
-  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  renderer.setSize(W,H);
-  renderer.setClearColor(0x000000,0);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55,W/H,0.1,200);
-  camera.position.set(0,2,12);
-  scene.add(new THREE.AmbientLight(0xffffff,.3));
-  const sun = new THREE.DirectionalLight(0xffffff,1.2); sun.position.set(3,10,6); scene.add(sun);
-  const pk = new THREE.PointLight(0x9B3FFF,4,25); pk.position.set(-4,5,4); scene.add(pk);
-  const rl = new THREE.PointLight(0x6C31E3,3,18); rl.position.set(6,0,-2); scene.add(rl);
-  const bl = new THREE.PointLight(0xA855F7,2.5,15); bl.position.set(2,-4,4); scene.add(bl);
-
-  function puff(r,x,y,z,col,ro=.35){
-    const m=new THREE.Mesh(new THREE.SphereGeometry(r,28,28),new THREE.MeshStandardMaterial({color:col,roughness:ro,metalness:.04}));
-    m.position.set(x,y,z);return m;
+function toggleSenhaAdmin(){
+  const inp=document.getElementById('adminSenha');
+  const icon=document.getElementById('adminEyeIcon');
+  if(inp.type==='password'){
+    inp.type='text';
+    icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }else{
+    inp.type='password';
+    icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
   }
-  const cloud=new THREE.Group();
-  [[2.0,0,0,0,0xF5F3FF],[1.8,-2,-.1,0,0xEDE9FE],[1.8,2,-.1,0,0xEDE9FE],[1.5,-3.6,-.4,0,0xDDD6FE],[1.5,3.6,-.4,0,0xDDD6FE],[1.6,-1,1.2,.4,0xF5F3FF],[1.7,.8,1.3,.4,0xFAF5FF],[1.4,2.6,.9,.3,0xEDE9FE],[1.3,-2.6,.8,.3,0xEDE9FE],[1.3,0,2.3,.3,0xFAF5FF],[1.8,.5,.6,-1.5,0x8B5CF6],[1.5,-1.5,.5,-1.4,0x6D28D9]].forEach(([r,x,y,z,c])=>{cloud.add(puff(r,x,y,z,c));});
-  cloud.position.set(-3,-0.5,0);
-  scene.add(cloud);
-  // Stars
-  const sg=new THREE.BufferGeometry();const sp=new Float32Array(600*3);
-  for(let i=0;i<600;i++){sp[i*3]=(Math.random()-.5)*140;sp[i*3+1]=(Math.random()-.5)*80;sp[i*3+2]=(Math.random()-.5)*60-5;}
-  sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
-  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:.07,transparent:true,opacity:.7})));
-  let t=0,mx=0,my=0;
-  window.addEventListener('mousemove',e=>{mx=(e.clientX/W-.5)*2;my=(e.clientY/H-.5)*2;});
-  function animate(){
-    requestAnimationFrame(animate);t+=.008;
-    cloud.position.y=-.5+Math.sin(t)*.2;cloud.rotation.y=Math.sin(t*.35)*.06;
-    pk.intensity=3.5+Math.sin(t*.8)*.8;bl.intensity=2+Math.sin(t*.6+1)*.6;
-    camera.position.x+=( mx*1.5-camera.position.x)*.04;
-    camera.position.y+=(2-my*1-camera.position.y)*.04;
-    camera.lookAt(0,0,0);
-    renderer.render(scene,camera);
-  }
-  animate();
-})();
+}
 </script>
 
 <div id="adminMainContent" style="display:none">
