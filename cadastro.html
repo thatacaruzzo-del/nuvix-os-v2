@@ -17,14 +17,14 @@
 html,body{min-height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
 .shell{position:relative;z-index:1;min-height:100vh;display:grid;grid-template-columns:1fr 480px;opacity:0;animation:fadeIn .9s ease .1s forwards}
 @keyframes fadeIn{to{opacity:1}}
-.left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%)}
+.left{display:flex;flex-direction:column;justify-content:center;gap:48px;padding:48px 56px;position:relative;overflow:hidden;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%)}
 .brand{display:flex;align-items:center;gap:14px}
 .brand-mark{width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 6px 20px rgba(109,94,245,.22)}
 .brand-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .brand-text{display:flex;flex-direction:column}
 .brand-name{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--text)}
 .brand-sub{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--c4);text-transform:uppercase;margin-top:2px}
-.hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
+.hero{max-width:580px}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--p-light);border:1px solid #DAD3FC;border-radius:99px;padding:6px 16px;font-size:11px;font-weight:700;color:var(--c3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
 .eyebrow-dot{width:6px;height:6px;background:var(--c4);border-radius:50%}
 h1{font-size:clamp(32px,3.8vw,52px);font-weight:800;line-height:1.1;letter-spacing:-.03em;color:var(--text);margin-bottom:20px}

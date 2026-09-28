@@ -14,8 +14,8 @@
   --text:#101828;
   --muted:#667085;
 }
-html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
-.shell{position:relative;z-index:1;min-height:100vh;height:100vh;display:grid;grid-template-columns:1fr 480px;opacity:0;animation:fadeIn .9s ease .1s forwards}
+html,body{min-height:100%;overflow-y:auto;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.shell{position:relative;z-index:1;min-height:100vh;display:grid;grid-template-columns:1fr 480px;opacity:0;animation:fadeIn .9s ease .1s forwards}
 @keyframes fadeIn{to{opacity:1}}
 .left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%)}
 .brand{display:flex;align-items:center;gap:14px}
