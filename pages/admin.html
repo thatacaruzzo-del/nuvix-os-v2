@@ -688,6 +688,12 @@ function aplicarPresetPapel(nome){
 <!-- ═══ PANE: INÍCIO ═══ -->
 <div id="pane-inicio" class="admin-pane active">
 <div class="content">
+  <div class="card" style="margin-bottom:20px">
+    <h2 style="margin:0 0 4px">Painel do dia</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Os mesmos números reais das outras abas, num lugar só. Clique num card pra ir direto na aba.</p>
+    <div id="kpisInicio" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px"></div>
+  </div>
+
   <div class="card" id="fraseGuiaCard" style="margin-bottom:20px;background:linear-gradient(135deg,#4C1D95,#7C3AED);color:#fff;border:none">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.75;margin-bottom:8px">Frase-guia</div>
     <div id="fraseGuiaTexto" style="font-size:18px;font-weight:600;line-height:1.4"></div>
@@ -2561,9 +2567,9 @@ function renderDespesas(){
 // MRR real: agrupa por mês de vencimento (não soma bruta de tudo junto, como o
 // "Resumo financeiro" acima já fazia) — só entra assinatura com status=pago, porque
 // pendente/atrasado ainda não é receita de verdade. Despesas somam por mês de `data`.
-// Lucro = receita paga do mês - despesas do mês. Mostra os últimos 6 meses com
-// qualquer lançamento (receita ou despesa), do mais recente pro mais antigo.
-function renderFinanceiroReal(){
+// Lucro = receita paga do mês - despesas do mês. Compartilhado com o dashboard do
+// Início (renderKpisInicio), pra não calcular a mesma coisa duas vezes de jeitos diferentes.
+function financeiroPorMes(){
   const porMes={};
   assinaturas.filter(a=>a.status==='pago'&&a.vencimento).forEach(a=>{
     const mes=String(a.vencimento).slice(0,7);
@@ -2575,6 +2581,12 @@ function renderFinanceiroReal(){
     porMes[mes]=porMes[mes]||{receita:0,despesa:0};
     porMes[mes].despesa+=Number(d.valor||0);
   });
+  return porMes;
+}
+// Mostra os últimos 6 meses com qualquer lançamento (receita ou despesa), do mais
+// recente pro mais antigo.
+function renderFinanceiroReal(){
+  const porMes=financeiroPorMes();
   const meses=Object.keys(porMes).sort().reverse().slice(0,6);
   const mesAtual=hoje().slice(0,7);
   const atual=porMes[mesAtual]||{receita:0,despesa:0};
@@ -2837,7 +2849,39 @@ async function salvarMetricasPost(){
   }catch(e){toast('Erro: '+e.message,'err');}
 }
 
-// ═══ INÍCIO (mural interno — frase-guia + feed de pesquisa) ═══
+// ═══ INÍCIO (painel do dia + frase-guia + feed de pesquisa) ═══
+// Vai direto pra aba certa quando clica num KPI do Painel do dia, mantendo o
+// destaque do menu certo (mesmo botão que showTab já esperava receber).
+function irParaAba(id){
+  const btn=[...document.querySelectorAll('.admin-tab')].find(b=>(b.getAttribute('onclick')||'').includes(`showTab('${id}'`));
+  showTab(id,btn);
+}
+// Números reais, sem duplicar cálculo: MRR/lucro vêm de financeiroPorMes() (mesma
+// função da aba Financeiro), sinais críticos vêm de priorizarPortfolio() (mesma do
+// Radar de atenção). Só tarefas atrasadas busca dado próprio (leve, só status+prazo),
+// porque a lista completa de Planejamento só carrega quando essa aba abre.
+async function renderKpisInicio(){
+  const porMes=financeiroPorMes();
+  const mesAtual=hoje().slice(0,7);
+  const fin=porMes[mesAtual]||{receita:0,despesa:0};
+  const lucro=fin.receita-fin.despesa;
+  const ativas=empresas.filter(e=>(e.status_conta||e.status_assinatura||'trial')==='ativo').length;
+  const sinaisCriticos=priorizarPortfolio().filter(r=>r.sinal.categoria==='prioridade').length;
+  let tarefasAtrasadas=0;
+  try{
+    const hojeStr=hoje();
+    const tarefas=await dbGet('planejamento_tarefas',`?select=status,prazo&status=neq.concluido&prazo=lt.${hojeStr}`);
+    tarefasAtrasadas=tarefas.length;
+  }catch(e){}
+  const kpi=(label,valor,cor,aba)=>`<div class="kpi" style="cursor:pointer" onclick="irParaAba('${aba}')"><div class="kpi-label">${label}</div><div class="kpi-value" style="${cor?`color:${cor}`:''}">${valor}</div></div>`;
+  setHTML('kpisInicio',[
+    kpi(`MRR real (${mesAtual})`,money(fin.receita),null,'assinaturas'),
+    kpi('Lucro do mês',money(lucro),lucro>=0?'var(--green)':'var(--red)','assinaturas'),
+    kpi('Empresas ativas',`${ativas} / ${empresas.length}`,null,'clientes'),
+    kpi('Sinais críticos',sinaisCriticos,sinaisCriticos>0?'var(--red)':'var(--green)','clientes'),
+    kpi('Tarefas atrasadas',tarefasAtrasadas,tarefasAtrasadas>0?'var(--red)':'var(--green)','planejamento'),
+  ].join(''));
+}
 async function carregarInicio(){
   try{
     const [avisos,marketingRecente]=await Promise.all([
@@ -2846,6 +2890,7 @@ async function carregarInicio(){
     ]);
     setHTML('fraseGuiaTexto',avisos[0]?esc(avisos[0].texto):'Nenhuma frase fixada ainda, escreva a primeira aqui embaixo.');
     setHTML('feedInicioMarketing',marketingRecente.map(marketingCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Nenhuma pesquisa registrada ainda.</p>');
+    renderKpisInicio();
   }catch(e){
     setHTML('fraseGuiaTexto','Erro ao carregar: '+esc(e.message));
   }
