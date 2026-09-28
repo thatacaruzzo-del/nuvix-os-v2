@@ -56,6 +56,12 @@ h1 .grad{color:var(--c4)}
 .field input:hover,.field select:hover{border-color:#B8A9F0;box-shadow:0 2px 8px rgba(88,40,180,.1)}
 .field input:focus,.field select:focus{border-color:#6D5EF5;box-shadow:0 0 0 4px rgba(109,94,245,.18);background:#FDFBFF}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.plan-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.plan-pill{height:44px;border-radius:14px;border:1.5px solid #DDD6FF;background:#fff;color:#6A58A5;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all 150ms ease-in-out}
+.plan-pill:hover{border-color:#B8A9F0}
+.plan-pill.active{background:var(--c4);border-color:var(--c4);color:#fff;box-shadow:0 4px 12px rgba(109,94,245,.3)}
+.plan-hint{font-size:12px;color:#8B7CB8;margin-top:8px;line-height:1.5}
+.plan-hint b{color:#5935C8}
 .btn-primary{width:100%;height:52px;background:var(--c4);border:none;border-radius:18px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background 150ms ease-in-out;letter-spacing:.02em;margin-top:4px}
 .btn-primary:hover{background:var(--c3)}
 .btn-primary:disabled{opacity:.7;cursor:default}
@@ -124,6 +130,15 @@ h1 .grad{color:var(--c4)}
         <label>Crie uma senha</label>
         <input type="password" id="cSenha" placeholder="Mínimo 8 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')cadastrar()">
       </div>
+      <div class="field">
+        <label>Plano (grátis por 7 dias)</label>
+        <div class="plan-pills" id="planPills">
+          <button type="button" class="plan-pill active" data-plano="Start" data-preco="97,90" onclick="escolherPlano('Start')">Start</button>
+          <button type="button" class="plan-pill" data-plano="Pro" data-preco="147,90" onclick="escolherPlano('Pro')">Pro</button>
+          <button type="button" class="plan-pill" data-plano="Plus" data-preco="190,00" onclick="escolherPlano('Plus')">Plus</button>
+        </div>
+        <div class="plan-hint" id="planHint">Depois do teste grátis: <b>R$ 97,90/mês</b>. Você escolhe se continua.</div>
+      </div>
       <button class="btn-primary" onclick="cadastrar()" id="btnCadastrar">Criar minha conta grátis</button>
       <div id="cadErr"></div>
       <div class="fine">Ao continuar, você concorda com os <a href="termos.html">Termos de Uso</a> e a <a href="privacidade.html">Política de Privacidade</a>.<br>Já tem conta? <a href="index.html">Entrar</a></div>
@@ -145,6 +160,18 @@ function parseJwt(token){
 }
 function showErr(m){const e=document.getElementById('cadErr');e.textContent=m;e.style.display='block';}
 
+// Marca quando a página abriu — o servidor rejeita silenciosamente qualquer
+// envio feito rápido demais pra ser uma pessoa preenchendo o formulário.
+const INICIADO_EM=Date.now();
+
+let planoEscolhido='Start';
+function escolherPlano(p){
+  planoEscolhido=p;
+  document.querySelectorAll('.plan-pill').forEach(el=>el.classList.toggle('active',el.dataset.plano===p));
+  const preco=document.querySelector(`.plan-pill[data-plano="${p}"]`).dataset.preco;
+  document.getElementById('planHint').innerHTML=`Depois do teste grátis: <b>R$ ${preco}/mês</b>. Você escolhe se continua.`;
+}
+
 async function cadastrar(){
   const empresa_nome=document.getElementById('cEmpresa').value.trim();
   const nome=document.getElementById('cNome').value.trim();
@@ -165,7 +192,7 @@ async function cadastrar(){
     const r=await fetch(`${SUPABASE_URL}/functions/v1/cadastro-publico`,{
       method:'POST',
       headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY},
-      body:JSON.stringify({empresa_nome,nome,telefone,email,segmento,senha,site}),
+      body:JSON.stringify({empresa_nome,nome,telefone,email,segmento,senha,site,plano:planoEscolhido,iniciado_em:INICIADO_EM}),
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok){showErr(data?.error||'Erro ao criar conta. Tente de novo.');return;}
