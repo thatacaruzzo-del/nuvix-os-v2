@@ -20,15 +20,20 @@
 body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
 
 /* ── LOGIN ── */
-.login-screen{min-height:100vh;background:linear-gradient(135deg,#0D0730,#25005A,#533294);display:flex;align-items:center;justify-content:center;padding:20px}
-.login-card{background:#fff;border-radius:24px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 40px 80px rgba(0,0,0,.3)}
-.login-logo{width:56px;height:56px;background:linear-gradient(135deg,#533294,#D2BCFF);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 28px rgba(99,67,164,.4)}
-.login-logo svg{width:30px;height:22px}
-.login-title{text-align:center;font-size:22px;font-weight:900;color:var(--txt);margin-bottom:4px}
+.login-screen{min-height:100vh;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 4px 16px rgba(16,24,40,.06)}
+.login-logo{width:56px;height:56px;border-radius:16px;overflow:hidden;margin:0 auto 16px;box-shadow:0 4px 14px rgba(99,67,164,.2)}
+.login-logo img{width:100%;height:100%;object-fit:cover;display:block}
+.login-title{text-align:center;font-size:20px;font-weight:800;color:var(--txt);letter-spacing:-.02em;margin-bottom:4px}
 .login-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px}
 .login-field{margin-bottom:14px}
 .login-field label{display:block;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.login-field input{width:100%;padding:13px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.tec-field-wrap{position:relative}
+.tec-field-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--p);display:flex;align-items:center;pointer-events:none}
+.tec-field-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted2);cursor:pointer;display:flex;align-items:center}
+.tec-field-eye:hover{color:var(--p)}
+.login-field input{width:100%;padding:13px 16px 13px 44px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.login-field input[type=password]{padding-right:42px}
 .login-field input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-light)}
 .login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#533294,#6343A4);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
 .login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(83,50,148,.4)}
@@ -164,18 +169,25 @@ body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--bg);colo
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
     <div class="login-logo">
-      <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+      <img src="../assets/logo.png" alt="Nuvix">
     </div>
     <div class="login-title">Portal do Técnico</div>
     <div class="login-sub">Nuvix Hub — Acesso exclusivo técnicos</div>
     <div id="loginFieldsTec">
       <div class="login-field">
         <label>E-mail</label>
-        <input type="email" id="loginEmail" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()">
+        <div class="tec-field-wrap">
+          <span class="tec-field-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+          <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()">
+        </div>
       </div>
       <div class="login-field">
         <label>Senha</label>
-        <input type="password" id="loginSenha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+        <div class="tec-field-wrap">
+          <span class="tec-field-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
+          <span class="tec-field-eye" onclick="toggleSenhaTec()" title="Mostrar senha"><svg id="tecEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
       </div>
       <button class="login-btn" onclick="fazerLogin()">Entrar</button>
       <div class="login-err" id="loginErr"></div>
@@ -186,7 +198,10 @@ body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--bg);colo
     <div id="recFieldsTec" style="display:none">
       <div class="login-field">
         <label>E-mail</label>
-        <input type="email" id="recEmailTec" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')enviarRecuperacaoSenhaTec()">
+        <div class="tec-field-wrap">
+          <span class="tec-field-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+          <input type="email" id="recEmailTec" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')enviarRecuperacaoSenhaTec()">
+        </div>
       </div>
       <button class="login-btn" onclick="enviarRecuperacaoSenhaTec()" id="btnRecuperarTec">Enviar link de redefinição</button>
       <div class="login-err" id="recMsgTec"></div>
@@ -386,6 +401,18 @@ async function fazerLogin(){
 }
 
 function mostrarErr(txt){const e=$('loginErr');e.textContent=txt;e.style.display='block';setTimeout(()=>e.style.display='none',4000)}
+
+function toggleSenhaTec(){
+  const inp=$('loginSenha');
+  const icon=$('tecEyeIcon');
+  if(inp.type==='password'){
+    inp.type='text';
+    icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }else{
+    inp.type='password';
+    icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
 
 // ── RECUPERAR SENHA ──
 function abrirRecuperarSenhaTec(){
