@@ -679,7 +679,7 @@ function aplicarPresetPapel(nome){
   <button class="admin-tab" onclick="showTab('clientes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg> Clientes</button>
   <button class="admin-tab" onclick="showTab('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Usuários</button>
   <button class="admin-tab" onclick="showTab('modulos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
-  <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Assinaturas</button>
+  <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Financeiro</button>
   <button class="admin-tab" onclick="showTab('logs',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Logs de Acesso</button>
   <button class="admin-tab" onclick="showTab('marketing',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Marketing</button>
   <button class="admin-tab" onclick="showTab('planejamento',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Planejamento</button>
@@ -831,12 +831,26 @@ function aplicarPresetPapel(nome){
 </div>
 </div>
 
-<!-- ═══ PANE: ASSINATURAS ═══ -->
+<!-- ═══ PANE: FINANCEIRO (assinaturas + despesas internas) ═══ -->
 <div id="pane-assinaturas" class="admin-pane">
 <div class="content">
+  <!-- MRR real (por mês, não soma solta) + despesas internas + lucro — antes só existia
+       a soma bruta de tudo que foi lançado, sem separar por mês nem descontar custo
+       nenhum. Isso é a primeira peça do financeiro de verdade da própria Nuvix. -->
+  <div class="card" style="margin-bottom:16px">
+    <h2>Financeiro real — receita × custo</h2>
+    <div id="resumoFinanceiroReal"></div>
+    <div class="tablewrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Mês</th><th>Receita (pago)</th><th>Despesas</th><th>Lucro</th></tr></thead>
+        <tbody id="tabelaFinanceiroMensal"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="grid-2" style="margin-bottom:16px">
     <div class="card">
-      <h2>Registrar pagamento</h2>
+      <h2>Registrar pagamento de cliente</h2>
       <div class="form-grid" style="grid-template-columns:1fr 1fr">
         <div class="field"><label>Empresa</label><select id="assEmpresa"></select></div>
         <div class="field"><label>Plano</label>
@@ -853,23 +867,47 @@ function aplicarPresetPapel(nome){
       <div id="assMsg" class="msg"></div>
     </div>
     <div class="card">
-      <h2>Resumo financeiro</h2>
-      <div id="resumoAssinaturas"></div>
+      <h2>Registrar despesa interna</h2>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field" style="grid-column:1/-1"><label>Descrição</label><input id="despDescricao" placeholder="Ex: Supabase, Vercel, Focus NFe, pró-labore..."></div>
+        <div class="field"><label>Categoria</label>
+          <select id="despCategoria"><option>Infraestrutura</option><option>Ferramentas</option><option>Pró-labore</option><option>Marketing</option><option>Contabilidade</option><option>Outros</option></select>
+        </div>
+        <div class="field"><label>Valor (R$)</label><input type="number" id="despValor" step="0.01" placeholder="0,00"></div>
+        <div class="field"><label>Data</label><input type="date" id="despData"></div>
+        <div class="field"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="despRecorrente" style="width:auto"> Gasto fixo mensal</label></div>
+        <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="despObs" placeholder="Nota sobre a despesa"></div>
+      </div>
+      <div class="actions"><button class="btn" onclick="salvarDespesa()">Registrar</button></div>
+      <div id="despMsg" class="msg"></div>
     </div>
   </div>
-  <div class="card">
+
+  <div class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Histórico de assinaturas</h2>
       <select id="filtroEmpresaAss" onchange="filtrarAssinaturas()" style="max-width:220px">
         <option value="">Todas as empresas</option>
       </select>
     </div>
+    <div id="resumoAssinaturas" style="margin-bottom:14px"></div>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Empresa</th><th>Plano</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Observação</th><th>Data</th></tr></thead>
         <tbody id="tabelaAssinaturas"></tbody>
       </table>
       <div id="tabelaAssinaturasPaginacao"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Histórico de despesas internas</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Data</th><th>Fixo?</th><th>Observação</th></tr></thead>
+        <tbody id="tabelaDespesas"></tbody>
+      </table>
+      <div id="tabelaDespesasPaginacao"></div>
     </div>
   </div>
 </div>
@@ -1392,7 +1430,7 @@ function aplicarPresetPapel(nome){
 
 <script>
 // ═══ ESTADO ═══
-let empresas=[], usuarios=[], assinaturas=[], empresa_modulos=[], logs=[], eventosConta=[], accessLogsPortfolio=[];
+let empresas=[], usuarios=[], assinaturas=[], despesas=[], empresa_modulos=[], logs=[], eventosConta=[], accessLogsPortfolio=[];
 let empFiltradas=[], usuFiltrados=[];
 let modulosEmpresaAtual={}, empAtualId='', empAtualPlano='';
 let permAtual=[];
@@ -1480,10 +1518,11 @@ async function carregarTudo(){
     // access_logs cresce a cada página vista — a regra de módulos subutilizados só olha
     // 30 dias pra trás, então 60 dias de margem já cobre com folga sem buscar a tabela inteira.
     const desde60d=new Date();desde60d.setDate(desde60d.getDate()-60);
-    [empresas,usuarios,assinaturas,eventosConta,accessLogsPortfolio]=await Promise.all([
+    [empresas,usuarios,assinaturas,despesas,eventosConta,accessLogsPortfolio]=await Promise.all([
       dbGet('empresas','?select=*&order=created_at.desc'),
       dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at,limite_desconto_pct,deve_trocar_senha,deve_trocar_senha_desde&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
+      dbGet('despesas_internas','?select=*&order=data.desc').catch(()=>[]),
       dbGet('eventos_conta','?select=empresa_id,tipo_evento,created_at').catch(()=>[]),
       dbGet('access_logs',`?select=empresa_id,modulo,created_at&created_at=gte.${desde60d.toISOString()}`).catch(()=>[]),
     ]);
@@ -1495,6 +1534,8 @@ async function carregarTudo(){
     renderEmpresas();
     renderUsuarios();
     renderAssinaturas();
+    renderDespesas();
+    renderFinanceiroReal();
     popularSelects();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
@@ -2488,6 +2529,71 @@ function renderAssinaturas(){
     <td style="font-size:12px;color:var(--muted)">${esc(a.observacao||'—')}</td>
     <td style="font-size:11px;color:var(--muted)">${fmtData(a.created_at)}</td>
   </tr>`).join('')||`<tr><td colspan="7" class="table-empty">Nenhuma assinatura.</td></tr>`);
+}
+
+// ═══ DESPESAS INTERNAS (custo da própria Nuvix, não de cliente) ═══
+async function salvarDespesa(){
+  const descricao=val('despDescricao').trim();
+  if(!descricao){msgEl('despMsg','Descreva a despesa.','err');return;}
+  const valor=num('despValor');
+  const data=val('despData')||hoje();
+  try{
+    await dbPost('despesas_internas',{descricao,categoria:val('despCategoria'),valor,data,recorrente:$('despRecorrente').checked,observacao:val('despObs').trim()||null,created_by:adminSession?.id||null});
+    msgEl('despMsg','Despesa registrada!','ok');
+    ['despDescricao','despValor','despData','despObs'].forEach(id=>{if($(id))$(id).value=''});
+    $('despRecorrente').checked=false;
+    await carregarTudo();
+  }catch(e){msgEl('despMsg','Erro: '+e.message,'err');}
+}
+
+function renderDespesas(){
+  renderPaginacao('tabelaDespesas',despesas.length,'renderDespesas');
+  setHTML('tabelaDespesas',paginar(despesas,'tabelaDespesas').map(d=>`<tr>
+    <td><b>${esc(d.descricao||'')}</b></td>
+    <td><span class="badge badge-start">${esc(d.categoria||'Outros')}</span></td>
+    <td style="font-weight:700;color:var(--red)">- ${money(d.valor)}</td>
+    <td>${fmtData(d.data)}</td>
+    <td>${d.recorrente?'<span class="badge badge-trial">Fixo</span>':'—'}</td>
+    <td style="font-size:12px;color:var(--muted)">${esc(d.observacao||'—')}</td>
+  </tr>`).join('')||`<tr><td colspan="6" class="table-empty">Nenhuma despesa registrada.</td></tr>`);
+}
+
+// MRR real: agrupa por mês de vencimento (não soma bruta de tudo junto, como o
+// "Resumo financeiro" acima já fazia) — só entra assinatura com status=pago, porque
+// pendente/atrasado ainda não é receita de verdade. Despesas somam por mês de `data`.
+// Lucro = receita paga do mês - despesas do mês. Mostra os últimos 6 meses com
+// qualquer lançamento (receita ou despesa), do mais recente pro mais antigo.
+function renderFinanceiroReal(){
+  const porMes={};
+  assinaturas.filter(a=>a.status==='pago'&&a.vencimento).forEach(a=>{
+    const mes=String(a.vencimento).slice(0,7);
+    porMes[mes]=porMes[mes]||{receita:0,despesa:0};
+    porMes[mes].receita+=Number(a.valor||0);
+  });
+  despesas.filter(d=>d.data).forEach(d=>{
+    const mes=String(d.data).slice(0,7);
+    porMes[mes]=porMes[mes]||{receita:0,despesa:0};
+    porMes[mes].despesa+=Number(d.valor||0);
+  });
+  const meses=Object.keys(porMes).sort().reverse().slice(0,6);
+  const mesAtual=hoje().slice(0,7);
+  const atual=porMes[mesAtual]||{receita:0,despesa:0};
+  const lucroAtual=atual.receita-atual.despesa;
+  setHTML('resumoFinanceiroReal',`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="kpi"><div class="kpi-label">MRR real (${mesAtual})</div><div class="kpi-value">${money(atual.receita)}</div></div>
+      <div class="kpi"><div class="kpi-label">Despesas do mês</div><div class="kpi-value" style="color:var(--red)">${money(atual.despesa)}</div></div>
+      <div class="kpi"><div class="kpi-label">Lucro do mês</div><div class="kpi-value" style="color:${lucroAtual>=0?'var(--green)':'var(--red)'}">${money(lucroAtual)}</div></div>
+    </div>`);
+  setHTML('tabelaFinanceiroMensal', meses.length ? meses.map(m=>{
+    const v=porMes[m];const lucro=v.receita-v.despesa;
+    return `<tr>
+      <td><b>${m}</b></td>
+      <td style="color:var(--green)">${money(v.receita)}</td>
+      <td style="color:var(--red)">${money(v.despesa)}</td>
+      <td style="font-weight:700;color:${lucro>=0?'var(--green)':'var(--red)'}">${money(lucro)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" class="table-empty">Sem lançamentos ainda.</td></tr>`);
 }
 
 // ═══ LOGS ═══
