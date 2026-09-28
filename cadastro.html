@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix Hub | Criar conta grátis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --c3:#5B4CF0;--c4:#6D5EF5;--c5:#8B5CF6;--white:#FFFFFF;
+  --bg:#F8F9FC;--p-light:#EFEEFE;--line:#EAECF0;
+  --text:#101828;
+  --muted:#667085;
+}
+html,body{min-height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.shell{position:relative;z-index:1;min-height:100vh;display:grid;grid-template-columns:1fr 480px;opacity:0;animation:fadeIn .9s ease .1s forwards}
+@keyframes fadeIn{to{opacity:1}}
+.left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;position:relative;overflow:hidden;background:linear-gradient(160deg,#fff 0%,#fff 45%,var(--p-light) 100%)}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:52px;height:52px;border-radius:15px;overflow:hidden;box-shadow:0 6px 20px rgba(109,94,245,.22)}
+.brand-mark img{width:100%;height:100%;object-fit:cover;display:block}
+.brand-text{display:flex;flex-direction:column}
+.brand-name{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--text)}
+.brand-sub{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--c4);text-transform:uppercase;margin-top:2px}
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:580px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--p-light);border:1px solid #DAD3FC;border-radius:99px;padding:6px 16px;font-size:11px;font-weight:700;color:var(--c3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:28px;width:fit-content}
+.eyebrow-dot{width:6px;height:6px;background:var(--c4);border-radius:50%}
+h1{font-size:clamp(32px,3.8vw,52px);font-weight:800;line-height:1.1;letter-spacing:-.03em;color:var(--text);margin-bottom:20px}
+h1 .grad{color:var(--c4)}
+.subtitle{font-size:16px;line-height:1.7;color:var(--muted);max-width:480px;margin-bottom:32px}
+.steps{display:flex;flex-direction:column;gap:16px;max-width:420px;margin-bottom:12px}
+.step{display:flex;align-items:flex-start;gap:14px}
+.step-num{width:28px;height:28px;border-radius:9px;background:#fff;border:1px solid var(--line);color:var(--c4);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.step-txt{font-size:14px;color:var(--text);line-height:1.5;padding-top:3px}
+.step-txt b{font-weight:700}
+.left-footer{font-size:12px;color:var(--muted);font-weight:400}
+.right{display:flex;align-items:center;justify-content:center;padding:32px 44px;background:var(--bg)}
+.card{width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 36px;box-shadow:0 4px 16px rgba(16,24,40,.06)}
+.card-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
+.card-logo-mark{width:56px;height:56px;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(109,94,245,.2);margin-bottom:4px}
+.card-logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
+.card-hierarchy{margin-bottom:22px;text-align:left}
+.card-hierarchy-title{font-size:18px;font-weight:800;color:#2A145D;letter-spacing:-.03em;margin-bottom:8px;line-height:1.2}
+.card-hierarchy-sub{font-size:14px;color:#6A58A5;font-weight:400;line-height:1.5}
+.field{margin-bottom:14px}
+.field label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5935C8;letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px}
+.field input,.field select{
+  width:100%;height:48px;padding:0 16px;background:#FFFFFF;border:1.5px solid #DDD6FF;border-radius:16px;
+  color:#2A145D;font-size:14.5px;font-weight:500;font-family:inherit;outline:none;
+  transition:all 200ms ease-in-out;letter-spacing:.01em;box-shadow:0 1px 3px rgba(88,40,180,.06);appearance:none
+}
+.field select{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236D5EF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
+.field input::placeholder{color:#8B7CB8;font-weight:400}
+.field input:hover,.field select:hover{border-color:#B8A9F0;box-shadow:0 2px 8px rgba(88,40,180,.1)}
+.field input:focus,.field select:focus{border-color:#6D5EF5;box-shadow:0 0 0 4px rgba(109,94,245,.18);background:#FDFBFF}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-primary{width:100%;height:52px;background:var(--c4);border:none;border-radius:18px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background 150ms ease-in-out;letter-spacing:.02em;margin-top:4px}
+.btn-primary:hover{background:var(--c3)}
+.btn-primary:disabled{opacity:.7;cursor:default}
+.fine{text-align:center;margin-top:12px;font-size:11.5px;color:#9B8EC4;line-height:1.5}
+.fine a{color:#6D5EF5;font-weight:600;text-decoration:none}
+#cadErr{display:none;margin-top:14px;padding:12px 16px;background:#F1EFF7;border:1px solid #E8E8F1;border-radius:14px;font-size:13px;font-weight:600;color:#1F2937;text-align:center}
+#hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+@media(max-width:900px){.shell{grid-template-columns:1fr;height:auto}.left{padding:32px 24px 20px}.right{padding:28px 20px 40px}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="left">
+    <div class="brand">
+      <div class="brand-mark"><img src="assets/logo.png" alt="Nuvix"></div>
+      <div class="brand-text"><div class="brand-name">Nuvix</div><div class="brand-sub">Hub</div></div>
+    </div>
+    <div class="hero">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>7 dias grátis, sem cartão de crédito</div>
+      <h1>Sua empresa organizada<br>em <span class="grad">30 segundos.</span></h1>
+      <p class="subtitle">Crie sua conta agora e comece a usar na hora. Sem burocracia, sem cartão, sem ligação de vendedor.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-txt"><b>Preencha o formulário ao lado</b> — leva menos de um minuto.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-txt"><b>Use por 7 dias, à vontade</b> — financeiro, CRM, estoque, o que precisar.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-txt"><b>Gostou? Continue</b> — sem gostou, sem custo nenhum, não pedimos cartão antes.</div></div>
+      </div>
+    </div>
+    <div class="left-footer">© 2026 Nuvix Hub · <a href="index.html" style="color:inherit">Já tenho conta</a></div>
+  </div>
+  <div class="right">
+    <div class="card">
+      <div class="card-logo">
+        <div class="card-logo-mark"><img src="assets/logo.png" alt="Nuvix"></div>
+      </div>
+      <div class="card-hierarchy">
+        <div class="card-hierarchy-title">Criar conta grátis</div>
+        <div class="card-hierarchy-sub">Sem cartão de crédito. Cancele quando quiser.</div>
+      </div>
+      <input type="text" id="hp" name="site" tabindex="-1" autocomplete="off">
+      <div class="field">
+        <label>Nome da empresa</label>
+        <input type="text" id="cEmpresa" placeholder="Ex: Sua Empresa Ltda" autocomplete="organization">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Seu nome</label>
+          <input type="text" id="cNome" placeholder="Seu nome" autocomplete="name">
+        </div>
+        <div class="field">
+          <label>WhatsApp</label>
+          <input type="text" id="cTelefone" placeholder="(11) 99999-9999" autocomplete="tel">
+        </div>
+      </div>
+      <div class="field">
+        <label>E-mail corporativo</label>
+        <input type="email" id="cEmail" placeholder="seu@empresa.com.br" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Sua empresa</label>
+        <select id="cSegmento">
+          <option value="Prestação de Serviço">Presta serviço</option>
+          <option value="Venda de Produto">Vende produto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Crie uma senha</label>
+        <input type="password" id="cSenha" placeholder="Mínimo 8 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')cadastrar()">
+      </div>
+      <button class="btn-primary" onclick="cadastrar()" id="btnCadastrar">Criar minha conta grátis</button>
+      <div id="cadErr"></div>
+      <div class="fine">Ao continuar, você concorda com os <a href="termos.html">Termos de Uso</a> e a <a href="privacidade.html">Política de Privacidade</a>.<br>Já tem conta? <a href="index.html">Entrar</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+const SESSION_KEY='nuvix_v2_session';
+
+function parseJwt(token){
+  try{
+    const payload=token.split('.')[1];
+    const json=atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  }catch(e){return null;}
+}
+function showErr(m){const e=document.getElementById('cadErr');e.textContent=m;e.style.display='block';}
+
+async function cadastrar(){
+  const empresa_nome=document.getElementById('cEmpresa').value.trim();
+  const nome=document.getElementById('cNome').value.trim();
+  const telefone=document.getElementById('cTelefone').value.trim();
+  const email=document.getElementById('cEmail').value.trim().toLowerCase();
+  const segmento=document.getElementById('cSegmento').value;
+  const senha=document.getElementById('cSenha').value;
+  const site=document.getElementById('hp').value;
+  const err=document.getElementById('cadErr');
+  err.style.display='none';
+
+  if(!empresa_nome||!nome||!email||!senha){showErr('Preencha todos os campos obrigatórios.');return;}
+  if(senha.length<8){showErr('A senha precisa ter no mínimo 8 caracteres.');return;}
+
+  const btn=document.getElementById('btnCadastrar');
+  btn.disabled=true;btn.textContent='Criando sua conta...';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/cadastro-publico`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY},
+      body:JSON.stringify({empresa_nome,nome,telefone,email,segmento,senha,site}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok){showErr(data?.error||'Erro ao criar conta. Tente de novo.');return;}
+
+    // Auto-login: já criou com essa senha, então entra direto sem pedir de novo.
+    const rAuth=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const auth=await rAuth.json();
+    if(!rAuth.ok||!auth.access_token){
+      // Conta foi criada mas o login automático falhou por algum motivo — manda
+      // pro login normal em vez de deixar a pessoa travada numa tela de erro.
+      window.location.href='index.html';
+      return;
+    }
+    const claims=parseJwt(auth.access_token);
+    const authHeaders={apikey:SUPABASE_KEY,'Authorization':'Bearer '+auth.access_token};
+    const [rEmp,modulosR]=await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/empresas?id=eq.${claims.empresa_id}&select=*&limit=1`,{headers:authHeaders}),
+      fetch(`${SUPABASE_URL}/rest/v1/empresa_modulos?empresa_id=eq.${claims.empresa_id}&select=modulo,liberado`,{headers:authHeaders}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    const empresa=(await rEmp.json())?.[0];
+    if(empresa) empresa.modulos_liberados=modulosR;
+    const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix,usuario_permissoes:[],limite_desconto_pct:null};
+    sessionStorage.setItem(SESSION_KEY,JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,user,empresa,loginAt:Date.now()}));
+    window.location.href='pages/dashboard.html';
+  }catch(e){showErr('Erro de conexão. Tente de novo.');}
+  finally{btn.disabled=false;btn.textContent='Criar minha conta grátis';}
+}
+</script>
+</body>
+</html>

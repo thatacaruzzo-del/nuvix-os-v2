@@ -288,6 +288,16 @@ h1 .grad{color:var(--c4)}
       <button class="btn-primary" onclick="entrar()" id="btnLogin">Entrar na Plataforma</button>
       <button class="btn-secondary" onclick="demo()">Solicitar Demonstração</button>
       <div id="loginErr"></div>
+      <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--muted)">Não tem conta? <a href="cadastro.html" style="color:#6D5EF5;font-weight:700;text-decoration:none">Criar conta grátis</a></div>
+      </div>
+      <div id="trialFimScreen" style="display:none;text-align:center">
+        <div style="width:52px;height:52px;border-radius:16px;background:var(--p-light);color:#6D5EF5;display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div class="card-hierarchy-title" style="text-align:center">Seu teste grátis acabou</div>
+        <div class="card-hierarchy-sub" style="text-align:center;margin-bottom:24px">Os 7 dias de <b id="trialFimEmpresa">sua empresa</b> na Nuvix Hub chegaram ao fim. Fale com a gente pra continuar usando, sem perder nada do que já foi cadastrado.</div>
+        <button class="btn-primary" onclick="window.open('mailto:contato@nuvixhub.com.br?subject=Quero continuar na Nuvix Hub')">Falar com a gente</button>
+        <button class="btn-secondary" onclick="fecharTrialFim()">Voltar</button>
       </div>
       <div id="recuperarFields" style="display:none">
         <div class="field">
@@ -372,6 +382,16 @@ async function entrar(){
     ]);
     const empresa=(await rEmp.json())?.[0];
     if(!empresa||empresa.ativo===false){showErr('Empresa inativa. Contate o suporte.');return;}
+    // Bloqueio automático de trial: só vale pra empresa marcada explicitamente
+    // (bloqueio_trial_automatico=true, hoje só o cadastro público novo liga isso) —
+    // empresas antigas ficam de fora até alguém revisar o status de cada uma, senão
+    // uma trial_fim vencida e nunca corrigida tranca cliente real fora do sistema.
+    if(empresa.status_conta==='trial'&&empresa.bloqueio_trial_automatico===true&&empresa.trial_fim&&new Date(empresa.trial_fim)<new Date()){
+      document.getElementById('trialFimEmpresa').textContent=empresa.fantasia||empresa.razao||'sua empresa';
+      document.getElementById('loginFields').style.display='none';
+      document.getElementById('trialFimScreen').style.display='block';
+      return;
+    }
     empresa.modulos_liberados=modulos_liberados;
     const limite_desconto_pct=limitePct?.[0]?.limite_desconto_pct??null;
     // Senha digitada por um admin (criação de usuário ou "Redefinir senha") é sempre
@@ -393,6 +413,7 @@ async function entrar(){
 }
 function showErr(m){const e=document.getElementById('loginErr');e.textContent=m;e.style.display='block';}
 function demo(){window.open('mailto:contato@nuvixhub.com.br?subject=Solicitar Demonstração Nuvix Hub');}
+function fecharTrialFim(){document.getElementById('trialFimScreen').style.display='none';document.getElementById('loginFields').style.display='block';}
 
 // ── RECUPERAR SENHA ──
 // Dispara o e-mail nativo do Supabase Auth (link de redefinição, mesmo mecanismo já
