@@ -690,7 +690,7 @@ function toggleSenhaAdmin(){
       <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em" id="inteligenciaMesLabel"></span>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Os números da própria Nuvix, comparados com o mês anterior — o mesmo tipo de leitura que o Painel Executivo dá pro cliente.</p>
-    <div id="kpisInteligenciaNuvix" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px"></div>
+    <div id="kpisInteligenciaNuvix" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px"></div>
     <div style="height:260px"><canvas id="chartInteligenciaNuvix"></canvas></div>
   </div>
 </div>
@@ -3243,7 +3243,7 @@ function mesAdjacente(mesKey,delta){
 function deltaCard(label,valorTxt,deltaTxt,corDelta,aba){
   return `<div class="kpi" style="cursor:pointer" onclick="irParaAba('${aba}')">
     <div class="kpi-label">${label}</div>
-    <div class="kpi-value">${valorTxt}</div>
+    <div class="kpi-value" style="font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${valorTxt}</div>
     <div style="font-size:11px;font-weight:700;margin-top:2px;color:${corDelta}">${deltaTxt}</div>
   </div>`;
 }
