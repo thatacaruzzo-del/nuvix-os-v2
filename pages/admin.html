@@ -6,6 +6,7 @@
 <title>Nuvix Hub | Painel Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/nuvix.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -51,31 +52,9 @@ label{font-size:12px;color:var(--p);font-weight:700;display:block;margin-bottom:
 .msg.err{background:var(--red-bg);color:#7F1D1D}
 .hidden{display:none!important}
 
-/* ── TOP NAV ── */
-.topnav{
-  position:sticky;top:0;z-index:100;
-  background:linear-gradient(135deg,#0D0730,#180033);
-  border-bottom:1px solid rgba(99,67,164,.2);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 28px;height:64px;
-  box-shadow:0 4px 24px rgba(0,0,0,.3);
-}
-.topnav-brand{display:flex;align-items:center;gap:12px}
-.topnav-logo{width:40px;height:40px;background:linear-gradient(135deg,#6343A4,#D2BCFF);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(99,67,164,.5)}
-.topnav-logo svg{width:22px;height:16px}
-.topnav-name{font-size:20px;font-weight:900;letter-spacing:-.04em;color:#fff}
-.topnav-tag{font-size:10px;font-weight:700;letter-spacing:.15em;color:#D2BCFF;text-transform:uppercase;margin-left:4px;background:rgba(180,171,249,.15);padding:3px 8px;border-radius:20px;border:1px solid rgba(180,171,249,.3)}
-.topnav-right{display:flex;align-items:center;gap:12px}
-.topnav-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6343A4,#A855F7);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(99,67,164,.4);border:2px solid rgba(180,171,249,.3)}
-.topnav-user{font-size:13px;font-weight:600;color:rgba(255,255,255,.85)}
-.topnav-logout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:12px;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer;transition:all .15s}
-.topnav-logout:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff}
-
-/* ── TABS ── */
-.admin-tabs{display:flex;gap:2px;padding:20px 28px 0;background:#fff;overflow-x:auto}
-.admin-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px}
-.admin-tab:hover{color:var(--p);background:var(--p-light)}
-.admin-tab.active{color:#fff;background:var(--p)}
+/* ── NAV: agora usa o shell/sidebar/topbar compartilhado do css/nuvix.css
+   (mesmo componente ".sidebar"/".sb-btn"/".topbar" do resto do sistema) — só
+   o que é específico do Admin fica aqui. ── */
 .admin-pane{display:none}
 .admin-pane.active{display:block}
 
@@ -218,7 +197,6 @@ tr:hover td{background:#FAFAFF}
   .grid-2,.grid-3,.grid-4,.grid-5,.form-grid{grid-template-columns:1fr}
   .content{padding:16px}
   .modulos-grid{grid-template-columns:1fr 1fr}
-  .admin-tabs{padding:0 16px}
 }
 </style>
 </head>
@@ -630,36 +608,56 @@ function toggleSenhaAdmin(){
 </script>
 
 <div id="adminMainContent" style="display:none">
-<!-- ═══ TOP NAV ═══ -->
-<div class="topnav">
-  <div class="topnav-brand">
-    <div class="topnav-logo">
-      <svg viewBox="0 0 52 36" fill="none"><path d="M34 22C33.6 20.1 31.9 18.5 29.9 18.5C28.9 18.5 28 18.9 27.35 19.55C26.55 17.8 24.8 16.5 22.75 16.5C20 16.5 17.75 18.7 17.75 21.5L17.77 21.8C16.25 22.3 15.15 23.7 15.15 25.35C15.15 27.4 16.8 29 18.85 29H34C36 29 37.65 27.35 37.65 25.35C37.65 23.35 36 21.75 34 22Z" fill="white"/></svg>
+<div class="sidebar-overlay" id="adminSidebarOverlay" onclick="fecharSidebarAdmin()"></div>
+<div class="app-shell">
+  <!-- ═══ SIDEBAR ═══ — mesmo componente .sidebar/.sb-btn do resto do sistema
+       (css/nuvix.css), com itens fixos do Admin em vez da lista dinâmica por
+       segmento que o cliente usa (montarSidebarDinamica em nuvix-sidebar.js
+       não se aplica aqui: o Admin é uma SPA de abas, não páginas separadas). -->
+  <nav class="sidebar" id="adminSidebar">
+    <div class="sidebar-logo" title="Nuvix Hub"><img src="../assets/logo.png" alt="Nuvix"></div>
+    <div class="sb-group">
+      <a class="sb-btn active" data-tip="Início" onclick="showTab('inicio',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Início</span></a>
+      <a class="sb-btn" data-tip="Clientes" onclick="showTab('clientes',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg><span>Clientes</span></a>
+      <a class="sb-btn" data-tip="Comercial" onclick="showTab('comercial',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Comercial</span></a>
     </div>
-    <div>
-      <span class="topnav-name">Nuvix</span>
-      <span class="topnav-tag">Admin</span>
+    <div class="sb-group">
+      <div class="sb-group-label">Financeiro</div>
+      <a class="sb-btn" data-tip="Assinaturas" onclick="showTab('assinaturas',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span>Assinaturas</span></a>
+      <a class="sb-btn" data-tip="Financeiro" onclick="showTab('financeiro',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Financeiro</span></a>
     </div>
-  </div>
-  <div class="topnav-right">
-    <div class="topnav-avatar" id="adminAvatar">N</div>
-    <span class="topnav-user" id="adminNome">Admin</span>
-    <button class="topnav-logout" onclick="logoutAdmin()">Sair</button>
-  </div>
-</div>
+    <div class="sb-group">
+      <div class="sb-group-label">Gestão</div>
+      <a class="sb-btn" data-tip="Usuários" onclick="showTab('usuarios',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></a>
+      <a class="sb-btn" data-tip="Módulos" onclick="showTab('modulos',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Módulos</span></a>
+      <a class="sb-btn" data-tip="Logs de Acesso" onclick="showTab('logs',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg><span>Logs de Acesso</span></a>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-label">Equipe</div>
+      <a class="sb-btn" data-tip="Marketing" onclick="showTab('marketing',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Marketing</span></a>
+      <a class="sb-btn" data-tip="Planejamento" onclick="showTab('planejamento',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Planejamento</span></a>
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <button class="sb-btn" data-tip="Sair" onclick="logoutAdmin()" style="width:100%;text-align:left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></button>
+    </div>
+  </nav>
 
-<!-- ═══ TABS ═══ -->
-<div class="admin-tabs">
-  <button class="admin-tab active" onclick="showTab('inicio',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Início</button>
-  <button class="admin-tab" onclick="showTab('clientes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="9" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="9" x2="15" y2="9"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg> Clientes</button>
-  <button class="admin-tab" onclick="showTab('comercial',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Comercial</button>
-  <button class="admin-tab" onclick="showTab('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Usuários</button>
-  <button class="admin-tab" onclick="showTab('modulos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
-  <button class="admin-tab" onclick="showTab('assinaturas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Financeiro</button>
-  <button class="admin-tab" onclick="showTab('logs',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Logs de Acesso</button>
-  <button class="admin-tab" onclick="showTab('marketing',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Marketing</button>
-  <button class="admin-tab" onclick="showTab('planejamento',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Planejamento</button>
-</div>
+  <div class="main-content" id="adminMainInner">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebarAdmin()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Nuvix <span style="color:var(--line)">/</span> <b>Admin</b></div>
+          <div class="topbar-title">Painel Administrativo</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-avatar" id="adminAvatar">N</div>
+        <span class="topbar-username" id="adminNome">Admin</span>
+        <button class="btn-logout" onclick="logoutAdmin()">Sair</button>
+      </div>
+    </div>
+    <div class="main-scroll">
 
 <!-- ═══ PANE: INÍCIO ═══ -->
 <div id="pane-inicio" class="admin-pane active">
@@ -839,7 +837,7 @@ function toggleSenhaAdmin(){
 </div>
 </div>
 
-<!-- ═══ PANE: FINANCEIRO (assinaturas + despesas internas) ═══ -->
+<!-- ═══ PANE: ASSINATURAS (clientes pagantes) ═══ -->
 <div id="pane-assinaturas" class="admin-pane">
 <div class="content">
   <!-- Visão rápida por empresa: quem está ativo, em que plano, quanto paga e
@@ -852,20 +850,6 @@ function toggleSenhaAdmin(){
       <table>
         <thead><tr><th>Empresa</th><th>Status</th><th>Plano</th><th>Valor mensal</th><th>Vencimento</th><th>Cobrança</th></tr></thead>
         <tbody id="tabelaAssinaturasPorEmpresa"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- MRR real (por mês, não soma solta) + despesas internas + lucro — antes só existia
-       a soma bruta de tudo que foi lançado, sem separar por mês nem descontar custo
-       nenhum. Isso é a primeira peça do financeiro de verdade da própria Nuvix. -->
-  <div class="card" style="margin-bottom:16px">
-    <h2>Financeiro real: receita × custo</h2>
-    <div id="resumoFinanceiroReal"></div>
-    <div class="tablewrap" style="margin-top:16px">
-      <table>
-        <thead><tr><th>Mês</th><th>Receita (pago)</th><th>Despesas</th><th>Lucro</th></tr></thead>
-        <tbody id="tabelaFinanceiroMensal"></tbody>
       </table>
     </div>
   </div>
@@ -894,42 +878,25 @@ function toggleSenhaAdmin(){
     </div>
   </div>
 
-  <div class="grid-2" style="margin-bottom:16px">
-    <div class="card">
-      <h2>Registrar pagamento de cliente</h2>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="field"><label>Empresa</label><select id="assEmpresa"></select></div>
-        <div class="field"><label>Plano</label>
-          <select id="assPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
-        </div>
-        <div class="field"><label>Valor (R$)</label><input type="number" id="assValor" step="0.01" placeholder="0,00"></div>
-        <div class="field"><label>Vencimento</label><input type="date" id="assVenc"></div>
-        <div class="field" style="grid-column:1/-1"><label>Status</label>
-          <select id="assStatus"><option>pago</option><option>pendente</option><option>atrasado</option><option>cancelado</option></select>
-        </div>
-        <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="assObs" placeholder="Nota sobre o pagamento"></div>
+  <div class="card" style="margin-bottom:16px">
+    <h2>Registrar pagamento de cliente</h2>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label>Empresa</label><select id="assEmpresa"></select></div>
+      <div class="field"><label>Plano</label>
+        <select id="assPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
       </div>
-      <div class="actions"><button class="btn" onclick="salvarAssinatura()">Registrar</button></div>
-      <div id="assMsg" class="msg"></div>
-    </div>
-    <div class="card">
-      <h2>Registrar despesa interna</h2>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="field" style="grid-column:1/-1"><label>Descrição</label><input id="despDescricao" placeholder="Ex: Supabase, Vercel, Focus NFe, pró-labore..."></div>
-        <div class="field"><label>Categoria</label>
-          <select id="despCategoria"><option>Infraestrutura</option><option>Ferramentas</option><option>Pró-labore</option><option>Marketing</option><option>Contabilidade</option><option>Outros</option></select>
-        </div>
-        <div class="field"><label>Valor (R$)</label><input type="number" id="despValor" step="0.01" placeholder="0,00"></div>
-        <div class="field"><label>Data</label><input type="date" id="despData"></div>
-        <div class="field"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="despRecorrente" style="width:auto"> Gasto fixo mensal</label></div>
-        <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="despObs" placeholder="Nota sobre a despesa"></div>
+      <div class="field"><label>Valor (R$)</label><input type="number" id="assValor" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Vencimento</label><input type="date" id="assVenc"></div>
+      <div class="field" style="grid-column:1/-1"><label>Status</label>
+        <select id="assStatus"><option>pago</option><option>pendente</option><option>atrasado</option><option>cancelado</option></select>
       </div>
-      <div class="actions"><button class="btn" onclick="salvarDespesa()">Registrar</button></div>
-      <div id="despMsg" class="msg"></div>
+      <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="assObs" placeholder="Nota sobre o pagamento"></div>
     </div>
+    <div class="actions"><button class="btn" onclick="salvarAssinatura()">Registrar</button></div>
+    <div id="assMsg" class="msg"></div>
   </div>
 
-  <div class="card" style="margin-bottom:16px">
+  <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Histórico de assinaturas</h2>
       <select id="filtroEmpresaAss" onchange="filtrarAssinaturas()" style="max-width:220px">
@@ -944,6 +911,41 @@ function toggleSenhaAdmin(){
       </table>
       <div id="tabelaAssinaturasPaginacao"></div>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PANE: FINANCEIRO (saúde financeira interna da Nuvix) ═══ -->
+<div id="pane-financeiro" class="admin-pane">
+<div class="content">
+  <!-- MRR real (por mês, não soma solta) + despesas internas + lucro — antes só existia
+       a soma bruta de tudo que foi lançado, sem separar por mês nem descontar custo
+       nenhum. Isso é a primeira peça do financeiro de verdade da própria Nuvix. -->
+  <div class="card" style="margin-bottom:16px">
+    <h2>Financeiro real: receita × custo</h2>
+    <div id="resumoFinanceiroReal"></div>
+    <div class="tablewrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Mês</th><th>Receita (pago)</th><th>Despesas</th><th>Lucro</th></tr></thead>
+        <tbody id="tabelaFinanceiroMensal"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Registrar despesa interna</h2>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field" style="grid-column:1/-1"><label>Descrição</label><input id="despDescricao" placeholder="Ex: Supabase, Vercel, Focus NFe, pró-labore..."></div>
+      <div class="field"><label>Categoria</label>
+        <select id="despCategoria"><option>Infraestrutura</option><option>Ferramentas</option><option>Pró-labore</option><option>Marketing</option><option>Contabilidade</option><option>Outros</option></select>
+      </div>
+      <div class="field"><label>Valor (R$)</label><input type="number" id="despValor" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Data</label><input type="date" id="despData"></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="despRecorrente" style="width:auto"> Gasto fixo mensal</label></div>
+      <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="despObs" placeholder="Nota sobre a despesa"></div>
+    </div>
+    <div class="actions"><button class="btn" onclick="salvarDespesa()">Registrar</button></div>
+    <div id="despMsg" class="msg"></div>
   </div>
 
   <div class="card">
@@ -1099,6 +1101,9 @@ function toggleSenhaAdmin(){
   </div>
 </div>
 </div>
+    </div> <!-- /main-scroll -->
+  </div> <!-- /main-content -->
+</div> <!-- /app-shell -->
 
 <!-- ═══ MODAIS ═══ -->
 
@@ -1663,6 +1668,11 @@ function logoutAdmin(){
   if(renovacaoTokenTimer){clearInterval(renovacaoTokenTimer);renovacaoTokenTimer=null;}
   mostrarLogin();
 }
+
+// Sidebar mobile — mesmo padrão de abrirSidebar()/fecharSidebar() já usado no
+// resto do sistema (dashboard.html etc.), só com os ids do Admin.
+function abrirSidebarAdmin(){document.getElementById('adminSidebar').classList.add('open');document.getElementById('adminSidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebarAdmin(){const s=document.getElementById('adminSidebar');if(!s)return;s.classList.remove('open');document.getElementById('adminSidebarOverlay').classList.remove('open');document.body.style.overflow=''}
 
 async function init(){
   await initAdmin();
@@ -2631,7 +2641,7 @@ async function salvarPermissoes(){
 
 // ═══ MÓDULOS ═══
 async function gerenciarModulos(empId){
-  showTab('modulos',document.querySelector('.admin-tab:nth-child(3)'));
+  irParaAba('modulos');
   if($('selectEmpresaModulos'))$('selectEmpresaModulos').value=empId;
   await carregarModulosEmpresa();
 }
@@ -2969,9 +2979,10 @@ function popularSelects(){
 // ═══ TABS ═══
 function showTab(id,btn){
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.admin-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
   const pane=$('pane-'+id);if(pane)pane.classList.add('active');
   if(btn)btn.classList.add('active');
+  fecharSidebarAdmin();
   if(id==='logs')carregarLogs();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
   if(id==='planejamento')carregarPlanejamento();
@@ -3175,7 +3186,7 @@ async function salvarMetricasPost(){
 // Vai direto pra aba certa quando clica num KPI do Painel do dia, mantendo o
 // destaque do menu certo (mesmo botão que showTab já esperava receber).
 function irParaAba(id){
-  const btn=[...document.querySelectorAll('.admin-tab')].find(b=>(b.getAttribute('onclick')||'').includes(`showTab('${id}'`));
+  const btn=[...document.querySelectorAll('.sb-btn')].find(b=>(b.getAttribute('onclick')||'').includes(`showTab('${id}'`));
   showTab(id,btn);
 }
 // Números reais, sem duplicar cálculo: MRR/lucro vêm de financeiroPorMes() (mesma
