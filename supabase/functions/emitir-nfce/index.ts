@@ -385,6 +385,26 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Cota mensal de notas por plano (tabela plano_cota_nf, ajustável no Admin) —
+// mesma checagem de emitir-nfse, duplicada aqui porque cada function roda
+// isolada (sem módulo compartilhado nesse projeto). Conta NFS-e + NFC-e
+// juntas: é uma cota por empresa, não por tipo de nota.
+async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boolean; usado?: number; limite?: number }> {
+  const [cota] = await sbGet(`plano_cota_nf?plano=eq.${encodeURIComponent(plano || 'Start')}&select=limite_mensal`);
+  const limite = cota?.limite_mensal;
+  if (limite === null || limite === undefined) return { ok: true };
+  const inicioMes = new Date();
+  inicioMes.setUTCDate(1);
+  inicioMes.setUTCHours(0, 0, 0, 0);
+  const isoInicioMes = inicioMes.toISOString();
+  const [nfse, nfce] = await Promise.all([
+    sbGet(`notas_fiscais?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
+    sbGet(`notas_fiscais_nfce?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
+  ]);
+  const usado = (nfse?.length || 0) + (nfce?.length || 0);
+  return { ok: usado < limite, usado, limite };
+}
+
 // Brasília nunca tem horário de verão desde 2019, então é sempre UTC-3 fixo.
 // new Date().toISOString() dá o relógio de parede em UTC — só colar '-03:00'
 // no final (sem subtrair as 3 horas primeiro) rotula errado, fazendo a SEFAZ
@@ -465,7 +485,18 @@ Deno.serve(async (req) => {
       return json({ ok: r.ok, nota: atualizado });
     }
 
-    // acao === 'emitir' (padrão)
+    // acao === 'emitir' (padrão) — checa a cota do plano ANTES de gastar uma
+    // chamada de verdade na Focus NFe (cada chamada lá tem custo real).
+    const cota = await checarCotaNF(nota.empresa_id, empresa.plano);
+    if (!cota.ok) {
+      await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
+        status: 'erro',
+        mensagem_erro: `Limite de ${cota.limite} notas fiscais do plano ${empresa.plano || 'atual'} atingido esse mês. Atualize de plano pra continuar emitindo.`,
+        updated_at: new Date().toISOString(),
+      });
+      return json({ ok: false, erro: 'cota_nf_excedida', usado: cota.usado, limite: cota.limite }, 429);
+    }
+
     const [itens, formasPagamento] = await Promise.all([
       sbGet(`notas_fiscais_nfce_itens?nota_fiscal_nfce_id=eq.${nota_fiscal_nfce_id}&select=*`),
       sbGet(`venda_formas_pagamento?venda_id=eq.${nota.venda_id}&select=forma_pagamento,valor`),

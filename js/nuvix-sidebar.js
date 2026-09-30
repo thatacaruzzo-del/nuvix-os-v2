@@ -26,7 +26,7 @@ const PLANO_MINIMO_MODULO = {
   caixa: 'Pro', produtos: 'Pro', estoque: 'Pro', transporte: 'Pro', crm: 'Pro',
   materiais: 'Pro', vendas: 'Pro', ordens_servico: 'Pro', servicos: 'Pro',
   rh: 'Plus', folha_ponto: 'Plus', folha_pagamento: 'Plus', integracoes: 'Plus', ia: 'Plus',
-  notas_fiscais: 'Plus',
+  notas_fiscais: 'Pro', // liberado a partir do Pro, mas com cota mensal — ver plano_cota_nf
 };
 const PRECO_PLANO = { Start: '97,90', Pro: '147,90', Plus: '190,00' };
 const ORDEM_PLANO = ['Start', 'Pro', 'Plus'];

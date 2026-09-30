@@ -35,7 +35,7 @@ function json(body: unknown, status = 200) {
 // Plus R$190,00) e mesmos módulos por plano de pages/admin.html MODULOS_PLANO.
 const MODULOS_PLANO: Record<string, string[]> = {
   Start: ['dashboard', 'financeiro', 'contas_pagar', 'contas_receber', 'usuarios', 'relatorios', 'configuracoes'],
-  Pro: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'usuarios', 'relatorios', 'configuracoes'],
+  Pro: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'usuarios', 'relatorios', 'configuracoes', 'notas_fiscais'],
   Plus: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'rh', 'folha_ponto', 'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia', 'notas_fiscais'],
 };
 

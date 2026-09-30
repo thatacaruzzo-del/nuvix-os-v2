@@ -369,7 +369,7 @@ const MODULOS_TODOS=[
 ];
 const MODULOS_PLANO={
   'Start':['dashboard','financeiro','contas_pagar','contas_receber','usuarios','relatorios','configuracoes'],
-  'Pro':  ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','ordens_servico','servicos','usuarios','relatorios','configuracoes'],
+  'Pro':  ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','ordens_servico','servicos','usuarios','relatorios','configuracoes','notas_fiscais'],
   'Plus': ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','ordens_servico','servicos','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia','notas_fiscais'],
 };
 
@@ -890,6 +890,23 @@ function toggleSenhaAdmin(){
       </div>
       <div id="efiConfigMsg" class="msg" style="margin-top:8px"></div>
     </div>
+  </div>
+
+  <!-- Cota de nota fiscal por plano — Notas Fiscais entra a partir do Pro,
+       mas com limite mensal (custo real por nota no Focus NFe). Plus fica
+       ilimitado. Números ajustáveis aqui, sem precisar mexer em código,
+       assim que souber o custo real por nota — ver checarCotaNF em
+       emitir-nfse/emitir-nfce. -->
+  <div class="card" style="margin-bottom:16px">
+    <h2 style="margin:0 0 4px">Cota de notas fiscais por plano</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Notas fiscais (NFS-e + NFC-e somadas) que cada plano pode emitir por mês. Em branco = ilimitado.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field" style="margin:0"><label>Start</label><input type="number" id="cotaNfStart" placeholder="0" style="max-width:110px"></div>
+      <div class="field" style="margin:0"><label>Pro</label><input type="number" id="cotaNfPro" placeholder="ilimitado" style="max-width:110px"></div>
+      <div class="field" style="margin:0"><label>Plus</label><input type="number" id="cotaNfPlus" placeholder="ilimitado" style="max-width:110px"></div>
+      <button class="btn" onclick="salvarCotaNf()">Salvar</button>
+    </div>
+    <div id="cotaNfMsg" class="msg" style="margin-top:8px"></div>
   </div>
 
   <div class="card" style="margin-bottom:16px">
@@ -1717,6 +1734,7 @@ async function carregarTudo(){
     renderDespesas();
     renderFinanceiroReal();
     carregarEfiConfigAdmin();
+    carregarCotaNfAdmin();
     popularSelects();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
@@ -2790,6 +2808,36 @@ async function dbUpsertEfiConfig(chave,valor){
     method:'POST',
     headers:{...H,Prefer:'resolution=merge-duplicates,return=minimal'},
     body:JSON.stringify({chave,valor,updated_at:new Date().toISOString()}),
+  });
+  if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
+}
+
+// ── Cota de notas fiscais por plano ──
+async function carregarCotaNfAdmin(){
+  try{
+    const rows=await dbGet('plano_cota_nf','?select=plano,limite_mensal');
+    const cfg={};rows.forEach(r=>cfg[r.plano]=r.limite_mensal);
+    if($('cotaNfStart'))$('cotaNfStart').value=cfg.Start??'';
+    if($('cotaNfPro'))$('cotaNfPro').value=cfg.Pro??'';
+    if($('cotaNfPlus'))$('cotaNfPlus').value=cfg.Plus??'';
+  }catch(e){}
+}
+async function salvarCotaNf(){
+  try{
+    await Promise.all([
+      dbUpsertCotaNf('Start',val('cotaNfStart')),
+      dbUpsertCotaNf('Pro',val('cotaNfPro')),
+      dbUpsertCotaNf('Plus',val('cotaNfPlus')),
+    ]);
+    msgEl('cotaNfMsg','Salvo!','ok');
+  }catch(e){msgEl('cotaNfMsg','Erro: '+e.message,'err');}
+}
+async function dbUpsertCotaNf(plano,valorCampo){
+  const limite=valorCampo===''?null:Number(valorCampo);
+  const r=await fetch(`${SB_URL}/rest/v1/plano_cota_nf?on_conflict=plano`,{
+    method:'POST',
+    headers:{...H,Prefer:'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({plano,limite_mensal:limite,updated_at:new Date().toISOString()}),
   });
   if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
 }
