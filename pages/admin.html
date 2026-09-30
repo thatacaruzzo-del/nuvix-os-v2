@@ -855,26 +855,39 @@ function toggleSenhaAdmin(){
   </div>
 
   <!-- Cobrança automática (Efí) — código já existe (efi-criar-assinatura,
-       efi-cancelar-assinatura, efi-webhook), só falta a credencial real
-       (EFI_CLIENT_ID/EFI_CLIENT_SECRET) pra ligar de verdade. Sem isso as
-       functions respondem com erro claro, não quebram silenciosamente. -->
+       efi-cancelar-assinatura, efi-webhook), credenciais de homologação (Efí
+       Pro/CPF, pra testar) já configuradas e validadas com teste real. Falta
+       só o payee_code (Identificador de conta) pro cadastro de cartão do
+       cliente funcionar — campo abaixo, lido pelo app.html na hora. -->
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-      <h2 style="margin:0">Cobrança automática</h2>
-      <span class="badge badge-trial">Código pronto · falta credencial Efí</span>
+      <h2 style="margin:0">Cobrança automática (Efí)</h2>
+      <span class="badge badge-ativo">Credenciais de homologação testadas</span>
     </div>
     <p style="color:var(--muted);font-size:13px;line-height:1.6;max-width:640px">
-      Cliente testa 7 dias sem cartão. Ao final do trial, cadastra o cartão e a cobrança
+      Cliente cadastra o cartão em "Minha Empresa" no próprio login dele e a cobrança
       passa a ser automática todo mês: o Efí cobra sozinho, avisa a gente (webhook),
       o sistema marca "pago" e libera o acesso sozinho — sem precisar registrar
-      pagamento aqui na mão. As três peças (criar assinatura, cancelar de verdade
-      no Efí, e reagir ao aviso de pagamento) já estão escritas e no ar; só faltam
-      as credenciais reais (Client_Id/Client_Secret) e os planos criados lá no Efí
-      pra ligar de vez.
+      pagamento aqui na mão. Criar assinatura, cancelar de verdade no Efí e reagir
+      ao aviso de pagamento já estão escritos e no ar, testados contra o sandbox
+      (Efí Pro no CPF, só pra homologação).
     </p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px">
       <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-ativo" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Trial de 7 dias controlado pela própria Nuvix (sem Efí)</span>
-      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-trial" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Cadastro de cartão, cobrança e cancelamento — código pronto, esperando credencial</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-ativo" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Cadastro de cartão, cobrança e cancelamento — testado no sandbox</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-trial" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Emissão de NF automática — depende do CNPJ próprio ainda</span>
+    </div>
+    <div style="border-top:1px solid var(--line);padding-top:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:2px">Identificador de conta (payee_code)</div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:10px">No painel do Efí: API → Introdução → Identificador de conta. Esse dado não é secreto (fica visível no navegador do cliente na hora de cadastrar o cartão), por isso é só um campo aqui, sem precisar de credencial especial.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="flex:1;min-width:220px;margin:0"><label>Payee code</label><input id="efiPayeeCode" placeholder="Cole aqui"></div>
+        <div class="field" style="margin:0"><label>Ambiente</label>
+          <select id="efiSandbox"><option value="true">Homologação (sandbox)</option><option value="false">Produção</option></select>
+        </div>
+        <button class="btn" onclick="salvarEfiConfig()">Salvar</button>
+      </div>
+      <div id="efiConfigMsg" class="msg" style="margin-top:8px"></div>
     </div>
   </div>
 
@@ -1702,6 +1715,7 @@ async function carregarTudo(){
     renderAssinaturasPorEmpresa();
     renderDespesas();
     renderFinanceiroReal();
+    carregarEfiConfigAdmin();
     popularSelects();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
@@ -2746,6 +2760,37 @@ function renderAssinaturasPorEmpresa(){
       <td>${cobranca}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="6" class="table-empty">Nenhuma empresa cadastrada.</td></tr>`);
+}
+
+// ── Config pública do Efí (payee_code) — lida pelo app.html sem precisar de
+// credencial especial, só editável aqui (RLS: leitura pública, escrita só
+// admin Nuvix). Ver migração cria_efi_config. ──
+async function carregarEfiConfigAdmin(){
+  try{
+    const rows=await dbGet('efi_config','?select=chave,valor');
+    const cfg={};rows.forEach(r=>cfg[r.chave]=r.valor);
+    if($('efiPayeeCode'))$('efiPayeeCode').value=cfg.payee_code||'';
+    if($('efiSandbox'))$('efiSandbox').value=cfg.sandbox||'true';
+  }catch(e){}
+}
+async function salvarEfiConfig(){
+  const payeeCode=val('efiPayeeCode').trim();
+  const sandbox=val('efiSandbox');
+  try{
+    await Promise.all([
+      dbUpsertEfiConfig('payee_code',payeeCode),
+      dbUpsertEfiConfig('sandbox',sandbox),
+    ]);
+    msgEl('efiConfigMsg','Salvo!','ok');
+  }catch(e){msgEl('efiConfigMsg','Erro: '+e.message,'err');}
+}
+async function dbUpsertEfiConfig(chave,valor){
+  const r=await fetch(`${SB_URL}/rest/v1/efi_config?on_conflict=chave`,{
+    method:'POST',
+    headers:{...H,Prefer:'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({chave,valor,updated_at:new Date().toISOString()}),
+  });
+  if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
 }
 
 function renderAssinaturas(){
