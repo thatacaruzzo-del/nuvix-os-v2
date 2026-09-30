@@ -842,6 +842,20 @@ function toggleSenhaAdmin(){
 <!-- ═══ PANE: FINANCEIRO (assinaturas + despesas internas) ═══ -->
 <div id="pane-assinaturas" class="admin-pane">
 <div class="content">
+  <!-- Visão rápida por empresa: quem está ativo, em que plano, quanto paga e
+       se a cobrança é automática (Efí) ou manual — antes só existia a lista
+       crua de lançamentos, sem responder "esse cliente está em dia?" de cara. -->
+  <div class="card" style="margin-bottom:16px">
+    <h2 style="margin:0 0 4px">Assinaturas por empresa</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">De relance: quem está ativo, plano, valor e se a cobrança já é automática.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Empresa</th><th>Status</th><th>Plano</th><th>Valor mensal</th><th>Vencimento</th><th>Cobrança</th></tr></thead>
+        <tbody id="tabelaAssinaturasPorEmpresa"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- MRR real (por mês, não soma solta) + despesas internas + lucro — antes só existia
        a soma bruta de tudo que foi lançado, sem separar por mês nem descontar custo
        nenhum. Isso é a primeira peça do financeiro de verdade da própria Nuvix. -->
@@ -1675,6 +1689,7 @@ async function carregarTudo(){
     renderEmpresas();
     renderUsuarios();
     renderAssinaturas();
+    renderAssinaturasPorEmpresa();
     renderDespesas();
     renderFinanceiroReal();
     popularSelects();
@@ -2693,6 +2708,35 @@ async function salvarAssinatura(){
 }
 
 function filtrarAssinaturas(){renderAssinaturas();}
+
+// Mesmos preços de tabela vendidos em nuvixhub-site (seção Planos) — usado só
+// como estimativa quando a empresa ainda não tem nenhum lançamento registrado.
+const PRECO_TABELA_PLANO={Start:97.90,Pro:147.90,Plus:190.00};
+function renderAssinaturasPorEmpresa(){
+  // Último lançamento de cada empresa (não soma tudo, só o mais recente) —
+  // é o valor que reflete o que realmente foi cobrado dela por último.
+  const ultimoPorEmpresa={};
+  [...assinaturas].sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||'')).forEach(a=>{ ultimoPorEmpresa[a.empresa_id]=a; });
+
+  const lista=[...empresas].sort((a,b)=>(a.fantasia||a.razao||'').localeCompare(b.fantasia||b.razao||''));
+  setHTML('tabelaAssinaturasPorEmpresa', lista.length ? lista.map(e=>{
+    const ultimo=ultimoPorEmpresa[e.id];
+    const plano=e.plano||'Start';
+    const valorTxt=ultimo?money(ultimo.valor):`${money(PRECO_TABELA_PLANO[plano]||0)} <span style="color:var(--muted2);font-size:11px">(tabela)</span>`;
+    const venc=e.vencimento_mensalidade||e.vencimento;
+    const cobranca=e.efi_subscription_id
+      ? `<span class="badge ${e.efi_status==='active'?'badge-ativo':e.efi_status==='canceled'?'badge-bloqueado':'badge-trial'}">Efí · ${esc(e.efi_status||'—')}</span>`
+      : `<span class="badge badge-start">Manual</span>`;
+    return `<tr>
+      <td><b>${esc(e.fantasia||e.razao||'—')}</b></td>
+      <td>${statusBadge(e)}</td>
+      <td>${planoBadge(plano)}</td>
+      <td style="font-weight:700;color:var(--txt)">${valorTxt}</td>
+      <td>${venc?fmtData(venc):'—'}</td>
+      <td>${cobranca}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" class="table-empty">Nenhuma empresa cadastrada.</td></tr>`);
+}
 
 function renderAssinaturas(){
   const filtEmp=val('filtroEmpresaAss');
