@@ -6,6 +6,7 @@
 <title>Nuvix Hub | Painel Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -686,9 +687,13 @@ function toggleSenhaAdmin(){
   </div>
 
   <div class="card">
-    <h2 style="margin:0 0 4px">Pesquisa de mercado recente</h2>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Últimos achados registrados na aba Marketing, com fonte e data.</p>
-    <div id="feedInicioMarketing"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Inteligência Nuvix</h2>
+      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em" id="inteligenciaMesLabel"></span>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Os números da própria Nuvix, comparados com o mês anterior — o mesmo tipo de leitura que o Painel Executivo dá pro cliente.</p>
+    <div id="kpisInteligenciaNuvix" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px"></div>
+    <div style="height:260px"><canvas id="chartInteligenciaNuvix"></canvas></div>
   </div>
 </div>
 </div>
@@ -2225,6 +2230,15 @@ async function salvarEdicaoEmpresa(){
   const status=val('editEmpStatus');
   const cnpjEdit=val('editEmpCnpj').trim();
   if(cnpjEdit&&!validarCNPJ(cnpjEdit)){msgEl('editEmpMsg','CNPJ inválido, confira os números digitados.','err');return;}
+  const novoAtivo=status!=='bloqueado'&&status!=='cancelado';
+  // Carimba quando a empresa deixou de estar ativa (pra dar pra medir cancelamento
+  // por mês de verdade) — só na TRANSIÇÃO pra inativo, não toda vez que salva com
+  // esse status, senão a data "de quando cancelou" ficaria andando a cada edição.
+  const empresaOriginal=empresas.find(x=>x.id===id);
+  let desativadoEm;
+  if(!novoAtivo&&empresaOriginal?.ativo!==false) desativadoEm=new Date().toISOString();
+  else if(novoAtivo) desativadoEm=null;
+  else desativadoEm=empresaOriginal?.desativado_em||null;
   try{
     await dbPatch('empresas',id,{
       fantasia:val('editEmpFantasia').trim(),razao:val('editEmpRazao').trim(),
@@ -2232,7 +2246,7 @@ async function salvarEdicaoEmpresa(){
       telefone:val('editEmpTel').trim(),cidade:val('editEmpCidade').trim(),
       segmento:val('editEmpSegmento'),tipo:val('editEmpSegmento'),
       plano,status_conta:status,status_assinatura:status,
-      ativo:status!=='bloqueado'&&status!=='cancelado',
+      ativo:novoAtivo,desativado_em:desativadoEm,
       trial_fim:val('editEmpTrial')||null,
       vencimento:val('editEmpVenc')||null, vencimento_mensalidade:val('editEmpVenc')||null,
       observacao_interna:val('editEmpObs').trim(),
@@ -2265,7 +2279,7 @@ async function salvarEdicaoEmpresa(){
 async function toggleEmpresa(id,ativar){
   if(!await confirmarAcao(ativar?'Reativar esta empresa?':'Bloquear acesso desta empresa?',{variante:ativar?'neutro':'aviso',labelOk:ativar?'Reativar':'Bloquear'}))return;
   try{
-    await dbPatch('empresas',id,{ativo:ativar,status_conta:ativar?'ativo':'bloqueado',status_assinatura:ativar?'ativo':'bloqueado'});
+    await dbPatch('empresas',id,{ativo:ativar,status_conta:ativar?'ativo':'bloqueado',status_assinatura:ativar?'ativo':'bloqueado',desativado_em:ativar?null:new Date().toISOString()});
     toast(ativar?'Empresa reativada!':'Empresa bloqueada.');
     await carregarTudo();
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -3105,15 +3119,112 @@ async function renderKpisInicio(){
 }
 async function carregarInicio(){
   try{
-    const [avisos,marketingRecente]=await Promise.all([
-      dbGet('equipe_avisos','?select=*&fixado=eq.true&order=created_at.desc&limit=1'),
-      dbGet('marketing_monitoramento','?select=*&order=data_verificacao.desc,created_at.desc&limit=5'),
-    ]);
+    const avisos=await dbGet('equipe_avisos','?select=*&fixado=eq.true&order=created_at.desc&limit=1');
     setHTML('fraseGuiaTexto',avisos[0]?esc(avisos[0].texto):'Nenhuma frase fixada ainda, escreva a primeira aqui embaixo.');
-    setHTML('feedInicioMarketing',marketingRecente.map(marketingCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Nenhuma pesquisa registrada ainda.</p>');
     renderKpisInicio();
+    renderInteligenciaNuvixAdmin();
   }catch(e){
     setHTML('fraseGuiaTexto','Erro ao carregar: '+esc(e.message));
+  }
+}
+
+// ═══ INTELIGÊNCIA NUVIX (Admin) — mesmo espírito do Painel Executivo do cliente:
+// números reais comparados com o mês anterior, não só o valor isolado. ═══
+const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function mesLabelAdmin(mesKey){
+  const [y,m]=mesKey.split('-');
+  return `${MESES_ABREV[Number(m)-1]}/${y.slice(2)}`;
+}
+function mesAdjacente(mesKey,delta){
+  const [y,m]=mesKey.split('-').map(Number);
+  const d=new Date(Date.UTC(y,m-1+delta,1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+}
+// Delta em R$ (não %) pra lucro — lucro cruza zero, % de base negativa/zero engana.
+// Delta em % só faz sentido pra receita, que não fica negativa.
+function deltaCard(label,valorTxt,deltaTxt,corDelta,aba){
+  return `<div class="kpi" style="cursor:pointer" onclick="irParaAba('${aba}')">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value">${valorTxt}</div>
+    <div style="font-size:11px;font-weight:700;margin-top:2px;color:${corDelta}">${deltaTxt}</div>
+  </div>`;
+}
+let chartInteligenciaNuvix=null;
+function renderInteligenciaNuvixAdmin(){
+  const porMes=financeiroPorMes();
+  const mesAtual=hoje().slice(0,7);
+  const mesAnterior=mesAdjacente(mesAtual,-1);
+  $('inteligenciaMesLabel').textContent=`${mesLabelAdmin(mesAtual)} vs ${mesLabelAdmin(mesAnterior)}`;
+
+  const finAtual=porMes[mesAtual]||{receita:0,despesa:0};
+  const finAnterior=porMes[mesAnterior]||{receita:0,despesa:0};
+  const lucroAtual=finAtual.receita-finAtual.despesa;
+  const lucroAnterior=finAnterior.receita-finAnterior.despesa;
+
+  // MRR: % faz sentido (receita não fica negativa)
+  const mrrDeltaPct=finAnterior.receita>0?((finAtual.receita-finAnterior.receita)/finAnterior.receita*100):null;
+  const mrrDeltaTxt=mrrDeltaPct===null?(finAtual.receita>0?'Novo':'—'):`${mrrDeltaPct>=0?'▲':'▼'} ${Math.abs(mrrDeltaPct).toFixed(0)}% vs mês anterior`;
+  const mrrCor=mrrDeltaPct===null?'var(--muted)':mrrDeltaPct>=0?'var(--green)':'var(--red)';
+
+  // Lucro: delta em R$ (não %) — lucro pode cruzar zero
+  const lucroDelta=lucroAtual-lucroAnterior;
+  const lucroDeltaTxt=`${lucroDelta>=0?'▲':'▼'} ${money(Math.abs(lucroDelta))} vs mês anterior`;
+  const lucroCor=lucroDelta>=0?'var(--green)':'var(--red)';
+
+  // Empresas novas: por created_at
+  const empresasNovasMes=m=>empresas.filter(e=>String(e.created_at||'').slice(0,7)===m).length;
+  const novasAtual=empresasNovasMes(mesAtual),novasAnterior=empresasNovasMes(mesAnterior);
+  const novasDelta=novasAtual-novasAnterior;
+  const novasDeltaTxt=novasDelta===0?'Igual ao mês anterior':`${novasDelta>0?'▲':'▼'} ${Math.abs(novasDelta)} vs mês anterior`;
+
+  // Cancelamentos: por desativado_em (carimbado no toggleEmpresa/salvarEdicaoEmpresa)
+  const cancelamentosMes=m=>empresas.filter(e=>String(e.desativado_em||'').slice(0,7)===m).length;
+  const cancAtual=cancelamentosMes(mesAtual),cancAnterior=cancelamentosMes(mesAnterior);
+  const cancDelta=cancAtual-cancAnterior;
+  const cancDeltaTxt=cancDelta===0?'Igual ao mês anterior':`${cancDelta>0?'▲':'▼'} ${Math.abs(cancDelta)} vs mês anterior`;
+  const cancCor=cancAtual===0?'var(--green)':'var(--red)'; // menos cancelamento = melhor, ao contrário dos outros
+
+  // Conversão trial→pago: cohort de quem começou trial no mês anterior (já teve o
+  // mês inteiro pra decidir) — comparar com mês atual não faz sentido, quem começou
+  // esse mês ainda está no meio do teste. Sem delta aqui de propósito: com poucas
+  // empresas, comparar cohort com cohort seria estatística de mentirinha.
+  const cohortTrial=empresas.filter(e=>String(e.trial_inicio||'').slice(0,7)===mesAnterior);
+  const cohortConvertido=cohortTrial.filter(e=>e.status_conta==='ativo').length;
+  const conversaoTxt=cohortTrial.length===0?'Sem dados suficientes':`${Math.round(cohortConvertido/cohortTrial.length*100)}%`;
+  const conversaoSub=cohortTrial.length===0?`Ninguém começou trial em ${mesLabelAdmin(mesAnterior)}`:`${cohortConvertido} de ${cohortTrial.length} do trial de ${mesLabelAdmin(mesAnterior)}`;
+
+  setHTML('kpisInteligenciaNuvix',[
+    deltaCard('MRR do mês',money(finAtual.receita),mrrDeltaTxt,mrrCor,'assinaturas'),
+    deltaCard('Lucro do mês',money(lucroAtual),lucroDeltaTxt,lucroCor,'assinaturas'),
+    deltaCard('Empresas novas',novasAtual,novasDeltaTxt,novasDelta>=0?'var(--green)':'var(--red)','clientes'),
+    deltaCard('Cancelamentos',cancAtual,cancDeltaTxt,cancCor,'clientes'),
+    deltaCard('Conversão trial→pago',conversaoTxt,conversaoSub,'var(--muted)','clientes'),
+  ].join(''));
+
+  // Gráfico: MRR (barra) + Lucro (linha) dos últimos 6 meses, cronológico
+  const meses=Object.keys(porMes).sort().slice(-6);
+  const mesesCompletos=meses.length?meses:[mesAtual];
+  const dadosReceita=mesesCompletos.map(m=>(porMes[m]||{receita:0}).receita);
+  const dadosLucro=mesesCompletos.map(m=>{const v=porMes[m]||{receita:0,despesa:0};return v.receita-v.despesa;});
+  const ctx=$('chartInteligenciaNuvix');
+  if(ctx&&window.Chart){
+    if(chartInteligenciaNuvix)chartInteligenciaNuvix.destroy();
+    Chart.defaults.font.family="'Hanken Grotesk',system-ui";
+    Chart.defaults.color='#7B7583';
+    chartInteligenciaNuvix=new Chart(ctx,{
+      data:{
+        labels:mesesCompletos.map(mesLabelAdmin),
+        datasets:[
+          {type:'bar',label:'MRR',data:dadosReceita,backgroundColor:'rgba(99,67,164,.18)',borderRadius:6,order:2},
+          {type:'line',label:'Lucro',data:dadosLucro,borderColor:'#6343A4',backgroundColor:'rgba(99,67,164,.08)',borderWidth:2,tension:.3,pointRadius:3,pointBackgroundColor:'#6343A4',fill:false,order:1},
+        ],
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,usePointStyle:true}}},
+        scales:{y:{ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k'}}},
+      },
+    });
   }
 }
 async function salvarAviso(){
