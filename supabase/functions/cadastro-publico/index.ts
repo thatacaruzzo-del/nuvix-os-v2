@@ -39,6 +39,18 @@ const MODULOS_PLANO: Record<string, string[]> = {
   Plus: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'rh', 'folha_ponto', 'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia'],
 };
 
+// Lista completa de módulos que existem hoje (mesma de pages/admin.html
+// MODULOS_TODOS) — precisa gravar linha liberado:false pros de fora do plano
+// também, não só liberado:true pros de dentro. Sem isso, um módulo sem linha
+// nenhuma conta como liberado por padrão (regra "fail-open" de
+// js/nuvix-sidebar.js, pensada pra módulo que ainda nem existe no sistema,
+// não pra furar o plano contratado).
+const MODULOS_TODOS = [
+  'dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber',
+  'transporte', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'crm', 'rh', 'folha_ponto',
+  'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia',
+];
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Limite de tentativas por IP na última hora — protege contra bot criando
@@ -119,13 +131,14 @@ Deno.serve(async (req) => {
       return json({ error: 'Erro ao criar empresa: ' + (empErr?.message || '') }, 400);
     }
 
-    // Módulos padrão DO PLANO ESCOLHIDO — se isso falhar, desfaz a empresa: não
-    // faz sentido deixar uma empresa "fantasma" sem ninguém acompanhando pra
-    // corrigir na mão, diferente do fluxo do Admin onde tem um humano ali pra
-    // resolver.
+    // Módulos: grava TODOS explicitamente (liberado:true pros do plano,
+    // liberado:false pro resto) — mesmo padrão do "Nova Empresa" do Admin. Se
+    // isso falhar, desfaz a empresa: não faz sentido deixar uma empresa
+    // "fantasma" sem ninguém acompanhando pra corrigir na mão, diferente do
+    // fluxo do Admin onde tem um humano ali pra resolver.
     try {
-      const modulos = MODULOS_PLANO[plano];
-      const linhas = modulos.map((m) => ({ empresa_id: emp.id, modulo: m, liberado: true, liberado_por: 'Cadastro público' }));
+      const incluidos = new Set(MODULOS_PLANO[plano]);
+      const linhas = MODULOS_TODOS.map((m) => ({ empresa_id: emp.id, modulo: m, liberado: incluidos.has(m), liberado_por: 'Cadastro público' }));
       const { error: modErr } = await admin.from('empresa_modulos').insert(linhas);
       if (modErr) throw modErr;
     } catch (e) {
