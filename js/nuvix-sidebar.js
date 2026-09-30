@@ -15,6 +15,96 @@
 //   quem precisar reaproveitar essa checagem depois de montar o menu.
 // ============================================================
 
+// Plano mínimo que libera cada módulo — mesmo dado de pages/admin.html
+// MODULOS_PLANO e supabase/functions/cadastro-publico. Mudou o que um plano
+// libera num lugar? Muda nos três (é dado, não lógica, por isso duplicado em
+// vez de importado — cada um roda num contexto diferente: browser do cliente,
+// browser do admin, e edge function).
+const PLANO_MINIMO_MODULO = {
+  dashboard: 'Start', financeiro: 'Start', contas_pagar: 'Start', contas_receber: 'Start',
+  usuarios: 'Start', relatorios: 'Start', configuracoes: 'Start',
+  caixa: 'Pro', produtos: 'Pro', estoque: 'Pro', transporte: 'Pro', crm: 'Pro',
+  materiais: 'Pro', vendas: 'Pro', ordens_servico: 'Pro', servicos: 'Pro',
+  rh: 'Plus', folha_ponto: 'Plus', folha_pagamento: 'Plus', integracoes: 'Plus', ia: 'Plus',
+  notas_fiscais: 'Plus',
+};
+const PRECO_PLANO = { Start: '97,90', Pro: '147,90', Plus: '190,00' };
+const ORDEM_PLANO = ['Start', 'Pro', 'Plus'];
+
+// Copy de cada módulo bloqueável — usado no card de upsell. Só precisa de
+// entrada pros módulos que têm link na sidebar (HREF_MODULO); os demais do
+// mapa acima (contas_pagar, estoque etc) nunca chegam nesse card sozinhos,
+// só via caixa/produtos/financeiro que já cobrem eles.
+const MODULO_COPY = {
+  crm: { titulo: 'Acompanhe cada negociação até fechar', desc: 'Funil comercial, follow-up e histórico de contato com cada cliente, sem depender de planilha ou memória.', feats: ['Funil de vendas com etapas', 'Follow-up e lembretes automáticos'] },
+  transporte: { titulo: 'Controle sua operação de transporte', desc: 'Fretes, motoristas e rotas organizados num só lugar, com cotação integrada.', feats: ['Gestão de fretes e motoristas', 'Cotação de frete integrada'] },
+  ordens_servico: { titulo: 'Ordens de serviço do início ao fim', desc: 'Abra, acompanhe e finalize ordens de serviço, com histórico completo por cliente.', feats: ['Abertura e acompanhamento de OS', 'Histórico completo por cliente'] },
+  servicos: { titulo: 'Orçamentos e serviços organizados', desc: 'Monte orçamentos, aprove com o cliente e transforme em serviço, sem perder o fio da história.', feats: ['Orçamentos com aprovação do cliente', 'Conversão direta em serviço'] },
+  materiais: { titulo: 'Materiais e estoque sob controle', desc: 'Saiba o que tem, o que falta e o que já foi usado em cada serviço.', feats: ['Controle de materiais por serviço', 'Alerta de estoque baixo'] },
+  produtos: { titulo: 'Estoque e catálogo sob controle', desc: 'Cadastro de produtos, controle de estoque e integração com seus canais de venda num só lugar.', feats: ['Controle de estoque em tempo real', 'Integração com marketplaces'] },
+  caixa: { titulo: 'Venda no balcão com PDV de verdade', desc: 'Frente de caixa completa, com nota fiscal automática e conciliação de pagamento.', feats: ['PDV com emissão de nota automática', 'Fecho de caixa e conciliação'] },
+  rh: { titulo: 'Gerencie sua equipe direto no sistema', desc: 'Colaboradores, ponto e folha de pagamento completos, sem planilha separada.', feats: ['Ponto e folha de pagamento completos', 'Cadastro e histórico de colaboradores'] },
+  integracoes: { titulo: 'Conecte seus canais de venda', desc: 'Mercado Livre, Nuvemshop, Shopee e outros canais sincronizados com seu estoque automaticamente.', feats: ['Sincronização automática de estoque', 'Vários canais de venda num só lugar'] },
+  notas_fiscais: { titulo: 'Emissão de nota fiscal automática', desc: 'NFS-e e NFC-e emitidas automaticamente a cada venda ou serviço, sem digitar nada duas vezes.', feats: ['Emissão automática a cada venda', 'Histórico e reemissão num clique'] },
+};
+
+// Card de upsell — mostra quando clica num módulo bloqueado pelo plano.
+// Sempre compara o plano ATUAL de quem está vendo com o plano MÍNIMO que
+// libera aquele módulo específico (não sempre "vá pro Plus": alguém no Start
+// olhando um módulo de Pro vê Pro, não Plus).
+function abrirUpsellModal(modId, planoAtual) {
+  const alvo = PLANO_MINIMO_MODULO[modId];
+  if (!alvo) return;
+  const copy = MODULO_COPY[modId] || { titulo: 'Recurso do seu plano', desc: 'Esse recurso faz parte de um plano superior ao seu atual.', feats: [] };
+  document.querySelectorAll('.nx-upsell-overlay').forEach(el => el.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'nx-upsell-overlay';
+  overlay.innerHTML = `
+    <div class="nx-upsell-box">
+      <button class="nx-upsell-close" type="button" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="nx-upsell-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="nx-upsell-eyebrow">Exclusivo do plano ${alvo}</div>
+      <div class="nx-upsell-title">${copy.titulo}</div>
+      <p class="nx-upsell-desc">${copy.desc} No seu plano atual (${planoAtual}), esse módulo fica reservado até você atualizar.</p>
+      <div class="nx-upsell-compare">
+        <div class="nx-uc-card">
+          <div class="nx-uc-plan">Seu plano — ${planoAtual}</div>
+          <div class="nx-uc-price">R$ ${PRECO_PLANO[planoAtual] || '—'}<span>/mês</span></div>
+          ${copy.feats.map(f => `<div class="nx-uc-feat off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>${f}</div>`).join('')}
+        </div>
+        <div class="nx-uc-card alvo">
+          <div class="nx-uc-plan">Plano ${alvo}</div>
+          <div class="nx-uc-price">R$ ${PRECO_PLANO[alvo] || '—'}<span>/mês</span></div>
+          ${copy.feats.map(f => `<div class="nx-uc-feat on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>${f}</div>`).join('')}
+        </div>
+      </div>
+      <button class="nx-upsell-cta" type="button">Atualizar para o Plano ${alvo}</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const fechar = () => overlay.remove();
+  overlay.querySelector('.nx-upsell-close').onclick = fechar;
+  overlay.addEventListener('click', e => { if (e.target === overlay) fechar(); });
+  overlay.querySelector('.nx-upsell-cta').onclick = () => {
+    window.location.href = `app.html?assinatura=${encodeURIComponent(alvo)}`;
+  };
+}
+
+// Deixa o botão visível mas travado (não remove como o de permissão) — o
+// dono da empresa precisa VER que o recurso existe pra querer contratar,
+// esconder não vende nada.
+function marcarBotaoTrancado(btn, modId, planoAtual) {
+  const idPrincipal = Array.isArray(modId) ? modId[0] : modId;
+  const alvo = PLANO_MINIMO_MODULO[idPrincipal];
+  if (!alvo) return; // módulo ainda fora do sistema de planos (ex: cotacao) — não trava
+  btn.classList.add('locked');
+  btn.setAttribute('href', '#');
+  const badge = document.createElement('span');
+  badge.className = 'sb-lock-badge';
+  badge.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>${alvo}`;
+  btn.appendChild(badge);
+  btn.addEventListener('click', e => { e.preventDefault(); abrirUpsellModal(idPrincipal, planoAtual); });
+}
+
 function montarSidebarDinamica(opcoes) {
   opcoes = opcoes || {};
   try {
@@ -116,30 +206,37 @@ function montarSidebarDinamica(opcoes) {
     logo.insertAdjacentHTML('afterend', html);
 
     // Filtro por permissão do funcionário — some da sidebar o módulo que o
-    // usuário logado não tem "pode_ver" liberado. Administrador/SuperAdmin
-    // sempre vê tudo. Módulo sem permissão configurada ainda fica visível
-    // (não trava ninguém por permissão que nunca foi definida).
+    // usuário logado não tem "pode_ver" liberado. Módulo sem permissão
+    // configurada ainda fica visível (não trava ninguém por permissão que
+    // nunca foi definida).
     const HREF_MODULO = { 'dashboard.html': 'dashboard', 'financeiro.html': 'financeiro', 'crm.html': 'crm', 'transporte.html': 'transporte', 'cotacao.html': 'cotacao', 'rh.html': ['rh', 'folha_ponto'], 'relatorios.html': 'relatorios', 'parametros.html': 'configuracoes', 'os.html': 'ordens_servico', 'servicos.html': 'servicos', 'materiais.html': 'materiais', 'notas-fiscais.html': 'notas_fiscais', 'produtos.html': 'produtos', 'caixa.html': 'caixa', 'painel-vendas.html': 'caixa', 'integracoes.html': 'integracoes' };
     const permsUser = d.user?.usuario_permissoes || [];
     const isAdminUser = d.user?.perfil === 'Administrador' || d.user?.perfil === 'SuperAdmin';
     // Módulos liberados pra ESSA EMPRESA (painel Nuvix Admin → Módulos, tabela
-    // empresa_modulos) — módulo sem linha aqui (ex: ordens_servico/servicos/
-    // notas_fiscais/cotacao, que ainda não fazem parte desse sistema) conta como
-    // liberado, mesma regra fail-open já usada pra permissão de usuário abaixo.
+    // empresa_modulos) — módulo sem linha aqui (ex: cotacao/notas_fiscais, que
+    // ainda não fazem parte do sistema de planos) conta como liberado, regra
+    // fail-open. ESSE check vale pra Administrador também — é sobre o que a
+    // EMPRESA contratou, não sobre permissão de funcionário (isAdminUser só
+    // entra depois, no check de permissão individual).
     const modulosEmpresa = d.empresa?.modulos_liberados || [];
     function podeVerModuloEmpresa(modId) {
       const ids = Array.isArray(modId) ? modId : [modId];
       return ids.some(id => { const m = modulosEmpresa.find(x => x.modulo === id); return m ? !!m.liberado : true; });
     }
     function podeVerModulo(modId) {
-      if (isAdminUser) return true;
       if (!podeVerModuloEmpresa(modId)) return false;
+      if (isAdminUser) return true;
       const ids = Array.isArray(modId) ? modId : [modId];
       return ids.some(id => { const p = permsUser.find(x => x.modulo === id); return p ? !!p.pode_ver : true; });
     }
     nav.querySelectorAll('.sb-btn').forEach(btn => {
       const modId = HREF_MODULO[btn.getAttribute('href')];
-      if (modId && !podeVerModulo(modId)) btn.remove();
+      if (!modId) return;
+      if (!podeVerModuloEmpresa(modId)) {
+        marcarBotaoTrancado(btn, modId, d.empresa?.plano || 'Start');
+      } else if (!podeVerModulo(modId)) {
+        btn.remove();
+      }
     });
     nav.querySelectorAll('.sb-group').forEach(g => {
       if (g.style.marginTop) return;

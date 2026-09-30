@@ -299,6 +299,46 @@ tr:hover td { background: #FAF9FE; }
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .sb-btn.active svg { color: #fff; }
+
+/* Módulo bloqueado pelo plano contratado (não por permissão de usuário —
+   esse caso continua removendo o botão, como sempre foi). Fica visível mas
+   opaco, com selo do plano que libera, e abre o upsell em vez de navegar. */
+.sb-btn.locked { color: var(--sidebar-text-muted); opacity: .6; }
+.sb-btn.locked:hover { opacity: .88; background: var(--sidebar-hover-bg); }
+.sb-lock-badge {
+  margin-left: auto; display: flex; align-items: center; gap: 3px;
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18);
+  color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 99px; flex-shrink: 0;
+}
+.sb-lock-badge svg { width: 9px; height: 9px; flex-shrink: 0; }
+
+/* ── Upsell de plano (módulo bloqueado) ── */
+.nx-upsell-overlay { position: fixed; inset: 0; background: rgba(16,24,40,.5); z-index: 10001; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.nx-upsell-box { background: #fff; border-radius: 22px; box-shadow: 0 24px 60px rgba(16,24,40,.3); max-width: 480px; width: 100%; padding: 36px 32px 30px; text-align: center; position: relative; }
+.nx-upsell-close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.nx-upsell-close:hover { background: var(--p-light); color: var(--p); }
+.nx-upsell-close svg { width: 16px; height: 16px; }
+.nx-upsell-icon { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, var(--p), #8B5CF6); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 12px 32px rgba(99,67,164,.32); }
+.nx-upsell-icon svg { width: 28px; height: 28px; color: #fff; }
+.nx-upsell-eyebrow { display: inline-flex; align-items: center; gap: 6px; background: var(--amber-bg); color: var(--amber); border: 1px solid #F3D9A8; border-radius: 99px; padding: 5px 14px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 16px; }
+.nx-upsell-title { font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
+.nx-upsell-desc { font-size: 13.5px; line-height: 1.6; color: var(--muted); max-width: 380px; margin: 0 auto 22px; }
+.nx-upsell-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left; margin-bottom: 24px; }
+.nx-uc-card { border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.nx-uc-card.alvo { border-color: var(--p3); background: linear-gradient(180deg, var(--p-light), #fff 70%); }
+.nx-uc-plan { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted2); margin-bottom: 3px; }
+.nx-uc-card.alvo .nx-uc-plan { color: var(--p); }
+.nx-uc-price { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+.nx-uc-price span { font-size: 11px; font-weight: 600; color: var(--muted2); }
+.nx-uc-feat { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: var(--muted); margin-bottom: 5px; line-height: 1.35; }
+.nx-uc-feat svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 2px; }
+.nx-uc-feat.on { color: var(--txt); }
+.nx-uc-feat.on svg { color: var(--p); }
+.nx-uc-feat.off svg { color: #C9C4D6; }
+.nx-upsell-cta { background: var(--p); color: #fff; border: none; border-radius: 99px; height: 48px; padding: 0 30px; font-size: 14.5px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 10px 26px rgba(99,67,164,.32); transition: transform .15s, box-shadow .15s; width: 100%; }
+.nx-upsell-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 32px rgba(99,67,164,.4); }
+
 .sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; cursor: pointer; z-index: 2; }
 .sb-alert-dot:hover { transform: scale(1.2); }
 .sb-badge-count { position: absolute; top: 4px; left: 22px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--red); color: #fff; font-size: 9px; font-weight: 800; line-height: 15px; text-align: center; border: 2px solid #fff; z-index: 2; pointer-events: none; }

@@ -498,7 +498,22 @@ async function init() {
   if(!temPermissao('relatorios','ver')){
     document.querySelector('.app-tab[data-pagina="relatorios"]')?.remove();
   }
-  navegar('clientes', null);
+  // Veio de um upsell de módulo bloqueado (?assinatura=Pro ou ?assinatura=Plus)
+  // — pula direto pra Minha Empresa com o plano já pré-selecionado, em vez de
+  // fazer a pessoa procurar onde trocar de plano.
+  const planoUpsell=new URLSearchParams(location.search).get('assinatura');
+  if(planoUpsell&&(session.perfil==='Administrador'||session.perfil==='SuperAdmin')){
+    navegar('empresa', null);
+    setTimeout(()=>{
+      if($('assCcPlano')){
+        if(session.empresa?.efi_subscription_id&&session.empresa?.efi_status==='active')mostrarTrocaPlano();
+        $('assCcPlano').value=planoUpsell;
+        $('assinaturaCard')?.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    },50);
+  }else{
+    navegar('clientes', null);
+  }
   const buscaParam=new URLSearchParams(location.search).get('busca');
   if(buscaParam&&$('cliBusca'))$('cliBusca').value=buscaParam;
   loadData();

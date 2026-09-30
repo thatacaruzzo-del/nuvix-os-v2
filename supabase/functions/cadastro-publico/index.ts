@@ -36,7 +36,7 @@ function json(body: unknown, status = 200) {
 const MODULOS_PLANO: Record<string, string[]> = {
   Start: ['dashboard', 'financeiro', 'contas_pagar', 'contas_receber', 'usuarios', 'relatorios', 'configuracoes'],
   Pro: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'usuarios', 'relatorios', 'configuracoes'],
-  Plus: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'rh', 'folha_ponto', 'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia'],
+  Plus: ['dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber', 'transporte', 'crm', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'rh', 'folha_ponto', 'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia', 'notas_fiscais'],
 };
 
 // Lista completa de módulos que existem hoje (mesma de pages/admin.html
@@ -48,7 +48,7 @@ const MODULOS_PLANO: Record<string, string[]> = {
 const MODULOS_TODOS = [
   'dashboard', 'caixa', 'produtos', 'estoque', 'financeiro', 'contas_pagar', 'contas_receber',
   'transporte', 'materiais', 'vendas', 'ordens_servico', 'servicos', 'crm', 'rh', 'folha_ponto',
-  'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia',
+  'folha_pagamento', 'usuarios', 'relatorios', 'configuracoes', 'integracoes', 'ia', 'notas_fiscais',
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
