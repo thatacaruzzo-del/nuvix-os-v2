@@ -916,7 +916,7 @@ function toggleSenhaAdmin(){
     <div id="resumoAssinaturas" style="margin-bottom:14px"></div>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Empresa</th><th>Plano</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Observação</th><th>Data</th></tr></thead>
+        <thead><tr><th>Empresa</th><th>Plano</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Observação</th><th>Ações</th></tr></thead>
         <tbody id="tabelaAssinaturas"></tbody>
       </table>
       <div id="tabelaAssinaturasPaginacao"></div>
@@ -927,7 +927,7 @@ function toggleSenhaAdmin(){
     <h2>Histórico de despesas internas</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Data</th><th>Fixo?</th><th>Observação</th></tr></thead>
+        <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Data</th><th>Fixo?</th><th>Observação</th><th>Ações</th></tr></thead>
         <tbody id="tabelaDespesas"></tbody>
       </table>
       <div id="tabelaDespesasPaginacao"></div>
@@ -1286,6 +1286,55 @@ function toggleSenhaAdmin(){
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalSenha')">Cancelar</button>
     <button class="btn" onclick="confirmarSenha()">Redefinir</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Editar assinatura -->
+<div class="modal-overlay" id="modalEditAssinatura">
+<div class="modal" style="max-width:460px">
+  <h3>Editar assinatura</h3>
+  <p style="color:var(--muted);margin-bottom:16px;font-size:13px">Empresa: <b id="editAssEmpresaNome"></b></p>
+  <input type="hidden" id="editAssId">
+  <div class="form-grid" style="grid-template-columns:1fr 1fr">
+    <div class="field"><label>Plano</label>
+      <select id="editAssPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+    </div>
+    <div class="field"><label>Valor (R$)</label><input type="number" id="editAssValor" step="0.01"></div>
+    <div class="field"><label>Vencimento</label><input type="date" id="editAssVenc"></div>
+    <div class="field"><label>Status</label>
+      <select id="editAssStatus" onchange="atualizarCampoPagamentoAss()"><option>pago</option><option>pendente</option><option>atrasado</option><option>cancelado</option></select>
+    </div>
+    <div class="field" id="editAssPagamentoWrap"><label>Data do pagamento</label><input type="date" id="editAssPagamento"></div>
+    <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="editAssObs"></div>
+  </div>
+  <div id="editAssMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEditAssinatura')">Cancelar</button>
+    <button class="btn" onclick="salvarEdicaoAssinatura()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Editar despesa interna -->
+<div class="modal-overlay" id="modalEditDespesa">
+<div class="modal" style="max-width:460px">
+  <h3>Editar despesa</h3>
+  <input type="hidden" id="editDespId">
+  <div class="form-grid" style="grid-template-columns:1fr 1fr">
+    <div class="field" style="grid-column:1/-1"><label>Descrição</label><input id="editDespDescricao"></div>
+    <div class="field"><label>Categoria</label>
+      <select id="editDespCategoria"><option>Infraestrutura</option><option>Ferramentas</option><option>Pró-labore</option><option>Marketing</option><option>Contabilidade</option><option>Outros</option></select>
+    </div>
+    <div class="field"><label>Valor (R$)</label><input type="number" id="editDespValor" step="0.01"></div>
+    <div class="field"><label>Data</label><input type="date" id="editDespData"></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="editDespRecorrente" style="width:auto"> Gasto fixo mensal</label></div>
+    <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="editDespObs"></div>
+  </div>
+  <div id="editDespMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEditDespesa')">Cancelar</button>
+    <button class="btn" onclick="salvarEdicaoDespesa()">Salvar</button>
   </div>
 </div>
 </div>
@@ -2611,9 +2660,13 @@ function renderAssinaturas(){
     <td style="font-weight:700;color:var(--txt)">${money(a.valor)}</td>
     <td>${fmtData(a.vencimento)}</td>
     <td><span class="badge ${stBadge[a.status]||''}">${a.status||''}</span></td>
+    <td style="font-size:12px;color:var(--muted)">${a.data_pagamento?fmtData(a.data_pagamento):'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${esc(a.observacao||'—')}</td>
-    <td style="font-size:11px;color:var(--muted)">${fmtData(a.created_at)}</td>
-  </tr>`).join('')||`<tr><td colspan="7" class="table-empty">Nenhuma assinatura.</td></tr>`);
+    <td style="display:flex;gap:6px">
+      <button class="btn2" onclick="editarAssinatura('${a.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+      <button class="danger" onclick="excluirAssinatura('${a.id}','${esc(empMap[a.empresa_id]||'')}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+    </td>
+  </tr>`).join('')||`<tr><td colspan="8" class="table-empty">Nenhuma assinatura.</td></tr>`);
 }
 
 // ═══ DESPESAS INTERNAS (custo da própria Nuvix, não de cliente) ═══
@@ -2640,7 +2693,95 @@ function renderDespesas(){
     <td>${fmtData(d.data)}</td>
     <td>${d.recorrente?'<span class="badge badge-trial">Fixo</span>':'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${esc(d.observacao||'—')}</td>
-  </tr>`).join('')||`<tr><td colspan="6" class="table-empty">Nenhuma despesa registrada.</td></tr>`);
+    <td style="display:flex;gap:6px">
+      <button class="btn2" onclick="editarDespesa('${d.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+      <button class="danger" onclick="excluirDespesa('${d.id}','${esc(d.descricao||'')}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+    </td>
+  </tr>`).join('')||`<tr><td colspan="7" class="table-empty">Nenhuma despesa registrada.</td></tr>`);
+}
+
+// ── Editar/excluir assinatura ──
+function atualizarCampoPagamentoAss(){
+  $('editAssPagamentoWrap').style.display=val('editAssStatus')==='pago'?'block':'none';
+}
+function editarAssinatura(id){
+  const a=assinaturas.find(x=>x.id===id);if(!a)return;
+  const emp=empresas.find(e=>e.id===a.empresa_id);
+  $('editAssId').value=a.id;
+  $('editAssEmpresaNome').textContent=emp?.fantasia||emp?.razao||'—';
+  $('editAssPlano').value=a.plano||'Start';
+  $('editAssValor').value=a.valor||'';
+  $('editAssVenc').value=a.vencimento?String(a.vencimento).slice(0,10):'';
+  $('editAssStatus').value=a.status||'pendente';
+  $('editAssPagamento').value=a.data_pagamento?String(a.data_pagamento).slice(0,10):'';
+  $('editAssObs').value=a.observacao||'';
+  atualizarCampoPagamentoAss();
+  abrirModal('modalEditAssinatura');
+}
+async function salvarEdicaoAssinatura(){
+  const id=val('editAssId');if(!id)return;
+  const status=val('editAssStatus');
+  const pagamentoInformado=val('editAssPagamento');
+  try{
+    await dbPatch('assinaturas',id,{
+      plano:val('editAssPlano'),
+      valor:num('editAssValor'),
+      vencimento:val('editAssVenc')||null,
+      status,
+      data_pagamento:status==='pago'?(pagamentoInformado||hoje()):null,
+      observacao:val('editAssObs').trim()||null,
+    });
+    msgEl('editAssMsg','Salvo!','ok');
+    setTimeout(()=>fecharModal('modalEditAssinatura'),700);
+    await carregarTudo();
+  }catch(e){msgEl('editAssMsg','Erro: '+e.message,'err');}
+}
+async function excluirAssinatura(id,empresaNome){
+  if(!await confirmarAcao(`Excluir esse lançamento de assinatura de "${empresaNome}"?`))return;
+  try{
+    await dbDelete('assinaturas',id);
+    toast('Lançamento excluído.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// ── Editar/excluir despesa interna ──
+function editarDespesa(id){
+  const d=despesas.find(x=>x.id===id);if(!d)return;
+  $('editDespId').value=d.id;
+  $('editDespDescricao').value=d.descricao||'';
+  $('editDespCategoria').value=d.categoria||'Outros';
+  $('editDespValor').value=d.valor||'';
+  $('editDespData').value=d.data?String(d.data).slice(0,10):'';
+  $('editDespRecorrente').checked=!!d.recorrente;
+  $('editDespObs').value=d.observacao||'';
+  abrirModal('modalEditDespesa');
+}
+async function salvarEdicaoDespesa(){
+  const id=val('editDespId');if(!id)return;
+  const descricao=val('editDespDescricao').trim();
+  if(!descricao){msgEl('editDespMsg','Descreva a despesa.','err');return;}
+  try{
+    await dbPatch('despesas_internas',id,{
+      descricao,
+      categoria:val('editDespCategoria'),
+      valor:num('editDespValor'),
+      data:val('editDespData')||hoje(),
+      recorrente:$('editDespRecorrente').checked,
+      observacao:val('editDespObs').trim()||null,
+    });
+    msgEl('editDespMsg','Salvo!','ok');
+    setTimeout(()=>fecharModal('modalEditDespesa'),700);
+    await carregarTudo();
+  }catch(e){msgEl('editDespMsg','Erro: '+e.message,'err');}
+}
+async function excluirDespesa(id,descricao){
+  if(!await confirmarAcao(`Excluir a despesa "${descricao}"?`))return;
+  try{
+    await dbDelete('despesas_internas',id);
+    toast('Despesa excluída.','ok');
+    await carregarTudo();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 // MRR real: agrupa por mês de vencimento (não soma bruta de tudo junto, como o
