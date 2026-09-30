@@ -856,23 +856,27 @@ function toggleSenhaAdmin(){
     </div>
   </div>
 
-  <!-- Cobrança automática (Efí) — hoje 100% manual. Placeholder honesto: só existe
-       cadastro de cartão/cobrança recorrente depois que o CNPJ do Grupo Caruzzo sair
-       e a conta no Efí for aberta (não dá pra ter credencial de API sem conta). -->
+  <!-- Cobrança automática (Efí) — código já existe (efi-criar-assinatura,
+       efi-cancelar-assinatura, efi-webhook), só falta a credencial real
+       (EFI_CLIENT_ID/EFI_CLIENT_SECRET) pra ligar de verdade. Sem isso as
+       functions respondem com erro claro, não quebram silenciosamente. -->
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
       <h2 style="margin:0">Cobrança automática</h2>
-      <span class="badge badge-trial">Aguardando conta Efí</span>
+      <span class="badge badge-trial">Código pronto · falta credencial Efí</span>
     </div>
     <p style="color:var(--muted);font-size:13px;line-height:1.6;max-width:640px">
       Cliente testa 7 dias sem cartão. Ao final do trial, cadastra o cartão e a cobrança
-      passa a ser automática todo mês, sem precisar registrar pagamento aqui manualmente.
-      Isso entra assim que o CNPJ do Grupo Caruzzo sair e a conta no Efí for aberta
-      (a API só libera credencial depois da conta existir).
+      passa a ser automática todo mês: o Efí cobra sozinho, avisa a gente (webhook),
+      o sistema marca "pago" e libera o acesso sozinho — sem precisar registrar
+      pagamento aqui na mão. As três peças (criar assinatura, cancelar de verdade
+      no Efí, e reagir ao aviso de pagamento) já estão escritas e no ar; só faltam
+      as credenciais reais (Client_Id/Client_Secret) e os planos criados lá no Efí
+      pra ligar de vez.
     </p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
       <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-ativo" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Trial de 7 dias controlado pela própria Nuvix (sem Efí)</span>
-      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-trial" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Cadastro de cartão e cobrança recorrente — depende da conta Efí</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span class="badge badge-trial" style="width:6px;height:6px;padding:0;border-radius:50%"></span>Cadastro de cartão, cobrança e cancelamento — código pronto, esperando credencial</span>
     </div>
   </div>
 
@@ -1224,6 +1228,12 @@ function toggleSenhaAdmin(){
         <label style="margin:0" for="editEmpCteSimulacao">Modo simulação CT-e (NÃO chama a Focus NFe de verdade. Nunca deixar ligado em cliente real)</label>
       </div>
     </div>
+  </div>
+  <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+    <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">Assinatura recorrente (Efí)</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Cobrança automática no cartão. Cancelar aqui cancela DE VERDADE no Efí (não fica tentando cobrar de novo) — mas não corta o acesso na hora, isso é o campo "Status" acima.</div>
+    <div id="editEmpEfiStatus" style="font-size:13px;color:var(--muted)">—</div>
+    <div id="editEmpEfiMsg" class="msg" style="margin-top:8px"></div>
   </div>
   <div id="editEmpMsg" class="msg"></div>
   <div class="modal-actions">
@@ -2221,7 +2231,40 @@ function editarEmpresa(id){
   $('editEmpNfceSimulacao').checked=!!e.nfce_simulacao;
   $('editEmpCteAtivo').checked=!!e.cte_ativo;
   $('editEmpCteSimulacao').checked=!!e.cte_simulacao;
+  renderEfiStatusEmpresa(e);
   abrirModal('modalEditEmp');
+}
+
+function renderEfiStatusEmpresa(e){
+  if(!e.efi_subscription_id){
+    setHTML('editEmpEfiStatus','Sem assinatura recorrente ativa no Efí ainda.');
+    return;
+  }
+  const cor=e.efi_status==='active'?'var(--green)':e.efi_status==='canceled'?'var(--muted)':'var(--amber)';
+  setHTML('editEmpEfiStatus',`
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Assinatura <b>#${esc(e.efi_subscription_id)}</b> — status: <b style="color:${cor}">${esc(e.efi_status||'—')}</b></span>
+      ${e.efi_status!=='canceled'?`<button class="danger" style="font-size:11px;padding:5px 9px" onclick="cancelarAssinaturaEfi('${e.id}')">Cancelar no Efí</button>`:''}
+    </div>`);
+}
+
+async function cancelarAssinaturaEfi(empresaId){
+  if(!await confirmarAcao('Cancelar a assinatura recorrente desta empresa NO EFÍ? O cartão para de ser cobrado a partir de agora — o acesso ao sistema continua até você mudar o Status manualmente.'))return;
+  const token=tokenAtual();
+  if(!token){msgEl('editEmpEfiMsg','Sessão inválida, saia e entre de novo.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/efi-cancelar-assinatura`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({empresa_id:empresaId}),
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao cancelar.');
+    msgEl('editEmpEfiMsg',data?.aviso||'Cancelado no Efí.','ok');
+    await carregarTudo();
+    const atualizada=empresas.find(x=>x.id===empresaId);
+    if(atualizada)renderEfiStatusEmpresa(atualizada);
+  }catch(e){msgEl('editEmpEfiMsg','Erro: '+e.message,'err');}
 }
 
 async function salvarEdicaoEmpresa(){
