@@ -339,6 +339,26 @@ tr:hover td { background: #FAF9FE; }
 .nx-upsell-cta { background: var(--p); color: #fff; border: none; border-radius: 99px; height: 48px; padding: 0 30px; font-size: 14.5px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 10px 26px rgba(99,67,164,.32); transition: transform .15s, box-shadow .15s; width: 100%; }
 .nx-upsell-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 32px rgba(99,67,164,.4); }
 
+/* ── Inteligência Nuvix bloqueada (embutida, não-modal) — mesma casca do .ia-master-card ── */
+.ia-locked { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 10px 8px 4px; }
+.ia-locked-icon { width: 60px; height: 60px; border-radius: 18px; background: linear-gradient(135deg, var(--p), #8B5CF6); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; box-shadow: 0 12px 30px rgba(99,67,164,.28); }
+.ia-locked-icon svg { width: 26px; height: 26px; color: #fff; }
+.ia-locked-eyebrow { display: inline-flex; align-items: center; gap: 6px; background: var(--amber-bg); color: var(--amber); border: 1px solid #F3D9A8; border-radius: 99px; padding: 5px 14px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 14px; }
+.ia-locked-title { font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 8px; text-wrap: balance; }
+.ia-locked-desc { font-size: 13.5px; line-height: 1.6; color: var(--muted); max-width: 400px; margin: 0 0 24px; }
+.ia-locked-preview { width: 100%; border: 1px dashed var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 24px; background: var(--bg); text-align: left; position: relative; overflow: hidden; }
+.ia-locked-preview::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(2.5px); background: linear-gradient(180deg, rgba(252,248,251,0) 0%, rgba(252,248,251,.55) 65%, rgba(252,248,251,.92) 100%); }
+.ia-locked-preview .ia-row { padding: 10px 0; }
+.ia-locked-preview .ia-row-titulo { font-size: 13px; margin-bottom: 6px; }
+.ia-locked-preview .ia-block-txt { font-size: 12px; }
+.ia-locked-feats { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 400px; margin-bottom: 24px; text-align: left; }
+.ia-locked-feat { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--txt); font-weight: 500; }
+.ia-locked-feat svg { width: 16px; height: 16px; color: var(--green); flex-shrink: 0; }
+.ia-locked-cta { background: var(--p); color: #fff; border: none; border-radius: 99px; height: 46px; padding: 0 30px; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 10px 26px rgba(99,67,164,.28); transition: transform .15s, box-shadow .15s; }
+.ia-locked-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 32px rgba(99,67,164,.36); }
+.ia-locked-note { font-size: 11.5px; color: var(--muted2); margin-top: 12px; }
+.estado-geral.bloqueado { background: var(--p-light); color: var(--p2); }
+
 .sb-alert-dot { position: absolute; top: 6px; left: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid #fff; cursor: pointer; z-index: 2; }
 .sb-alert-dot:hover { transform: scale(1.2); }
 .sb-badge-count { position: absolute; top: 4px; left: 22px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--red); color: #fff; font-size: 9px; font-weight: 800; line-height: 15px; text-align: center; border: 2px solid #fff; z-index: 2; pointer-events: none; }

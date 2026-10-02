@@ -1504,7 +1504,50 @@ function renderChecklistOnboarding(){
       ${it.done?'':`<a class="ia-checklist-link" href="${it.href}">Ir →</a>`}
     </div>`).join('')}</div>`;
 }
+// Mesma regra de fail-open de js/nuvix-sidebar.js (podeVerModuloEmpresa), reescrita aqui porque
+// esse arquivo carrega e chama init() ANTES de nuvix-sidebar.js ser incluído no fim da página —
+// não dá pra depender da função de lá a tempo do primeiro render. session.empresa.modulos_liberados
+// já vem pronto do login (index.html), então não precisa de nenhuma busca nova.
+function podeVerIA(){
+  const modulos = session.empresa?.modulos_liberados || [];
+  const m = modulos.find(x=>x.modulo==='ia');
+  return m ? !!m.liberado : true;
+}
+const PRECO_PLANO_IA = { Start: '97,90', Pro: '147,90', Plus: '190,00' };
+function renderInteligenciaNuvixBloqueada(){
+  const planoAtual = session.empresa?.plano || 'Start';
+  setHTML('estadoGeralWrap', `<div class="estado-geral bloqueado"><span class="estado-geral-dot"></span>Inteligência Nuvix disponível no plano Plus</div>`);
+  const previewInsight = `
+    <div class="ia-row">
+      <span class="ia-dot prioridade"></span>
+      <div class="ia-row-body">
+        <div class="ia-row-hd"><span class="ia-badge">Fluxo de caixa · Prioridade</span></div>
+        <div class="ia-row-titulo">Saldo projetado fica negativo em poucos dias</div>
+        <div class="ia-block"><span class="ia-block-lbl">O que está acontecendo</span><span class="ia-block-txt">Considerando contas a pagar já lançadas e o ritmo de recebimento recente, o caixa tende a ficar negativo em breve.</span></div>
+      </div>
+    </div>`;
+  setHTML('inteligenciaNuvix', `
+    <div class="ia-master-card">
+      <div class="ia-locked">
+        <div class="ia-locked-icon">${icoSVG('<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}</div>
+        <span class="ia-locked-eyebrow">Recurso do plano Plus</span>
+        <h3 class="ia-locked-title">Inteligência Nuvix lê seu negócio todo dia por você</h3>
+        <p class="ia-locked-desc">Ela cruza caixa, vendas, estoque e contas automaticamente e te avisa antes do problema acontecer, sem você precisar abrir relatório nenhum.</p>
+        <div class="ia-locked-preview">${previewInsight}</div>
+        <div class="ia-locked-feats">
+          <div class="ia-locked-feat">${icoSVG('<polyline points="20 6 9 17 4 12"/>').replace('stroke-width="2"','stroke-width="2.5"')} Alerta de caixa negativo antes de acontecer</div>
+          <div class="ia-locked-feat">${icoSVG('<polyline points="20 6 9 17 4 12"/>').replace('stroke-width="2"','stroke-width="2.5"')} Leitura automática de vendas, estoque e financeiro</div>
+          <div class="ia-locked-feat">${icoSVG('<polyline points="20 6 9 17 4 12"/>').replace('stroke-width="2"','stroke-width="2.5"')} Prioriza o que precisa da sua atenção hoje</div>
+        </div>
+        <button type="button" class="ia-locked-cta" onclick="window.location.href='app.html?assinatura=Plus'">Mudar para o Plus por R$ ${PRECO_PLANO_IA.Plus}/mês</button>
+        <div class="ia-locked-note">Seu plano atual é o ${esc(planoAtual)}, por R$ ${PRECO_PLANO_IA[planoAtual]||PRECO_PLANO_IA.Start}/mês</div>
+      </div>
+    </div>`);
+  setHTML('heroInsight', '');
+  ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{ const el=$('tabAlert-'+area); if(el) el.style.display='none'; });
+}
 function renderInteligenciaNuvix(){
+  if(!podeVerIA()){ renderInteligenciaNuvixBloqueada(); return; }
   const totalConfirmados = contarLancamentosConfirmados();
   if(totalConfirmados < MIN_LANCAMENTOS_DIAGNOSTICO){
     setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><span class="estado-geral-dot"></span>Ainda reunindo dados — ${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div>`);
