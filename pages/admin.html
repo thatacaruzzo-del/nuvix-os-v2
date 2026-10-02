@@ -947,6 +947,7 @@ function toggleSenhaAdmin(){
   <div class="card">
     <h2 style="margin:0 0 4px">Notas fiscais emitidas pra clientes</h2>
     <p style="color:var(--muted);font-size:12px;margin-bottom:14px">NFS-e da própria Nuvix, emitida automaticamente sempre que um cliente paga a assinatura (cartão via Efí ou boleto registrado acima). Precisa do fiscal da Nuvix configurado (CNPJ, Inscrição Municipal e token da Focus NFe) pra sair de verdade.</p>
+    <div id="notasAssinaturaMsg" class="msg"></div>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Status</th><th>Emitida em</th><th>Ações</th></tr></thead>
@@ -2813,15 +2814,77 @@ async function carregarNotasAssinatura(){
 function renderNotasAssinatura(){
   const cor={nao_emitida:'off',processando:'warn',autorizada:'ok',erro:'bad',cancelada:'off'};
   const label={nao_emitida:'Não emitida',processando:'Processando',autorizada:'Autorizada',erro:'Com erro',cancelada:'Cancelada'};
-  setHTML('tabelaNotasAssinatura',notasAssinatura.map(n=>`
+  setHTML('tabelaNotasAssinatura',notasAssinatura.map(n=>{
+    const acoes=[];
+    if(n.status==='nao_emitida'||n.status==='erro')acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="emitirNotaAssinatura('${n.id}')">Emitir</button>`);
+    if(n.status==='processando')acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="consultarNotaAssinatura('${n.id}')">Consultar</button>`);
+    if(n.status==='autorizada'){
+      if(n.link_pdf)acoes.push(`<a href="${esc(n.link_pdf)}" target="_blank" class="btn2" style="font-size:11px;padding:5px 10px;text-decoration:none;display:inline-block">Ver</a>`);
+      if(n.link_xml)acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="baixarXmlNotaAssinatura('${n.id}')">XML</button>`);
+      acoes.push(`<button class="danger" style="font-size:11px;padding:5px 10px" onclick="cancelarNotaAssinatura('${n.id}')">Cancelar</button>`);
+    }
+    return `
     <tr>
-      <td>${esc(n.cliente_nome||'—')}</td>
+      <td>${esc(n.cliente_nome||'—')}
+        ${n.status==='erro'&&n.mensagem_erro?`<div style="font-size:11px;color:var(--red);margin-top:2px">${esc(n.mensagem_erro)}</div>`:''}
+      </td>
       <td style="font-size:12px">${esc(n.descricao_servico||'—')}</td>
       <td style="font-weight:700">${money(n.valor)}</td>
       <td><span class="badge ${cor[n.status]||'off'}">${esc(label[n.status]||n.status)}</span></td>
       <td style="font-size:12px">${n.data_emissao?fmtData(n.data_emissao):'—'}</td>
-      <td>${n.link_pdf?`<a href="${esc(n.link_pdf)}" target="_blank" class="btn2" style="font-size:11px;padding:5px 10px;text-decoration:none;display:inline-block">Ver</a>`:(n.mensagem_erro?`<span style="font-size:11px;color:var(--red)" title="${esc(n.mensagem_erro)}">Ver erro</span>`:'—')}</td>
-    </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota emitida ainda.</td></tr>');
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${acoes.join('')||'—'}</div></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota emitida ainda.</td></tr>');
+}
+async function emitirNotaAssinatura(notaId){
+  msgEl('notasAssinaturaMsg','','');
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:notaId})});
+    const resp=await r.json().catch(()=>null);
+    if(!r.ok||!resp?.ok){
+      const detalhe=resp?.erro==='fiscal_nao_configurado'?'Fiscal da Nuvix ainda não configurado (CNPJ/Inscrição Municipal/token Focus).':(resp?.erro?.mensagem||resp?.erro?.erros?.[0]?.mensagem||(typeof resp?.erro==='string'?resp.erro:null)||'Não foi possível emitir a nota agora.');
+      msgEl('notasAssinaturaMsg',detalhe,'err');
+    }else{
+      msgEl('notasAssinaturaMsg','Nota enviada pra processamento.','ok');
+    }
+  }catch(e){msgEl('notasAssinaturaMsg','Erro: '+e.message,'err');}
+  await carregarNotasAssinatura();
+}
+async function consultarNotaAssinatura(notaId){
+  msgEl('notasAssinaturaMsg','','');
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_id:notaId})});
+    if(!r.ok)throw new Error('Falha ao consultar.');
+    msgEl('notasAssinaturaMsg','Status atualizado.','ok');
+  }catch(e){msgEl('notasAssinaturaMsg','Erro: '+e.message,'err');}
+  await carregarNotasAssinatura();
+}
+async function cancelarNotaAssinatura(notaId){
+  const justificativa=prompt('Motivo do cancelamento (mínimo 15 caracteres):');
+  if(justificativa===null)return;
+  if(!justificativa||justificativa.trim().length<15){toast('Justificativa precisa ter pelo menos 15 caracteres.','err');return;}
+  msgEl('notasAssinaturaMsg','','');
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_id:notaId,justificativa:justificativa.trim()})});
+    const resp=await r.json().catch(()=>null);
+    if(!r.ok||!resp?.ok)msgEl('notasAssinaturaMsg','Não foi possível cancelar: '+(resp?.erro||'erro desconhecido'),'err');
+    else msgEl('notasAssinaturaMsg','Nota cancelada.','ok');
+  }catch(e){msgEl('notasAssinaturaMsg','Erro: '+e.message,'err');}
+  await carregarNotasAssinatura();
+}
+async function baixarXmlNotaAssinatura(notaId){
+  const n=notasAssinatura.find(x=>x.id===notaId);
+  if(!n?.link_xml)return;
+  try{
+    const r=await fetch(n.link_xml);
+    if(!r.ok)throw new Error('http '+r.status);
+    const blob=await r.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`NFSe-${n.numero_nfse||n.id.slice(0,8)}.xml`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(e){toast('Não foi possível baixar o XML agora.','err');}
 }
 
 // Mesmos preços de tabela vendidos em nuvixhub-site (seção Planos) — usado só
