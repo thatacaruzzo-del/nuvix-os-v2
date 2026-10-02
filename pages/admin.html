@@ -955,7 +955,7 @@ function toggleSenhaAdmin(){
 <div class="content">
   <div class="card" style="margin-bottom:16px">
     <h2 style="margin:0 0 4px">Notas fiscais (NFS-e da Nuvix)</h2>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Nota fiscal de serviço emitida pela própria Nuvix pra cada cliente, automática sempre que uma assinatura é paga (cartão via Efí ou boleto registrado em Assinaturas). Precisa do fiscal da Nuvix configurado — CNPJ, Inscrição Municipal e token da Focus NFe.</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Nota fiscal de serviço emitida pela própria Nuvix pra cada cliente. Duas lógicas separadas: pagamento automático via cartão (Efí) emite a nota sozinho assim que confirma; boleto manual (Nubank) é você quem emite aqui, junto com o boleto, antes do cliente pagar — "Registrar pagamento"/"Dar entrada" depois só controlam o MRR, não emitem nota de novo. Precisa do fiscal da Nuvix configurado — CNPJ, Inscrição Municipal e token da Focus NFe.</p>
   </div>
 
   <div id="kpisNotasFiscais" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px"></div>
@@ -1021,7 +1021,7 @@ function toggleSenhaAdmin(){
 
   <div class="card" style="margin-bottom:16px">
     <h2>Dar entrada em pagamento de cliente</h2>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Pra boleto emitido manualmente (ex: Nubank) ou qualquer pagamento recebido fora do cartão automático. Registra como receita E dispara a emissão da NF pro cliente, mesmo fluxo de "Registrar pagamento" em Assinaturas — só que aqui, pensando como entrada financeira.</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Pra boleto emitido manualmente (ex: Nubank) ou qualquer pagamento recebido fora do cartão automático — a nota desse cliente já deveria ter sido emitida ANTES, junto com o boleto, em Notas Fiscais → "Emitir nota fiscal". Isso aqui só registra que o pagamento chegou, pra entrar no MRR e no Financeiro — não emite nota de novo.</p>
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="field"><label>Empresa (cliente)</label><select id="finRecEmpresa"></select></div>
       <div class="field"><label>Plano</label>
@@ -1031,7 +1031,7 @@ function toggleSenhaAdmin(){
       <div class="field"><label>Data do pagamento</label><input type="date" id="finRecData"></div>
       <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="finRecObs" placeholder="Ex: boleto pago via Nubank"></div>
     </div>
-    <div class="actions"><button class="btn" onclick="salvarReceitaCliente()">Registrar e emitir NF</button></div>
+    <div class="actions"><button class="btn" onclick="salvarReceitaCliente()">Registrar pagamento</button></div>
     <div id="finRecMsg" class="msg"></div>
   </div>
 
@@ -2842,14 +2842,14 @@ async function salvarAssinatura(){
     const [nova]=await dbPost('assinaturas',{empresa_id:empId,plano:val('assPlano'),valor,vencimento:val('assVenc')||null,status,observacao:val('assObs').trim(),data_pagamento:status==='pago'?hoje():null});
     // Atualizar plano da empresa
     await dbPatch('empresas',empId,{plano:val('assPlano')});
-    // Nota fiscal da Nuvix pro cliente — só faz sentido pra pagamento já
-    // confirmado (boleto registrado como pago), e nunca trava o registro
-    // acima: se a emissão falhar, a assinatura já está salva de qualquer
-    // jeito (mesmo padrão "fire and forget" do efi-webhook).
-    if(status==='pago'&&nova?.id){
-      fetch(`${SB_URL}/functions/v1/emitir-nfse-assinatura`,{method:'POST',headers:H,body:JSON.stringify({assinatura_id:nova.id})})
-        .catch(e=>console.error('Falha ao acionar emitir-nfse-assinatura (assinatura já registrada, segue normalmente):',e));
-    }
+    // NÃO dispara emitir-nfse-assinatura aqui de propósito — duas lógicas
+    // separadas: pagamento automático via Efí (efi-webhook) é quem emite
+    // nota sozinho, porque ali a cobrança e o pagamento são o mesmo evento.
+    // Registro manual (boleto) segue outra ordem: a nota já foi emitida
+    // JUNTO com o boleto, no card "Emitir nota fiscal" em Notas Fiscais,
+    // antes do cliente pagar — isso aqui é só o controle de "pagou", pra
+    // MRR/Financeiro. Dar entrada de novo NUNCA deveria gerar uma segunda
+    // nota pra mesma cobrança.
     msgEl('assMsg','Assinatura registrada!','ok');
     ['assValor','assVenc','assObs'].forEach(id=>{if($(id))$(id).value=''});
     await carregarTudo();
@@ -2858,26 +2858,29 @@ async function salvarAssinatura(){
 
 function filtrarAssinaturas(){renderAssinaturas();}
 
-// Mesma ação de salvarAssinatura (grava em `assinaturas`, status pago,
-// dispara emitir-nfse-assinatura), só que pensada como ENTRADA FINANCEIRA
-// em vez de "cadastro de assinatura" — pro caso real de boleto emitido
-// manualmente fora do sistema (Nubank, por enquanto) e registrado aqui
-// quando o cliente paga. Formulário separado (ids próprios), mas cai na
-// mesma tabela/fluxo — MRR, Financeiro e NF continuam vendo tudo igual,
-// não importa por qual tela a entrada foi feita.
+// Mesma ação de salvarAssinatura (grava em `assinaturas`, status pago),
+// só que pensada como ENTRADA FINANCEIRA em vez de "cadastro de
+// assinatura" — pro caso real de boleto emitido manualmente fora do
+// sistema (Nubank, por enquanto). Formulário separado (ids próprios), mas
+// cai na mesma tabela — MRR e Financeiro continuam vendo tudo igual, não
+// importa por qual tela a entrada foi feita.
+//
+// NÃO dispara emitir-nfse-assinatura (duas lógicas separadas, ver
+// comentário equivalente em salvarAssinatura): no caminho de boleto
+// manual, a nota já foi emitida ANTES, junto com o boleto, pelo card
+// "Emitir nota fiscal" em Notas Fiscais — isso aqui é só confirmar que o
+// cliente pagou, pra entrar no MRR. Só o pagamento automático via Efí
+// (efi-webhook) dispara nota sozinho, porque ali cobrança e pagamento são
+// o mesmo evento, sem essa etapa manual anterior.
 async function salvarReceitaCliente(){
   const empId=val('finRecEmpresa');
   if(!empId){msgEl('finRecMsg','Selecione a empresa.','err');return;}
   const valor=num('finRecValor');
   const dataPagamento=val('finRecData')||hoje();
   try{
-    const [nova]=await dbPost('assinaturas',{empresa_id:empId,plano:val('finRecPlano'),valor,vencimento:dataPagamento,status:'pago',data_pagamento:dataPagamento,observacao:val('finRecObs').trim(),origem:'manual'});
+    await dbPost('assinaturas',{empresa_id:empId,plano:val('finRecPlano'),valor,vencimento:dataPagamento,status:'pago',data_pagamento:dataPagamento,observacao:val('finRecObs').trim(),origem:'manual'});
     await dbPatch('empresas',empId,{plano:val('finRecPlano')});
-    if(nova?.id){
-      fetch(`${SB_URL}/functions/v1/emitir-nfse-assinatura`,{method:'POST',headers:H,body:JSON.stringify({assinatura_id:nova.id})})
-        .catch(e=>console.error('Falha ao acionar emitir-nfse-assinatura (pagamento já registrado, segue normalmente):',e));
-    }
-    msgEl('finRecMsg','Pagamento registrado e nota fiscal enviada pra emissão!','ok');
+    msgEl('finRecMsg','Pagamento registrado!','ok');
     ['finRecValor','finRecData','finRecObs'].forEach(id=>{if($(id))$(id).value=''});
     await carregarTudo();
   }catch(e){msgEl('finRecMsg','Erro: '+e.message,'err');}
