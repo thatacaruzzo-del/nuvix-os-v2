@@ -448,11 +448,99 @@ async function processarPedidoML(empresa: any, cred: any, accessToken: string, o
   }
   const vendaId = resultado.venda_id;
 
-  if (empresa.nfce_ativo) {
+  // NF-e tentada ANTES da NFC-e quando a empresa tem nfe_ativo: venda de
+  // marketplace é sempre não presencial, então NF-e é o documento fiscalmente
+  // mais correto quando o comprador pediu nota com CPF/CNPJ. Se o comprador
+  // NÃO pediu (não existe billing_info — opcional pro comprador no ML),
+  // emitirNfeMLSeAtivo devolve false e cai pro fallback de NFC-e de sempre,
+  // sem nenhuma mudança pra empresa que não tem nfe_ativo (ex: Yup hoje).
+  if (empresa.nfe_ativo) {
+    const nfeOk = await emitirNfeMLSeAtivo(empresa, vendaId, itensDetalhados, total, dataVenda, mlOrderId, accessToken);
+    if (!nfeOk && empresa.nfce_ativo) {
+      await emitirNfceMLSeAtivo(empresa, vendaId, itensDetalhados, total, clienteNome, dataVenda, mlOrderId);
+    }
+  } else if (empresa.nfce_ativo) {
     await emitirNfceMLSeAtivo(empresa, vendaId, itensDetalhados, total, clienteNome, dataVenda, mlOrderId);
   }
 
   return { venda_id: vendaId };
+}
+
+// NF-e modelo 55 automática pro pedido de Mercado Livre — ver aviso acima de
+// onde é chamada pra saber a regra de quando tenta. O comprador que pediu
+// nota no ML preenche documento + endereço lá mesmo (billing_info); por isso,
+// diferente de emitirNfeSeAtivo em pages/caixa.html, aqui NÃO existe cliente
+// cadastrado na tabela clientes pra consultar — os dados vêm direto da API
+// do ML pra essa nota específica (mesmo espírito de cliente_id null que a
+// NFC-e de marketplace já usa hoje).
+//
+// ATENÇÃO — nomes de campo do endereço (street_name/street_number/zip_code/
+// neighborhood/city/state) NÃO confirmados contra uma resposta real de
+// billing_info — baseados no padrão que o Mercado Livre já usa em outros
+// endpoints deles (receiver_address de shipments). Testar com um pedido real
+// de comprador que pediu nota, em homologação, antes de confiar em produção.
+async function emitirNfeMLSeAtivo(empresa: any, vendaId: string, itensDetalhados: any[], total: number, dataVenda: string, mlOrderId: string, accessToken: string): Promise<boolean> {
+  try {
+    const billingResp = await fetch(`https://api.mercadolibre.com/orders/${mlOrderId}/billing_info`, {
+      headers: { Authorization: `Bearer ${accessToken}`, "x-version": "2" },
+    });
+    if (!billingResp.ok) return false; // comprador não pediu nota, ou endpoint indisponível — cai pra NFC-e
+    const billing = await billingResp.json();
+    const info = billing?.billing_info || billing;
+    const doc = info?.doc_number;
+    if (!doc) return false;
+
+    const nome = [info?.name, info?.last_name].filter(Boolean).join(" ").trim() || info?.business_name || "Comprador Mercado Livre";
+    const endereco = info?.address || {};
+
+    const itensPayload = itensDetalhados.map((i) => ({
+      produto_id: i.produto_id, descricao: i.produto_nome, ncm: i.ncm || null,
+      cfop: i.cfop_padrao || null, quantidade: i.quantidade, valor_unitario: i.valor_unitario,
+      valor_total: arred2(i.quantidade * i.valor_unitario),
+      csosn_cst: i.csosn_cst || null, cclasstrib: i.cclasstrib || null, cst_ibs_cbs: i.cst_ibs_cbs || null,
+      unidade_medida: i.unidade_medida || "UN",
+      aliquota_icms: i.aliquota_icms ?? null, aliquota_pis: i.aliquota_pis ?? null, aliquota_cofins: i.aliquota_cofins ?? null,
+    }));
+
+    const [nota] = await sbPost("notas_fiscais_nfe", {
+      empresa_id: empresa.id, venda_id: vendaId,
+      cliente_documento: String(doc).replace(/\D/g, ""), cliente_nome: nome,
+      cliente_endereco_logradouro: endereco.street_name || null,
+      cliente_endereco_numero: endereco.street_number ? String(endereco.street_number) : null,
+      cliente_endereco_bairro: endereco.neighborhood?.name || endereco.neighborhood || null,
+      cliente_endereco_cep: endereco.zip_code || null,
+      cliente_endereco_municipio: endereco.city?.name || endereco.city || null,
+      cliente_endereco_uf: endereco.state?.id ? String(endereco.state.id).replace("BR-", "") : (endereco.state?.name || null),
+      valor_total: total, desconto_total: 0, data_venda: dataVenda,
+    });
+    await sbPost("notas_fiscais_nfe_itens", itensPayload.map((i) => ({ ...i, empresa_id: empresa.id, nota_fiscal_nfe_id: nota.id })));
+
+    // Sem rua + CEP não dá pra emitir NF-e de verdade (mesma regra de
+    // emitir-nfe) — a nota fica criada como erro, visível em Notas Fiscais
+    // pra alguém completar/corrigir, em vez de se perder silenciosamente.
+    if (!endereco.street_name || !endereco.zip_code) {
+      await sbPatch(`notas_fiscais_nfe?id=eq.${nota.id}`, {
+        status: "erro",
+        mensagem_erro: "Mercado Livre não devolveu endereço completo do comprador pra essa nota — complete manualmente ou emita como NFC-e.",
+      });
+      return false;
+    }
+
+    if (empresa.nfe_simulacao) {
+      await sbPatch(`notas_fiscais_nfe?id=eq.${nota.id}`, { status: "autorizada", numero: "SIMULADO", data_emissao: new Date().toISOString() });
+      return true;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/emitir-nfe`, {
+      method: "POST", headers: sbHeaders,
+      body: JSON.stringify({ acao: "emitir", nota_fiscal_nfe_id: nota.id }),
+    });
+    const resp = await r.json().catch(() => null);
+    return !!(resp?.ok && resp?.nota?.status === "autorizada");
+  } catch (e) {
+    console.error(`Falha ao emitir NF-e automática do pedido ML ${mlOrderId}:`, e);
+    return false;
+  }
 }
 
 // "Tentar novamente" (tela de Pedidos com erro, em Integrações): reprocessa UM

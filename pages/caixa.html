@@ -1228,8 +1228,26 @@ async function finalizarVenda(){
       // nunca dispara sozinha. O operador decide na hora, venda por venda; a venda em
       // si já está registrada e segura de qualquer forma, escolher "Não emitir" aqui
       // só significa que sai o cupom não-fiscal em vez do fiscal.
-      let nfceOk=false;
-      if(empresaFiscal.nfce_ativo){
+      let notaFiscalOk=false;
+      if(empresaFiscal.nfce_ativo&&empresaFiscal.nfe_ativo){
+        // Dois tipos de nota disponíveis pra essa empresa — pergunta qual emitir em
+        // vez do sim/não binário de quando só a NFC-e está ativa. NF-e exige cliente
+        // com cadastro completo; isso é checado dentro de emitirNfeSeAtivo, não aqui.
+        const escolha=await escolherAcao('Emitir nota fiscal desta venda?',{
+          botoes:[
+            {label:'Emitir NFC-e (balcão)',valor:'nfce',variante:'neutro'},
+            {label:'Emitir NF-e (venda não presencial/atacado)',valor:'nfe',variante:'neutro'},
+            {label:'Não emitir',valor:'nenhuma',variante:'aviso'},
+          ],
+        });
+        if(escolha==='nfce'){
+          const janelaDanfce=window.open('','_blank');
+          notaFiscalOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce);
+        } else if(escolha==='nfe'){
+          const janelaDanfce=window.open('','_blank');
+          notaFiscalOk=await emitirNfeSeAtivo(vendaId,carrinho,clienteId,total,desconto,dataRef,janelaDanfce);
+        }
+      } else if(empresaFiscal.nfce_ativo){
         const querEmitir=await confirmarAcao('Emitir NFC-e desta venda? Se não emitir agora, sai o cupom não-fiscal em vez disso.',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
         if(querEmitir){
           // Abre a aba em branco JÁ AQUI, ainda no gesto de clique da confirmação —
@@ -1237,10 +1255,10 @@ async function finalizarVenda(){
           // só então chamar window.open(), o navegador deixa de reconhecer como ação
           // do usuário e bloqueia o pop-up sem avisar (nota sai emitida, mas nada abre).
           const janelaDanfce=window.open('','_blank');
-          nfceOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce);
+          notaFiscalOk=await emitirNfceSeAtivo(vendaId,carrinho,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce);
         }
       }
-      if(!nfceOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
+      if(!notaFiscalOk) await emitirCupom({itens:[...carrinho], subtotal, desconto, total, pagamentos:[...pagamentos], clienteNome});
     }
     if($('telaHistorico')?.style.display==='block') await carregarHistoricoVendas();
     // No modo retroativo, fica na mesma tela após lançar — só limpa o carrinho pra
@@ -1258,13 +1276,13 @@ async function finalizarVenda(){
 // Só dispara se a empresa tiver nfce_ativo=true (ligado em Admin → editar empresa →
 // Nota Fiscal → NFC-e). Enquanto isso não for ativado pra uma empresa, o Caixa
 // funciona exatamente como sempre funcionou — só o cupom não-fiscal abaixo.
-let empresaFiscal={nfce_ativo:false,nfce_simulacao:false};
+let empresaFiscal={nfce_ativo:false,nfce_simulacao:false,nfe_ativo:false,nfe_simulacao:false};
 async function carregarConfigFiscal(){
   try{
     // razao/cnpj/endereco vêm junto (não só nfce_ativo/nfce_simulacao) porque o
     // cupom fiscal térmico precisa desses dados no cabeçalho — evita um fetch
     // extra na hora de imprimir.
-    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
+    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,nfe_ativo,nfe_simulacao,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
     if(e)empresaFiscal=e;
   }catch(e){ /* segue com nfce_ativo=false — Caixa nunca trava por causa disso */ }
 }
@@ -1338,6 +1356,83 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
   }catch(e){
     janelaDanfce?.close();
     toast('Venda registrada, mas houve um erro ao emitir a NFC-e — corrija em Notas Fiscais.','err');
+    return false;
+  }
+}
+
+// ══ NF-e modelo 55 ══
+// Diferente da NFC-e: exige um cliente cadastrado com documento e endereço
+// completos (destinatário completo é obrigatório no layout da NF-e, a NFC-e
+// aceita consumidor final sem endereço). Só aparece como opção quando a
+// empresa tem nfce_ativo E nfe_ativo os dois ligados — ver escolha logo
+// abaixo de finalizarVenda(). Mesmo invariante das outras emissões: falha
+// nunca invalida a venda, que já foi gravada antes disso.
+async function emitirNfeSeAtivo(vendaId,itensCarrinho,clienteId,total,desconto,dataRef,janelaDanfce){
+  if(!empresaFiscal.nfe_ativo){ janelaDanfce?.close(); return false; }
+  if(!clienteId){
+    toast('NF-e exige um cliente cadastrado com documento e endereço completos — selecione um cliente antes de emitir.','err');
+    janelaDanfce?.close();
+    return false;
+  }
+  try{
+    const [cliente]=await dbGet('clientes',`?id=eq.${clienteId}&select=*`);
+    if(!cliente?.documento||!cliente?.endereco_logradouro||!cliente?.endereco_uf||!cliente?.endereco_cep){
+      toast('Cliente sem cadastro completo (documento + endereço) pra emitir NF-e — complete em Clientes.','err');
+      janelaDanfce?.close();
+      return false;
+    }
+    // Mesma expansão de kit que a NFC-e já faz (ver comentário lá) — kit não
+    // tem NCM/tributação própria, sai como os produtos reais que o compõem.
+    const itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
+      const linhas=i.kit_id?i.componentes.map(c=>({produto_id:c.produto_id,nome:c.nome,quantidade:c.quantidade_unit*i.quantidade,valor_unitario:c.valor_unitario_rateado})):[i];
+      return linhas.map(l=>{
+        const p=dados.produtos.find(x=>x.id===l.produto_id)||{};
+        return {
+          produto_id:l.produto_id, descricao:l.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||null,
+          quantidade:l.quantidade, valor_unitario:l.valor_unitario, valor_total:arred2(l.quantidade*l.valor_unitario),
+          csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
+          unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
+          aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
+        };
+      });
+    });
+    if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    const nota=await dbPost('notas_fiscais_nfe',withEmpresa({
+      venda_id:vendaId, cliente_id:clienteId, cliente_documento:cliente.documento, cliente_nome:cliente.nome,
+      cliente_ie:cliente.inscricao_estadual||null,
+      cliente_endereco_logradouro:cliente.endereco_logradouro, cliente_endereco_numero:cliente.endereco_numero,
+      cliente_endereco_complemento:cliente.endereco_complemento, cliente_endereco_bairro:cliente.endereco_bairro,
+      cliente_endereco_cep:cliente.endereco_cep, cliente_endereco_municipio:cliente.cidade,
+      cliente_endereco_uf:cliente.endereco_uf,
+      valor_total:total, desconto_total:desconto||0, data_venda:dataRef,
+    }));
+    const notaRow=Array.isArray(nota)?nota[0]:nota;
+    await dbPost('notas_fiscais_nfe_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfe_id:notaRow.id})));
+
+    if(empresaFiscal.nfe_simulacao){
+      await dbPatch('notas_fiscais_nfe',notaRow.id,{status:'autorizada',numero:'SIMULADO',data_emissao:new Date().toISOString()});
+      toast('NF-e emitida (simulação).','ok');
+      janelaDanfce?.close();
+      return true;
+    }
+
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfe`,{
+      method:'POST', headers:H,
+      body:JSON.stringify({acao:'emitir',nota_fiscal_nfe_id:notaRow.id}),
+    });
+    const resp=await r.json();
+    if(resp.ok&&resp.nota?.status==='autorizada'){
+      toast('NF-e emitida com sucesso.','ok');
+      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf,janelaDanfce);
+      else janelaDanfce?.close();
+      return true;
+    }
+    janelaDanfce?.close();
+    toast('Venda registrada, mas a NF-e não foi autorizada — corrija em Notas Fiscais.','err');
+    return false;
+  }catch(e){
+    janelaDanfce?.close();
+    toast('Venda registrada, mas houve um erro ao emitir a NF-e — corrija em Notas Fiscais.','err');
     return false;
   }
 }
@@ -1796,12 +1891,26 @@ async function confirmarDevolucao(){
   const btn=document.querySelector('#modalDevolucao .btn');
   if(btn){btn.disabled=true;btn.textContent='Confirmando...';}
   try{
-    await dbRpc('registrar_devolucao',{p:{
+    const resultado=await dbRpc('registrar_devolucao',{p:{
       empresa_id:session.empresa_id, venda_id:vendaId, motivo, forma_reembolso:formaReembolso,
       usuario_id:session.id, observacao, itens,
     }});
     toast('Devolução registrada — estoque e financeiro atualizados.','ok');
     fecharModal('modalDevolucao');
+    // Nota fiscal de devolução dispara sozinha depois da devolução ter dado certo,
+    // mesmo padrão de "dispara depois que a operação principal deu certo" já usado
+    // nos webhooks de marketplace. Só tenta se a empresa tiver NF-e ativo — se a
+    // venda original não tiver nota autorizada (MEI, venda sem NF), a função de
+    // emissão mesmo detecta isso e a devolução fica só operacional, sem travar nada
+    // aqui. Falha na emissão nunca desfaz a devolução, que já está gravada.
+    if(empresaFiscal.nfe_ativo&&resultado?.devolucao_id){
+      try{
+        await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
+          method:'POST', headers:H,
+          body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
+        });
+      }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+    }
     await carregarProdutosLoja();
     await carregarHistoricoVendas();
   }catch(e){msg('devMsg','Erro: '+e.message,'err');}

@@ -169,7 +169,9 @@ function json(body: unknown, status = 200) {
 // protege o custo real de cada nota emitida via Focus NFe. limite_mensal NULL
 // = ilimitado (Plus). Plano sem linha na tabela também não trava (fail-open,
 // mesma regra usada em todo o resto do sistema pra dado ainda não configurado).
-// Conta NFS-e + NFC-e juntas: é uma cota por empresa, não por tipo de nota.
+// Conta NFS-e + NFC-e + NFe juntas: é uma cota por empresa, não por tipo de
+// nota. Nota de devolução (emitir-devolucao-nfe) não entra de propósito —
+// ver comentário equivalente em emitir-nfce.
 async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boolean; usado?: number; limite?: number }> {
   const [cota] = await sbGet(`plano_cota_nf?plano=eq.${encodeURIComponent(plano || 'Start')}&select=limite_mensal`);
   const limite = cota?.limite_mensal;
@@ -178,11 +180,12 @@ async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boo
   inicioMes.setUTCDate(1);
   inicioMes.setUTCHours(0, 0, 0, 0);
   const isoInicioMes = inicioMes.toISOString();
-  const [nfse, nfce] = await Promise.all([
+  const [nfse, nfce, nfe] = await Promise.all([
     sbGet(`notas_fiscais?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
     sbGet(`notas_fiscais_nfce?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
+    sbGet(`notas_fiscais_nfe?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
   ]);
-  const usado = (nfse?.length || 0) + (nfce?.length || 0);
+  const usado = (nfse?.length || 0) + (nfce?.length || 0) + (nfe?.length || 0);
   return { ok: usado < limite, usado, limite };
 }
 

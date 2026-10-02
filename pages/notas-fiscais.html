@@ -131,6 +131,8 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
         <div class="nf-tipo-tabs">
           <button class="nf-tipo-tab active" data-tipo="nfse" onclick="trocarTipo('nfse')">NFS-e (serviço)</button>
           <button class="nf-tipo-tab" data-tipo="nfce" onclick="trocarTipo('nfce')">NFC-e (produto/Caixa)</button>
+          <button class="nf-tipo-tab" data-tipo="nfe" onclick="trocarTipo('nfe')">NF-e (venda/atacado)</button>
+          <button class="nf-tipo-tab" data-tipo="devolucao" onclick="trocarTipo('devolucao')">Devolução</button>
           <button class="nf-tipo-tab" data-tipo="entrada" onclick="trocarTipo('entrada')">Notas de Entrada (compra)</button>
         </div>
 
@@ -297,7 +299,21 @@ const TIPO_CFG={
     empresaAtivoCampo:'nfce_ativo', empresaSimulacaoCampo:'nfce_simulacao', temPrazo:false,
     tituloLista:'Notas fiscais (NFC-e)', vazio:'Nenhuma NFC-e ainda. Elas são emitidas automaticamente a partir de uma venda no Caixa, se estiver ativado pra essa empresa.',
   },
+  nfe:{
+    tabela:'notas_fiscais_nfe', idCampo:'nota_fiscal_nfe_id', funcao:'emitir-nfe',
+    campoValor:'valor_total', campoNumero:'numero', campoDescricao:null,
+    empresaAtivoCampo:'nfe_ativo', empresaSimulacaoCampo:'nfe_simulacao', temPrazo:false,
+    tituloLista:'Notas fiscais (NF-e)', vazio:'Nenhuma NF-e ainda. Escolha "Emitir como NF-e" ao fechar uma venda no Caixa, pra cliente com cadastro completo (documento + endereço).',
+  },
+  devolucao:{
+    tabela:'devolucoes', idCampo:'devolucao_id', funcao:'emitir-devolucao-nfe',
+    campoValor:'valor_total', campoNumero:'numero', campoDescricao:null,
+    empresaAtivoCampo:'nfe_ativo', empresaSimulacaoCampo:'nfe_simulacao', temPrazo:false,
+    tituloLista:'Notas de devolução', vazio:'Nenhuma devolução com nota fiscal ainda. Elas nascem de uma devolução de itens no Caixa, quando a venda original tem nota autorizada.',
+  },
 };
+// Prefixo de nome de arquivo no download de XML — só isso muda por tipo nesse ponto.
+const TIPO_LABEL_ARQUIVO={nfse:'NFSe',nfce:'NFCe',nfe:'NFe',devolucao:'Devolucao'};
 function trocarTipo(t){
   if(tipoAtual===t)return;
   tipoAtual=t;
@@ -417,7 +433,7 @@ async function baixarXmlsEmLote(){
         if(!r.ok)throw new Error('http '+r.status);
         const conteudo=await r.blob();
         const numero=n[cfg.campoNumero]||n.id.slice(0,8);
-        zip.file(`${tipoAtual==='nfce'?'NFCe':'NFSe'}-${numero}.xml`, conteudo);
+        zip.file(`${TIPO_LABEL_ARQUIVO[tipoAtual]||'NFSe'}-${numero}.xml`, conteudo);
         baixados++;
       }catch(e){ falharam++; }
     }
@@ -488,6 +504,56 @@ async function verDetalhe(id){
       ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
       ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
     `;
+  } else if(tipoAtual==='nfe'){
+    let itens=[];
+    try{ itens=await db.get('notas_fiscais_nfe_itens',`?select=descricao,quantidade,valor_unitario,valor_total&nota_fiscal_nfe_id=eq.${n.id}`); }catch(e){}
+    const endereco=[n.cliente_endereco_logradouro,n.cliente_endereco_numero,n.cliente_endereco_bairro,n.cliente_endereco_municipio,n.cliente_endereco_uf].filter(Boolean).join(', ');
+    corpo=`
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor total</div>
+          <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor_total)}</div>
+        </div>
+        <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
+      </div>
+      <div class="det-section">Destinatário</div>
+      <div class="det-row"><span class="det-lbl">Nome / Razão social</span><span class="det-val">${esc(n.cliente_nome||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">IE</span><span class="det-val">${esc(n.cliente_ie||'Não contribuinte')}</span></div>
+      <div class="det-row"><span class="det-lbl">Endereço</span><span class="det-val">${esc(endereco||'—')}</span></div>
+      <div class="det-section">Itens</div>
+      ${itens.map(it=>`<div class="det-row"><span class="det-lbl">${esc(it.descricao)} (${it.quantidade}x)</span><span class="det-val">${money(it.valor_total)}</span></div>`).join('')||'<div class="det-row"><span class="det-lbl">—</span><span class="det-val">—</span></div>'}
+      <div class="det-section">Nota</div>
+      <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+      <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+      ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
+      ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
+    `;
+  } else if(tipoAtual==='devolucao'){
+    let itens=[];
+    try{ itens=await db.get('itens_devolvidos',`?select=produto_nome,quantidade_devolvida,valor_unitario&devolucao_id=eq.${n.id}`); }catch(e){}
+    corpo=`
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor devolvido</div>
+          <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor_total)}</div>
+        </div>
+        <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
+      </div>
+      <div class="det-section">Devolução</div>
+      <div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Forma de reembolso</span><span class="det-val">${esc(n.forma_reembolso||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data</span><span class="det-val">${fmtData(n.data_devolucao)}</span></div>
+      <div class="det-section">Itens devolvidos</div>
+      ${itens.map(it=>`<div class="det-row"><span class="det-lbl">${esc(it.produto_nome)} (${it.quantidade_devolvida}x)</span><span class="det-val">${money(it.quantidade_devolvida*it.valor_unitario)}</span></div>`).join('')||'<div class="det-row"><span class="det-lbl">—</span><span class="det-val">—</span></div>'}
+      <div class="det-section">Nota fiscal de devolução</div>
+      ${n.status==='nao_emitida'?'<div class="det-row"><span class="det-lbl">Status</span><span class="det-val">Venda original sem nota autorizada — devolução ficou só operacional, sem nota fiscal.</span></div>':`
+      <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+      <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+      ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}`}
+    `;
   } else {
     corpo=`
       <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
@@ -513,7 +579,9 @@ async function verDetalhe(id){
   }
   setHTML('detConteudo',corpo);
   ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn'].forEach(id=>$(id).style.display='none');
-  if(n.status==='nao_emitida'||n.status==='erro'){$('detEmitirBtn').style.display='block';}
+  // Devolução nunca emite manualmente por aqui — nasce e dispara sozinha a partir
+  // da devolução de itens no Caixa (mesmo padrão de NFC-e nunca nascer desta tela).
+  if((n.status==='nao_emitida'||n.status==='erro')&&tipoAtual!=='devolucao'){$('detEmitirBtn').style.display='block';}
   if(n.status==='processando'){$('detConsultarBtn').style.display='block';}
   if(n.status==='autorizada'){
     $('detVerBtn').style.display='block';
@@ -630,7 +698,7 @@ async function simularEmissaoTeste(nota){
     updated_at:new Date().toISOString(),
   };
   if(tipoAtual==='nfse')patchBody.codigo_verificacao='TESTE-'+Date.now().toString(36).toUpperCase();
-  if(tipoAtual==='nfce')patchBody.serie='1';
+  if(tipoAtual==='nfce'||tipoAtual==='nfe'||tipoAtual==='devolucao')patchBody.serie='1';
   await db.patch(cfg.tabela,nota.id,patchBody);
 }
 
@@ -650,7 +718,18 @@ async function simularErroTeste(nota){
     'SEFAZ temporariamente indisponível — tente novamente mais tarde.',
     'CST/CSOSN incompatível com o regime tributário da empresa.',
   ];
-  const erros=tipoAtual==='nfce'?errosNfce:errosNfse;
+  const errosNfe=[
+    'Dados do destinatário incompletos — complete endereço e documento em Clientes.',
+    'Certificado digital vencido ou não configurado na Focus NFe.',
+    'SEFAZ temporariamente indisponível — tente novamente mais tarde.',
+    'NF-e modelo 55 não habilitada na conta da Focus NFe pra este CNPJ.',
+  ];
+  const errosDevolucao=[
+    'Chave de acesso da nota original não encontrada.',
+    'SEFAZ temporariamente indisponível — tente novamente mais tarde.',
+  ];
+  const errosPorTipo={nfce:errosNfce,nfe:errosNfe,devolucao:errosDevolucao};
+  const erros=errosPorTipo[tipoAtual]||errosNfse;
   await db.patch(cfg.tabela,nota.id,{
     status:'erro',
     mensagem_erro:'[Simulação] '+erros[Math.floor(Math.random()*erros.length)],
@@ -678,7 +757,9 @@ function verImprimir(){
   if(!notaAtual)return;
   if(notaAtual.link_pdf){abrirDanfce(notaAtual.link_pdf);return;}
   const emp=session.empresa||{};
-  const html=tipoAtual==='nfce'?`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NFC-e ${esc(notaAtual.numero||'')}</title>
+  let html;
+  if(tipoAtual==='nfce'){
+    html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NFC-e ${esc(notaAtual.numero||'')}</title>
   <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
@@ -690,7 +771,37 @@ function verImprimir(){
     <tr><td>Número / Série</td><td>${esc(notaAtual.numero||'—')} / ${esc(notaAtual.serie||'—')}</td></tr>
     <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
   </table>
-  </body></html>`:`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
+  </body></html>`;
+  } else if(tipoAtual==='nfe'){
+    html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NF-e ${esc(notaAtual.numero||'')}</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  </head><body>
+  <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
+  <h1>Nota Fiscal Eletrônica modelo 55 (simulada)</h1>
+  <table>
+    <tr><td>Emitente</td><td>${esc(emp.razao||emp.fantasia||'—')} — ${esc(emp.cnpj||'—')}</td></tr>
+    <tr><td>Destinatário</td><td>${esc(notaAtual.cliente_nome||'—')} — ${esc(notaAtual.cliente_documento||'—')}</td></tr>
+    <tr><td>Valor total</td><td>${money(notaAtual.valor_total)}</td></tr>
+    <tr><td>Número / Série</td><td>${esc(notaAtual.numero||'—')} / ${esc(notaAtual.serie||'—')}</td></tr>
+    <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
+  </table>
+  </body></html>`;
+  } else if(tipoAtual==='devolucao'){
+    html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Devolução ${esc(notaAtual.numero||'')}</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  </head><body>
+  <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
+  <h1>Nota Fiscal de Devolução (simulada)</h1>
+  <table>
+    <tr><td>Emitente/Destinatário</td><td>${esc(emp.razao||emp.fantasia||'—')} — ${esc(emp.cnpj||'—')}</td></tr>
+    <tr><td>Motivo</td><td>${esc(notaAtual.motivo||'—')}</td></tr>
+    <tr><td>Valor devolvido</td><td>${money(notaAtual.valor_total)}</td></tr>
+    <tr><td>Número / Série</td><td>${esc(notaAtual.numero||'—')} / ${esc(notaAtual.serie||'—')}</td></tr>
+    <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
+  </table>
+  </body></html>`;
+  } else {
+    html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
   <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
@@ -705,6 +816,7 @@ function verImprimir(){
     <tr><td>Data de emissão</td><td>${fmtDataHora(notaAtual.data_emissao)}</td></tr>
   </table>
   </body></html>`;
+  }
   const blob=new Blob([html],{type:'text/html'});
   window.open(URL.createObjectURL(blob),'_blank');
 }
@@ -724,7 +836,7 @@ async function baixarXml(){
       const numero=notaAtual[cfg.campoNumero]||notaAtual.id.slice(0,8);
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=`${tipoAtual==='nfce'?'NFCe':'NFSe'}-${numero}.xml`;
+      a.download=`${TIPO_LABEL_ARQUIVO[tipoAtual]||'NFSe'}-${numero}.xml`;
       a.click();
       URL.revokeObjectURL(a.href);
     }catch(e){
@@ -732,14 +844,37 @@ async function baixarXml(){
     }
     return;
   }
-  const xml=tipoAtual==='nfce'?`<?xml version="1.0" encoding="UTF-8"?>
+  let xml;
+  if(tipoAtual==='nfce'){
+    xml=`<?xml version="1.0" encoding="UTF-8"?>
 <NFCeSimulada observacao="Documento de teste — sem validade fiscal">
   <numero>${esc(notaAtual.numero||'')}</numero>
   <serie>${esc(notaAtual.serie||'')}</serie>
   <cliente>${esc(notaAtual.cliente_nome||'')}</cliente>
   <valorTotal>${notaAtual.valor_total}</valorTotal>
   <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
-</NFCeSimulada>`:`<?xml version="1.0" encoding="UTF-8"?>
+</NFCeSimulada>`;
+  } else if(tipoAtual==='nfe'){
+    xml=`<?xml version="1.0" encoding="UTF-8"?>
+<NFeSimulada observacao="Documento de teste — sem validade fiscal">
+  <numero>${esc(notaAtual.numero||'')}</numero>
+  <serie>${esc(notaAtual.serie||'')}</serie>
+  <destinatario>${esc(notaAtual.cliente_nome||'')}</destinatario>
+  <documento>${esc(notaAtual.cliente_documento||'')}</documento>
+  <valorTotal>${notaAtual.valor_total}</valorTotal>
+  <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
+</NFeSimulada>`;
+  } else if(tipoAtual==='devolucao'){
+    xml=`<?xml version="1.0" encoding="UTF-8"?>
+<DevolucaoSimulada observacao="Documento de teste — sem validade fiscal">
+  <numero>${esc(notaAtual.numero||'')}</numero>
+  <serie>${esc(notaAtual.serie||'')}</serie>
+  <motivo>${esc(notaAtual.motivo||'')}</motivo>
+  <valorTotal>${notaAtual.valor_total}</valorTotal>
+  <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
+</DevolucaoSimulada>`;
+  } else {
+    xml=`<?xml version="1.0" encoding="UTF-8"?>
 <NFSeSimulada observacao="Documento de teste — sem validade fiscal">
   <numero>${esc(notaAtual.numero_nfse||'')}</numero>
   <codigoVerificacao>${esc(notaAtual.codigo_verificacao||'')}</codigoVerificacao>
@@ -748,6 +883,7 @@ async function baixarXml(){
   <valor>${notaAtual.valor}</valor>
   <dataEmissao>${notaAtual.data_emissao||''}</dataEmissao>
 </NFSeSimulada>`;
+  }
   const blob=new Blob([xml],{type:'application/xml'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);

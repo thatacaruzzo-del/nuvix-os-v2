@@ -281,6 +281,17 @@ async function aplicarCancelamentoFocus(notaId: string, focusData: any, justific
   });
 }
 
+// A tag <NCM> do XML da NFC-e é só 8 dígitos numéricos, sem ponto — a SEFAZ
+// rejeita "Erro na validação do Schema XML" se vier com pontuação. Cadastro
+// de produto às vezes salva no formato "0000.00.00" (mais legível pra
+// pessoa), por isso sempre limpa aqui antes de montar o payload, em vez de
+// confiar que o dado já chega limpo do banco.
+function limparNCM(ncm: string | null | undefined): string | undefined {
+  if (!ncm) return undefined;
+  const digitos = ncm.replace(/\D/g, '');
+  return digitos || undefined;
+}
+
 // Monta o corpo esperado por POST /v2/nfce da Focus NFe a partir da nota +
 // itens já gravados no nosso banco. Nomes de campo conferidos em
 // doc.focusnfe.com.br/reference/emitir_nfce — ver aviso de Reforma
@@ -326,7 +337,7 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
       numero_item: idx + 1,
       codigo_produto: it.produto_id || 'AVULSO',
       descricao: it.descricao,
-      codigo_ncm: it.ncm || undefined,
+      codigo_ncm: limparNCM(it.ncm),
       cfop: it.cfop || '5102',
       quantidade_comercial: it.quantidade,
       quantidade_tributavel: it.quantidade,
@@ -386,9 +397,12 @@ function json(body: unknown, status = 200) {
 }
 
 // Cota mensal de notas por plano (tabela plano_cota_nf, ajustável no Admin) —
-// mesma checagem de emitir-nfse, duplicada aqui porque cada function roda
-// isolada (sem módulo compartilhado nesse projeto). Conta NFS-e + NFC-e
-// juntas: é uma cota por empresa, não por tipo de nota.
+// mesma checagem de emitir-nfse/emitir-nfe, duplicada aqui porque cada
+// function roda isolada (sem módulo compartilhado nesse projeto). Conta
+// NFS-e + NFC-e + NFe juntas: é uma cota por empresa, não por tipo de nota.
+// Nota de devolução (emitir-devolucao-nfe) NÃO entra nessa soma de propósito
+// — é estorno de uma nota que já consumiu cota quando foi emitida, não um
+// documento novo gerando receita.
 async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boolean; usado?: number; limite?: number }> {
   const [cota] = await sbGet(`plano_cota_nf?plano=eq.${encodeURIComponent(plano || 'Start')}&select=limite_mensal`);
   const limite = cota?.limite_mensal;
@@ -397,11 +411,12 @@ async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boo
   inicioMes.setUTCDate(1);
   inicioMes.setUTCHours(0, 0, 0, 0);
   const isoInicioMes = inicioMes.toISOString();
-  const [nfse, nfce] = await Promise.all([
+  const [nfse, nfce, nfe] = await Promise.all([
     sbGet(`notas_fiscais?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
     sbGet(`notas_fiscais_nfce?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
+    sbGet(`notas_fiscais_nfe?empresa_id=eq.${empresaId}&status=in.(processando,autorizada)&created_at=gte.${isoInicioMes}&select=id`),
   ]);
-  const usado = (nfse?.length || 0) + (nfce?.length || 0);
+  const usado = (nfse?.length || 0) + (nfce?.length || 0) + (nfe?.length || 0);
   return { ok: usado < limite, usado, limite };
 }
 
