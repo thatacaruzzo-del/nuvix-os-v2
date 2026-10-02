@@ -91,17 +91,37 @@ Deno.serve(async (req) => {
       if (statusAtual === 'paid') {
         const { data: existente } = await admin.from('assinaturas').select('id').eq('efi_charge_id', chargeId).maybeSingle();
         const valorReais = evento.value ? evento.value / 100 : null;
+        let assinaturaId: string | undefined = existente?.id;
         if (existente) {
           await admin.from('assinaturas').update({ status: 'pago', data_pagamento: hoje, ...(valorReais ? { valor: valorReais } : {}) }).eq('id', existente.id);
         } else {
           const { data: emp } = await admin.from('empresas').select('plano').eq('id', empresaId).maybeSingle();
-          await admin.from('assinaturas').insert({
+          const { data: nova } = await admin.from('assinaturas').insert({
             empresa_id: empresaId, plano: emp?.plano || null, valor: valorReais || 0,
             vencimento: hoje, status: 'pago', data_pagamento: hoje,
             observacao: 'Confirmado automaticamente pelo webhook Efí.', efi_charge_id: chargeId, origem: 'efi_automatico',
-          });
+          }).select('id').single();
+          assinaturaId = nova?.id;
         }
         await admin.from('empresas').update({ status_conta: 'ativo', status_assinatura: 'ativo', ativo: true, desativado_em: null }).eq('id', empresaId);
+
+        // Nota fiscal da Nuvix pro cliente que pagou. AGUARDA a chamada (não é
+        // "dispara e esquece" de verdade) porque o runtime da edge function pode
+        // encerrar a isolate assim que a resposta principal for enviada,
+        // matando uma promise não aguardada antes dela terminar — mas o erro
+        // nunca propaga pra cima: o pagamento já confirmado acima jamais é
+        // desfeito, só fica registrado no log se a emissão falhar.
+        if (assinaturaId) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/emitir-nfse-assinatura`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ assinatura_id: assinaturaId }),
+            });
+          } catch (e) {
+            console.error('Falha ao acionar emitir-nfse-assinatura (pagamento já confirmado, segue normalmente):', e);
+          }
+        }
       } else if (statusAtual === 'unpaid') {
         await admin.from('assinaturas').update({ status: 'atrasado' }).eq('efi_charge_id', chargeId);
         await admin.from('empresas').update({ status_conta: 'inadimplente', status_assinatura: 'inadimplente' }).eq('id', empresaId);

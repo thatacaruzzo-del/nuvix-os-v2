@@ -2758,10 +2758,19 @@ async function salvarAssinatura(){
   const empId=val('assEmpresa');
   if(!empId){msgEl('assMsg','Selecione a empresa.','err');return;}
   const valor=num('assValor');
+  const status=val('assStatus');
   try{
-    await dbPost('assinaturas',{empresa_id:empId,plano:val('assPlano'),valor,vencimento:val('assVenc')||null,status:val('assStatus'),observacao:val('assObs').trim()});
+    const [nova]=await dbPost('assinaturas',{empresa_id:empId,plano:val('assPlano'),valor,vencimento:val('assVenc')||null,status,observacao:val('assObs').trim(),data_pagamento:status==='pago'?hoje():null});
     // Atualizar plano da empresa
     await dbPatch('empresas',empId,{plano:val('assPlano')});
+    // Nota fiscal da Nuvix pro cliente — só faz sentido pra pagamento já
+    // confirmado (boleto registrado como pago), e nunca trava o registro
+    // acima: se a emissão falhar, a assinatura já está salva de qualquer
+    // jeito (mesmo padrão "fire and forget" do efi-webhook).
+    if(status==='pago'&&nova?.id){
+      fetch(`${SB_URL}/functions/v1/emitir-nfse-assinatura`,{method:'POST',headers:H,body:JSON.stringify({assinatura_id:nova.id})})
+        .catch(e=>console.error('Falha ao acionar emitir-nfse-assinatura (assinatura já registrada, segue normalmente):',e));
+    }
     msgEl('assMsg','Assinatura registrada!','ok');
     ['assValor','assVenc','assObs'].forEach(id=>{if($(id))$(id).value=''});
     await carregarTudo();
