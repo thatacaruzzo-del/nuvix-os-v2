@@ -961,6 +961,19 @@ function toggleSenhaAdmin(){
   <div id="kpisNotasFiscais" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px"></div>
 
   <div class="card" style="margin-bottom:16px">
+    <h2 style="margin:0 0 4px">Emitir nota fiscal</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Pra emitir avulso, sem precisar passar por Assinaturas/Financeiro primeiro — útil pra corrigir, emitir de novo, ou cobrar algo fora do ciclo normal da assinatura.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label>Cliente</label><select id="nfNovaEmpresa"></select></div>
+      <div class="field"><label>Valor (R$)</label><input type="number" id="nfNovoValor" step="0.01" placeholder="0,00"></div>
+      <div class="field" style="grid-column:1/-1"><label>Descrição do serviço</label><input id="nfNovaDescricao" placeholder="Ex: Assinatura NuvixHub — plano Plus — competência outubro/2026"></div>
+      <div class="field"><label>Competência</label><input type="date" id="nfNovaCompetencia"></div>
+    </div>
+    <div class="actions"><button class="btn" onclick="criarEEmitirNotaManual()">Emitir nota</button></div>
+    <div id="nfNovaMsg" class="msg"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <div class="form-grid" style="grid-template-columns:repeat(4,1fr);gap:12px">
       <div class="field"><label>Status</label>
         <select id="nfFiltroStatus" onchange="renderNotasAssinatura()">
@@ -2875,9 +2888,11 @@ async function salvarReceitaCliente(){
 // `empresas` (array global) agora exclui a Nuvix de propósito (ver
 // carregarTudo), então precisa buscar o id dela separado aqui.
 let notasAssinatura=[];
+let nuvixEmpresaId=null;
 async function carregarNotasAssinatura(){
   try{
     const [nuvix]=await dbGet('empresas','?select=id&eh_nuvix=eq.true&limit=1');
+    nuvixEmpresaId=nuvix?.id||null;
     if(!nuvix){setHTML('tabelaNotasAssinatura','<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Empresa da Nuvix ainda não cadastrada.</td></tr>');return;}
     notasAssinatura=await dbGet('notas_fiscais',`?empresa_id=eq.${nuvix.id}&select=*&order=created_at.desc`);
     renderNotasAssinatura();
@@ -2891,6 +2906,41 @@ function notasAssinaturaFiltradas(){
     if(busca&&!`${n.cliente_nome||''} ${n.descricao_servico||''}`.toLowerCase().includes(busca))return false;
     return true;
   });
+}
+// Emissão avulsa, independente de Assinaturas/Financeiro — cria a nota direto
+// em notas_fiscais (empresa_id = Nuvix) puxando CNPJ/razão do cliente
+// escolhido (mesmo dado que já está cadastrado nele, não tem campo pra
+// redigitar) e já chama emitir-nfse na sequência, sem esperar ninguém
+// registrar pagamento em outro lugar primeiro.
+async function criarEEmitirNotaManual(){
+  const empId=val('nfNovaEmpresa');
+  if(!empId){msgEl('nfNovaMsg','Selecione o cliente.','err');return;}
+  const valor=num('nfNovoValor');
+  if(!valor||valor<=0){msgEl('nfNovaMsg','Informe um valor válido.','err');return;}
+  const descricao=val('nfNovaDescricao').trim();
+  if(!descricao){msgEl('nfNovaMsg','Informe a descrição do serviço.','err');return;}
+  if(!nuvixEmpresaId){msgEl('nfNovaMsg','Empresa da Nuvix ainda não cadastrada.','err');return;}
+  const cliente=empresas.find(e=>e.id===empId);
+  try{
+    const [nota]=await dbPost('notas_fiscais',{
+      empresa_id:nuvixEmpresaId,
+      cliente_nome:cliente?.razao||cliente?.fantasia||'',
+      cliente_documento:(cliente?.cnpj||'').replace(/\D/g,'')||null,
+      descricao_servico:descricao,
+      valor,
+      data_competencia:val('nfNovaCompetencia')||hoje(),
+    });
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfse`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_id:nota.id})});
+    const resp=await r.json().catch(()=>null);
+    if(!r.ok||!resp?.ok){
+      const detalhe=resp?.erro==='fiscal_nao_configurado'?'Nota criada, mas o fiscal da Nuvix ainda não está configurado.':(resp?.erro?.mensagem||resp?.erro?.erros?.[0]?.mensagem||(typeof resp?.erro==='string'?resp.erro:null)||'Nota criada, mas não foi possível emitir agora — corrija na lista abaixo.');
+      msgEl('nfNovaMsg',detalhe,'err');
+    }else{
+      msgEl('nfNovaMsg','Nota criada e enviada pra emissão!','ok');
+    }
+    ['nfNovoValor','nfNovaDescricao','nfNovaCompetencia'].forEach(id=>{if($(id))$(id).value=''});
+    await carregarNotasAssinatura();
+  }catch(e){msgEl('nfNovaMsg','Erro: '+e.message,'err');}
 }
 function renderKpisNotasFiscais(){
   const autorizadas=notasAssinatura.filter(n=>n.status==='autorizada');
@@ -3295,7 +3345,7 @@ function renderLogs(){
 // ═══ SELECTS ═══
 function popularSelects(){
   const opts='<option value="">Selecione...</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
-  ['selectEmpresaModulos','assEmpresa','finRecEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
+  ['selectEmpresaModulos','assEmpresa','finRecEmpresa','nfNovaEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
   const empOptsUsu='<option value="">Nenhuma empresa</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
   if($('usuEmpresa'))$('usuEmpresa').innerHTML=empOptsUsu;
 }
