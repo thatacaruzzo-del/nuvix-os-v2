@@ -31,12 +31,15 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SHOPEE_PARTNER_ID = Deno.env.get("SHOPEE_PARTNER_ID");
 const SHOPEE_PARTNER_KEY = Deno.env.get("SHOPEE_PARTNER_KEY");
-// Domínio do LINK DE AUTORIZAÇÃO (browser) — família open.shopee.com(.br),
+// Domínio do LINK DE AUTORIZAÇÃO (browser) — família open.shopee.com,
 // diferente do domínio das CHAMADAS DE API (SHOPEE_HOST, família
-// openplatform.*.shopee.sg). Nuvix atende empresa brasileira, por isso o
-// padrão já é o domínio BR; setar SHOPEE_AUTH_HOST como secret pra trocar de
-// ambiente (sandbox → produção: tirar o "sandbox.test-stable.").
-const SHOPEE_AUTH_HOST = Deno.env.get("SHOPEE_AUTH_HOST") || "https://open.sandbox.test-stable.shopee.com.br";
+// openplatform.*.shopee.sg). A doc oficial lista um domínio BR específico
+// pro sandbox (open.sandbox.test-stable.shopee.com.br) que na prática NÃO
+// resolve (DNS_PROBE_FINISHED_NXDOMAIN, confirmado em teste real) — o que
+// funciona de verdade é o global, sem ".br":
+// open.sandbox.test-stable.shopee.com. Setar SHOPEE_AUTH_HOST como secret
+// pra trocar de ambiente (produção: tirar o "sandbox.test-stable.").
+const SHOPEE_AUTH_HOST = Deno.env.get("SHOPEE_AUTH_HOST") || "https://open.sandbox.test-stable.shopee.com";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
