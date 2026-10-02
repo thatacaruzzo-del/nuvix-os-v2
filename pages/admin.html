@@ -964,7 +964,12 @@ function toggleSenhaAdmin(){
     <h2 style="margin:0 0 4px">Emitir nota fiscal</h2>
     <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Pra emitir avulso, sem precisar passar por Assinaturas/Financeiro primeiro — útil pra corrigir, emitir de novo, ou cobrar algo fora do ciclo normal da assinatura.</p>
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
-      <div class="field"><label>Cliente</label><select id="nfNovaEmpresa"></select></div>
+      <div class="field" style="position:relative">
+        <label>Cliente</label>
+        <input id="nfNovaEmpresaBusca" placeholder="Digite o CNPJ ou nome..." autocomplete="off" oninput="buscarEmpresaNf(this.value)" onfocus="buscarEmpresaNf(this.value)" onblur="setTimeout(()=>{if($('nfNovaEmpresaResultados'))$('nfNovaEmpresaResultados').style.display='none'},150)">
+        <input type="hidden" id="nfNovaEmpresa">
+        <div id="nfNovaEmpresaResultados" style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);margin-top:6px;max-height:220px;overflow-y:auto;z-index:30;display:none"></div>
+      </div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="nfNovoValor" step="0.01" placeholder="0,00"></div>
       <div class="field" style="grid-column:1/-1"><label>Descrição do serviço</label><input id="nfNovaDescricao" placeholder="Ex: Assinatura NuvixHub — plano Plus — competência outubro/2026"></div>
       <div class="field"><label>Competência</label><input type="date" id="nfNovaCompetencia"></div>
@@ -2910,6 +2915,40 @@ function notasAssinaturaFiltradas(){
     return true;
   });
 }
+function formatarCnpj(cnpj){
+  const d=(cnpj||'').replace(/\D/g,'');
+  if(d.length!==14)return cnpj||'';
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12,14)}`;
+}
+// Busca por CNPJ (com ou sem pontuação) ou nome, direto no array `empresas`
+// já carregado — sem select gigante pra rolar, digita e acha. Resultado
+// clicado preenche o input hidden #nfNovaEmpresa (mesmo id que
+// criarEEmitirNotaManual já lia de um <select>, então não muda mais nada).
+function buscarEmpresaNf(q){
+  const termo=(q||'').toLowerCase().trim();
+  const el=$('nfNovaEmpresaResultados');
+  if(!el)return;
+  if(!termo){el.style.display='none';return;}
+  const digitos=termo.replace(/\D/g,'');
+  const resultados=empresas.filter(e=>{
+    const nome=(e.fantasia||e.razao||'').toLowerCase();
+    const cnpj=(e.cnpj||'').replace(/\D/g,'');
+    return nome.includes(termo)||(digitos&&cnpj.includes(digitos));
+  }).slice(0,8);
+  setHTML('nfNovaEmpresaResultados',resultados.map(e=>`
+    <div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bg)" onmousedown="selecionarEmpresaNf('${e.id}')">
+      <div style="font-weight:700;font-size:13px">${esc(e.fantasia||e.razao||'—')}</div>
+      <div style="font-size:11px;color:var(--muted)">${esc(formatarCnpj(e.cnpj)||'sem CNPJ cadastrado')}</div>
+    </div>`).join('')||'<div style="padding:10px 14px;color:var(--muted);font-size:12px">Nenhum cliente encontrado</div>');
+  el.style.display='block';
+}
+function selecionarEmpresaNf(id){
+  const e=empresas.find(x=>x.id===id);
+  if(!e)return;
+  $('nfNovaEmpresa').value=id;
+  $('nfNovaEmpresaBusca').value=`${e.fantasia||e.razao||''}${e.cnpj?' — '+formatarCnpj(e.cnpj):''}`;
+  $('nfNovaEmpresaResultados').style.display='none';
+}
 // Emissão avulsa, independente de Assinaturas/Financeiro — cria a nota direto
 // em notas_fiscais (empresa_id = Nuvix) puxando CNPJ/razão do cliente
 // escolhido (mesmo dado que já está cadastrado nele, não tem campo pra
@@ -2941,7 +2980,7 @@ async function criarEEmitirNotaManual(){
     }else{
       msgEl('nfNovaMsg','Nota criada e enviada pra emissão!','ok');
     }
-    ['nfNovoValor','nfNovaDescricao','nfNovaCompetencia'].forEach(id=>{if($(id))$(id).value=''});
+    ['nfNovaEmpresaBusca','nfNovaEmpresa','nfNovoValor','nfNovaDescricao','nfNovaCompetencia'].forEach(id=>{if($(id))$(id).value=''});
     await carregarNotasAssinatura();
   }catch(e){msgEl('nfNovaMsg','Erro: '+e.message,'err');}
 }
@@ -3348,7 +3387,7 @@ function renderLogs(){
 // ═══ SELECTS ═══
 function popularSelects(){
   const opts='<option value="">Selecione...</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
-  ['selectEmpresaModulos','assEmpresa','finRecEmpresa','nfNovaEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
+  ['selectEmpresaModulos','assEmpresa','finRecEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
   const empOptsUsu='<option value="">Nenhuma empresa</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
   if($('usuEmpresa'))$('usuEmpresa').innerHTML=empOptsUsu;
 }
