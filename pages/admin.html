@@ -1007,6 +1007,22 @@ function toggleSenhaAdmin(){
   </div>
 
   <div class="card" style="margin-bottom:16px">
+    <h2>Dar entrada em pagamento de cliente</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Pra boleto emitido manualmente (ex: Nubank) ou qualquer pagamento recebido fora do cartão automático. Registra como receita E dispara a emissão da NF pro cliente, mesmo fluxo de "Registrar pagamento" em Assinaturas — só que aqui, pensando como entrada financeira.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label>Empresa (cliente)</label><select id="finRecEmpresa"></select></div>
+      <div class="field"><label>Plano</label>
+        <select id="finRecPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+      </div>
+      <div class="field"><label>Valor (R$)</label><input type="number" id="finRecValor" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Data do pagamento</label><input type="date" id="finRecData"></div>
+      <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="finRecObs" placeholder="Ex: boleto pago via Nubank"></div>
+    </div>
+    <div class="actions"><button class="btn" onclick="salvarReceitaCliente()">Registrar e emitir NF</button></div>
+    <div id="finRecMsg" class="msg"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <h2>Registrar despesa interna</h2>
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="field" style="grid-column:1/-1"><label>Descrição</label><input id="despDescricao" placeholder="Ex: Supabase, Vercel, Focus NFe, pró-labore..."></div>
@@ -2829,6 +2845,31 @@ async function salvarAssinatura(){
 
 function filtrarAssinaturas(){renderAssinaturas();}
 
+// Mesma ação de salvarAssinatura (grava em `assinaturas`, status pago,
+// dispara emitir-nfse-assinatura), só que pensada como ENTRADA FINANCEIRA
+// em vez de "cadastro de assinatura" — pro caso real de boleto emitido
+// manualmente fora do sistema (Nubank, por enquanto) e registrado aqui
+// quando o cliente paga. Formulário separado (ids próprios), mas cai na
+// mesma tabela/fluxo — MRR, Financeiro e NF continuam vendo tudo igual,
+// não importa por qual tela a entrada foi feita.
+async function salvarReceitaCliente(){
+  const empId=val('finRecEmpresa');
+  if(!empId){msgEl('finRecMsg','Selecione a empresa.','err');return;}
+  const valor=num('finRecValor');
+  const dataPagamento=val('finRecData')||hoje();
+  try{
+    const [nova]=await dbPost('assinaturas',{empresa_id:empId,plano:val('finRecPlano'),valor,vencimento:dataPagamento,status:'pago',data_pagamento:dataPagamento,observacao:val('finRecObs').trim(),origem:'manual'});
+    await dbPatch('empresas',empId,{plano:val('finRecPlano')});
+    if(nova?.id){
+      fetch(`${SB_URL}/functions/v1/emitir-nfse-assinatura`,{method:'POST',headers:H,body:JSON.stringify({assinatura_id:nova.id})})
+        .catch(e=>console.error('Falha ao acionar emitir-nfse-assinatura (pagamento já registrado, segue normalmente):',e));
+    }
+    msgEl('finRecMsg','Pagamento registrado e nota fiscal enviada pra emissão!','ok');
+    ['finRecValor','finRecData','finRecObs'].forEach(id=>{if($(id))$(id).value=''});
+    await carregarTudo();
+  }catch(e){msgEl('finRecMsg','Erro: '+e.message,'err');}
+}
+
 // Notas fiscais que a NUVIX emitiu pra cada cliente (tabela notas_fiscais,
 // empresa_id = a própria Nuvix, via eh_nuvix) — carregada à parte porque
 // `empresas` (array global) agora exclui a Nuvix de propósito (ver
@@ -3254,7 +3295,7 @@ function renderLogs(){
 // ═══ SELECTS ═══
 function popularSelects(){
   const opts='<option value="">Selecione...</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
-  ['selectEmpresaModulos','assEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
+  ['selectEmpresaModulos','assEmpresa','finRecEmpresa','filtroEmpresaUsu','filtroEmpresaLog','filtroEmpresaAss'].forEach(id=>{if($(id))$(id).innerHTML=opts;});
   const empOptsUsu='<option value="">Nenhuma empresa</option>'+empresas.map(e=>`<option value="${e.id}">${esc(e.fantasia||e.razao||'—')}</option>`).join('');
   if($('usuEmpresa'))$('usuEmpresa').innerHTML=empOptsUsu;
 }
