@@ -1729,7 +1729,13 @@ async function carregarTudo(){
     // 30 dias pra trás, então 60 dias de margem já cobre com folga sem buscar a tabela inteira.
     const desde60d=new Date();desde60d.setDate(desde60d.getDate()-60);
     [empresas,usuarios,assinaturas,despesas,eventosConta,accessLogsPortfolio]=await Promise.all([
-      dbGet('empresas','?select=*&order=created_at.desc'),
+      // eh_nuvix=true é a própria Nuvix (cadastrada como empresa só pra poder
+      // referenciar fiscal_ativo/nfse_credenciais igual qualquer cliente, na
+      // emissão automática de nota da assinatura) — nunca é um cliente de
+      // verdade, por isso fica de fora de TUDO que esse painel calcula
+      // (MRR, lucro, empresas ativas, lista de Clientes, selects). Filtrado
+      // aqui, uma vez só, pra ninguém esquecer de excluir em algum KPI novo.
+      dbGet('empresas','?select=*&eh_nuvix=eq.false&order=created_at.desc'),
       dbGet('usuarios','?select=id,nome,email,perfil,cargo,telefone,empresa_id,ativo,ultimo_acesso,is_admin_nuvix,created_at,limite_desconto_pct,deve_trocar_senha,deve_trocar_senha_desde&order=created_at.desc'),
       dbGet('assinaturas','?select=*&order=created_at.desc'),
       dbGet('despesas_internas','?select=*&order=data.desc').catch(()=>[]),
