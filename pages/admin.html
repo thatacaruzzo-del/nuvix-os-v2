@@ -943,6 +943,17 @@ function toggleSenhaAdmin(){
       <div id="tabelaAssinaturasPaginacao"></div>
     </div>
   </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 4px">Notas fiscais emitidas pra clientes</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">NFS-e da própria Nuvix, emitida automaticamente sempre que um cliente paga a assinatura (cartão via Efí ou boleto registrado acima). Precisa do fiscal da Nuvix configurado (CNPJ, Inscrição Municipal e token da Focus NFe) pra sair de verdade.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Status</th><th>Emitida em</th><th>Ações</th></tr></thead>
+        <tbody id="tabelaNotasAssinatura"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -1755,6 +1766,7 @@ async function carregarTudo(){
     renderFinanceiroReal();
     carregarEfiConfigAdmin();
     carregarCotaNfAdmin();
+    carregarNotasAssinatura();
     popularSelects();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
@@ -2784,6 +2796,33 @@ async function salvarAssinatura(){
 }
 
 function filtrarAssinaturas(){renderAssinaturas();}
+
+// Notas fiscais que a NUVIX emitiu pra cada cliente (tabela notas_fiscais,
+// empresa_id = a própria Nuvix, via eh_nuvix) — carregada à parte porque
+// `empresas` (array global) agora exclui a Nuvix de propósito (ver
+// carregarTudo), então precisa buscar o id dela separado aqui.
+let notasAssinatura=[];
+async function carregarNotasAssinatura(){
+  try{
+    const [nuvix]=await dbGet('empresas','?select=id&eh_nuvix=eq.true&limit=1');
+    if(!nuvix){setHTML('tabelaNotasAssinatura','<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Empresa da Nuvix ainda não cadastrada.</td></tr>');return;}
+    notasAssinatura=await dbGet('notas_fiscais',`?empresa_id=eq.${nuvix.id}&select=*&order=created_at.desc`);
+    renderNotasAssinatura();
+  }catch(e){setHTML('tabelaNotasAssinatura',`<tr><td colspan="6" style="text-align:center;color:var(--red);padding:20px">Erro ao carregar: ${esc(e.message)}</td></tr>`);}
+}
+function renderNotasAssinatura(){
+  const cor={nao_emitida:'off',processando:'warn',autorizada:'ok',erro:'bad',cancelada:'off'};
+  const label={nao_emitida:'Não emitida',processando:'Processando',autorizada:'Autorizada',erro:'Com erro',cancelada:'Cancelada'};
+  setHTML('tabelaNotasAssinatura',notasAssinatura.map(n=>`
+    <tr>
+      <td>${esc(n.cliente_nome||'—')}</td>
+      <td style="font-size:12px">${esc(n.descricao_servico||'—')}</td>
+      <td style="font-weight:700">${money(n.valor)}</td>
+      <td><span class="badge ${cor[n.status]||'off'}">${esc(label[n.status]||n.status)}</span></td>
+      <td style="font-size:12px">${n.data_emissao?fmtData(n.data_emissao):'—'}</td>
+      <td>${n.link_pdf?`<a href="${esc(n.link_pdf)}" target="_blank" class="btn2" style="font-size:11px;padding:5px 10px;text-decoration:none;display:inline-block">Ver</a>`:(n.mensagem_erro?`<span style="font-size:11px;color:var(--red)" title="${esc(n.mensagem_erro)}">Ver erro</span>`:'—')}</td>
+    </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhuma nota emitida ainda.</td></tr>');
+}
 
 // Mesmos preços de tabela vendidos em nuvixhub-site (seção Planos) — usado só
 // como estimativa quando a empresa ainda não tem nenhum lançamento registrado.
