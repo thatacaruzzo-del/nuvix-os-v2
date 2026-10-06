@@ -330,26 +330,33 @@ Deno.serve(async (req) => {
         ibs_mun_valor: 0,
         cbs_aliquota: 0.9,
         cbs_valor: arred2((nota.valor * 0.9) / 100),
-        // ATENÇÃO — NÃO confirmado, 3ª tentativa: "ind_final"/"fin_nfse" (2ª
-        // tentativa) voltaram o MESMO erro de antes — confirma que esses
-        // nomes de campo não existem na API da Focus (chave desconhecida é
-        // ignorada em silêncio, não dá erro de validação). Pesquisei de
-        // novo e doc.focusnfe.com.br NUNCA lista um campo chamado "indFinal"
-        // nem "finNFSe" — o único campo de Reforma Tributária documentado
-        // que ainda não tinha usado é codigo_indicador_operacao (cIndOp,
-        // Anexo VII da LC 214/2025, código de 6 dígitos que classifica a
-        // natureza da operação). É bem provável que seja ESSE campo que a
-        // Focus usa pra derivar o indFinal no XML (um código só, resolvendo
-        // vários atributos do XML de uma vez — padrão comum nesse tipo de
-        // API). Categoria '10xxxx' = bens móveis imateriais/demais serviços
-        // (ex: licenciamento de software, item 01.05 da LC116, não envolve
-        // bem físico nem local presencial) — '100301' = "demais serviços em
-        // operação onerosa", o mais próximo de assinatura SaaS paga. Se
-        // ainda faltar o indFinal depois desse teste, o próximo passo é
-        // baixar a planilha oficial AnexoVII-IndOp_IBSCBS_V1.00.00.xlsx do
-        // portal gov.br/nfse em vez de continuar via busca na web.
+        // codigo_indicador_operacao (cIndOp, Anexo VII) É dentro de servico —
+        // confirmado no guia oficial da Focus pra Guarulhos-SP (focusnfe.com.br/
+        // guides/nfse/municipios-integrados/guarulhos-sp/). '100301' = "demais
+        // serviços em operação onerosa", categoria de serviço remoto pago sem
+        // bem físico envolvido — mais próxima de licenciamento de software
+        // (LC116 01.05) entre as opções do Anexo VII.
         codigo_indicador_operacao: '100301',
       },
+      // consumidor_final e finalidade_emissao NÃO vão dentro de servico — são
+      // campos de RAIZ do payload, confirmado no mesmo guia oficial da Focus
+      // pra Guarulhos-SP. Duas tentativas anteriores falharam exatamente por
+      // tentar resolver o indFinal de dentro de servico; a Focus ignora em
+      // silêncio chave que ela não reconhece naquele nível, por isso o erro
+      // "Expected is indFinal" continuava idêntico mesmo depois de mandar
+      // algo com nome parecido no lugar errado.
+      consumidor_final: (() => {
+        // CPF (pessoa física) = geralmente consumidor final (1). CNPJ = em
+        // geral usa o serviço como insumo do próprio negócio (0) — é o caso
+        // de toda assinatura NuvixHub hoje (cliente sempre CNPJ). O valor
+        // explícito em notas_fiscais.indicador_consumo_final (se preenchido
+        // na tela, '1'/'0') tem prioridade sobre essa regra padrão.
+        if (nota.indicador_consumo_final === '1') return 1;
+        if (nota.indicador_consumo_final === '0') return 0;
+        const doc = (nota.cliente_documento || '').replace(/\D/g, '');
+        return doc.length === 11 ? 1 : 0;
+      })(),
+      finalidade_emissao: 0, // 0 = NFS-e regular — único valor documentado pra Guarulhos.
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
