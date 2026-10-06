@@ -321,15 +321,6 @@ Deno.serve(async (req) => {
         // alíquota-teste 2026 (0,1% IBS + 0,9% CBS) já confirmados
         // funcionando em emitir-nfce. CST '000' (tributação integral) +
         // cClassTrib '000001' é o padrão pra serviço comum sem isenção.
-        //
-        // ATENÇÃO — NÃO confirmado: o erro real de homologação pedia um
-        // campo "indFinal" dentro do bloco IBSCBS que a doc da Focus não
-        // documenta com esse nome exato — o candidato mais próximo é
-        // codigo_indicador_operacao (cIndOp, Anexo VII, código de 6
-        // dígitos tipo '050101'), mas não confirmei o valor certo pra
-        // "prestação de serviço comum, não consumidor final". Testar de
-        // novo em homologação depois desse ajuste — se o erro de indFinal
-        // persistir, é esse o próximo campo a investigar.
         ibs_cbs_classificacao_tributaria: '000001',
         ibs_cbs_situacao_tributaria: '000',
         ibs_cbs_base_calculo: nota.valor,
@@ -339,6 +330,19 @@ Deno.serve(async (req) => {
         ibs_mun_valor: 0,
         cbs_aliquota: 0.9,
         cbs_valor: arred2((nota.valor * 0.9) / 100),
+        // ATENÇÃO — NÃO confirmado: 2º teste real em homologação mostrou que
+        // ainda faltava "indFinal" dentro do bloco IBSCBS ("Expected is
+        // indFinal" logo antes de onde a Focus coloca o grupo 'valores').
+        // doc.focusnfe.com.br não lista esse nome exato — ind_final/fin_nfse
+        // são o melhor palpite, seguindo a convenção snake_case do resto da
+        // API deles (indFinal '1'=consumidor final/'0'=não, confirmado via
+        // padrão nacional da NFe; finNFSe=finalidade de emissão, '1'=normal).
+        // Assinatura SaaS: o cliente sempre consome o serviço pra uso
+        // próprio, nunca revende — por isso o padrão aqui é '1'
+        // (consumidor final), não '0'. Testar de novo; se o nome do campo
+        // estiver errado, a Focus deve reclamar de novo com outro detalhe.
+        ind_final: nota.indicador_consumo_final || '1',
+        fin_nfse: '1',
       },
     };
 
