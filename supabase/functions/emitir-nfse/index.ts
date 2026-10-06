@@ -337,6 +337,13 @@ Deno.serve(async (req) => {
         // bem físico envolvido — mais próxima de licenciamento de software
         // (LC116 01.05) entre as opções do Anexo VII.
         codigo_indicador_operacao: '100301',
+        // codigo_municipio_incidencia (cLocalidadeIncid) — confirmado no guia
+        // oficial da Focus pra Guarulhos-SP: código IBGE (number, não string)
+        // do município de INCIDÊNCIA do ISS/IBS/CBS, dentro de servico. Como
+        // o serviço é prestado remotamente (sem deslocamento a outro
+        // município), a incidência é no domicílio do prestador — mesmo
+        // valor de codigo_municipio_ibge usado em prestador, sem duplicar.
+        codigo_municipio_incidencia: Number(params.codigo_municipio_ibge),
       },
       // consumidor_final e finalidade_emissao NÃO vão dentro de servico — são
       // campos de RAIZ do payload, confirmado no mesmo guia oficial da Focus
