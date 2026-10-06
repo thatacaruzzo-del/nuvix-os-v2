@@ -371,19 +371,19 @@ Deno.serve(async (req) => {
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
-      // 8.264/2014) — confirmado no erro real "RPS não contém os valores
-      // percentuais dos tributos (totTrib)". 1ª tentativa mandando
-      // percentual_total_tributos_simples_nacional voltou o MESMO erro
-      // (campo existe na doc da Focus pra Guarulhos, mas não resolveu —
-      // possivelmente exige outros campos-irmãos do grupo totTrib da NFSe
-      // Nacional que não estão documentados aqui). Trocando pela rota mais
-      // direta: indicador_total_tributacao é literalmente o "indicador de
-      // opção pelo não destaque" citado no texto do erro — confirmado no
-      // mesmo guia oficial da Focus pra Guarulhos, também na raiz do
-      // payload. true = opta por NÃO informar os valores estimados dos
-      // tributos (evita depender do formato exato do grupo totTrib).
+      // 8.264/2014). 3 tentativas até aqui: (1) só o percentual — erro
+      // genérico de "falta valor ou indicador"; (2) indicador_total_
+      // tributacao: true (boolean) — erro real do XSD confirmou que o
+      // enum do GISS de Guarulhos (v2.04) só aceita '0' nesse campo, não
+      // 'true'/'1' — ou seja, ESSE município não suporta optar por "não
+      // informar", só aceita '0' = "vou informar os valores". Por isso
+      // agora os DOIS campos vão juntos: indicador '0' (string, não
+      // boolean) + o percentual de verdade. empresas.simples (6% pra
+      // Nuvix, Simples Nacional) é o dado usado.
       optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
-      indicador_total_tributacao: true,
+      indicador_total_tributacao: '0',
+      percentual_total_tributos_simples_nacional:
+        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
