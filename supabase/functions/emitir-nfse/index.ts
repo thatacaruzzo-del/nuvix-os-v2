@@ -330,19 +330,25 @@ Deno.serve(async (req) => {
         ibs_mun_valor: 0,
         cbs_aliquota: 0.9,
         cbs_valor: arred2((nota.valor * 0.9) / 100),
-        // ATENÇÃO — NÃO confirmado: 2º teste real em homologação mostrou que
-        // ainda faltava "indFinal" dentro do bloco IBSCBS ("Expected is
-        // indFinal" logo antes de onde a Focus coloca o grupo 'valores').
-        // doc.focusnfe.com.br não lista esse nome exato — ind_final/fin_nfse
-        // são o melhor palpite, seguindo a convenção snake_case do resto da
-        // API deles (indFinal '1'=consumidor final/'0'=não, confirmado via
-        // padrão nacional da NFe; finNFSe=finalidade de emissão, '1'=normal).
-        // Assinatura SaaS: o cliente sempre consome o serviço pra uso
-        // próprio, nunca revende — por isso o padrão aqui é '1'
-        // (consumidor final), não '0'. Testar de novo; se o nome do campo
-        // estiver errado, a Focus deve reclamar de novo com outro detalhe.
-        ind_final: nota.indicador_consumo_final || '1',
-        fin_nfse: '1',
+        // ATENÇÃO — NÃO confirmado, 3ª tentativa: "ind_final"/"fin_nfse" (2ª
+        // tentativa) voltaram o MESMO erro de antes — confirma que esses
+        // nomes de campo não existem na API da Focus (chave desconhecida é
+        // ignorada em silêncio, não dá erro de validação). Pesquisei de
+        // novo e doc.focusnfe.com.br NUNCA lista um campo chamado "indFinal"
+        // nem "finNFSe" — o único campo de Reforma Tributária documentado
+        // que ainda não tinha usado é codigo_indicador_operacao (cIndOp,
+        // Anexo VII da LC 214/2025, código de 6 dígitos que classifica a
+        // natureza da operação). É bem provável que seja ESSE campo que a
+        // Focus usa pra derivar o indFinal no XML (um código só, resolvendo
+        // vários atributos do XML de uma vez — padrão comum nesse tipo de
+        // API). Categoria '10xxxx' = bens móveis imateriais/demais serviços
+        // (ex: licenciamento de software, item 01.05 da LC116, não envolve
+        // bem físico nem local presencial) — '100301' = "demais serviços em
+        // operação onerosa", o mais próximo de assinatura SaaS paga. Se
+        // ainda faltar o indFinal depois desse teste, o próximo passo é
+        // baixar a planilha oficial AnexoVII-IndOp_IBSCBS_V1.00.00.xlsx do
+        // portal gov.br/nfse em vez de continuar via busca na web.
+        codigo_indicador_operacao: '100301',
       },
     };
 
