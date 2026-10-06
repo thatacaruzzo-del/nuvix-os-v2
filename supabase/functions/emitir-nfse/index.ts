@@ -189,6 +189,10 @@ async function checarCotaNF(empresaId: string, plano: string): Promise<{ ok: boo
   return { ok: usado < limite, usado, limite };
 }
 
+function arred2(v: number) {
+  return Math.round((v + Number.EPSILON) * 100) / 100;
+}
+
 // Brasília nunca tem horário de verão desde 2019, então é sempre UTC-3 fixo.
 // new Date().toISOString() dá o relógio de parede em UTC — só colar '-03:00'
 // no final (sem subtrair as 3 horas primeiro) rotula errado, fazendo a SEFAZ
@@ -298,16 +302,44 @@ Deno.serve(async (req) => {
         // Nome de campo confirmado em doc.focusnfe.com.br/reference/emitir_nfse —
         // 'codigo_tributacao_nacional' (usado antes) não existe na API deles, por
         // isso a Focus NFe sempre rejeitava como se o campo estivesse vazio.
+        //
+        // item_lista_servico é o código NACIONAL da LC 116/2003, formato XX.XX
+        // (ex: '01.05') — confirmado via erro real da Focus/GISS rejeitando
+        // '62.02' com "not an element of the set {'01.01','01.05',...}".
+        // codigo_tributario_municipio é OUTRO campo, específico de município
+        // (em Guarulhos, formato próprio de 9 dígitos baseado no CNAE, exigido
+        // pela doc da Focus pra esse município especificamente — "exceção por
+        // município"). BUG REAL encontrado em homologação (06/10/2026): os
+        // dois valores estavam trocados/no campo errado.
         item_lista_servico: params.codigo_tributacao_nacional_iss,
+        codigo_tributario_municipio: params.codigo_tributario_municipio || undefined,
         discriminacao: nota.descricao_servico,
         valor_servicos: nota.valor,
         aliquota: params.aliquota_iss,
         iss_retido: false,
+        // Reforma Tributária (IBS/CBS) — mesmos nomes de campo e mesma
+        // alíquota-teste 2026 (0,1% IBS + 0,9% CBS) já confirmados
+        // funcionando em emitir-nfce. CST '000' (tributação integral) +
+        // cClassTrib '000001' é o padrão pra serviço comum sem isenção.
+        //
+        // ATENÇÃO — NÃO confirmado: o erro real de homologação pedia um
+        // campo "indFinal" dentro do bloco IBSCBS que a doc da Focus não
+        // documenta com esse nome exato — o candidato mais próximo é
+        // codigo_indicador_operacao (cIndOp, Anexo VII, código de 6
+        // dígitos tipo '050101'), mas não confirmei o valor certo pra
+        // "prestação de serviço comum, não consumidor final". Testar de
+        // novo em homologação depois desse ajuste — se o erro de indFinal
+        // persistir, é esse o próximo campo a investigar.
+        ibs_cbs_classificacao_tributaria: '000001',
+        ibs_cbs_situacao_tributaria: '000',
+        ibs_cbs_base_calculo: nota.valor,
+        ibs_uf_aliquota: 0.1,
+        ibs_uf_valor: arred2((nota.valor * 0.1) / 100),
+        ibs_mun_aliquota: 0,
+        ibs_mun_valor: 0,
+        cbs_aliquota: 0.9,
+        cbs_valor: arred2((nota.valor * 0.9) / 100),
       },
-      // ATENÇÃO — confirme este formato exato em
-      // doc.focusnfe.com.br/reference/emitir_nfse antes de ativar de
-      // verdade. Alguns municípios exigem campos extras além destes
-      // (a doc chama isso de "exceções por município").
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
