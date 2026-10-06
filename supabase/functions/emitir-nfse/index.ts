@@ -372,18 +372,18 @@ Deno.serve(async (req) => {
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
       // 8.264/2014) — confirmado no erro real "RPS não contém os valores
-      // percentuais dos tributos (totTrib)". optante_simples_nacional e
-      // percentual_total_tributos_simples_nacional ficam na RAIZ (mesmo
-      // padrão de consumidor_final/finalidade_emissao/indicador_destinatario
-      // já confirmados nesse payload). empresas.regime_tributario /
-      // empresas.simples já existem no banco pra isso — Nuvix é Simples
-      // Nacional, alíquota efetiva 6%. Empresa NÃO optante precisaria enviar
-      // percentual_total_tributos_federais/estaduais/municipais em vez
-      // desse campo — não implementado ainda porque nenhuma empresa
-      // não-optante emite NFS-e hoje no NuvixHub.
+      // percentuais dos tributos (totTrib)". 1ª tentativa mandando
+      // percentual_total_tributos_simples_nacional voltou o MESMO erro
+      // (campo existe na doc da Focus pra Guarulhos, mas não resolveu —
+      // possivelmente exige outros campos-irmãos do grupo totTrib da NFSe
+      // Nacional que não estão documentados aqui). Trocando pela rota mais
+      // direta: indicador_total_tributacao é literalmente o "indicador de
+      // opção pelo não destaque" citado no texto do erro — confirmado no
+      // mesmo guia oficial da Focus pra Guarulhos, também na raiz do
+      // payload. true = opta por NÃO informar os valores estimados dos
+      // tributos (evita depender do formato exato do grupo totTrib).
       optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
-      percentual_total_tributos_simples_nacional:
-        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
+      indicador_total_tributacao: true,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
