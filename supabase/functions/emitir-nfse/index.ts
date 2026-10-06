@@ -357,6 +357,12 @@ Deno.serve(async (req) => {
         return doc.length === 11 ? 1 : 0;
       })(),
       finalidade_emissao: 0, // 0 = NFS-e regular — único valor documentado pra Guarulhos.
+      // indDest (indicador de destinatário) — confirmado no mesmo guia oficial
+      // da Focus pra Guarulhos-SP, também na raiz do payload. 0 = o
+      // destinatário da nota É o próprio tomador (sempre o caso aqui — não
+      // existe cenário de "emitir pra um, mas destinar o serviço a outro").
+      // 1 seria só pra quando destinatário ≠ tomador.
+      indicador_destinatario: 0,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
