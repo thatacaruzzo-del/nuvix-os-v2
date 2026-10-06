@@ -723,7 +723,7 @@ function toggleSenhaAdmin(){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Empresas clientes</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input type="text" id="buscaEmpresa" placeholder="Buscar empresa..." oninput="filtrarEmpresas()" style="max-width:220px">
+        <input type="text" id="buscaEmpresa" placeholder="Buscar por nome ou CNPJ..." oninput="filtrarEmpresas()" style="max-width:220px">
         <select id="filtroStatus" onchange="filtrarEmpresas()" style="max-width:150px">
           <option value="">Todos os status</option>
           <option value="ativo">Ativo</option>
@@ -1380,6 +1380,41 @@ function toggleSenhaAdmin(){
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalEditEmp')">Cancelar</button>
     <button class="btn" onclick="salvarEdicaoEmpresa()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Ficha do cliente — visão consolidada só de leitura: cadastro, plano, situação
+     financeira, quando começou a usar, quando contratou o plano atual, e os
+     usuários da empresa com último acesso/última página de cada um. -->
+<div class="modal-overlay" id="modalFichaCliente">
+<div class="modal" style="max-width:640px">
+  <h3 id="fichaClienteNome">Ficha do cliente</h3>
+  <p id="fichaClienteCnpj" style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:16px"></p>
+
+  <div class="grid-2" style="gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);margin-bottom:8px">Plano e situação</div>
+      <div id="fichaClientePlanoStatus" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7" id="fichaClienteDatas"></div>
+    </div>
+    <div class="card" style="padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);margin-bottom:8px">Contato e cadastro</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7" id="fichaClienteContato"></div>
+    </div>
+  </div>
+
+  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);margin-bottom:8px">Usuários e acesso</div>
+  <div class="tablewrap" style="margin-bottom:8px">
+    <table>
+      <thead><tr><th>Usuário</th><th>Perfil</th><th>Último acesso</th><th>Última página</th></tr></thead>
+      <tbody id="fichaClienteUsuarios"><tr><td colspan="4" class="table-empty">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalFichaCliente')">Fechar</button>
+    <button class="btn" id="fichaClienteBtnEditar" onclick="">Editar empresa</button>
   </div>
 </div>
 </div>
@@ -2244,7 +2279,7 @@ function renderEmpresas(){
     const dias=e.trial_fim?Math.ceil((new Date(e.trial_fim)-new Date())/864e5):null;
     const trialStr=dias!==null?(dias>0?`Trial: ${dias}d`:'Expirado'):((e.vencimento_mensalidade||e.vencimento)?`Venc: ${fmtData(e.vencimento_mensalidade||e.vencimento)}`:'—');
     const trialCor=dias!==null&&dias<=3?'color:var(--red)':'color:var(--muted)';
-    return`<tr>
+    return`<tr onclick="abrirFichaCliente('${e.id}')" style="cursor:pointer" title="Ver ficha completa do cliente">
       <td><b>${esc(e.fantasia||e.razao||'—')}</b><div style="font-size:11px;color:var(--muted)">${esc(e.segmento||e.tipo||'')}</div></td>
       <td style="font-size:12px;color:var(--muted)">${esc(e.cnpj||'—')}</td>
       <td style="font-size:12px">${esc(e.segmento||e.tipo||'—')}</td>
@@ -2255,7 +2290,7 @@ function renderEmpresas(){
       <td style="font-size:11px;color:var(--muted)">${ult?fmtData(ult):'—'}</td>
       <td>${atividadeBadge(metricasPortfolio[e.id]||{dias_desde_ultimo_evento:null})}</td>
       <td>${sinaisBadge(e,avaliarRegrasPortfolio(e,metricasPortfolio[e.id],ctxRegras[e.id]||{usuariosAtivos:0,modulosDistintos30d:0}))}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn2" onclick="editarEmpresa('${e.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
           <button class="btn2" onclick="gerenciarModulos('${e.id}')" style="font-size:11px;padding:5px 9px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Módulos</button>
@@ -2391,6 +2426,74 @@ function editarEmpresa(id){
   $('editEmpNfeSimulacao').checked=!!e.nfe_simulacao;
   renderEfiStatusEmpresa(e);
   abrirModal('modalEditEmp');
+}
+
+function fmtDataHora(d){
+  if(!d)return'—';
+  const dt=new Date(d);
+  if(isNaN(dt))return'—';
+  return dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+// Ficha do cliente — visão consolidada só de leitura, pedida pra não precisar abrir
+// 3 telas diferentes pra ver cadastro + situação financeira + quem acessou por último.
+// "Quando contratou o plano atual" vem da primeira assinatura PAGA (tabela
+// assinaturas), não da data de cadastro da empresa — cadastro pode ser de quando
+// virou trial, bem antes de pagar de verdade. "Último acesso"/"última página" vêm
+// de access_logs, a mesma tabela que já registra login desde sempre (só nunca
+// tinha sido mostrada em lugar nenhum).
+async function abrirFichaCliente(id){
+  const e=empresas.find(x=>x.id===id);if(!e)return;
+  $('fichaClienteNome').textContent=e.fantasia||e.razao||'—';
+  $('fichaClienteCnpj').textContent=e.cnpj?`CNPJ ${e.cnpj}`:'';
+  setHTML('fichaClientePlanoStatus',planoBadge(e.plano||'Start')+statusBadge(e));
+  setHTML('fichaClienteDatas',`
+    <div>Começou a usar a Nuvix em <b>${fmtData(e.created_at)}</b></div>
+    <div id="fichaClienteContratou">Contratou o plano atual: <b>carregando...</b></div>
+  `);
+  setHTML('fichaClienteContato',`
+    <div>${esc(e.email||'—')}</div>
+    <div>${esc(e.telefone||'—')}</div>
+    <div>${esc(e.cidade||'—')}${e.endereco_uf?' / '+esc(e.endereco_uf):''}</div>
+  `);
+  const btnEditar=$('fichaClienteBtnEditar');
+  if(btnEditar)btnEditar.onclick=()=>{fecharModal('modalFichaCliente');editarEmpresa(id);};
+  setHTML('fichaClienteUsuarios','<tr><td colspan="4" class="table-empty">Carregando...</td></tr>');
+  abrirModal('modalFichaCliente');
+
+  try{
+    const [primeiraPaga]=await dbGet('assinaturas',`?empresa_id=eq.${id}&status=eq.pago&select=data_pagamento,plano,created_at&order=data_pagamento.asc,created_at.asc&limit=1`);
+    const dataContrato=primeiraPaga?.data_pagamento||primeiraPaga?.created_at;
+    const txt=dataContrato?`<b>${fmtData(dataContrato)}</b>${primeiraPaga.plano?` (plano ${esc(primeiraPaga.plano)})`:''}`:'<b>sem pagamento registrado ainda</b>';
+    const elDatas=$('fichaClienteContratou');
+    if(elDatas)elDatas.innerHTML='Contratou o plano atual: '+txt;
+  }catch(err){
+    const elDatas=$('fichaClienteContratou');
+    if(elDatas)elDatas.innerHTML='Contratou o plano atual: <b>não foi possível carregar</b>';
+  }
+
+  const usuariosEmp=usuarios.filter(u=>u.empresa_id===id);
+  if(!usuariosEmp.length){
+    setHTML('fichaClienteUsuarios','<tr><td colspan="4" class="table-empty">Nenhum usuário cadastrado.</td></tr>');
+    return;
+  }
+  try{
+    const ids=usuariosEmp.map(u=>u.id).join(',');
+    const logs=await dbGet('access_logs',`?usuario_id=in.(${ids})&select=usuario_id,modulo,created_at&order=created_at.desc&limit=500`);
+    const ultimoPorUsuario={};
+    logs.forEach(l=>{if(!ultimoPorUsuario[l.usuario_id])ultimoPorUsuario[l.usuario_id]=l;});
+    setHTML('fichaClienteUsuarios',usuariosEmp.map(u=>{
+      const log=ultimoPorUsuario[u.id];
+      return`<tr>
+        <td><b>${esc(u.nome||u.email||'—')}</b></td>
+        <td><span class="badge badge-start">${esc(u.perfil||'Colaborador')}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${log?fmtDataHora(log.created_at):'Nunca'}</td>
+        <td style="font-size:12px;color:var(--muted)">${log?esc(log.modulo):'—'}</td>
+      </tr>`;
+    }).join(''));
+  }catch(err){
+    setHTML('fichaClienteUsuarios','<tr><td colspan="4" class="table-empty">Não foi possível carregar os acessos.</td></tr>');
+  }
 }
 
 function renderEfiStatusEmpresa(e){

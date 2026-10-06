@@ -21,7 +21,9 @@ async function registrarLog(modulo,acao='Acesso'){
 
 // Auto-registrar acesso baseado na página
 (function(){
-  const paginas={'dashboard.html':'Dashboard','financeiro.html':'Financeiro','materiais.html':'Materiais','servicos.html':'Serviços','transporte.html':'Transporte','cotacao.html':'Cotação','crm.html':'CRM','rh.html':'RH','parametros.html':'Parâmetros','app.html':'Clientes/Relatórios'};
+  // 4 páginas já incluíam esse script mas não tinham entrada aqui (caixa, produtos,
+  // painel-vendas, integracoes) — o acesso delas nunca era registrado, silenciosamente.
+  const paginas={'dashboard.html':'Dashboard','financeiro.html':'Financeiro','materiais.html':'Materiais','servicos.html':'Serviços','transporte.html':'Transporte','cotacao.html':'Cotação','crm.html':'CRM','rh.html':'RH','parametros.html':'Parâmetros','app.html':'Clientes/Relatórios','caixa.html':'Caixa','produtos.html':'Produtos','painel-vendas.html':'Painel de Vendas','integracoes.html':'Integrações','os.html':'Ordens de Serviço','notas-fiscais.html':'Notas Fiscais','relatorios.html':'Relatórios'};
   const pagina=window.location.pathname.split('/').pop();
   const modulo=paginas[pagina];
   if(modulo) setTimeout(()=>registrarLog(modulo,'Acesso à página'),1500);
