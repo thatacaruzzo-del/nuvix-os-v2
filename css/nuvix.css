@@ -434,6 +434,10 @@ tr:hover td { background: #FAF9FE; }
   .sidebar span { opacity: 1 !important; transform: none !important; }
   .sb-group-label { opacity: 1 !important; max-height: 20px !important; }
   .app-shell { margin-left: 0; }
+  /* Abaixo de 16px, o Safari do iPhone dá zoom automático na tela assim que o
+     campo recebe foco — a tela "pula" bem na hora de digitar. Sobe só no
+     mobile pra não perder a densidade visual do desktop (14px). */
+  input, select, textarea { font-size: 16px; }
 }
 /* ── Main content ── */
 .main-content {
