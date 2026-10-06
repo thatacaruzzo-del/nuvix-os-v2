@@ -371,23 +371,28 @@ Deno.serve(async (req) => {
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
-      // 8.264/2014). CAUSA RAIZ encontrada: o grupo totTrib é um "ou"
-      // EXCLUSIVO no XSD — só pode existir UM entre indTotTrib/pTotTrib/
-      // pTotTribSN/vTotTrib, nunca dois juntos. Toda tentativa anterior
-      // mandava indicador_total_tributacao (indTotTrib) JUNTO com outro
-      // campo do grupo — violação de "choice" que ou dava erro de
-      // sequência (pTotTribSN not expected) ou fazia a Focus descartar o
-      // grupo inteiro e devolver o erro genérico de novo. Além disso,
-      // indTotTrib é PROIBIDO pra empresa ME/EPP optante do Simples
-      // Nacional (caso da Nuvix) — não devia nem ser cogitado. Confirmado
-      // via teste real em homologação (ref teste-tottrib-sn-1): removendo
-      // indicador_total_tributacao por completo e mandando só os dois
-      // campos abaixo, o erro de totTrib sumiu de vez (sobrou só o erro,
-      // já conhecido, de homologação não ter o cadastro sincronizado —
-      // nada a ver com esse campo).
+      // 8.264/2014). CAUSA RAIZ (confirmada): totTrib é grupo "ou"
+      // EXCLUSIVO no XSD — só 1 entre indTotTrib/pTotTrib/pTotTribSN/
+      // vTotTrib pode existir, nunca dois juntos, e indTotTrib é PROIBIDO
+      // pra ME/EPP optante do Simples (caso da Nuvix) — por isso ele foi
+      // removido do payload por completo, pra sempre.
+      //
+      // Removido indTotTrib + só percentual_total_tributos_simples_
+      // nacional (teste real em PRODUÇÃO, ref nuvix-c9bf1f23...): passou
+      // pela validação da Focus (numero_rps avançou, chegou a sair pra
+      // GISS de verdade) mas a GISS REJEITOU com o erro genérico de novo —
+      // confirma que esse XSD específico (GissOnline v2.04, Guarulhos) não
+      // tem a 'choice' pTotTribSN implementada, igual ao teste anterior
+      // ("pTotTribSN not expected"). Única combinação ainda não testada:
+      // o trio federal/estadual/municipal (variante pTotTrib do choice)
+      // SEM indTotTrib junto — testando agora. Mesmo cálculo de antes: ISS
+      // (municipal) = params.aliquota_iss; resto do DAS do Simples
+      // (PIS/COFINS/IRPJ/CSLL/CPP) = federal; estadual = 0 (ICMS não se
+      // aplica a serviço via NFS-e).
       optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
-      percentual_total_tributos_simples_nacional:
-        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
+      percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(params.aliquota_iss) || 0)),
+      percentual_total_tributos_estaduais: 0,
+      percentual_total_tributos_municipais: Number(params.aliquota_iss) || 0,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
