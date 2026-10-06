@@ -371,20 +371,30 @@ Deno.serve(async (req) => {
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
-      // 8.264/2014). 4 tentativas até aqui: (1) só o percentual do Simples —
+      // 8.264/2014). 5 tentativas até aqui: (1) só o percentual do Simples —
       // erro genérico; (2) indicador_total_tributacao: true (boolean) — erro
       // real confirmou que o enum do GISS de Guarulhos (v2.04) só aceita '0'
       // (string); (3) '0' + percentual_total_tributos_simples_nacional —
-      // erro real NOVO: "pTotTribSN not expected", ou seja esse XSD
-      // específico (GissOnline v2.04, layout mais antigo que a NFSe Nacional
-      // completa) NÃO tem esse atalho de Simples Nacional no schema — só
-      // aceita os três campos separados federais/estaduais/municipais,
-      // mesmo pra quem é optante. Cálculo: o ISS (municipal) já está certo
-      // em params.aliquota_iss; o resto do DAS do Simples (PIS/COFINS/IRPJ/
-      // CSLL/CPP) é sempre federal; não existe componente estadual porque
-      // NFS-e é só serviço — ICMS (estadual) não se aplica, só entraria pra
-      // quem também vende mercadoria (Anexo I/II), caso não coberto aqui.
-      optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
+      // erro real: "pTotTribSN not expected" (GISS v2.04 não tem esse
+      // atalho no schema); (4) trio federal/estadual/municipal MAS com
+      // optante_simples_nacional:true — voltou pro erro genérico de novo
+      // (numero_rps idêntico ao 1º teste, sinal de que nem chegou a sair da
+      // Focus pra GISS). Conclusão: a validação da PRÓPRIA Focus (antes de
+      // montar o XML) exige percentual_total_tributos_simples_nacional
+      // sempre que optante_simples_nacional=true — só que o XSD de
+      // Guarulhos rejeita esse campo. Contradição entre a camada da Focus e
+      // a da prefeitura pra esse município específico.
+      //
+      // CONTORNO (decisão explícita da Thata, não automática): manda
+      // optante_simples_nacional:false mesmo a Nuvix sendo Simples de
+      // verdade, só pra passar pela validação da Focus — o trio federal/
+      // estadual/municipal abaixo já informa a carga tributária real
+      // corretamente, então o conteúdo fiscal da nota continua certo; só
+      // essa flag específica mente pra contornar um bug de integração da
+      // Focus com esse município. Se não resolver, é caso de chamado com o
+      // suporte da Focus (camada deles conflitando com o schema deles
+      // mesmo pra Guarulhos).
+      optante_simples_nacional: false,
       indicador_total_tributacao: '0',
       percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(params.aliquota_iss) || 0)),
       percentual_total_tributos_estaduais: 0,
