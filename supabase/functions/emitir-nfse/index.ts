@@ -287,7 +287,7 @@ Deno.serve(async (req) => {
     // uma empresa já cadastrada no próprio NuvixHub.
     const docTomador = (nota.cliente_documento || '').replace(/\D/g, '');
     const [empresaTomador] = docTomador
-      ? await sbGet(`empresas?cnpj=eq.${docTomador}&select=endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`)
+      ? await sbGet(`empresas?cnpj=eq.${docTomador}&select=endereco_logradouro,endereco_numero,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`)
       : [undefined];
 
     const ref = `nuvix-${nota_fiscal_id}`;
@@ -320,7 +320,6 @@ Deno.serve(async (req) => {
             ? {
                 logradouro: empresaTomador.endereco_logradouro || undefined,
                 numero: empresaTomador.endereco_numero || undefined,
-                complemento: empresaTomador.endereco_complemento || undefined,
                 bairro: empresaTomador.endereco_bairro || undefined,
                 codigo_municipio: empresaTomador.codigo_municipio_ibge || undefined,
                 uf: empresaTomador.endereco_uf || undefined,
