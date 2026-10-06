@@ -370,6 +370,20 @@ Deno.serve(async (req) => {
       // existe cenário de "emitir pra um, mas destinar o serviço a outro").
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
+      // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
+      // 8.264/2014) — confirmado no erro real "RPS não contém os valores
+      // percentuais dos tributos (totTrib)". optante_simples_nacional e
+      // percentual_total_tributos_simples_nacional ficam na RAIZ (mesmo
+      // padrão de consumidor_final/finalidade_emissao/indicador_destinatario
+      // já confirmados nesse payload). empresas.regime_tributario /
+      // empresas.simples já existem no banco pra isso — Nuvix é Simples
+      // Nacional, alíquota efetiva 6%. Empresa NÃO optante precisaria enviar
+      // percentual_total_tributos_federais/estaduais/municipais em vez
+      // desse campo — não implementado ainda porque nenhuma empresa
+      // não-optante emite NFS-e hoje no NuvixHub.
+      optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
+      percentual_total_tributos_simples_nacional:
+        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
