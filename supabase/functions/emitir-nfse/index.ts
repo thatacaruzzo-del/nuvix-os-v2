@@ -371,34 +371,23 @@ Deno.serve(async (req) => {
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
-      // 8.264/2014). 5 tentativas até aqui: (1) só o percentual do Simples —
-      // erro genérico; (2) indicador_total_tributacao: true (boolean) — erro
-      // real confirmou que o enum do GISS de Guarulhos (v2.04) só aceita '0'
-      // (string); (3) '0' + percentual_total_tributos_simples_nacional —
-      // erro real: "pTotTribSN not expected" (GISS v2.04 não tem esse
-      // atalho no schema); (4) trio federal/estadual/municipal MAS com
-      // optante_simples_nacional:true — voltou pro erro genérico de novo
-      // (numero_rps idêntico ao 1º teste, sinal de que nem chegou a sair da
-      // Focus pra GISS). Conclusão: a validação da PRÓPRIA Focus (antes de
-      // montar o XML) exige percentual_total_tributos_simples_nacional
-      // sempre que optante_simples_nacional=true — só que o XSD de
-      // Guarulhos rejeita esse campo. Contradição entre a camada da Focus e
-      // a da prefeitura pra esse município específico.
-      //
-      // CONTORNO (decisão explícita da Thata, não automática): manda
-      // optante_simples_nacional:false mesmo a Nuvix sendo Simples de
-      // verdade, só pra passar pela validação da Focus — o trio federal/
-      // estadual/municipal abaixo já informa a carga tributária real
-      // corretamente, então o conteúdo fiscal da nota continua certo; só
-      // essa flag específica mente pra contornar um bug de integração da
-      // Focus com esse município. Se não resolver, é caso de chamado com o
-      // suporte da Focus (camada deles conflitando com o schema deles
-      // mesmo pra Guarulhos).
-      optante_simples_nacional: false,
-      indicador_total_tributacao: '0',
-      percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(params.aliquota_iss) || 0)),
-      percentual_total_tributos_estaduais: 0,
-      percentual_total_tributos_municipais: Number(params.aliquota_iss) || 0,
+      // 8.264/2014). CAUSA RAIZ encontrada: o grupo totTrib é um "ou"
+      // EXCLUSIVO no XSD — só pode existir UM entre indTotTrib/pTotTrib/
+      // pTotTribSN/vTotTrib, nunca dois juntos. Toda tentativa anterior
+      // mandava indicador_total_tributacao (indTotTrib) JUNTO com outro
+      // campo do grupo — violação de "choice" que ou dava erro de
+      // sequência (pTotTribSN not expected) ou fazia a Focus descartar o
+      // grupo inteiro e devolver o erro genérico de novo. Além disso,
+      // indTotTrib é PROIBIDO pra empresa ME/EPP optante do Simples
+      // Nacional (caso da Nuvix) — não devia nem ser cogitado. Confirmado
+      // via teste real em homologação (ref teste-tottrib-sn-1): removendo
+      // indicador_total_tributacao por completo e mandando só os dois
+      // campos abaixo, o erro de totTrib sumiu de vez (sobrou só o erro,
+      // já conhecido, de homologação não ter o cadastro sincronizado —
+      // nada a ver com esse campo).
+      optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
+      percentual_total_tributos_simples_nacional:
+        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
