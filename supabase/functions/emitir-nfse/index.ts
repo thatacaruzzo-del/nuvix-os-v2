@@ -371,19 +371,24 @@ Deno.serve(async (req) => {
       // 1 seria só pra quando destinatário ≠ tomador.
       indicador_destinatario: 0,
       // Carga tributária aproximada (Lei da Transparência Fiscal, Decreto
-      // 8.264/2014). 3 tentativas até aqui: (1) só o percentual — erro
-      // genérico de "falta valor ou indicador"; (2) indicador_total_
-      // tributacao: true (boolean) — erro real do XSD confirmou que o
-      // enum do GISS de Guarulhos (v2.04) só aceita '0' nesse campo, não
-      // 'true'/'1' — ou seja, ESSE município não suporta optar por "não
-      // informar", só aceita '0' = "vou informar os valores". Por isso
-      // agora os DOIS campos vão juntos: indicador '0' (string, não
-      // boolean) + o percentual de verdade. empresas.simples (6% pra
-      // Nuvix, Simples Nacional) é o dado usado.
+      // 8.264/2014). 4 tentativas até aqui: (1) só o percentual do Simples —
+      // erro genérico; (2) indicador_total_tributacao: true (boolean) — erro
+      // real confirmou que o enum do GISS de Guarulhos (v2.04) só aceita '0'
+      // (string); (3) '0' + percentual_total_tributos_simples_nacional —
+      // erro real NOVO: "pTotTribSN not expected", ou seja esse XSD
+      // específico (GissOnline v2.04, layout mais antigo que a NFSe Nacional
+      // completa) NÃO tem esse atalho de Simples Nacional no schema — só
+      // aceita os três campos separados federais/estaduais/municipais,
+      // mesmo pra quem é optante. Cálculo: o ISS (municipal) já está certo
+      // em params.aliquota_iss; o resto do DAS do Simples (PIS/COFINS/IRPJ/
+      // CSLL/CPP) é sempre federal; não existe componente estadual porque
+      // NFS-e é só serviço — ICMS (estadual) não se aplica, só entraria pra
+      // quem também vende mercadoria (Anexo I/II), caso não coberto aqui.
       optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
       indicador_total_tributacao: '0',
-      percentual_total_tributos_simples_nacional:
-        params.regime_tributario === 'Simples Nacional' ? Number(params.simples) || 0 : undefined,
+      percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(params.aliquota_iss) || 0)),
+      percentual_total_tributos_estaduais: 0,
+      percentual_total_tributos_municipais: Number(params.aliquota_iss) || 0,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
