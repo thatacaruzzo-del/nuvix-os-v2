@@ -665,15 +665,14 @@ async function loadData(){
     // o histórico em silêncio — a consulta continuava "dando certo", só que incompleta.
     financeiro=await db.get('financeiro',`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc&limit=5000`);
     // Lançamento ligado a um pedido (referencia_tipo='venda') mostra o número dele
-    // na aba "A Receber" — busca em lote, não uma consulta por linha.
-    const idsVenda=[...new Set(financeiro.filter(f=>f.referencia_tipo==='venda'&&f.referencia_id).map(f=>f.referencia_id))];
+    // no Financeiro. Busca TODAS as vendas da empresa de uma vez (em vez de montar
+    // um id=in.(...) com um UUID por venda) — empresa com muitas vendas gerava uma
+    // URL gigante que estourava limite e falhava calada, deixando o número sumido.
     pedidosNumeroPorVenda={};
-    if(idsVenda.length){
-      try{
-        const vs=await db.get('vendas',`?id=in.(${idsVenda.join(',')})&select=id,numero`);
-        vs.forEach(v=>{pedidosNumeroPorVenda[v.id]=v.numero;});
-      }catch(e){}
-    }
+    try{
+      const vs=await db.get('vendas',`?empresa_id=eq.${session.empresa_id}&select=id,numero&limit=20000`);
+      vs.forEach(v=>{pedidosNumeroPorVenda[v.id]=v.numero;});
+    }catch(e){}
     renderHero();renderStrip();renderLancamentos();renderFluxo();renderReceber();renderPagar();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
   try{
