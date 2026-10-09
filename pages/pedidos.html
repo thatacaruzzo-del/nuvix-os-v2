@@ -740,7 +740,7 @@ async function abrirFichaPedido(venda){
       <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
       <div><b>Total:</b> ${money(venda.total)}</div>
       <div><b>Pagamento:</b> ${statusPgto}${fin?.vencimento&&statusPgto!=='Pago'?' — vencimento '+fmtData(fin.vencimento):''}</div>
-      <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="${esc(nota.link_pdf)}" target="_blank">Ver PDF</a>`:''}`:'Não emitida'}</div>
+      <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
       <div style="margin-top:14px;font-weight:700">Itens</div>
       <div class="tablewrap" style="margin-top:6px">
         <table>

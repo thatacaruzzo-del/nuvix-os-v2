@@ -243,6 +243,22 @@ function val(id){const e=$(id);return e?e.value:''}
 function num(id){const e=$(id);return e?Number(e.value||0):0}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+// Abre o PDF (DANFSE/DANFCE) buscando o HTML por fetch() e navegando pra uma Blob URL
+// local, em vez de link direto pro link_pdf da Focus NFe — link direto às vezes é
+// servido de um jeito que o navegador mostra como texto cru em vez de renderizar
+// (mesmo bug já corrigido no Caixa/Notas Fiscais pro cupom fiscal).
+async function abrirDanfce(url,janelaPreAberta){
+  const janela=janelaPreAberta||window.open('','_blank');
+  try{
+    const r=await fetch(url);
+    const html=await r.text();
+    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    if(janela) janela.location.href=blobUrl;
+    else window.open(blobUrl,'_blank');
+  }catch(e){
+    if(janela)janela.location.href=url;
+  }
+}
 </script>
 <script src="../js/nuvix-paginacao.js"></script>
 <script>
@@ -3110,7 +3126,7 @@ function renderNotasAssinatura(){
     if(n.status==='nao_emitida'||n.status==='erro')acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="emitirNotaAssinatura('${n.id}')">Emitir</button>`);
     if(n.status==='processando')acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="consultarNotaAssinatura('${n.id}')">Consultar</button>`);
     if(n.status==='autorizada'){
-      if(n.link_pdf)acoes.push(`<a href="${esc(n.link_pdf)}" target="_blank" class="btn2" style="font-size:11px;padding:5px 10px;text-decoration:none;display:inline-block">Ver</a>`);
+      if(n.link_pdf)acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="abrirDanfce('${esc(n.link_pdf)}')">Ver</button>`);
       if(n.link_xml)acoes.push(`<button class="btn2" style="font-size:11px;padding:5px 10px" onclick="baixarXmlNotaAssinatura('${n.id}')">XML</button>`);
       acoes.push(`<button class="danger" style="font-size:11px;padding:5px 10px" onclick="cancelarNotaAssinatura('${n.id}')">Cancelar</button>`);
     }

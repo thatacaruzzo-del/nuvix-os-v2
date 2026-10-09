@@ -55,6 +55,22 @@ function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,html){const e=$(id);if(e)e.innerHTML=html}
+// Abre o PDF do CT-e buscando o HTML por fetch() e navegando pra uma Blob URL local,
+// em vez de link direto pro link_pdf da Focus NFe — link direto às vezes é servido de
+// um jeito que o navegador mostra como texto cru em vez de renderizar (mesmo bug já
+// corrigido no Caixa/Notas Fiscais pro cupom fiscal/DANFCE).
+async function abrirDanfce(url,janelaPreAberta){
+  const janela=janelaPreAberta||window.open('','_blank');
+  try{
+    const r=await fetch(url);
+    const html=await r.text();
+    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    if(janela) janela.location.href=blobUrl;
+    else window.open(blobUrl,'_blank');
+  }catch(e){
+    if(janela)janela.location.href=url;
+  }
+}
 </script>
 <script src="../js/nuvix-paginacao.js"></script>
 <script>
@@ -593,7 +609,7 @@ function cteBadgeAcao(opId){
   if(status==='erro'||status==='nao_emitida') acoes.push(`<button class="btn2" onclick="emitirCte('${opId}')" style="font-size:11px;padding:4px 6px">Reemitir</button>`);
   if(status==='processando') acoes.push(`<button class="btn2" onclick="consultarCte('${opId}')" style="font-size:11px;padding:4px 6px">Consultar</button>`);
   if(status==='autorizada'){
-    if(nota.link_pdf) acoes.push(`<a class="btn2" href="${esc(nota.link_pdf)}" target="_blank" style="font-size:11px;padding:4px 6px;text-decoration:none">PDF</a>`);
+    if(nota.link_pdf) acoes.push(`<button class="btn2" onclick="abrirDanfce('${esc(nota.link_pdf)}')" style="font-size:11px;padding:4px 6px">PDF</button>`);
     acoes.push(`<button class="danger" onclick="cancelarCte('${opId}')" style="font-size:11px;padding:4px 6px">Cancelar</button>`);
   }
   return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${badge}<div style="display:flex;gap:4px;flex-wrap:wrap">${acoes.join('')}</div></div>`;
