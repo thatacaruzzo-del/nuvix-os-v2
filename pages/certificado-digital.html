@@ -77,6 +77,18 @@
         </div>
 
         <div class="cert-section">
+          <h3>Que tipo de nota sua empresa emite?</h3>
+          <p>Marque todas que se aplicam — isso define como vamos configurar a emissão pra sua empresa.</p>
+          <div id="certTiposNota" style="display:flex;flex-direction:column;gap:10px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" value="NF-e" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"> NF-e — nota de produto (venda por atacado, não presencial, entre empresas)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" value="NFC-e" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"> NFC-e — cupom fiscal (venda no balcão/PDV, direto pro consumidor final)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" value="NFS-e" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"> NFS-e — nota de serviço</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" value="CT-e" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"> CT-e — conhecimento de transporte (frete)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--muted)"><input type="checkbox" value="Não sei" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"> Não sei dizer — podem entrar em contato comigo pra confirmar</label>
+          </div>
+        </div>
+
+        <div class="cert-section">
           <h3>Dados pra validação</h3>
           <p>Informações que nossa equipe precisa pra validar e ativar a emissão de notas fiscais da sua empresa.</p>
           <div class="form-grid" style="grid-template-columns:1fr 1fr">
@@ -147,6 +159,8 @@ function aoEscolherArquivo(){
 async function enviarCertificado(){
   if(session.perfil!=='Administrador'){toast('Só o administrador da empresa pode enviar o certificado.','err');return;}
   if(!arquivoSelecionado){msg('certMsg','Escolha o arquivo do certificado (.pfx ou .p12).','err');return;}
+  const tiposNota=[...document.querySelectorAll('#certTiposNota input:checked')].map(i=>i.value);
+  if(!tiposNota.length){msg('certMsg','Marque pelo menos uma opção de tipo de nota.','err');return;}
   const senha=val('certSenha');
   if(!senha){msg('certMsg','Informe a senha do certificado.','err');return;}
   const cpf=val('certCpf').trim();
@@ -162,6 +176,7 @@ async function enviarCertificado(){
     await db.post('certificados_digitais_pendentes',withEmpresa({
       arquivo_base64:arquivoSelecionado.base64,
       arquivo_nome:arquivoSelecionado.nome,
+      tipos_nota:tiposNota.join(', '),
       senha,
       responsavel_cpf:cpf.replace(/\D/g,''),
       responsavel_email:email,
@@ -177,6 +192,7 @@ async function enviarCertificado(){
     $('certFileBox').classList.remove('has-file');
     $('certFileLabel').textContent='Clique para escolher o arquivo .pfx ou .p12';
     $('certSenha').value='';$('certCpf').value='';$('certEmail').value='';$('certTelefone').value='';$('certObs').value='';
+    document.querySelectorAll('#certTiposNota input:checked').forEach(i=>i.checked=false);
     msg('certMsg','Certificado enviado com segurança! Nossa equipe vai validar e ativar a emissão de notas fiscais da sua empresa em até 2 dias úteis — essas informações são usadas só pra isso, e depois são apagadas do nosso banco.','ok');
   }catch(e){
     msg('certMsg',e.message,'err');
