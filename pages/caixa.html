@@ -340,7 +340,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           <div id="histResumoConsignado"></div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Hora</th><th>Operador</th><th>Vendedor</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Nº</th><th>Hora</th><th>Operador</th><th>Vendedor</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th></th></tr></thead>
               <tbody id="histTable"></tbody>
             </table>
           </div>
@@ -1222,7 +1222,8 @@ async function finalizarVenda(){
       if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-item.quantidade;
     }
 
-    toast(modoRetroativo?`Venda retroativa registrada — ${money(total)}`:`Venda finalizada — ${money(total)}`,'ok');
+    const numeroVenda=resultado.numero;
+    toast(modoRetroativo?`Venda retroativa Nº ${numeroVenda} registrada — ${money(total)}`:`Venda Nº ${numeroVenda} finalizada — ${money(total)}`,'ok');
     if(!modoRetroativo){
       // Emissão de NFC-e é manual de propósito, por decisão do cliente (Nuvix Hub) —
       // nunca dispara sozinha. O operador decide na hora, venda por venda; a venda em
@@ -1755,6 +1756,7 @@ function renderHistoricoVendas(vendas,itens,formas,devolucoes){
       ? `<span class="badge badge-amber" title="Devolvido: ${money(totalDevolvido)}">Devolução parcial</span>`
       : '<span class="badge badge-green">Concluída</span>';
     return `<tr style="${cancelada?'opacity:.55;text-decoration:line-through':''}">
+      <td><b>${v.numero??'—'}</b></td>
       <td>${horaOuRetroativa}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(nomeUsuario(v.usuario_id)||'—')}</td>
       <td>${esc(v.vendedor_nome||'—')}</td>
@@ -1765,7 +1767,7 @@ function renderHistoricoVendas(vendas,itens,formas,devolucoes){
       <td>${badgeStatus}</td>
       <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
     </tr>`;
-  }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
+  }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
 // Reimprime o cupom de uma venda já concluída, reconstruindo o mesmo formato usado na
 // hora da venda a partir do que já está carregado no histórico (sem round-trip extra).
