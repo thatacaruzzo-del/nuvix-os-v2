@@ -606,13 +606,20 @@ async function registrarPedido(){
   const btn=document.querySelector('.main-scroll .btn');
   if(btn){btn.disabled=true;btn.textContent='Registrando...';}
   try{
+    const formaEscolhida=val('pedFormaPagamento')||'Combinado';
+    // venda_formas_pagamento só aceita Dinheiro/Cartão Crédito/Cartão Débito/Pix
+    // (restrição do banco, pensada pro Caixa). "Boleto"/"Combinado" são opções
+    // que só existem aqui no Pedido Manual (venda não presencial) — nesse caso
+    // não criamos linha em formas_pagamento, só o texto livre já vai em
+    // forma_pagamento_txt (financeiro.forma_pagamento, sem essa restrição).
+    const FORMAS_PAGAMENTO_VALIDAS=['Dinheiro','Cartão Crédito','Cartão Débito','Pix'];
     const resultado=await dbRpc('finalizar_venda',{p:{
       empresa_id:session.empresa_id, loja_id:lojaId, caixa_sessao_id:null,
       cliente_id:clienteSelecionado.id, cliente_nome:clienteSelecionado.nome,
       vendedor_id:null, vendedor_nome:null,
       subtotal:total, desconto_total:0, total, data_venda:hoje(),
       retroativa:false, motivo_retroativo:null,
-      forma_pagamento_txt:val('pedFormaPagamento')||'Combinado',
+      forma_pagamento_txt:formaEscolhida,
       descricao:`Pedido Manual — ${carrinho.length} ${carrinho.length===1?'item':'itens'} — ${clienteSelecionado.nome}`,
       motivo_estoque:'Pedido Manual (WhatsApp/venda direta)',
       usuario_id:session.id,
@@ -625,7 +632,7 @@ async function registrarPedido(){
         valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
         avulso:!!i.avulso, kit_id:null, is_consignado:false,
       })),
-      formas_pagamento:[{forma_pagamento:val('pedFormaPagamento')||'Combinado', valor:total}],
+      formas_pagamento:FORMAS_PAGAMENTO_VALIDAS.includes(formaEscolhida)?[{forma_pagamento:formaEscolhida, valor:total}]:[],
       desconto:null,
     }});
     const vendaId=resultado.venda_id;
