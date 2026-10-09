@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Pedidos</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.ped-busca-field{position:relative}
+.ped-busca-resultados{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md);margin-top:6px;max-height:280px;overflow-y:auto;z-index:20;display:none}
+.ped-busca-resultados.open{display:block}
+.ped-busca-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);font-size:13px}
+.ped-busca-item:last-child{border-bottom:none}
+.ped-busca-item:hover{background:var(--p-light)}
+.ped-selecionado{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);border:1px solid #DDD6FF;border-radius:12px;padding:10px 14px;margin-top:8px}
+.ped-carrinho-vazio{padding:30px 20px;text-align:center;color:var(--muted);font-size:13px}
+.ped-total-row{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:800;padding:14px 0;border-top:1.5px solid var(--line);margin-top:10px}
+.ped-pgto-opcoes{display:flex;gap:8px;margin-bottom:12px}
+.ped-pgto-opcao{flex:1;padding:12px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer;text-align:center;font-weight:700;font-size:13px;color:var(--muted)}
+.ped-pgto-opcao.active{border-color:var(--p);background:var(--p-light);color:var(--p)}
+.ped-qtd-input{padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:13px}
+.table-empty{text-align:center;color:var(--muted);padding:28px;font-size:13px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:560px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.modal-actions button{flex:1}
+.field-hint{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+<script>
+function $(id){return document.getElementById(id)}
+function abrirModal(id){const m=$(id);if(m)m.classList.add('open')}
+function fecharModal(id){const m=$(id);if(m)m.classList.remove('open')}
+function val(id){const e=$(id);return e?e.value:''}
+function num(id){const e=$(id);return e?Number(e.value||0):0}
+function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
+function numBR(v){let s=(typeof v==='string'&&$(v)?val(v):v).toString().trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtDataHora(d){if(!d)return'—';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}
+function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
+function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hoje(){return dataLocal(new Date())}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+function arred2(v){ return Math.round(Number(v||0)*100)/100; }
+</script>
+<script src="../js/nuvix-paginacao.js"></script>
+<script>
+function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function confirmarAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.textContent=opts.labelCancelar||'Cancelar';const btnOk=document.createElement('button');btnOk.type='button';btnOk.className='nx-confirm-ok '+(opts.variante||'perigo');btnOk.textContent=opts.labelOk||'Excluir';actions.append(btnCancel,btnOk);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);function onKey(e){if(e.key==='Escape')finish(false)}function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}btnCancel.onclick=()=>finish(false);btnOk.onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};document.addEventListener('keydown',onKey);btnOk.focus();})}
+function escolherAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{const overlay=document.createElement('div');overlay.className='nx-confirm-overlay';const box=document.createElement('div');box.className='nx-confirm-box';const msgBox=document.createElement('div');msgBox.className='nx-confirm-msg';msgBox.textContent=mensagem;const actions=document.createElement('div');actions.className='nx-confirm-actions';actions.style.flexDirection='column';const btnCancel=document.createElement('button');btnCancel.type='button';btnCancel.className='nx-confirm-cancel';btnCancel.style.width='100%';btnCancel.textContent=opts.labelCancelar||'Voltar';function finish(r){document.removeEventListener('keydown',onKey);overlay.remove();resolve(r)}function onKey(e){if(e.key==='Escape')finish(null)}(opts.botoes||[]).forEach(b=>{const btn=document.createElement('button');btn.type='button';btn.className='nx-confirm-ok '+(b.variante||'neutro');btn.style.width='100%';btn.textContent=b.label;btn.onclick=()=>finish(b.valor);actions.append(btn);});actions.append(btnCancel);box.append(msgBox,actions);overlay.append(box);document.body.appendChild(overlay);btnCancel.onclick=()=>finish(null);overlay.onclick=e=>{if(e.target===overlay)finish(null)};document.addEventListener('keydown',onKey);})}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+// Mesmo padrão do Caixa pra abrir DANFCE/DANFE — fetch + Blob URL, não document.write()
+// (confiável até dentro de webview de app, ex: navegador embutido do WhatsApp).
+async function abrirDanfce(url,janelaPreAberta){
+  const janela=janelaPreAberta||window.open('','_blank');
+  try{
+    const r=await fetch(url);
+    const html=await r.text();
+    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    if(janela) janela.location.href=blobUrl;
+    else window.open(blobUrl,'_blank');
+  }catch(e){
+    if(janela)janela.location.href=url;
+  }
+}
+
+const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
+async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function temPermissao(modulo,tipo){const s=getSession();if(!s)return false;if(s.perfil==='Administrador'||s.perfil==='SuperAdmin')return true;const p=(s.usuario_permissoes||[]).find(x=>x.modulo===modulo);return p?!!p[`pode_${tipo}`]:true;}
+function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem permissão para acessar este módulo.','err');setTimeout(()=>location.href=(fallback||'dashboard.html'),1200);return false;}return true;}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+// Validação de CPF/CNPJ (mesmo algoritmo já usado em os.html) — pro cadastro de
+// cliente na hora, já que esse cliente pode virar destinatário de NF-e depois.
+function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
+function validarCNPJ(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==14||/^(\d)\1{13}$/.test(c))return false;const calc=b=>{const p=b.length===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<b.length;i++)s+=Number(b[i])*p[i];const r=s%11;return r<2?0:11-r;};if(calc(c.slice(0,12))!==Number(c[12]))return false;return calc(c.slice(0,13))===Number(c[13]);}
+function validarCpfCnpj(v){const d=String(v||'').replace(/\D/g,'');if(!d)return true;if(d.length===11)return validarCPF(d);if(d.length===14)return validarCNPJ(d);return false;}
+function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11)return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');if(d.length===14)return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');return v||'';}
+</script>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <img src="../assets/logo.png" alt="NuvixHub" width="46" height="46">
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Produtos <span style="color:var(--line)">/</span> <b>Pedidos</b></div>
+          <div class="topbar-title">Pedidos</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+
+      <!-- NOVO PEDIDO -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:4px">Novo pedido</h2>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:18px">Pra venda que não passa pelo Caixa nem por marketplace — WhatsApp, vendedor de rua, encomenda combinada direto com o cliente. Registra do mesmo jeito: baixa estoque, lança no Financeiro, e você escolhe se emite nota.</p>
+
+        <!-- Cliente -->
+        <div class="field">
+          <label>Cliente</label>
+          <div class="ped-busca-field">
+            <input type="text" id="pedClienteBusca" placeholder="Buscar por nome ou CPF/CNPJ..." oninput="buscarClientePedido()" autocomplete="off">
+            <div class="ped-busca-resultados" id="pedClienteResultados"></div>
+          </div>
+          <div id="pedClienteSelecionadoWrap" style="display:none" class="ped-selecionado">
+            <div>
+              <b id="pedClienteSelecionadoNome"></b>
+              <div style="font-size:11px;color:var(--muted)" id="pedClienteSelecionadoDoc"></div>
+            </div>
+            <button class="btn2" style="font-size:11px;padding:5px 9px" onclick="limparClienteSelecionado()">Trocar</button>
+          </div>
+          <div class="field-hint">Não achou? <a href="#" onclick="abrirModalNovoCliente();return false">Cadastrar cliente novo</a></div>
+        </div>
+
+        <!-- Loja -->
+        <div class="field" id="pedLojaWrap" style="display:none">
+          <label>Loja (de onde sai o estoque)</label>
+          <select id="pedLoja" onchange="trocarLojaPedido()"></select>
+        </div>
+
+        <!-- Produtos -->
+        <div class="field">
+          <label>Produtos</label>
+          <div class="ped-busca-field">
+            <input type="text" id="pedProdutoBusca" placeholder="Buscar produto por nome, SKU ou código de barras..." oninput="buscarProdutoPedido()" autocomplete="off">
+            <div class="ped-busca-resultados" id="pedProdutoResultados"></div>
+          </div>
+          <div class="field-hint"><a href="#" onclick="toggleItemAvulsoPedido();return false" id="btnToggleAvulsoPed">+ Vender item sem cadastro</a></div>
+          <div id="pedAvulsoWrap" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
+            <div class="form-grid" style="grid-template-columns:2fr 1fr 1fr">
+              <div class="field" style="margin-bottom:0"><label>Nome</label><input id="pedAvulsoNome" placeholder="Descrição do item"></div>
+              <div class="field" style="margin-bottom:0"><label>Valor unitário</label><input id="pedAvulsoValor" inputmode="decimal" oninput="sanitizarDecimal(this)" placeholder="0,00"></div>
+              <div class="field" style="margin-bottom:0"><label>Quantidade</label><input id="pedAvulsoQtd" type="number" min="1" value="1"></div>
+            </div>
+            <button class="btn2" style="margin-top:10px" onclick="adicionarItemAvulsoPedido()">Adicionar ao pedido</button>
+          </div>
+        </div>
+
+        <div id="pedCarrinhoVazio" class="ped-carrinho-vazio">Nenhum produto adicionado ainda.</div>
+        <div class="tablewrap" id="pedCarrinhoWrap" style="display:none">
+          <table>
+            <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody id="pedCarrinhoTable"></tbody>
+          </table>
+        </div>
+        <div class="ped-total-row"><span>Total</span><span id="pedTotalValor">R$ 0,00</span></div>
+
+        <!-- Pagamento -->
+        <div class="field" style="margin-top:18px">
+          <label>Pagamento</label>
+          <div class="ped-pgto-opcoes">
+            <div class="ped-pgto-opcao active" id="pedPgtoOpcaoAgora" onclick="escolherStatusPagamentoPedido('agora')">Pago agora</div>
+            <div class="ped-pgto-opcao" id="pedPgtoOpcaoPendente" onclick="escolherStatusPagamentoPedido('pendente')">Pendente (combinar depois)</div>
+          </div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <div class="field" style="margin-bottom:0">
+              <label>Forma de pagamento</label>
+              <select id="pedFormaPagamento">
+                <option>Dinheiro</option><option>Pix</option><option>Cartão Débito</option>
+                <option>Cartão Crédito</option><option>Boleto</option><option>Combinado</option>
+              </select>
+            </div>
+            <div class="field" id="pedVencimentoWrap" style="margin-bottom:0;display:none">
+              <label>Vencimento</label>
+              <input type="date" id="pedVencimento">
+            </div>
+          </div>
+        </div>
+
+        <div id="pedMsg" class="msg"></div>
+        <button class="btn" style="margin-top:18px;width:100%" onclick="registrarPedido()">Registrar pedido</button>
+      </div>
+
+      <!-- BUSCAR POR NÚMERO -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:14px">Buscar pedido por número</h2>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Encontra qualquer venda do sistema — Caixa, Mercado Livre, PedidoOK ou Pedido Manual — não só os feitos aqui.</p>
+        <div style="display:flex;gap:8px;max-width:320px">
+          <input type="text" id="pedBuscaNumero" placeholder="Nº do pedido" inputmode="numeric" onkeydown="if(event.key==='Enter')buscarPedidoPorNumero()">
+          <button class="btn2" onclick="buscarPedidoPorNumero()">Buscar</button>
+        </div>
+        <div id="pedBuscaNumeroMsg" class="msg"></div>
+      </div>
+
+      <!-- HISTÓRICO -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <h2 style="margin:0">Histórico de pedidos</h2>
+          <button class="btn2" onclick="carregarHistoricoPedidos()">Atualizar</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Data</th></tr></thead>
+            <tbody id="pedHistoricoTable"></tbody>
+          </table>
+          <div id="pedHistoricoPaginacao"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: novo cliente -->
+<div class="modal-overlay" id="modalNovoClientePed">
+<div class="modal">
+  <h3>Cadastrar cliente</h3>
+  <div class="form-grid">
+    <div class="field" style="grid-column:1/-1"><label>Nome *</label><input id="pncNome" placeholder="Nome completo ou razão social"></div>
+    <div class="field"><label>CPF ou CNPJ</label><input id="pncDocumento" placeholder="Só números"></div>
+    <div class="field"><label>Telefone</label><input id="pncTelefone"></div>
+    <div class="field" style="grid-column:1/-1"><label>E-mail</label><input type="email" id="pncEmail"></div>
+  </div>
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+    <div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Endereço completo</div>
+    <p class="field-hint" style="margin-bottom:10px">Só obrigatório se for emitir NF-e pra esse pedido — NFC-e não exige.</p>
+    <div class="form-grid">
+      <div class="field"><label>CEP</label><input id="pncCep"></div>
+      <div class="field"><label>UF</label><input id="pncUf" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="field" style="grid-column:1/-1"><label>Logradouro</label><input id="pncLogradouro"></div>
+      <div class="field"><label>Número</label><input id="pncNumero"></div>
+      <div class="field"><label>Complemento</label><input id="pncComplemento"></div>
+      <div class="field"><label>Bairro</label><input id="pncBairro"></div>
+      <div class="field"><label>Cidade</label><input id="pncCidade"></div>
+      <div class="field"><label>Inscrição estadual</label><input id="pncIe"></div>
+    </div>
+  </div>
+  <div id="pncMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalNovoClientePed')">Cancelar</button>
+    <button class="btn" onclick="salvarNovoClientePedido()">Cadastrar e selecionar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: ficha do pedido (leitura) -->
+<div class="modal-overlay" id="modalFichaPedido">
+<div class="modal" style="max-width:600px">
+  <h3 id="fpTitulo">Pedido</h3>
+  <div id="fpConteudo" style="font-size:13px;line-height:1.8"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalFichaPedido')">Fechar</button>
+  </div>
+</div>
+</div>
+
+<script>
+const session = requireAuth();
+let dados = {lojas:[],produtos:[],estoque:[]};
+let carrinho = [];
+let clienteSelecionado = null; // {id, nome, documento}
+let statusPagamentoAtual = 'agora';
+let empresaFiscal={nfce_ativo:false,nfce_simulacao:false,nfe_ativo:false,nfe_simulacao:false};
+let historicoPedidos = [];
+let pedFichaCache = {}; // id -> linha de vendas já carregada, pra ficha abrir sem precisar passar o objeto inteiro no onclick
+
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+async function init(){
+  if(!session)return;
+  if(!guardModulo('caixa'))return; // Pedidos reaproveita a mesma trava de plano do Caixa/Painel de Vendas
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · Pedidos';
+    if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Teste grátis: '+d+' dias';$('trialBadge').style.display='inline-block';}}
+  }
+  $('pedVencimento').value=hoje();
+  try{
+    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,nfe_ativo,nfe_simulacao,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
+    if(e)empresaFiscal=e;
+  }catch(e){ /* segue sem nota ativa — Pedidos nunca trava por causa disso */ }
+  await carregarLojas();
+  await carregarHistoricoPedidos();
+  $('pageLoader')?.classList.add('hide');
+}
+
+// ══ LOJAS ══
+async function carregarLojas(){
+  dados.lojas=await dbGet('lojas',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
+  if(dados.lojas.length>1){
+    $('pedLojaWrap').style.display='block';
+    $('pedLoja').innerHTML=dados.lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+    await carregarProdutosLoja(dados.lojas[0].id);
+  }else if(dados.lojas.length===1){
+    await carregarProdutosLoja(dados.lojas[0].id);
+  }else{
+    msg('pedMsg','Cadastre uma loja em Produtos → Lojas antes de registrar pedidos.','err');
+  }
+}
+function lojaAtualId(){ return dados.lojas.length>1 ? val('pedLoja') : dados.lojas[0]?.id; }
+async function trocarLojaPedido(){ await carregarProdutosLoja(val('pedLoja')); limparCarrinhoPedido(); }
+async function carregarProdutosLoja(lojaId){
+  const [produtos,estoque]=await Promise.all([
+    dbGet('produtos',`?empresa_id=eq.${session.empresa_id}&ativo=eq.true&select=id,nome,sku,codigo_barras,preco_venda_final,custo_atual,ncm,cfop_padrao,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins`),
+    dbGet('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&loja_id=eq.${lojaId}`),
+  ]);
+  dados.produtos=produtos; dados.estoque=estoque;
+}
+function disponivel(produtoId){return Number(dados.estoque.find(e=>e.produto_id===produtoId)?.quantidade||0)}
+
+// ══ CLIENTE — busca por nome/CPF/CNPJ, cadastro inline ══
+// Mesmo padrão visual de busca em lista (digitar, ver resultados, clicar) já
+// usado em pages/admin.html pra achar empresa por CNPJ na emissão de NFS-e.
+let pedClientesCache=[];
+async function buscarClientePedido(){
+  const q=val('pedClienteBusca').trim().toLowerCase();
+  const box=$('pedClienteResultados');
+  if(q.length<2){box.classList.remove('open');box.innerHTML='';return;}
+  const qDigits=q.replace(/\D/g,'');
+  try{
+    if(!pedClientesCache.length) pedClientesCache=await dbGet('clientes',`?empresa_id=eq.${session.empresa_id}&select=id,nome,documento,telefone,email,endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,endereco_uf,cidade,inscricao_estadual&order=nome.asc`);
+  }catch(e){ box.innerHTML='<div class="ped-busca-item">Erro ao buscar clientes.</div>'; box.classList.add('open'); return; }
+  const achados=pedClientesCache.filter(c=>{
+    const nome=(c.nome||'').toLowerCase();
+    const doc=(c.documento||'').replace(/\D/g,'');
+    return nome.includes(q)||(qDigits&&doc.includes(qDigits));
+  }).slice(0,10);
+  box.innerHTML=achados.map(c=>`<div class="ped-busca-item" onclick='selecionarClientePedido(${JSON.stringify(c.id)})'><span>${esc(c.nome)}</span><span style="color:var(--muted)">${c.documento?formatarDoc(c.documento):'sem documento'}</span></div>`).join('')||'<div class="ped-busca-item">Nenhum cliente encontrado — cadastre um novo abaixo.</div>';
+  box.classList.add('open');
+}
+function selecionarClientePedido(id){
+  const c=pedClientesCache.find(x=>x.id===id); if(!c)return;
+  clienteSelecionado=c;
+  $('pedClienteSelecionadoNome').textContent=c.nome;
+  $('pedClienteSelecionadoDoc').textContent=c.documento?formatarDoc(c.documento):'Sem documento cadastrado';
+  $('pedClienteSelecionadoWrap').style.display='flex';
+  $('pedClienteBusca').value=''; $('pedClienteBusca').style.display='none';
+  $('pedClienteResultados').classList.remove('open');
+}
+function limparClienteSelecionado(){
+  clienteSelecionado=null;
+  $('pedClienteSelecionadoWrap').style.display='none';
+  $('pedClienteBusca').style.display='block'; $('pedClienteBusca').focus();
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.ped-busca-field'))document.querySelectorAll('.ped-busca-resultados').forEach(b=>b.classList.remove('open')); });
+
+function abrirModalNovoCliente(){
+  ['pncNome','pncDocumento','pncTelefone','pncEmail','pncCep','pncUf','pncLogradouro','pncNumero','pncComplemento','pncBairro','pncCidade','pncIe'].forEach(id=>$(id).value='');
+  setHTML('pncMsg','');$('pncMsg').className='msg';
+  abrirModal('modalNovoClientePed');
+}
+async function salvarNovoClientePedido(){
+  const nome=val('pncNome').trim();
+  if(!nome){msgEl('pncMsg','Informe o nome do cliente.');return;}
+  const doc=val('pncDocumento').trim().replace(/\D/g,'');
+  if(doc&&!validarCpfCnpj(doc)){msgEl('pncMsg','CPF/CNPJ inválido, confira os números.');return;}
+  try{
+    const novo=await dbPost('clientes',withEmpresa({
+      nome, documento:doc||null, telefone:val('pncTelefone').trim()||null, email:val('pncEmail').trim()||null,
+      endereco_cep:val('pncCep').trim()||null, endereco_uf:val('pncUf').trim().toUpperCase()||null,
+      endereco_logradouro:val('pncLogradouro').trim()||null, endereco_numero:val('pncNumero').trim()||null,
+      endereco_complemento:val('pncComplemento').trim()||null, endereco_bairro:val('pncBairro').trim()||null,
+      cidade:val('pncCidade').trim()||null, inscricao_estadual:val('pncIe').trim()||null,
+    }));
+    const c=Array.isArray(novo)?novo[0]:novo;
+    pedClientesCache.push(c);
+    selecionarClientePedido(c.id);
+    fecharModal('modalNovoClientePed');
+    toast('Cliente cadastrado.','ok');
+  }catch(e){ msgEl('pncMsg','Erro ao cadastrar: '+e.message); }
+}
+function msgEl(id,text){const e=$(id);e.textContent=text;e.className='msg show err';}
+
+// ══ PRODUTOS / CARRINHO ══
+function buscarProdutoPedido(){
+  const q=val('pedProdutoBusca').trim().toLowerCase();
+  const box=$('pedProdutoResultados');
+  if(!q){box.classList.remove('open');box.innerHTML='';return;}
+  const achados=dados.produtos.filter(p=>(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q)).slice(0,10);
+  box.innerHTML=achados.map(p=>`<div class="ped-busca-item" onclick="adicionarAoCarrinhoPedidoPorId('${p.id}')"><span>${esc(p.nome)}</span><span style="color:var(--muted)">${disponivel(p.id)} disp. · ${money(p.preco_venda_final)}</span></div>`).join('')||'<div class="ped-busca-item">Nenhum produto encontrado.</div>';
+  box.classList.add('open');
+}
+function adicionarAoCarrinhoPedidoPorId(id){
+  const p=dados.produtos.find(x=>x.id===id);
+  if(p)adicionarAoCarrinhoPedido(p);
+  $('pedProdutoBusca').value=''; $('pedProdutoResultados').classList.remove('open');
+}
+function adicionarAoCarrinhoPedido(produto){
+  const disp=disponivel(produto.id);
+  const item=carrinho.find(i=>i.produto_id===produto.id);
+  const qtdAtual=item?item.quantidade:0;
+  if(qtdAtual+1>disp){ toast(`Estoque disponível insuficiente (${disp} un.).`,'err'); return; }
+  if(item){ item.quantidade+=1; } else {
+    const preco=Number(produto.preco_venda_final||0);
+    carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:preco,custo_unitario:Number(produto.custo_atual||0),estoque_disponivel:disp,avulso:false});
+  }
+  renderCarrinhoPedido();
+}
+function toggleItemAvulsoPedido(){
+  const wrap=$('pedAvulsoWrap');
+  const aberto=wrap.style.display==='block';
+  wrap.style.display=aberto?'none':'block';
+  $('btnToggleAvulsoPed').textContent=aberto?'+ Vender item sem cadastro':'− Ocultar item sem cadastro';
+}
+function adicionarItemAvulsoPedido(){
+  const nome=val('pedAvulsoNome').trim();
+  const valor=numBR('pedAvulsoValor');
+  const qtd=Number(val('pedAvulsoQtd')||0);
+  if(!nome){toast('Informe o nome do produto.','err');return;}
+  if(!valor||valor<=0){toast('Informe o valor unitário.','err');return;}
+  if(!qtd||qtd<=0){toast('Informe a quantidade.','err');return;}
+  carrinho.push({produto_id:null,nome,quantidade:qtd,valor_unitario:arred2(valor),custo_unitario:0,estoque_disponivel:Infinity,avulso:true});
+  $('pedAvulsoNome').value=''; $('pedAvulsoValor').value=''; $('pedAvulsoQtd').value='1';
+  renderCarrinhoPedido();
+}
+function renderCarrinhoPedido(){
+  $('pedCarrinhoVazio').style.display=carrinho.length?'none':'block';
+  $('pedCarrinhoWrap').style.display=carrinho.length?'block':'none';
+  $('pedCarrinhoTable').innerHTML=carrinho.map((i,idx)=>`
+    <tr>
+      <td>${esc(i.nome)}${i.avulso?' <span class="badge badge-blue">Avulso</span>':''}</td>
+      <td><input type="text" inputmode="numeric" class="ped-qtd-input" value="${i.quantidade}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="alterarQtdCarrinhoPedido(${idx},this.value)" style="width:64px;text-align:center"></td>
+      <td><input type="text" inputmode="decimal" class="ped-qtd-input" value="${i.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}" oninput="sanitizarDecimal(this)" onchange="alterarPrecoCarrinhoPedido(${idx},this.value)" style="width:90px;text-align:right" title="Preço combinado com o cliente pode ser diferente do preço de tabela."></td>
+      <td>${money(i.quantidade*i.valor_unitario)}</td>
+      <td><button class="btn2" style="padding:4px 10px" onclick="removerDoCarrinhoPedido(${idx})">✕</button></td>
+    </tr>`).join('');
+  renderTotalPedido();
+}
+function alterarQtdCarrinhoPedido(idx,novoValor){
+  const item=carrinho[idx]; if(!item)return;
+  let novaQtd=Math.max(1,Math.floor(Number(novoValor)||1));
+  if(novaQtd>item.estoque_disponivel){ toast(`Estoque disponível insuficiente (${item.estoque_disponivel} un.).`,'err'); novaQtd=item.estoque_disponivel; }
+  item.quantidade=novaQtd; renderCarrinhoPedido();
+}
+function alterarPrecoCarrinhoPedido(idx,novoValor){
+  const item=carrinho[idx]; if(!item)return;
+  const preco=numBR(novoValor);
+  if(preco<0||Number.isNaN(preco)){ toast('Preço inválido.','err'); renderCarrinhoPedido(); return; }
+  item.valor_unitario=arred2(preco); renderCarrinhoPedido();
+}
+function removerDoCarrinhoPedido(idx){ carrinho.splice(idx,1); renderCarrinhoPedido(); }
+function totalCarrinhoPedido(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
+function renderTotalPedido(){ $('pedTotalValor').textContent=money(totalCarrinhoPedido()); }
+function limparCarrinhoPedido(){ carrinho=[]; renderCarrinhoPedido(); }
+
+// ══ PAGAMENTO ══
+function escolherStatusPagamentoPedido(status){
+  statusPagamentoAtual=status;
+  $('pedPgtoOpcaoAgora').classList.toggle('active',status==='agora');
+  $('pedPgtoOpcaoPendente').classList.toggle('active',status==='pendente');
+  $('pedVencimentoWrap').style.display=status==='pendente'?'block':'none';
+}
+
+// ══ REGISTRAR PEDIDO ══
+async function registrarPedido(){
+  if(!temPermissao('vendas','criar')){toast('Sem permissão para registrar vendas.','err');return;}
+  if(!carrinho.length){msg('pedMsg','Adicione ao menos um produto ao pedido.','err');return;}
+  if(!clienteSelecionado){msg('pedMsg','Selecione ou cadastre um cliente.','err');return;}
+  const lojaId=lojaAtualId();
+  if(!lojaId){msg('pedMsg','Cadastre uma loja antes de registrar pedidos.','err');return;}
+  for(const item of carrinho){
+    if(item.avulso)continue;
+    if(item.quantidade>disponivel(item.produto_id)){
+      msg('pedMsg',`Estoque de "${item.nome}" mudou — disponível agora: ${disponivel(item.produto_id)}.`,'err');
+      await carregarProdutosLoja(lojaId);
+      return;
+    }
+  }
+  const total=arred2(totalCarrinhoPedido());
+  const pendente=statusPagamentoAtual==='pendente';
+  if(pendente&&!val('pedVencimento')){msg('pedMsg','Informe a data de vencimento combinada.','err');return;}
+
+  const btn=document.querySelector('.main-scroll .btn');
+  if(btn){btn.disabled=true;btn.textContent='Registrando...';}
+  try{
+    const resultado=await dbRpc('finalizar_venda',{p:{
+      empresa_id:session.empresa_id, loja_id:lojaId, caixa_sessao_id:null,
+      cliente_id:clienteSelecionado.id, cliente_nome:clienteSelecionado.nome,
+      vendedor_id:null, vendedor_nome:null,
+      subtotal:total, desconto_total:0, total, data_venda:hoje(),
+      retroativa:false, motivo_retroativo:null,
+      forma_pagamento_txt:val('pedFormaPagamento')||'Combinado',
+      descricao:`Pedido Manual — ${carrinho.length} ${carrinho.length===1?'item':'itens'} — ${clienteSelecionado.nome}`,
+      motivo_estoque:'Pedido Manual (WhatsApp/venda direta)',
+      usuario_id:session.id,
+      canal:'Pedido Manual',
+      status_financeiro:pendente?'Pendente':'Recebido',
+      vencimento:pendente?val('pedVencimento'):hoje(),
+      itens:carrinho.map(i=>({
+        produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
+        valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
+        avulso:!!i.avulso, kit_id:null, is_consignado:false,
+      })),
+      formas_pagamento:[{forma_pagamento:val('pedFormaPagamento')||'Combinado', valor:total}],
+      desconto:null,
+    }});
+    const vendaId=resultado.venda_id;
+    const numeroPedido=resultado.numero;
+
+    for(const item of carrinho){
+      if(item.avulso)continue;
+      const linhaEstoque=dados.estoque.find(e=>e.produto_id===item.produto_id);
+      if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-item.quantidade;
+    }
+
+    toast(`Pedido Nº ${numeroPedido} registrado — ${money(total)}`,'ok');
+
+    // Mesma escolha de nota que o Caixa já oferece — emissão é sempre decisão
+    // do operador, nunca dispara sozinha.
+    let notaFiscalOk=false;
+    const clienteDocDigits=(clienteSelecionado.documento||'').replace(/\D/g,'');
+    if(empresaFiscal.nfce_ativo&&empresaFiscal.nfe_ativo){
+      const escolha=await escolherAcao('Emitir nota fiscal deste pedido?',{
+        botoes:[
+          {label:'Emitir NFC-e',valor:'nfce',variante:'neutro'},
+          {label:'Emitir NF-e (recomendado pra venda não presencial)',valor:'nfe',variante:'neutro'},
+          {label:'Não emitir agora',valor:'nenhuma',variante:'aviso'},
+        ],
+      });
+      if(escolha==='nfce'){
+        const janela=window.open('','_blank');
+        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,hoje(),janela);
+      } else if(escolha==='nfe'){
+        const janela=window.open('','_blank');
+        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,hoje(),janela);
+      }
+    } else if(empresaFiscal.nfe_ativo){
+      const querEmitir=await confirmarAcao('Emitir NF-e deste pedido?',{labelOk:'Emitir NF-e',labelCancelar:'Não emitir',variante:'neutro'});
+      if(querEmitir){
+        const janela=window.open('','_blank');
+        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,hoje(),janela);
+      }
+    } else if(empresaFiscal.nfce_ativo){
+      const querEmitir=await confirmarAcao('Emitir NFC-e deste pedido?',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
+      if(querEmitir){
+        const janela=window.open('','_blank');
+        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,hoje(),janela);
+      }
+    }
+
+    // Limpa o formulário pro próximo pedido
+    carrinho=[]; renderCarrinhoPedido();
+    limparClienteSelecionado();
+    statusPagamentoAtual='agora'; escolherStatusPagamentoPedido('agora');
+    $('pedVencimento').value=hoje();
+    await carregarHistoricoPedidos();
+  }catch(e){
+    msg('pedMsg','Erro ao registrar pedido: '+e.message,'err');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Registrar pedido';}
+  }
+}
+
+// ══ EMISSÃO DE NOTA — mesma lógica de pages/caixa.html (emitirNfceSeAtivo/
+// emitirNfeSeAtivo), sem a parte de impressora térmica (não se aplica aqui:
+// pedido não presencial não tem uma impressora de balcão por perto). ══
+async function emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteNome,total,dataRef,janelaDanfce){
+  if(!empresaFiscal.nfce_ativo){ janelaDanfce?.close(); return false; }
+  try{
+    const itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
+      const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
+      return {
+        produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||'5102',
+        quantidade:i.quantidade, valor_unitario:i.valor_unitario, valor_total:arred2(i.quantidade*i.valor_unitario),
+        csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
+        unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
+        aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
+      };
+    });
+    if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    const nota=await dbPost('notas_fiscais_nfce',withEmpresa({
+      venda_id:vendaId, cliente_documento:clienteDocDigits, cliente_nome:clienteNome, valor_total:total,
+      desconto_total:0, data_venda:dataRef,
+    }));
+    const notaRow=Array.isArray(nota)?nota[0]:nota;
+    await dbPost('notas_fiscais_nfce_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfce_id:notaRow.id})));
+
+    if(empresaFiscal.nfce_simulacao){
+      await dbPatch('notas_fiscais_nfce',notaRow.id,{status:'autorizada',numero:'SIMULADO',data_emissao:new Date().toISOString()});
+      toast('NFC-e emitida (simulação).','ok'); janelaDanfce?.close(); return true;
+    }
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfce`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_nfce_id:notaRow.id})});
+    const resp=await r.json();
+    if(resp.ok&&resp.nota?.status==='autorizada'){
+      toast('NFC-e emitida com sucesso.','ok');
+      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf,janelaDanfce); else janelaDanfce?.close();
+      return true;
+    }
+    janelaDanfce?.close();
+    toast('Pedido registrado, mas a NFC-e não foi autorizada — corrija em Notas Fiscais.','err');
+    return false;
+  }catch(e){
+    janelaDanfce?.close();
+    toast('Pedido registrado, mas houve um erro ao emitir a NFC-e — corrija em Notas Fiscais.','err');
+    return false;
+  }
+}
+async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,dataRef,janelaDanfce){
+  if(!empresaFiscal.nfe_ativo){ janelaDanfce?.close(); return false; }
+  if(!clienteId){
+    toast('NF-e exige um cliente cadastrado com documento e endereço completos.','err');
+    janelaDanfce?.close(); return false;
+  }
+  try{
+    const [cliente]=await dbGet('clientes',`?id=eq.${clienteId}&select=*`);
+    if(!cliente?.documento||!cliente?.endereco_logradouro||!cliente?.endereco_uf||!cliente?.endereco_cep){
+      toast('Cliente sem cadastro completo (documento + endereço) pra emitir NF-e — complete no cadastro.','err');
+      janelaDanfce?.close(); return false;
+    }
+    const itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
+      const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
+      return {
+        produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||null,
+        quantidade:i.quantidade, valor_unitario:i.valor_unitario, valor_total:arred2(i.quantidade*i.valor_unitario),
+        csosn_cst:p.csosn_cst||null, cclasstrib:p.cclasstrib||null, cst_ibs_cbs:p.cst_ibs_cbs||null,
+        unidade_medida:p.unidade_medida||'UN', aliquota_icms:p.aliquota_icms??null,
+        aliquota_pis:p.aliquota_pis??null, aliquota_cofins:p.aliquota_cofins??null,
+      };
+    });
+    if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    const nota=await dbPost('notas_fiscais_nfe',withEmpresa({
+      venda_id:vendaId, cliente_id:clienteId, cliente_documento:cliente.documento, cliente_nome:cliente.nome,
+      cliente_ie:cliente.inscricao_estadual||null,
+      cliente_endereco_logradouro:cliente.endereco_logradouro, cliente_endereco_numero:cliente.endereco_numero,
+      cliente_endereco_complemento:cliente.endereco_complemento, cliente_endereco_bairro:cliente.endereco_bairro,
+      cliente_endereco_cep:cliente.endereco_cep, cliente_endereco_municipio:cliente.cidade,
+      cliente_endereco_uf:cliente.endereco_uf,
+      valor_total:total, desconto_total:0, data_venda:dataRef,
+    }));
+    const notaRow=Array.isArray(nota)?nota[0]:nota;
+    await dbPost('notas_fiscais_nfe_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfe_id:notaRow.id})));
+
+    if(empresaFiscal.nfe_simulacao){
+      await dbPatch('notas_fiscais_nfe',notaRow.id,{status:'autorizada',numero:'SIMULADO',data_emissao:new Date().toISOString()});
+      toast('NF-e emitida (simulação).','ok'); janelaDanfce?.close(); return true;
+    }
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfe`,{method:'POST',headers:H,body:JSON.stringify({acao:'emitir',nota_fiscal_nfe_id:notaRow.id})});
+    const resp=await r.json();
+    if(resp.ok&&resp.nota?.status==='autorizada'){
+      toast('NF-e emitida com sucesso.','ok');
+      if(resp.nota.link_pdf) abrirDanfce(resp.nota.link_pdf,janelaDanfce); else janelaDanfce?.close();
+      return true;
+    }
+    janelaDanfce?.close();
+    toast('Pedido registrado, mas a NF-e não foi autorizada — corrija em Notas Fiscais.','err');
+    return false;
+  }catch(e){
+    janelaDanfce?.close();
+    toast('Pedido registrado, mas houve um erro ao emitir a NF-e — corrija em Notas Fiscais.','err');
+    return false;
+  }
+}
+
+// ══ BUSCA POR NÚMERO — qualquer venda do sistema, qualquer canal ══
+async function buscarPedidoPorNumero(){
+  const numero=val('pedBuscaNumero').trim();
+  if(!numero){return;}
+  setHTML('pedBuscaNumeroMsg','');
+  try{
+    const [venda]=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&numero=eq.${encodeURIComponent(numero)}&select=*`);
+    if(!venda){ msgEl('pedBuscaNumeroMsg',`Nenhuma venda encontrada com o número ${numero}.`); return; }
+    pedFichaCache[venda.id]=venda;
+    abrirFichaPedido(venda);
+  }catch(e){ msgEl('pedBuscaNumeroMsg','Erro ao buscar: '+e.message); }
+}
+
+// ══ HISTÓRICO — só canal Pedido Manual, pra focar no dia a dia daqui ══
+async function carregarHistoricoPedidos(){
+  try{
+    historicoPedidos=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&canal=eq.Pedido Manual&select=*&order=created_at.desc&limit=200`);
+  }catch(e){ historicoPedidos=[]; }
+  renderHistoricoPedidos();
+}
+function abrirFichaPedidoPorId(id){ const v=pedFichaCache[id]; if(v) abrirFichaPedido(v); }
+function renderHistoricoPedidos(){
+  renderPaginacao('pedHistoricoTable',historicoPedidos.length,'renderHistoricoPedidos');
+  const pagina=paginar(historicoPedidos,'pedHistoricoTable');
+  pagina.forEach(v=>{ pedFichaCache[v.id]=v; });
+  setHTML('pedHistoricoTable',pagina.map(v=>`
+    <tr style="cursor:pointer" onclick="abrirFichaPedidoPorId('${v.id}')">
+      <td><b>${v.numero}</b></td>
+      <td>${esc(v.cliente_nome||'—')}</td>
+      <td>${money(v.total)}</td>
+      <td>${v.status==='Cancelada'?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Registrado</span>'}</td>
+      <td>—</td>
+      <td style="font-size:11px;color:var(--muted)">${fmtDataHora(v.created_at)}</td>
+    </tr>`).join('')||'<tr><td colspan="6" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
+}
+
+// ══ FICHA DO PEDIDO — leitura, abre tanto da busca por número quanto do histórico ══
+async function abrirFichaPedido(venda){
+  $('fpTitulo').textContent=`Pedido Nº ${venda.numero}`;
+  setHTML('fpConteudo','Carregando...');
+  abrirModal('modalFichaPedido');
+  try{
+    const [itens,formasPagamento,financeiro,notaNfce,notaNfe]=await Promise.all([
+      dbGet('itens_venda',`?venda_id=eq.${venda.id}&select=produto_nome,quantidade,valor_unitario,subtotal`),
+      dbGet('venda_formas_pagamento',`?venda_id=eq.${venda.id}&select=forma_pagamento,valor`),
+      venda.financeiro_id?dbGet('financeiro',`?id=eq.${venda.financeiro_id}&select=status,vencimento,data_pagamento`):Promise.resolve([]),
+      dbGet('notas_fiscais_nfce',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
+      dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
+    ]);
+    const fin=financeiro[0];
+    const nota=notaNfce[0]||notaNfe[0];
+    const statusPgto=fin?.status==='Recebido'?'Pago':(fin?.status||'—');
+    setHTML('fpConteudo',`
+      <div><b>Cliente:</b> ${esc(venda.cliente_nome||'—')}</div>
+      <div><b>Canal:</b> ${esc(venda.canal||'—')}</div>
+      <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
+      <div><b>Total:</b> ${money(venda.total)}</div>
+      <div><b>Pagamento:</b> ${statusPgto}${fin?.vencimento&&statusPgto!=='Pago'?' — vencimento '+fmtData(fin.vencimento):''}</div>
+      <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="${esc(nota.link_pdf)}" target="_blank">Ver PDF</a>`:''}`:'Não emitida'}</div>
+      <div style="margin-top:14px;font-weight:700">Itens</div>
+      <div class="tablewrap" style="margin-top:6px">
+        <table>
+          <thead><tr><th>Produto</th><th>Qtd.</th><th>Unit.</th><th>Subtotal</th></tr></thead>
+          <tbody>${itens.map(i=>`<tr><td>${esc(i.produto_nome)}</td><td>${i.quantidade}</td><td>${money(i.valor_unitario)}</td><td>${money(i.subtotal)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">${formasPagamento.map(f=>`${esc(f.forma_pagamento)}: ${money(f.valor)}`).join(' · ')}</div>
+    `);
+  }catch(e){
+    setHTML('fpConteudo','Não foi possível carregar os detalhes: '+e.message);
+  }
+}
+
+init();
+</script>
+<script src="../js/nuvix-sidebar.js"></script>
+<script src="../js/nuvix-logs.js"></script>
+<script>
+montarSidebarDinamica();
+</script>
+<script src="../js/token-refresh.js"></script>
+<script src="../js/alerta-sidebar.js"></script>
+</body>
+</html>
