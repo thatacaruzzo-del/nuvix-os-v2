@@ -649,6 +649,7 @@ function toggleSenhaAdmin(){
       <a class="sb-btn" data-tip="Usuários" onclick="showTab('usuarios',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></a>
       <a class="sb-btn" data-tip="Módulos" onclick="showTab('modulos',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Módulos</span></a>
       <a class="sb-btn" data-tip="Logs de Acesso" onclick="showTab('logs',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg><span>Logs de Acesso</span></a>
+      <a class="sb-btn" data-tip="Certificados" onclick="showTab('certificados',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Certificados</span><span id="certBadgePendentes" class="sb-lock-badge" style="display:none;background:var(--red);color:#fff"></span></a>
     </div>
     <div class="sb-group">
       <div class="sb-group-label">Equipe</div>
@@ -1105,6 +1106,25 @@ function toggleSenhaAdmin(){
         <tbody id="tabelaLogs"></tbody>
       </table>
       <div id="tabelaLogsPaginacao"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PANE: CERTIFICADOS ═══ -->
+<div id="pane-certificados" class="admin-pane">
+<div class="content">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Certificados digitais</h2>
+      <button class="btn2" onclick="carregarCertificados()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar</button>
+    </div>
+    <p class="muted" style="font-size:13px;margin-bottom:16px">Certificado enviado pelo cliente pra gente cadastrar na Focus NFe. Depois de marcar como processado, o arquivo e a senha somem daqui — só fica o registro de quem enviou e quando.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Empresa</th><th>Enviado por</th><th>Quando</th><th>Responsável</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="tabelaCertificados"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1763,7 +1783,7 @@ function toggleSenhaAdmin(){
 
 <script>
 // ═══ ESTADO ═══
-let empresas=[], usuarios=[], assinaturas=[], despesas=[], empresa_modulos=[], logs=[], eventosConta=[], accessLogsPortfolio=[];
+let empresas=[], usuarios=[], assinaturas=[], despesas=[], empresa_modulos=[], logs=[], eventosConta=[], accessLogsPortfolio=[], certificadosPendentes=[];
 let empFiltradas=[], usuFiltrados=[];
 let modulosEmpresaAtual={}, empAtualId='', empAtualPlano='';
 let permAtual=[];
@@ -1885,7 +1905,79 @@ async function carregarTudo(){
     carregarCotaNfAdmin();
     carregarNotasAssinatura();
     popularSelects();
+    atualizarBadgeCertificados();
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
+}
+
+// ═══ CERTIFICADOS DIGITAIS ═══
+// Pendente de processar = enviado pelo cliente e ainda não cadastrado na Focus
+// NFe. "Processar" aqui (função abaixo) já apaga arquivo_base64/senha do banco
+// na mesma hora — depois disso o registro vira só histórico.
+async function atualizarBadgeCertificados(){
+  try{
+    const pendentes=await dbGet('certificados_digitais_pendentes','?select=id&status=eq.pendente');
+    const n=pendentes.length;
+    const badge=$('certBadgePendentes');
+    if(badge){badge.style.display=n?'flex':'none';badge.textContent=n||'';}
+  }catch(e){}
+}
+async function carregarCertificados(){
+  try{
+    certificadosPendentes=await dbGet('certificados_digitais_pendentes','?select=*&order=status.asc,created_at.desc');
+    renderCertificados();
+    atualizarBadgeCertificados();
+  }catch(e){toast('Erro ao carregar certificados: '+e.message,'err');}
+}
+function renderCertificados(){
+  setHTML('tabelaCertificados',certificadosPendentes.map(c=>{
+    const emp=empresas.find(e=>e.id===c.empresa_id);
+    const processado=c.status==='processado';
+    return `<tr>
+      <td><b>${esc(emp?.fantasia||emp?.razao||'—')}</b></td>
+      <td>${esc(c.enviado_por_nome||'—')}</td>
+      <td>${fmtDataHora(c.created_at)}</td>
+      <td style="font-size:12px">${esc(formatarCpf(c.responsavel_cpf))}<br>${esc(c.responsavel_email||'')}<br>${esc(c.responsavel_telefone||'')}</td>
+      <td style="font-size:12px;max-width:200px">${esc(c.observacao||'—')}</td>
+      <td>${processado?'<span class="badge ok">Processado</span>':'<span class="badge warn">Pendente</span>'}</td>
+      <td>${processado?`<span style="font-size:11px;color:var(--muted)">Por ${esc(c.processado_por||'—')} em ${fmtDataHora(c.processado_em)}</span>`:`
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn2" style="font-size:11px;padding:5px 8px" onclick="baixarCertificado('${c.id}')">Baixar</button>
+          <button class="btn2" style="font-size:11px;padding:5px 8px" onclick="verSenhaCertificado('${c.id}',this)">Ver senha</button>
+          <button class="btn" style="font-size:11px;padding:5px 8px" onclick="processarCertificado('${c.id}')">Marcar como processado</button>
+        </div>`}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" class="table-empty">Nenhum certificado enviado ainda.</td></tr>');
+}
+function formatarCpf(cpf){if(!cpf)return'—';const d=String(cpf).replace(/\D/g,'');return d.length===11?`${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`:cpf;}
+function baixarCertificado(id){
+  const c=certificadosPendentes.find(x=>x.id===id);
+  if(!c||!c.arquivo_base64){toast('Arquivo não disponível (já processado?).','err');return;}
+  const bin=atob(c.arquivo_base64);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  const blob=new Blob([bytes],{type:'application/x-pkcs12'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=c.arquivo_nome||'certificado.pfx';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+function verSenhaCertificado(id,btn){
+  const c=certificadosPendentes.find(x=>x.id===id);
+  if(!c)return;
+  btn.closest('div').insertAdjacentHTML('beforeend',`<span style="font-size:11px;background:var(--p-light);color:var(--p2);border-radius:6px;padding:5px 8px;font-weight:700">${esc(c.senha||'—')}</span>`);
+  btn.remove();
+}
+async function processarCertificado(id){
+  if(!await confirmarAcao('Marcar como processado? O arquivo e a senha serão apagados do nosso banco agora — só faça isso depois de já ter cadastrado o certificado na Focus NFe.',{labelOk:'Já cadastrei, pode apagar',variante:'perigo'}))return;
+  try{
+    await dbPatch('certificados_digitais_pendentes',id,{
+      status:'processado',processado_em:new Date().toISOString(),processado_por:adminSession?.nome||'Admin Nuvix',
+      arquivo_base64:null,senha:null,arquivo_nome:null,
+    });
+    toast('Certificado marcado como processado — dados sensíveis apagados.','ok');
+    await carregarCertificados();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 // ═══ KPIs ═══
@@ -3531,6 +3623,7 @@ function showTab(id,btn){
   if(btn)btn.classList.add('active');
   fecharSidebarAdmin();
   if(id==='logs')carregarLogs();
+  if(id==='certificados')carregarCertificados();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
   if(id==='planejamento')carregarPlanejamento();
   if(id==='comercial')carregarComercial();

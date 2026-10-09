@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuvix — Certificado Digital</title>
+<link rel="stylesheet" href="../css/nuvix.css">
+<style>
+.cert-section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;max-width:640px}
+.cert-section h3{font-size:15px;font-weight:800;margin-bottom:6px;color:var(--txt)}
+.cert-section p{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.cert-file{border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:border-color .15s}
+.cert-file:hover{border-color:var(--p)}
+.cert-file.has-file{border-style:solid;border-color:var(--p);background:var(--p-light)}
+.cert-bloqueado{max-width:640px;background:var(--amber-bg,#FFF7E6);border:1px solid var(--amber,#D97706);border-radius:16px;padding:20px;color:var(--amber,#92400E);font-size:13px;line-height:1.6}
+@media(max-width:768px){#hambBtn{display:block!important}}
+</style>
+<script src="../js/nuvix-logs.js"></script>
+<script src="../js/token-refresh.js"></script>
+</head>
+<body>
+<div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="location.href='dashboard.html'" title="Nuvix Hub">
+      <img src="../assets/logo.png" alt="NuvixHub" width="46" height="46">
+    </div>
+    <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
+      <a class="sb-btn" href="certificado-digital.html" data-tip="Certificado Digital"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Certificado Digital</span></a>
+      <a class="sb-btn" href="parametros.html" data-tip="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configurações</span></a>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);display:none" id="hambBtn" onclick="abrirSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div>
+          <div class="page-breadcrumb">Sistema <span style="color:var(--line)">/</span> <b>Configurações</b></div>
+          <div class="topbar-title">Certificado Digital</div>
+          <div class="topbar-breadcrumb" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="trial-badge" id="trialBadge" style="display:none"></span>
+        <div class="topbar-avatar" id="userAvatar">?</div>
+        <span class="topbar-username" id="userName"></span>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+    <div class="main-scroll">
+
+      <div id="certBloqueado" style="display:none" class="cert-bloqueado">
+        <b>Só o administrador da empresa pode enviar o certificado digital.</b><br>
+        Se você precisa enviar o certificado, peça pra quem administra a conta da
+        empresa aqui no NuvixHub acessar esta mesma tela.
+      </div>
+
+      <div id="certConteudo" style="display:none">
+        <div class="notice" style="max-width:640px;margin-bottom:20px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <b>Envio seguro.</b> O certificado e a senha ficam guardados só até a nossa
+          equipe cadastrar sua empresa na Focus NFe (o serviço que emite suas notas
+          fiscais) — depois disso, são apagados do nosso banco. Ninguém, nem nossa
+          própria equipe, consegue ver esses dados pela tela, só baixar uma vez pra
+          fazer o cadastro.
+        </div>
+
+        <div class="cert-section">
+          <h3>Certificado digital (.pfx ou .p12)</h3>
+          <p>O arquivo A1 da sua empresa, o mesmo usado pra assinar documentos fiscais.</p>
+          <div class="cert-file" id="certFileBox" onclick="$('certArquivo').click()">
+            <input type="file" id="certArquivo" accept=".pfx,.p12" style="display:none" onchange="aoEscolherArquivo()">
+            <div id="certFileLabel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;display:block;margin:0 auto 8px;color:var(--muted)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Clique para escolher o arquivo .pfx ou .p12</div>
+          </div>
+        </div>
+
+        <div class="cert-section">
+          <h3>Dados pro cadastro</h3>
+          <p>Mesmas informações que a Focus NFe pede no cadastro da sua empresa.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <div class="field"><label>Senha do certificado</label><input type="password" id="certSenha" autocomplete="new-password"></div>
+            <div class="field"><label>CPF do responsável legal</label><input type="text" id="certCpf" placeholder="000.000.000-00"></div>
+            <div class="field"><label>E-mail do responsável</label><input type="email" id="certEmail"></div>
+            <div class="field"><label>Telefone do responsável</label><input type="text" id="certTelefone" placeholder="(11) 99999-9999"></div>
+          </div>
+          <div class="field" style="margin-top:4px"><label>Observação (opcional)</label><textarea id="certObs" rows="2" placeholder="Algo que precisamos saber sobre o certificado ou o cadastro"></textarea></div>
+        </div>
+
+        <button class="btn" id="certBtnEnviar" style="min-width:200px" onclick="enviarCertificado()">Enviar com segurança</button>
+        <div id="certMsg" class="msg"></div>
+      </div>
+
+    </div><!-- /main-scroll -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<script>
+// Session key
+const SESSION_KEY='nuvix_v2_session';
+function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);if(Date.now()-data.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...data.user,empresa_id:data.empresa?.id,empresa:data.empresa}}catch{return null}}
+function requireAuth(){const s=getSession();if(!s){window.location.href='../index.html';return null}return s}
+function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
+function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empresa_id}}
+const session = requireAuth();
+function $(id){return document.getElementById(id)}
+function val(id){const e=$(id);return e?e.value:''}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function msg(id,text,type='ok'){const e=$(id);if(!e)return;e.textContent=text;e.className=`msg show ${type}`;}
+function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}
+function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
+function fecharSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');document.body.style.overflow=''}
+
+const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
+const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
+function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
+const _h={'apikey':SUPABASE_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SUPABASE_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}return'Não foi possível enviar agora. Confira os dados e tente de novo — se continuar, fale com a gente.';}
+const db={post:async(t,d)=>{let r;try{r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:_h,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}};
+
+// Validação de CPF (mesmo algoritmo usado em app.html)
+function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
+
+let arquivoSelecionado=null; // {nome, base64}
+const TAMANHO_MAX_BYTES=51200; // 50KB — generoso pra um certificado A1, que normalmente tem poucos KB
+
+function aoEscolherArquivo(){
+  const input=$('certArquivo');
+  const file=input.files[0];
+  if(!file)return;
+  const nomeOk=/\.(pfx|p12)$/i.test(file.name);
+  if(!nomeOk){toast('O arquivo precisa ser .pfx ou .p12.','err');input.value='';return;}
+  if(file.size>TAMANHO_MAX_BYTES){toast('Esse arquivo é maior do que um certificado digital costuma ser. Confira se é o arquivo certo.','err');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const base64=String(reader.result).split(',')[1]||'';
+    arquivoSelecionado={nome:file.name,base64};
+    $('certFileBox').classList.add('has-file');
+    $('certFileLabel').textContent='✓ '+file.name;
+  };
+  reader.onerror=()=>{toast('Não consegui ler esse arquivo. Tente escolher de novo.','err');};
+  reader.readAsDataURL(file);
+}
+
+async function enviarCertificado(){
+  if(session.perfil!=='Administrador'){toast('Só o administrador da empresa pode enviar o certificado.','err');return;}
+  if(!arquivoSelecionado){msg('certMsg','Escolha o arquivo do certificado (.pfx ou .p12).','err');return;}
+  const senha=val('certSenha');
+  if(!senha){msg('certMsg','Informe a senha do certificado.','err');return;}
+  const cpf=val('certCpf').trim();
+  if(!cpf||!validarCPF(cpf)){msg('certMsg','Informe um CPF válido do responsável legal.','err');return;}
+  const email=val('certEmail').trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){msg('certMsg','Informe um e-mail válido do responsável.','err');return;}
+  const telefone=val('certTelefone').trim();
+  if(!telefone){msg('certMsg','Informe o telefone do responsável.','err');return;}
+
+  const btn=$('certBtnEnviar');
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    await db.post('certificados_digitais_pendentes',withEmpresa({
+      arquivo_base64:arquivoSelecionado.base64,
+      arquivo_nome:arquivoSelecionado.nome,
+      senha,
+      responsavel_cpf:cpf.replace(/\D/g,''),
+      responsavel_email:email,
+      responsavel_telefone:telefone,
+      observacao:val('certObs').trim()||null,
+      enviado_por_usuario_id:session.id,
+      enviado_por_nome:session.nome||null,
+    }));
+    // Limpa tudo da memória e da tela assim que confirma o envio — não precisa
+    // ficar com senha/certificado parados no formulário depois de já ter ido.
+    arquivoSelecionado=null;
+    $('certArquivo').value='';
+    $('certFileBox').classList.remove('has-file');
+    $('certFileLabel').textContent='Clique para escolher o arquivo .pfx ou .p12';
+    $('certSenha').value='';$('certCpf').value='';$('certEmail').value='';$('certTelefone').value='';$('certObs').value='';
+    msg('certMsg','Certificado enviado com segurança! Nossa equipe vai usar essas informações só para o cadastro na Focus NFe, e depois elas são apagadas do nosso banco.','ok');
+  }catch(e){
+    msg('certMsg',e.message,'err');
+  }finally{
+    btn.disabled=false;btn.textContent='Enviar com segurança';
+  }
+}
+
+function init(){
+  if(!session)return;
+  $('userName').textContent=session.nome||'';
+  $('userAvatar').textContent=initials(session.nome||'');
+  const emp=session.empresa;
+  if(emp){
+    $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
+    if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
+  }
+  if(session.perfil==='Administrador'){
+    $('certConteudo').style.display='block';
+  }else{
+    $('certBloqueado').style.display='block';
+  }
+  $('pageLoader')?.classList.add('hide');
+}
+init();
+</script>
+<script src="../js/nuvix-sidebar.js"></script>
+<script>
+montarSidebarDinamica();
+</script>
+<script src="../js/alerta-sidebar.js"></script>
+<script src="../js/alerta-integracoes.js"></script>
+</body>
+</html>
