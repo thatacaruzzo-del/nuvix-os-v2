@@ -779,6 +779,7 @@ async function cancelarPedidoAtual(){
     const tipoNota=notaNfce?'NFC-e':'NF-e';
     const funcaoEmissao=notaNfce?'emitir-nfce':'emitir-nfe';
     const campoNotaId=notaNfce?'nota_fiscal_nfce_id':'nota_fiscal_nfe_id';
+    let motivo=null;
     if(nota&&nota.status==='autorizada'){
       const escolha=await escolherAcao(`Esse pedido tem a ${tipoNota} nº ${nota.numero||'—'} autorizada. O que fazer com ela?`,{
         botoes:[
@@ -788,7 +789,7 @@ async function cancelarPedidoAtual(){
       });
       if(!escolha)return;
       if(escolha==='nota'){
-        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres)`,{placeholder:'Ex: pedido cancelado pelo cliente, teste, erro no lançamento...',labelOk:'Cancelar nota e pedido'});
+        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres, vale também pro pedido)`,{placeholder:'Ex: pedido cancelado pelo cliente, teste, erro no lançamento...',labelOk:'Cancelar nota e pedido'});
         if(!justificativa)return;
         if(justificativa.length<15){msgEl('fpMsg','A justificativa precisa ter pelo menos 15 caracteres.');return;}
         const r=await fetch(`${SB_URL}/functions/v1/${funcaoEmissao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',[campoNotaId]:nota.id,justificativa})});
@@ -799,14 +800,21 @@ async function cancelarPedidoAtual(){
         }else{
           toast(`${tipoNota} cancelada.`,'ok');
         }
+        // já temos a justificativa da nota — reaproveita como motivo do pedido em vez de
+        // perguntar de novo (perguntar duas vezes seguidas confundia e, se a 2ª janela
+        // fosse fechada sem preencher, a nota ficava cancelada mas o pedido continuava
+        // "Registrado", sem estoque/financeiro revertidos).
+        motivo=justificativa;
       }
     }else{
       const confirmou=await confirmarAcao('Cancelar esse pedido? O estoque volta, a receita no Financeiro é removida, e ele fica marcado como cancelado no histórico. Essa ação não pode ser desfeita.',{labelOk:'Cancelar pedido'});
       if(!confirmou)return;
     }
 
-    const motivo=await promptAcao('Motivo do cancelamento:',{placeholder:'Ex: teste, cliente desistiu, erro no lançamento...',labelOk:'Cancelar pedido'});
-    if(motivo===null)return;
+    if(motivo===null){
+      motivo=await promptAcao('Motivo do cancelamento:',{placeholder:'Ex: teste, cliente desistiu, erro no lançamento...',labelOk:'Cancelar pedido'});
+      if(motivo===null)return;
+    }
 
     await dbRpc('cancelar_venda',{p:{venda_id:vendaId, motivo:motivo||'Cancelamento manual em Pedidos', usuario_id:session.id}});
     toast('Pedido cancelado — estoque devolvido e receita removida do Financeiro.','ok');

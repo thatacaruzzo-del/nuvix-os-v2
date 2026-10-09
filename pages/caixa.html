@@ -1804,6 +1804,7 @@ async function cancelarVenda(vendaId){
     const tipoNota=notaNfce?'NFC-e':'NF-e';
     const funcaoEmissao=notaNfce?'emitir-nfce':'emitir-nfe';
     const campoNotaId=notaNfce?'nota_fiscal_nfce_id':'nota_fiscal_nfe_id';
+    let motivo=null;
     if(nota&&nota.status==='autorizada'){
       const escolha=await escolherAcao(`Essa venda tem a ${tipoNota} nº ${nota.numero||'—'} autorizada. O que fazer com ela?`,{
         botoes:[
@@ -1813,7 +1814,7 @@ async function cancelarVenda(vendaId){
       });
       if(!escolha)return;
       if(escolha==='nota'){
-        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres)`,{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
+        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres, vale também pra venda)`,{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
         if(!justificativa)return;
         if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
         const r=await fetch(`${SB_URL}/functions/v1/${funcaoEmissao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',[campoNotaId]:nota.id,justificativa})});
@@ -1824,6 +1825,11 @@ async function cancelarVenda(vendaId){
         }else{
           toast(`${tipoNota} cancelada.`,'ok');
         }
+        // já temos a justificativa da nota — reaproveita como motivo da venda em vez de
+        // perguntar de novo (perguntar duas vezes seguidas confundia e, se a 2ª janela
+        // fosse fechada sem preencher, a nota ficava cancelada mas a venda continuava
+        // ativa, sem estoque/financeiro revertidos).
+        motivo=justificativa;
       }
       // escolha==='venda': segue direto pro cancelamento da venda, nota fica intocada.
     }else{
@@ -1831,8 +1837,10 @@ async function cancelarVenda(vendaId){
       if(!confirmou)return;
     }
 
-    const motivo=await promptAcao('Motivo do cancelamento (aparece no histórico e no Painel de Vendas):',{placeholder:'Ex: cliente desistiu, erro no lançamento, produto com defeito...',labelOk:'Cancelar venda'});
-    if(motivo===null)return; // usuário fechou o prompt sem confirmar
+    if(motivo===null){
+      motivo=await promptAcao('Motivo do cancelamento (aparece no histórico e no Painel de Vendas):',{placeholder:'Ex: cliente desistiu, erro no lançamento, produto com defeito...',labelOk:'Cancelar venda'});
+      if(motivo===null)return; // usuário fechou o prompt sem confirmar
+    }
 
     // A reversão em si (estoque, financeiro, status) roda dentro de cancelar_venda —
     // mesmo RPC transacional que o ml-webhook usa pra cancelamento automático vindo
