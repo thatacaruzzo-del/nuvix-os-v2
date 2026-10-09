@@ -61,10 +61,10 @@
         <div class="notice" style="max-width:640px;margin-bottom:20px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <b>Envio seguro.</b> O certificado e a senha ficam guardados só até a nossa
-          equipe cadastrar sua empresa na Focus NFe (o serviço que emite suas notas
-          fiscais) — depois disso, são apagados do nosso banco. Ninguém, nem nossa
-          própria equipe, consegue ver esses dados pela tela, só baixar uma vez pra
-          fazer o cadastro.
+          equipe validar e ativar a emissão de notas fiscais da sua empresa, em até
+          2 dias úteis — depois disso, são apagados do nosso banco. Ninguém, nem
+          nossa própria equipe, consegue ver esses dados pela tela, só baixar uma
+          vez pra fazer essa validação.
         </div>
 
         <div class="cert-section">
@@ -77,8 +77,8 @@
         </div>
 
         <div class="cert-section">
-          <h3>Dados pro cadastro</h3>
-          <p>Mesmas informações que a Focus NFe pede no cadastro da sua empresa.</p>
+          <h3>Dados pra validação</h3>
+          <p>Informações que nossa equipe precisa pra validar e ativar a emissão de notas fiscais da sua empresa.</p>
           <div class="form-grid" style="grid-template-columns:1fr 1fr">
             <div class="field"><label>Senha do certificado</label><input type="password" id="certSenha" autocomplete="new-password"></div>
             <div class="field"><label>CPF do responsável legal</label><input type="text" id="certCpf" placeholder="000.000.000-00"></div>
@@ -177,7 +177,7 @@ async function enviarCertificado(){
     $('certFileBox').classList.remove('has-file');
     $('certFileLabel').textContent='Clique para escolher o arquivo .pfx ou .p12';
     $('certSenha').value='';$('certCpf').value='';$('certEmail').value='';$('certTelefone').value='';$('certObs').value='';
-    msg('certMsg','Certificado enviado com segurança! Nossa equipe vai usar essas informações só para o cadastro na Focus NFe, e depois elas são apagadas do nosso banco.','ok');
+    msg('certMsg','Certificado enviado com segurança! Nossa equipe vai validar e ativar a emissão de notas fiscais da sua empresa em até 2 dias úteis — essas informações são usadas só pra isso, e depois são apagadas do nosso banco.','ok');
   }catch(e){
     msg('certMsg',e.message,'err');
   }finally{
