@@ -2592,6 +2592,17 @@ async function salvarEdicaoEmpresa(){
       nfe_ativo:$('editEmpNfeAtivo').checked,
       nfe_simulacao:$('editEmpNfeSimulacao').checked,
     });
+    // Troca de plano não desligava sozinha os módulos do novo plano quando a
+    // empresa já tinha alguma linha liberado=false em empresa_modulos (de uma
+    // config antiga, ou de antes de existir esse módulo) — cliente pagava o
+    // Plus e continuava vendo módulo travado. Só LIBERA o que o novo plano já
+    // cobre, nunca desliga nada sozinho (downgrade continua manual, em Módulos).
+    if(plano&&plano!==empresaOriginal?.plano){
+      const modsNovoPlano=MODULOS_PLANO[plano]||[];
+      for(const m of modsNovoPlano){
+        await dbUpsert('empresa_modulos',{empresa_id:id,modulo:m,liberado:true,liberado_por:'Admin Nuvix (sync automático de plano)'},'empresa_id,modulo').catch(()=>{});
+      }
+    }
     msgEl('editEmpMsg','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Salvo! O cliente precisa fazer logout e login novamente.','ok');
     setTimeout(()=>fecharModal('modalEditEmp'),1800);
     await carregarTudo();
