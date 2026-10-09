@@ -200,9 +200,27 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
               </select>
             </div>
             <div class="field" id="pedVencimentoWrap" style="margin-bottom:0;display:none">
-              <label>Vencimento</label>
-              <input type="date" id="pedVencimento">
+              <label id="pedVencimentoLabel">Vencimento</label>
+              <input type="date" id="pedVencimento" onchange="previewParcelasPedido()">
             </div>
+          </div>
+          <div id="pedLimiteCreditoInfo" style="display:none;margin-top:8px;font-size:13px"></div>
+          <div id="pedParceladoWrap" style="display:none;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer">
+              <input type="checkbox" id="pedParcelarCheck" onchange="toggleParceladoPedido()" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
+              Parcelar esse pagamento
+            </label>
+            <div class="form-grid" id="pedParcelaFields" style="display:none;grid-template-columns:1fr 1fr;margin-top:8px">
+              <div class="field" style="margin-bottom:0">
+                <label>Quantidade de parcelas</label>
+                <input type="number" id="pedParcelasQtd" min="2" max="60" value="3" oninput="previewParcelasPedido()">
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>Intervalo entre parcelas (dias)</label>
+                <input type="number" id="pedParcelasIntervalo" min="1" value="30" oninput="previewParcelasPedido()">
+              </div>
+            </div>
+            <div id="pedParcelaPreview" style="display:none;margin-top:8px;font-size:13px;color:var(--muted)"></div>
           </div>
         </div>
 
@@ -352,7 +370,7 @@ async function buscarClientePedido(){
   if(q.length<2){box.classList.remove('open');box.innerHTML='';return;}
   const qDigits=q.replace(/\D/g,'');
   try{
-    if(!pedClientesCache.length) pedClientesCache=await dbGet('clientes',`?empresa_id=eq.${session.empresa_id}&select=id,nome,documento,telefone,email,endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,endereco_uf,cidade,inscricao_estadual&order=nome.asc`);
+    if(!pedClientesCache.length) pedClientesCache=await dbGet('clientes',`?empresa_id=eq.${session.empresa_id}&select=id,nome,documento,telefone,email,endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,endereco_uf,cidade,inscricao_estadual,limite_credito,prazo_padrao_dias&order=nome.asc`);
   }catch(e){ box.innerHTML='<div class="ped-busca-item">Erro ao buscar clientes.</div>'; box.classList.add('open'); return; }
   const achados=pedClientesCache.filter(c=>{
     const nome=(c.nome||'').toLowerCase();
@@ -370,11 +388,32 @@ function selecionarClientePedido(id){
   $('pedClienteSelecionadoWrap').style.display='flex';
   $('pedClienteBusca').value=''; $('pedClienteBusca').style.display='none';
   $('pedClienteResultados').classList.remove('open');
+  if(statusPagamentoAtual==='pendente'&&!val('pedVencimento')&&c.prazo_padrao_dias){
+    $('pedVencimento').value=calcVencimentoPedido(hoje(),Number(c.prazo_padrao_dias));
+  }
+  atualizarLimiteCreditoPedido();
 }
 function limparClienteSelecionado(){
   clienteSelecionado=null;
   $('pedClienteSelecionadoWrap').style.display='none';
   $('pedClienteBusca').style.display='block'; $('pedClienteBusca').focus();
+  $('pedLimiteCreditoInfo').style.display='none';
+}
+// Soma o quanto esse cliente já tem em aberto no Financeiro (parcelas/lançamentos
+// de receita ainda não recebidos) e compara com o limite de crédito cadastrado
+// nele. Sem limite definido no cadastro = não controla, não mostra nada.
+async function atualizarLimiteCreditoPedido(){
+  const info=$('pedLimiteCreditoInfo');
+  if(!clienteSelecionado||clienteSelecionado.limite_credito==null){ info.style.display='none'; return; }
+  try{
+    const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=neq.Recebido&select=valor`);
+    const emAberto=abertos.reduce((a,f)=>a+Number(f.valor||0),0);
+    const limite=Number(clienteSelecionado.limite_credito);
+    const estourado=emAberto>limite;
+    const perto=!estourado&&emAberto>limite*0.8;
+    info.innerHTML=`<span class="badge ${estourado?'bad':perto?'warn':'ok'}">${estourado?'Limite excedido':'Dentro do limite'}</span> <span style="color:var(--muted);margin-left:6px">Em aberto: ${money(emAberto)} de ${money(limite)}</span>`;
+    info.style.display='block';
+  }catch(e){ info.style.display='none'; }
 }
 document.addEventListener('click',e=>{ if(!e.target.closest('.ped-busca-field'))document.querySelectorAll('.ped-busca-resultados').forEach(b=>b.classList.remove('open')); });
 
@@ -483,6 +522,52 @@ function escolherStatusPagamentoPedido(status){
   $('pedPgtoOpcaoAgora').classList.toggle('active',status==='agora');
   $('pedPgtoOpcaoPendente').classList.toggle('active',status==='pendente');
   $('pedVencimentoWrap').style.display=status==='pendente'?'block':'none';
+  $('pedParceladoWrap').style.display=status==='pendente'?'block':'none';
+  if(status==='pendente'&&!val('pedVencimento')&&clienteSelecionado?.prazo_padrao_dias){
+    $('pedVencimento').value=calcVencimentoPedido(hoje(),Number(clienteSelecionado.prazo_padrao_dias));
+  }
+  if(status==='agora'){
+    $('pedParcelarCheck').checked=false;
+    toggleParceladoPedido();
+  }
+}
+
+// ══ PARCELAMENTO ══
+function calcVencimentoPedido(dataBase,offsetDias){
+  const d=new Date(dataBase+'T12:00:00');
+  d.setDate(d.getDate()+offsetDias);
+  return d.toISOString().slice(0,10);
+}
+function toggleParceladoPedido(){
+  const checked=$('pedParcelarCheck').checked;
+  $('pedParcelaFields').style.display=checked?'grid':'none';
+  $('pedVencimentoLabel').textContent=checked?'Vencimento (1ª parcela)':'Vencimento';
+  if(checked) previewParcelasPedido(); else $('pedParcelaPreview').style.display='none';
+}
+function montarParcelasPedido(){
+  const total=arred2(totalCarrinhoPedido());
+  const n=Math.max(2,parseInt(val('pedParcelasQtd'))||2);
+  const intervaloDias=Math.max(1,parseInt(val('pedParcelasIntervalo'))||30);
+  const venc1=val('pedVencimento')||hoje();
+  const valorParcela=Math.round((total/n)*100)/100;
+  const parcelas=[];
+  for(let i=0;i<n;i++){
+    parcelas.push({
+      numero:i+1,
+      valor: i===n-1 ? Math.round((total-valorParcela*(n-1))*100)/100 : valorParcela,
+      vencimento: calcVencimentoPedido(venc1,i*intervaloDias),
+    });
+  }
+  return parcelas;
+}
+function previewParcelasPedido(){
+  if(!$('pedParcelarCheck')?.checked)return;
+  const parcelas=montarParcelasPedido();
+  const el=$('pedParcelaPreview');
+  const datas=parcelas.slice(0,4).map(p=>fmtData(p.vencimento));
+  if(parcelas.length>4) datas.push('...');
+  el.innerHTML=`<b>${parcelas.length}x de ${money(parcelas[0].valor)}</b> (última: ${money(parcelas[parcelas.length-1].valor)}) — Vencimentos: ${datas.join(', ')}`;
+  el.style.display='block';
 }
 
 // ══ REGISTRAR PEDIDO ══
@@ -503,6 +588,20 @@ async function registrarPedido(){
   const total=arred2(totalCarrinhoPedido());
   const pendente=statusPagamentoAtual==='pendente';
   if(pendente&&!val('pedVencimento')){msg('pedMsg','Informe a data de vencimento combinada.','err');return;}
+  const parcelado=pendente&&$('pedParcelarCheck')?.checked;
+  const parcelas=parcelado?montarParcelasPedido():null;
+
+  if(pendente&&clienteSelecionado.limite_credito!=null){
+    try{
+      const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=neq.Recebido&select=valor`);
+      const emAberto=abertos.reduce((a,f)=>a+Number(f.valor||0),0);
+      const limite=Number(clienteSelecionado.limite_credito);
+      if(emAberto+total>limite){
+        const seguir=await confirmarAcao(`Esse pedido deixa ${clienteSelecionado.nome} com ${money(emAberto+total)} em aberto, acima do limite de crédito de ${money(limite)}. Registrar mesmo assim?`,{labelOk:'Registrar mesmo assim',variante:'aviso'});
+        if(!seguir)return;
+      }
+    }catch(e){ /* checagem de limite não pode travar o registro do pedido por conta própria */ }
+  }
 
   const btn=document.querySelector('.main-scroll .btn');
   if(btn){btn.disabled=true;btn.textContent='Registrando...';}
@@ -520,6 +619,7 @@ async function registrarPedido(){
       canal:'Pedido Manual',
       status_financeiro:pendente?'Pendente':'Recebido',
       vencimento:pendente?val('pedVencimento'):hoje(),
+      parcelas:parcelas,
       itens:carrinho.map(i=>({
         produto_id:i.produto_id, produto_nome:i.nome, quantidade:i.quantidade,
         valor_unitario:i.valor_unitario, custo_unitario_snapshot:i.custo_unitario,
@@ -731,22 +831,22 @@ async function abrirFichaPedido(venda){
   $('fpBtnCancelar').style.display=venda.status==='Cancelada'?'none':'block';
   abrirModal('modalFichaPedido');
   try{
-    const [itens,formasPagamento,financeiro,notaNfce,notaNfe]=await Promise.all([
+    const [itens,formasPagamento,parcelasFinA,notaNfce,notaNfe]=await Promise.all([
       dbGet('itens_venda',`?venda_id=eq.${venda.id}&select=produto_nome,quantidade,valor_unitario,subtotal`),
       dbGet('venda_formas_pagamento',`?venda_id=eq.${venda.id}&select=forma_pagamento,valor`),
-      venda.financeiro_id?dbGet('financeiro',`?id=eq.${venda.financeiro_id}&select=status,vencimento,data_pagamento`):Promise.resolve([]),
+      dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${venda.id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total&order=parcela_numero.asc`),
       dbGet('notas_fiscais_nfce',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
       dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
     ]);
-    const fin=financeiro[0];
+    // Pedidos registrados antes do parcelamento existir não têm referencia_id
+    // preenchido no financeiro — cai pro financeiro_id antigo nesse caso.
+    const parcelasFin=parcelasFinA.length?parcelasFinA:(venda.financeiro_id?await dbGet('financeiro',`?id=eq.${venda.financeiro_id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total`):[]);
     const nota=notaNfce[0]||notaNfe[0];
-    const statusPgto=fin?.status==='Recebido'?'Pago':(fin?.status||'—');
     setHTML('fpConteudo',`
       <div><b>Cliente:</b> ${esc(venda.cliente_nome||'—')}</div>
       <div><b>Canal:</b> ${esc(venda.canal||'—')}</div>
       <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
       <div><b>Total:</b> ${money(venda.total)}</div>
-      <div><b>Pagamento:</b> ${statusPgto}${fin?.vencimento&&statusPgto!=='Pago'?' — vencimento '+fmtData(fin.vencimento):''}</div>
       <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
       <div style="margin-top:14px;font-weight:700">Itens</div>
       <div class="tablewrap" style="margin-top:6px">
@@ -756,10 +856,37 @@ async function abrirFichaPedido(venda){
         </table>
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted)">${formasPagamento.map(f=>`${esc(f.forma_pagamento)}: ${money(f.valor)}`).join(' · ')}</div>
+      <div style="margin-top:14px;font-weight:700">Pagamento${parcelasFin.length>1?` (${parcelasFin.length}x)`:''}</div>
+      <div class="tablewrap" style="margin-top:6px">
+        <table>
+          <thead><tr>${parcelasFin.length>1?'<th>Parcela</th>':''}<th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+          <tbody>${parcelasFin.length?parcelasFin.map(f=>`<tr>
+            ${parcelasFin.length>1?`<td>${f.parcela_numero||'—'}/${f.parcela_total||parcelasFin.length}</td>`:''}
+            <td>${fmtData(f.vencimento)}</td>
+            <td>${money(f.valor)}</td>
+            <td>${f.status==='Recebido'?`<span class="badge ok">Pago</span>`:`<span class="badge warn">Pendente</span>`}</td>
+            <td>${f.status!=='Recebido'?`<button class="btn2" style="padding:4px 10px" onclick="darBaixaParcelaPedido('${f.id}',${f.valor},${f.parcela_numero||'null'})">Dar baixa</button>`:''}</td>
+          </tr>`).join(''):'<tr><td colspan="4" class="table-empty">Sem lançamento financeiro.</td></tr>'}</tbody>
+        </table>
+      </div>
     `);
   }catch(e){
     setHTML('fpConteudo','Não foi possível carregar os detalhes: '+e.message);
   }
+}
+// Baixa rápida de uma parcela direto da Ficha do Pedido — mesmo PATCH que o
+// Financeiro usa no "Dar baixa" (status/data_pagamento/valor_pago), só que sem
+// abrir outra tela. Pra ajustar forma de pagamento/PIX/observação, ainda dá pra
+// editar depois direto no Financeiro.
+async function darBaixaParcelaPedido(financeiroId,valor,numeroParcela){
+  const ok=await confirmarAcao(`Marcar ${numeroParcela?`a parcela ${numeroParcela}`:'esse pagamento'} de ${money(valor)} como recebida hoje?`,{labelOk:'Marcar como recebida'});
+  if(!ok)return;
+  try{
+    await dbPatch('financeiro',financeiroId,{status:'Recebido',data_pagamento:hoje(),valor_pago:valor,updated_at:new Date().toISOString()});
+    toast('Parcela marcada como recebida.','ok');
+    if(fichaAbertaId) abrirFichaPedidoPorId(fichaAbertaId);
+    await carregarHistoricoPedidos();
+  }catch(e){ toast('Erro ao dar baixa: '+e.message,'err'); }
 }
 
 // ══ CANCELAR PEDIDO — mesma lógica de pages/caixa.html (cancelarVenda), que já
