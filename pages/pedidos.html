@@ -276,8 +276,10 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 <div class="modal" style="max-width:600px">
   <h3 id="fpTitulo">Pedido</h3>
   <div id="fpConteudo" style="font-size:13px;line-height:1.8"></div>
+  <div id="fpMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalFichaPedido')">Fechar</button>
+    <button class="danger" id="fpBtnCancelar" onclick="cancelarPedidoAtual()">Cancelar pedido</button>
   </div>
 </div>
 </div>
@@ -719,9 +721,13 @@ function renderHistoricoPedidos(){
 }
 
 // ══ FICHA DO PEDIDO — leitura, abre tanto da busca por número quanto do histórico ══
+let fichaAbertaId=null;
 async function abrirFichaPedido(venda){
+  fichaAbertaId=venda.id;
   $('fpTitulo').textContent=`Pedido Nº ${venda.numero}`;
   setHTML('fpConteudo','Carregando...');
+  setHTML('fpMsg','');$('fpMsg').className='msg';
+  $('fpBtnCancelar').style.display=venda.status==='Cancelada'?'none':'block';
   abrirModal('modalFichaPedido');
   try{
     const [itens,formasPagamento,financeiro,notaNfce,notaNfe]=await Promise.all([
@@ -753,6 +759,60 @@ async function abrirFichaPedido(venda){
   }catch(e){
     setHTML('fpConteudo','Não foi possível carregar os detalhes: '+e.message);
   }
+}
+
+// ══ CANCELAR PEDIDO — mesma lógica de pages/caixa.html (cancelarVenda), que já
+// sabe lidar com NFC-e OU NF-e autorizada (Pedido Manual normalmente emite NF-e,
+// não NFC-e). Reverte estoque e remove a receita do Financeiro via cancelar_venda
+// (mesma RPC transacional que o ml-webhook usa pro cancelamento automático). ══
+async function cancelarPedidoAtual(){
+  const vendaId=fichaAbertaId; if(!vendaId)return;
+  if(!temPermissao('vendas','excluir')){msgEl('fpMsg','Sem permissão para cancelar vendas.');return;}
+  try{
+    const venda=await dbGet('vendas',`?id=eq.${vendaId}&select=*`).then(r=>r[0]);
+    if(!venda||venda.status==='Cancelada'){msgEl('fpMsg','Pedido não encontrado ou já cancelado.');return;}
+
+    const notaNfce=await dbGet('notas_fiscais_nfce',`?venda_id=eq.${vendaId}&select=id,status,numero`).then(r=>r[0]);
+    const notaNfe=!notaNfce?await dbGet('notas_fiscais_nfe',`?venda_id=eq.${vendaId}&select=id,status,numero`).then(r=>r[0]):null;
+    const nota=notaNfce||notaNfe;
+    const tipoNota=notaNfce?'NFC-e':'NF-e';
+    const funcaoEmissao=notaNfce?'emitir-nfce':'emitir-nfe';
+    const campoNotaId=notaNfce?'nota_fiscal_nfce_id':'nota_fiscal_nfe_id';
+    if(nota&&nota.status==='autorizada'){
+      const escolha=await escolherAcao(`Esse pedido tem a ${tipoNota} nº ${nota.numero||'—'} autorizada. O que fazer com ela?`,{
+        botoes:[
+          {label:`Cancelar a ${tipoNota} e o pedido`,valor:'nota',variante:'perigo'},
+          {label:'Cancelar só o pedido (nota continua autorizada)',valor:'venda',variante:'aviso'},
+        ],
+      });
+      if(!escolha)return;
+      if(escolha==='nota'){
+        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres)`,{placeholder:'Ex: pedido cancelado pelo cliente, teste, erro no lançamento...',labelOk:'Cancelar nota e pedido'});
+        if(!justificativa)return;
+        if(justificativa.length<15){msgEl('fpMsg','A justificativa precisa ter pelo menos 15 caracteres.');return;}
+        const r=await fetch(`${SB_URL}/functions/v1/${funcaoEmissao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',[campoNotaId]:nota.id,justificativa})});
+        const resp=await r.json();
+        if(!resp.ok){
+          const seguirMesmoAssim=await confirmarAcao(resp?.erro==='prazo_cancelamento_expirado'?`Prazo de cancelamento da ${tipoNota} já passou. Cancelar o pedido mesmo assim, deixando a nota autorizada?`:`Não foi possível cancelar a ${tipoNota} agora. Cancelar o pedido mesmo assim, deixando a nota autorizada?`,{labelOk:'Cancelar pedido mesmo assim',variante:'aviso'});
+          if(!seguirMesmoAssim)return;
+        }else{
+          toast(`${tipoNota} cancelada.`,'ok');
+        }
+      }
+    }else{
+      const confirmou=await confirmarAcao('Cancelar esse pedido? O estoque volta, a receita no Financeiro é removida, e ele fica marcado como cancelado no histórico. Essa ação não pode ser desfeita.',{labelOk:'Cancelar pedido'});
+      if(!confirmou)return;
+    }
+
+    const motivo=await promptAcao('Motivo do cancelamento:',{placeholder:'Ex: teste, cliente desistiu, erro no lançamento...',labelOk:'Cancelar pedido'});
+    if(motivo===null)return;
+
+    await dbRpc('cancelar_venda',{p:{venda_id:vendaId, motivo:motivo||'Cancelamento manual em Pedidos', usuario_id:session.id}});
+    toast('Pedido cancelado — estoque devolvido e receita removida do Financeiro.','ok');
+    fecharModal('modalFichaPedido');
+    await carregarProdutosLoja(lojaAtualId());
+    await carregarHistoricoPedidos();
+  }catch(e){ msgEl('fpMsg','Erro ao cancelar: '+e.message); }
 }
 
 init();

@@ -1793,30 +1793,36 @@ async function cancelarVenda(vendaId){
     const venda=await dbGet('vendas',`?id=eq.${vendaId}&select=*`).then(r=>r[0]);
     if(!venda||venda.status==='Cancelada'){toast('Venda não encontrada ou já cancelada.','err');return;}
 
-    // Se essa venda tem NFC-e autorizada, pergunta o que o operador quer fazer com ela —
-    // cancelar junto (só funciona até 30min da autorização, prazo da SEFAZ) ou deixar a
-    // nota como está e cancelar só a venda no sistema (ex: prazo já passou, ou vai
-    // resolver a nota depois com a contabilidade).
+    // Se essa venda tem nota autorizada (NFC-e OU NF-e — Pedido Manual emite NF-e,
+    // não NFC-e, então precisa checar as duas), pergunta o que o operador quer fazer
+    // com ela — cancelar junto (dentro do prazo da SEFAZ) ou deixar a nota como está
+    // e cancelar só a venda no sistema (ex: prazo já passou, ou vai resolver a nota
+    // depois com a contabilidade). Uma venda só tem UM tipo de nota, nunca os dois.
     const notaNfce=await dbGet('notas_fiscais_nfce',`?venda_id=eq.${vendaId}&select=id,status,numero`).then(r=>r[0]);
-    if(notaNfce&&notaNfce.status==='autorizada'){
-      const escolha=await escolherAcao(`Essa venda tem a NFC-e nº ${notaNfce.numero||'—'} autorizada. O que fazer com ela?`,{
+    const notaNfe=!notaNfce?await dbGet('notas_fiscais_nfe',`?venda_id=eq.${vendaId}&select=id,status,numero`).then(r=>r[0]):null;
+    const nota=notaNfce||notaNfe;
+    const tipoNota=notaNfce?'NFC-e':'NF-e';
+    const funcaoEmissao=notaNfce?'emitir-nfce':'emitir-nfe';
+    const campoNotaId=notaNfce?'nota_fiscal_nfce_id':'nota_fiscal_nfe_id';
+    if(nota&&nota.status==='autorizada'){
+      const escolha=await escolherAcao(`Essa venda tem a ${tipoNota} nº ${nota.numero||'—'} autorizada. O que fazer com ela?`,{
         botoes:[
-          {label:'Cancelar a NFC-e e a venda',valor:'nota',variante:'perigo'},
+          {label:`Cancelar a ${tipoNota} e a venda`,valor:'nota',variante:'perigo'},
           {label:'Cancelar só a venda (nota continua autorizada)',valor:'venda',variante:'aviso'},
         ],
       });
       if(!escolha)return;
       if(escolha==='nota'){
-        const justificativa=await promptAcao('Por que a NFC-e está sendo cancelada? (mínimo 15 caracteres)',{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
+        const justificativa=await promptAcao(`Por que a ${tipoNota} está sendo cancelada? (mínimo 15 caracteres)`,{placeholder:'Ex: Venda cancelada pelo cliente, erro no lançamento...',labelOk:'Cancelar nota e venda'});
         if(!justificativa)return;
         if(justificativa.length<15){toast('A justificativa precisa ter pelo menos 15 caracteres.','err');return;}
-        const r=await fetch(`${SB_URL}/functions/v1/emitir-nfce`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',nota_fiscal_nfce_id:notaNfce.id,justificativa})});
+        const r=await fetch(`${SB_URL}/functions/v1/${funcaoEmissao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'cancelar',[campoNotaId]:nota.id,justificativa})});
         const resp=await r.json();
         if(!resp.ok){
-          const seguirMesmoAssim=await confirmarAcao(resp?.erro==='prazo_cancelamento_expirado'?'Prazo de cancelamento da NFC-e na SEFAZ já passou (30min). Cancelar a venda mesmo assim, deixando a nota autorizada?':'Não foi possível cancelar a NFC-e agora. Cancelar a venda mesmo assim, deixando a nota autorizada?',{labelOk:'Cancelar venda mesmo assim',variante:'aviso'});
+          const seguirMesmoAssim=await confirmarAcao(resp?.erro==='prazo_cancelamento_expirado'?`Prazo de cancelamento da ${tipoNota} já passou. Cancelar a venda mesmo assim, deixando a nota autorizada?`:`Não foi possível cancelar a ${tipoNota} agora. Cancelar a venda mesmo assim, deixando a nota autorizada?`,{labelOk:'Cancelar venda mesmo assim',variante:'aviso'});
           if(!seguirMesmoAssim)return;
         }else{
-          toast('NFC-e cancelada.','ok');
+          toast(`${tipoNota} cancelada.`,'ok');
         }
       }
       // escolha==='venda': segue direto pro cancelamento da venda, nota fica intocada.
