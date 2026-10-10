@@ -910,6 +910,29 @@ function toggleSenhaAdmin(){
     </div>
   </div>
 
+  <!-- Correios — credencial ÚNICA da Nuvix (não é por cliente), usada só pra
+       rastrear código de qualquer empresa (gerar etiqueta é outra coisa, usa
+       o contrato de CADA cliente, cadastrado em correios_credenciais por SQL
+       direto). Ver CORREIOS-ATIVACAO.md. -->
+  <div class="card" style="margin-bottom:16px">
+    <h2 style="margin-bottom:10px">Correios — conta de rastreio da Nuvix</h2>
+    <p style="color:var(--muted);font-size:13px;line-height:1.6;max-width:640px">
+      Uma conta só, da própria Nuvix (gratuita, "Meu Correios"), usada pra rastrear
+      o código de qualquer pedido de qualquer empresa cliente — não precisa de
+      contrato de ninguém pra isso funcionar. Gere o código de acesso em
+      "Gestão de acesso a APIs" no portal dos Correios.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+      <div class="field" style="flex:1;min-width:200px;margin:0"><label>Usuário Meu Correios</label><input id="correiosNuvixUsuario" placeholder="E-mail ou usuário"></div>
+      <div class="field" style="flex:1;min-width:200px;margin:0"><label>Código de acesso API</label><input id="correiosNuvixCodigo" type="password" placeholder="Gerado no portal"></div>
+      <div class="field" style="margin:0"><label>Ambiente</label>
+        <select id="correiosNuvixAmbiente"><option value="homologacao">Homologação</option><option value="producao">Produção</option></select>
+      </div>
+      <button class="btn" onclick="salvarCorreiosConfigNuvix()">Salvar</button>
+    </div>
+    <div id="correiosNuvixMsg" class="msg" style="margin-top:8px"></div>
+  </div>
+
   <!-- Cota de nota fiscal por plano — Notas Fiscais entra a partir do Pro,
        mas com limite mensal (custo real por nota no Focus NFe). Plus fica
        ilimitado. Números ajustáveis aqui, sem precisar mexer em código,
@@ -1403,6 +1426,20 @@ function toggleSenhaAdmin(){
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpNfeSimulacao" style="width:16px;height:16px">
         <label style="margin:0" for="editEmpNfeSimulacao">Modo simulação NF-e (NÃO chama a Focus NFe de verdade. Nunca deixar ligado em cliente real)</label>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+    <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">Correios — gerar etiqueta automática (Pedido Manual)</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Rastreio por código digitado já funciona pra qualquer empresa sem precisar disso. Isso aqui é só pro nível avançado: gerar etiqueta + calcular frete automático, que exige a empresa ter contrato próprio nos Correios. Cadastre o contrato em <code>correios_credenciais</code> por SQL direto antes de ativar — ver CORREIOS-ATIVACAO.md.</div>
+    <div class="form-grid">
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpCorreiosAtivo" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpCorreiosAtivo">Postagem automática (Correios) ativa pra esta empresa</label>
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <input type="checkbox" id="editEmpCorreiosSimulacao" style="width:16px;height:16px">
+        <label style="margin:0" for="editEmpCorreiosSimulacao">Modo simulação (NÃO chama os Correios de verdade, só pra testar a tela. Nunca deixar ligado em cliente real)</label>
       </div>
     </div>
   </div>
@@ -1902,6 +1939,7 @@ async function carregarTudo(){
     renderDespesas();
     renderFinanceiroReal();
     carregarEfiConfigAdmin();
+    carregarCorreiosConfigNuvix();
     carregarCotaNfAdmin();
     carregarNotasAssinatura();
     popularSelects();
@@ -2533,6 +2571,8 @@ function editarEmpresa(id){
   $('editEmpCteSimulacao').checked=!!e.cte_simulacao;
   $('editEmpNfeAtivo').checked=!!e.nfe_ativo;
   $('editEmpNfeSimulacao').checked=!!e.nfe_simulacao;
+  $('editEmpCorreiosAtivo').checked=!!e.correios_ativo;
+  $('editEmpCorreiosSimulacao').checked=!!e.correios_simulacao;
   renderEfiStatusEmpresa(e);
   abrirModal('modalEditEmp');
 }
@@ -2684,6 +2724,8 @@ async function salvarEdicaoEmpresa(){
       cte_simulacao:$('editEmpCteSimulacao').checked,
       nfe_ativo:$('editEmpNfeAtivo').checked,
       nfe_simulacao:$('editEmpNfeSimulacao').checked,
+      correios_ativo:$('editEmpCorreiosAtivo').checked,
+      correios_simulacao:$('editEmpCorreiosSimulacao').checked,
     });
     // Troca de plano não desligava sozinha os módulos do novo plano quando a
     // empresa já tinha alguma linha liberado=false em empresa_modulos (de uma
@@ -3356,6 +3398,32 @@ async function dbUpsertEfiConfig(chave,valor){
     body:JSON.stringify({chave,valor,updated_at:new Date().toISOString()}),
   });
   if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));
+}
+
+// ── Correios — credencial única da Nuvix (nível 1, rastreio) ──
+async function carregarCorreiosConfigNuvix(){
+  try{
+    const [cfg]=await dbGet('correios_config_nuvix','?select=*&limit=1');
+    if(cfg){
+      $('correiosNuvixUsuario').value=cfg.usuario_meu_correios||'';
+      $('correiosNuvixCodigo').value=cfg.codigo_acesso_api||'';
+      $('correiosNuvixAmbiente').value=cfg.ambiente||'homologacao';
+    }
+  }catch(e){}
+}
+async function salvarCorreiosConfigNuvix(){
+  try{
+    const [existente]=await dbGet('correios_config_nuvix','?select=id&limit=1');
+    const payload={
+      usuario_meu_correios:val('correiosNuvixUsuario').trim(),
+      codigo_acesso_api:val('correiosNuvixCodigo').trim(),
+      ambiente:val('correiosNuvixAmbiente'),
+      updated_at:new Date().toISOString(),
+    };
+    if(existente) await dbPatch('correios_config_nuvix',existente.id,payload);
+    else await dbPost('correios_config_nuvix',payload);
+    msgEl('correiosNuvixMsg','Salvo!','ok');
+  }catch(e){msgEl('correiosNuvixMsg','Erro: '+e.message,'err');}
 }
 
 // ── Cota de notas fiscais por plano ──

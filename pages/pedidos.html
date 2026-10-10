@@ -310,7 +310,7 @@ let dados = {lojas:[],produtos:[],estoque:[]};
 let carrinho = [];
 let clienteSelecionado = null; // {id, nome, documento}
 let statusPagamentoAtual = 'agora';
-let empresaFiscal={nfce_ativo:false,nfce_simulacao:false,nfe_ativo:false,nfe_simulacao:false};
+let empresaFiscal={nfce_ativo:false,nfce_simulacao:false,nfe_ativo:false,nfe_simulacao:false,correios_ativo:false};
 let historicoPedidos = [];
 let pedFichaCache = {}; // id -> linha de vendas já carregada, pra ficha abrir sem precisar passar o objeto inteiro no onclick
 
@@ -329,7 +329,7 @@ async function init(){
   }
   $('pedVencimento').value=hoje();
   try{
-    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,nfe_ativo,nfe_simulacao,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
+    const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,nfe_ativo,nfe_simulacao,correios_ativo,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
     if(e)empresaFiscal=e;
   }catch(e){ /* segue sem nota ativa — Pedidos nunca trava por causa disso */ }
   await carregarLojas();
@@ -839,13 +839,15 @@ async function abrirFichaPedido(venda){
   $('fpBtnCancelar').style.display=venda.status==='Cancelada'?'none':'block';
   abrirModal('modalFichaPedido');
   try{
-    const [itens,formasPagamento,parcelasFinA,notaNfce,notaNfe]=await Promise.all([
+    const [itens,formasPagamento,parcelasFinA,notaNfce,notaNfe,rastreiosA]=await Promise.all([
       dbGet('itens_venda',`?venda_id=eq.${venda.id}&select=produto_nome,quantidade,valor_unitario,subtotal`),
       dbGet('venda_formas_pagamento',`?venda_id=eq.${venda.id}&select=forma_pagamento,valor`),
       dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${venda.id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total&order=parcela_numero.asc`),
       dbGet('notas_fiscais_nfce',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
       dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
+      dbGet('rastreios_correios',`?venda_id=eq.${venda.id}&select=*&limit=1`).catch(()=>[]),
     ]);
+    rastreioAtual=rastreiosA[0]||null;
     // Pedidos registrados antes do parcelamento existir não têm referencia_id
     // preenchido no financeiro — cai pro financeiro_id antigo nesse caso.
     const parcelasFin=parcelasFinA.length?parcelasFinA:(venda.financeiro_id?await dbGet('financeiro',`?id=eq.${venda.financeiro_id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total`):[]);
@@ -856,6 +858,8 @@ async function abrirFichaPedido(venda){
       <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
       <div><b>Total:</b> ${money(venda.total)}</div>
       <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
+      <div style="margin-top:14px;font-weight:700">Envio</div>
+      <div id="fpEnvioConteudo" style="margin-top:6px">${renderEnvioPedido()}</div>
       <div style="margin-top:14px;font-weight:700">Itens</div>
       <div class="tablewrap" style="margin-top:6px">
         <table>
@@ -882,6 +886,72 @@ async function abrirFichaPedido(venda){
     setHTML('fpConteudo','Não foi possível carregar os detalhes: '+e.message);
   }
 }
+// ══ ENVIO (Correios) ══ — nível 1 (rastreio por código digitado, sempre
+// disponível) e nível 2 (gerar etiqueta automática, só se a empresa tiver
+// correios_ativo e contrato próprio cadastrado — ver CORREIOS-ATIVACAO.md).
+let rastreioAtual=null;
+function renderEnvioPedido(){
+  if(!rastreioAtual){
+    return `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="margin-bottom:0;flex:1;min-width:180px">
+          <label>Código de rastreio</label>
+          <input type="text" id="fpCodigoRastreio" placeholder="AA123456789BR">
+        </div>
+        <button class="btn2" onclick="registrarRastreioPedido()">Registrar e rastrear</button>
+        ${empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
+    `;
+  }
+  const r=rastreioAtual;
+  return `
+    <div><b>Código:</b> ${esc(r.codigo_rastreio||'—')}</div>
+    <div><b>Status:</b> ${esc(r.status||'Aguardando primeira consulta')}</div>
+    ${r.tipo==='etiqueta'&&r.valor_frete!=null?`<div><b>Valor do frete:</b> ${money(r.valor_frete)}</div>`:''}
+    ${r.link_pdf?`<div><a href="#" onclick="abrirDanfce('${esc(r.link_pdf)}');return false">Ver etiqueta (PDF)</a></div>`:''}
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Atualizado em ${r.atualizado_em?fmtDataHora(r.atualizado_em):'—'}</div>
+    <button class="btn2" style="margin-top:6px" onclick="atualizarRastreioPedido()">Atualizar status</button>
+  `;
+}
+async function registrarRastreioPedido(){
+  const codigo=val('fpCodigoRastreio').trim();
+  if(!codigo){toast('Informe o código de rastreio.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/rastrear-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'registrar',venda_id:fichaAbertaId,codigo_rastreio:codigo})});
+    const resp=await r.json();
+    if(!resp.ok){toast(resp.erro==='ja_existe_rastreio_pra_esse_pedido'?'Esse pedido já tem rastreio registrado.':'Erro ao registrar: '+(resp.mensagem||resp.erro),'err');return;}
+    rastreioAtual=resp.rastreio;
+    setHTML('fpEnvioConteudo',renderEnvioPedido());
+    toast(resp.simulado?'Registrado (modo simulação — sem conta real dos Correios ainda).':'Rastreio registrado!','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function atualizarRastreioPedido(){
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/rastrear-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'atualizar',venda_id:fichaAbertaId})});
+    const resp=await r.json();
+    if(!resp.ok){toast('Erro ao atualizar: '+(resp.mensagem||resp.erro),'err');return;}
+    rastreioAtual=resp.rastreio;
+    setHTML('fpEnvioConteudo',renderEnvioPedido());
+    toast('Status atualizado.','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function gerarEtiquetaPedido(){
+  if(!await confirmarAcao('Gerar etiqueta dos Correios pra esse pedido? Vai calcular o frete e o código de rastreio usando o contrato dessa empresa.',{labelOk:'Gerar etiqueta'}))return;
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId})});
+    const resp=await r.json();
+    if(!resp.ok){
+      const MSGS={correios_nao_configurado:'Correios ainda não configurado pra essa empresa.',pedido_sem_cliente_vinculado:'Esse pedido não tem cliente vinculado.',cliente_sem_endereco_completo:'O cliente não tem endereço completo cadastrado.',empresa_sem_endereco_completo:'Sua empresa não tem endereço completo cadastrado.',produto_sem_peso_dimensoes:`O produto "${resp.produto}" não tem peso/dimensões cadastrados.`};
+      toast(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)),'err');
+      return;
+    }
+    rastreioAtual=resp.rastreio;
+    setHTML('fpEnvioConteudo',renderEnvioPedido());
+    toast(resp.simulado?'Etiqueta gerada (modo simulação).':'Etiqueta gerada!','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
 // Baixa rápida de uma parcela direto da Ficha do Pedido — mesmo PATCH que o
 // Financeiro usa no "Dar baixa" (status/data_pagamento/valor_pago), só que sem
 // abrir outra tela. Pra ajustar forma de pagamento/PIX/observação, ainda dá pra
