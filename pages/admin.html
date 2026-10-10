@@ -1122,7 +1122,7 @@ function toggleSenhaAdmin(){
     <p class="muted" style="font-size:13px;margin-bottom:16px">Certificado enviado pelo cliente pra gente cadastrar na Focus NFe. Depois de marcar como processado, o arquivo e a senha somem daqui — só fica o registro de quem enviou e quando.</p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Empresa</th><th>Enviado por</th><th>Quando</th><th>Tipo de nota</th><th>Responsável</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Empresa</th><th>Enviado por</th><th>Quando</th><th>Nota / Regime</th><th>Responsável</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody id="tabelaCertificados"></tbody>
       </table>
     </div>
@@ -1936,7 +1936,7 @@ function renderCertificados(){
       <td><b>${esc(emp?.fantasia||emp?.razao||'—')}</b></td>
       <td>${esc(c.enviado_por_nome||'—')}</td>
       <td>${fmtDataHora(c.created_at)}</td>
-      <td style="font-size:12px;font-weight:700">${esc(c.tipos_nota||'—')}</td>
+      <td style="font-size:12px"><b>${esc(c.tipos_nota||'—')}</b><br><span style="color:var(--muted)">${esc(c.regime_tributario||'—')}</span></td>
       <td style="font-size:12px">${esc(formatarCpf(c.responsavel_cpf))}<br>${esc(c.responsavel_email||'')}<br>${esc(c.responsavel_telefone||'')}</td>
       <td style="font-size:12px;max-width:200px">${esc(c.observacao||'—')}</td>
       <td>${processado?'<span class="badge ok">Processado</span>':'<span class="badge warn">Pendente</span>'}</td>

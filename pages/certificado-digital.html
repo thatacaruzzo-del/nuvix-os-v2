@@ -93,6 +93,15 @@
           <p>Informações que nossa equipe precisa pra validar e ativar a emissão de notas fiscais da sua empresa.</p>
           <div class="form-grid" style="grid-template-columns:1fr 1fr">
             <div class="field"><label>Senha do certificado</label><input type="password" id="certSenha" autocomplete="new-password"></div>
+            <div class="field"><label>Regime tributário</label>
+              <select id="certRegime">
+                <option value="">Selecione...</option>
+                <option>Simples Nacional</option>
+                <option>Lucro Presumido</option>
+                <option>Lucro Real</option>
+                <option>MEI</option>
+              </select>
+            </div>
             <div class="field"><label>CPF do responsável legal</label><input type="text" id="certCpf" placeholder="000.000.000-00"></div>
             <div class="field"><label>E-mail do responsável</label><input type="email" id="certEmail"></div>
             <div class="field"><label>Telefone do responsável</label><input type="text" id="certTelefone" placeholder="(11) 99999-9999"></div>
@@ -167,6 +176,8 @@ async function enviarCertificado(){
   if(!tiposNota.length){msg('certMsg','Marque pelo menos uma opção de tipo de nota.','err');return;}
   const senha=val('certSenha');
   if(!senha){msg('certMsg','Informe a senha do certificado.','err');return;}
+  const regime=val('certRegime');
+  if(!regime){msg('certMsg','Selecione o regime tributário da empresa.','err');return;}
   const cpf=val('certCpf').trim();
   if(!cpf||!validarCPF(cpf)){msg('certMsg','Informe um CPF válido do responsável legal.','err');return;}
   const email=val('certEmail').trim();
@@ -182,6 +193,7 @@ async function enviarCertificado(){
       arquivo_nome:arquivoSelecionado.nome,
       tipos_nota:tiposNota.join(', '),
       senha,
+      regime_tributario:regime,
       responsavel_cpf:cpf.replace(/\D/g,''),
       responsavel_email:email,
       responsavel_telefone:telefone,
@@ -195,7 +207,7 @@ async function enviarCertificado(){
     $('certArquivo').value='';
     $('certFileBox').classList.remove('has-file');
     $('certFileLabel').textContent='Clique para escolher o arquivo .pfx ou .p12';
-    $('certSenha').value='';$('certCpf').value='';$('certEmail').value='';$('certTelefone').value='';$('certObs').value='';
+    $('certSenha').value='';$('certRegime').value='';$('certCpf').value='';$('certEmail').value='';$('certTelefone').value='';$('certObs').value='';
     document.querySelectorAll('#certTiposNota input:checked').forEach(i=>i.checked=false);
     msg('certMsg','Certificado enviado com segurança! Nossa equipe vai validar e ativar a emissão de notas fiscais da sua empresa em até 2 dias úteis. Essas informações são usadas só pra isso, e depois são apagadas do nosso banco.','ok');
   }catch(e){
