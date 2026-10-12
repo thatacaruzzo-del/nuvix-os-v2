@@ -174,7 +174,41 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <tbody id="pedCarrinhoTable"></tbody>
           </table>
         </div>
-        <div class="ped-total-row"><span>Total</span><span id="pedTotalValor">R$ 0,00</span></div>
+        <!-- Frete (opcional) — se já souber o meio/valor nesse momento, entra
+             direto no total antes de confirmar; senão, configura depois na
+             Ficha do Pedido (fluxo que já existia). -->
+        <div class="field" style="margin-top:6px">
+          <div class="field-hint"><a href="#" onclick="toggleFreteNovoPedido();return false" id="btnToggleFreteNovo">+ Adicionar frete (se já souber)</a></div>
+          <div id="pedFreteWrap" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+              <div class="field" style="margin-bottom:0"><label>Meio de envio</label>
+                <select id="pedFreteMeio">
+                  <option>Motoboy</option><option>Transportadora</option><option>Retirada no local</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:0"><label>Quem paga o frete</label>
+                <select id="pedFreteQuemPaga" onchange="atualizarFreteNovoPedido()">
+                  <option value="Cliente">Cliente</option>
+                  <option value="Empresa">Empresa (frete grátis pro cliente)</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:0" id="pedFreteValorWrap"><label>Valor cobrado do cliente</label><input type="text" inputmode="decimal" id="pedFreteValor" placeholder="0,00" oninput="sanitizarDecimal(this);atualizarFreteNovoPedido()"></div>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
+              <div class="field" style="margin-bottom:0" id="pedFreteEntregadorWrap"><label>Nome de quem entrega (opcional)</label><input type="text" id="pedFreteEntregador"></div>
+              <div class="field" style="margin-bottom:0"><label>Custo do frete (opcional)</label><input type="text" inputmode="decimal" id="pedFreteCusto" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px">Vai pelos Correios? Registre na Ficha do Pedido depois de confirmar — lá dá pra digitar o código de rastreio ou gerar a etiqueta.</div>
+          </div>
+        </div>
+
+        <div class="ped-total-row"><span>Total dos produtos</span><span id="pedTotalValor">R$ 0,00</span></div>
+        <div class="ped-total-row" id="pedTotalFreteLinha" style="display:none;font-size:13px;color:var(--muted)">
+          <span>+ Frete (cliente paga)</span><span id="pedTotalFreteValor">R$ 0,00</span>
+        </div>
+        <div class="ped-total-row" id="pedTotalFreteLinha2" style="display:none;font-weight:700">
+          <span>Total cobrado do cliente</span><span id="pedTotalComFreteValor">R$ 0,00</span>
+        </div>
 
         <!-- Pagamento -->
         <div class="field" style="margin-top:18px">
@@ -507,8 +541,39 @@ function alterarPrecoCarrinhoPedido(idx,novoValor){
   item.valor_unitario=arred2(preco); renderCarrinhoPedido();
 }
 function removerDoCarrinhoPedido(idx){ carrinho.splice(idx,1); renderCarrinhoPedido(); }
+// Frete informado já na criação do pedido (opcional) — fica visível ao
+// vendedor ANTES de confirmar, mas de propósito NÃO entra no total/parcelas
+// da venda em si (finalizar_venda): o frete precisa continuar sendo um
+// lançamento separado, com sua própria categoria no Financeiro (senão não
+// dá pra saber depois "quanto foi vendido de produto" x "quanto foi de
+// frete" no Painel de Vendas/Relatórios). Quem efetivamente lança o frete,
+// aqui e na Ficha, é sempre registrarEnvioEFinanceiro().
+let freteCobradoPedidoNovo=0;
+function toggleFreteNovoPedido(){
+  const wrap=$('pedFreteWrap');
+  const aberto=wrap.style.display==='block';
+  wrap.style.display=aberto?'none':'block';
+  $('btnToggleFreteNovo').textContent=aberto?'+ Adicionar frete (se já souber)':'− Ocultar frete';
+  if(aberto){ freteCobradoPedidoNovo=0; renderTotalPedido(); } // fechou: some do resumo
+}
+function atualizarFreteNovoPedido(){
+  const clientePaga=val('pedFreteQuemPaga')==='Cliente';
+  $('pedFreteValorWrap').style.display=clientePaga?'block':'none';
+  freteCobradoPedidoNovo=clientePaga?(numBR('pedFreteValor')||0):0;
+  renderTotalPedido();
+}
 function totalCarrinhoPedido(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
-function renderTotalPedido(){ $('pedTotalValor').textContent=money(totalCarrinhoPedido()); }
+function renderTotalPedido(){
+  const totalProdutos=totalCarrinhoPedido();
+  $('pedTotalValor').textContent=money(totalProdutos);
+  const mostrar=freteCobradoPedidoNovo>0;
+  if($('pedTotalFreteLinha')) $('pedTotalFreteLinha').style.display=mostrar?'flex':'none';
+  if($('pedTotalFreteLinha2')) $('pedTotalFreteLinha2').style.display=mostrar?'flex':'none';
+  if(mostrar){
+    setHTML('pedTotalFreteValor',money(freteCobradoPedidoNovo));
+    setHTML('pedTotalComFreteValor',money(totalProdutos+freteCobradoPedidoNovo));
+  }
+}
 function limparCarrinhoPedido(){ carrinho=[]; renderCarrinhoPedido(); }
 
 // ══ PAGAMENTO ══
@@ -639,6 +704,28 @@ async function registrarPedido(){
       if(linhaEstoque) linhaEstoque.quantidade=Number(linhaEstoque.quantidade||0)-item.quantidade;
     }
 
+    // Frete já informado no formulário de criação (bloco "+ Adicionar frete")
+    // — registra agora, logo após a venda existir, pra não precisar repetir
+    // a pergunta "quer informar o envio agora?" mais abaixo.
+    let freteJaRegistrado=false;
+    if($('pedFreteWrap').style.display==='block'){
+      const freteMeio=val('pedFreteMeio');
+      const freteRetirada=freteMeio==='Retirada no local';
+      const freteEntregador=val('pedFreteEntregador').trim();
+      const freteClientePaga=val('pedFreteQuemPaga')==='Cliente';
+      const freteValor=freteClientePaga?numBR('pedFreteValor'):0;
+      const freteCusto=numBR('pedFreteCusto');
+      if(!freteRetirada&&!freteEntregador){
+        toast('Pedido registrado! Informe o nome de quem entrega na Ficha pra concluir o frete.','ok');
+      } else {
+        try{
+          await registrarEnvioEFinanceiro(vendaId,numeroPedido,{meio:freteMeio,entregador:freteRetirada?null:(freteEntregador||null),valorCobrado:freteValor,custo:freteCusto,statusNovo:freteRetirada?'Retirado':'Enviado'});
+          await dbPatch('vendas',vendaId,{status_entrega:freteRetirada?'Retirado':'Enviado'});
+          freteJaRegistrado=true;
+        }catch(e){ toast('Pedido registrado, mas o frete não foi salvo: '+e.message,'err'); }
+      }
+    }
+
     toast(`Pedido Nº ${numeroPedido} registrado — ${money(total)}`,'ok');
 
     // Mesma escolha de nota que o Caixa já oferece — emissão é sempre decisão
@@ -679,13 +766,19 @@ async function registrarPedido(){
     limparClienteSelecionado();
     statusPagamentoAtual='agora'; escolherStatusPagamentoPedido('agora');
     $('pedVencimento').value=hoje();
+    if($('pedFreteWrap').style.display==='block') toggleFreteNovoPedido();
+    $('pedFreteValor').value=''; $('pedFreteCusto').value=''; $('pedFreteEntregador').value='';
+    $('pedFreteQuemPaga').value='Cliente'; $('pedFreteMeio').value='Motoboy';
+    atualizarFreteNovoPedido();
     await carregarHistoricoPedidos();
 
-    // Meio de envio não entra no formulário de criação (às vezes ainda não
-    // foi decidido nesse momento) — oferece abrir a Ficha já configurada pra
-    // quem já sabe, sem obrigar quem só quer seguir direto pro próximo pedido.
-    const querEnvio=await confirmarAcao('Pedido registrado! Quer informar o meio de envio agora?',{labelOk:'Informar agora',labelCancelar:'Depois',variante:'neutro'});
-    if(querEnvio) abrirFichaPedidoPorId(vendaId);
+    // Se o frete já foi informado no próprio formulário de criação, não
+    // precisa perguntar de novo — só pergunta quando ainda não foi decidido
+    // nesse momento (vendedor deixou o bloco "+ Adicionar frete" fechado).
+    if(!freteJaRegistrado){
+      const querEnvio=await confirmarAcao('Pedido registrado! Quer informar o meio de envio agora?',{labelOk:'Informar agora',labelCancelar:'Depois',variante:'neutro'});
+      if(querEnvio) abrirFichaPedidoPorId(vendaId);
+    }
   }catch(e){
     msg('pedMsg','Erro ao registrar pedido: '+e.message,'err');
   }finally{
@@ -870,7 +963,14 @@ async function abrirFichaPedido(venda){
     const [itens,formasPagamento,parcelasFinA,notaNfce,notaNfe,rastreiosA]=await Promise.all([
       dbGet('itens_venda',`?venda_id=eq.${venda.id}&select=produto_nome,quantidade,valor_unitario,subtotal`),
       dbGet('venda_formas_pagamento',`?venda_id=eq.${venda.id}&select=forma_pagamento,valor`),
-      dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${venda.id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total&order=parcela_numero.asc`),
+      // categoria=neq.* exclui o(s) lançamento(s) de frete (Receita "Frete
+      // cobrado do cliente"/Despesa "Frete/Envio") dessa lista — eles usam o
+      // mesmo referencia_id da venda, mas não são parcela da venda em si.
+      // Apareciam antes misturados na tabela de parcelas (ex.: "—/5" junto
+      // com "1/3","2/3","3/3"), confundindo o que o cliente realmente deve.
+      // Dois filtros com a mesma chave viram AND no PostgREST (categoria ≠ A
+      // E categoria ≠ B), sem precisar da sintaxe de lista in.() com espaço.
+      dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${venda.id}&categoria=neq.${encodeURIComponent('Frete cobrado do cliente')}&categoria=neq.${encodeURIComponent('Frete/Envio')}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total&order=parcela_numero.asc`),
       dbGet('notas_fiscais_nfce',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
       dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
       dbGet('rastreios_correios',`?venda_id=eq.${venda.id}&select=*&limit=1`).catch(()=>[]),
@@ -944,9 +1044,15 @@ function renderEnvioPedido(){
         <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${!editandoEnvioPedido&&empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
       </div>
       <div id="fpEnvioManual" style="display:none">
+        <div class="field" style="max-width:260px"><label>Quem paga o frete</label>
+          <select id="fpQuemPagaFrete" onchange="toggleQuemPagaFretePedido()">
+            <option value="Cliente">Cliente</option>
+            <option value="Empresa">Empresa (frete grátis pro cliente)</option>
+          </select>
+        </div>
         <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
           <div class="field" style="margin-bottom:0" id="fpEntregadorWrap"><label>Nome de quem entregou</label><input type="text" id="fpEntregadorNome"></div>
-          <div class="field" style="margin-bottom:0"><label>Valor cobrado do cliente</label><input type="text" inputmode="decimal" id="fpValorCobrado" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+          <div class="field" style="margin-bottom:0" id="fpValorCobradoWrap"><label>Valor cobrado do cliente</label><input type="text" inputmode="decimal" id="fpValorCobrado" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
           <div class="field" style="margin-bottom:0"><label>Custo do frete (opcional)</label><input type="text" inputmode="decimal" id="fpCustoFrete" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
         </div>
         <button class="btn2" style="margin-top:8px" onclick="salvarEnvioManualPedido()">Salvar envio</button>
@@ -978,6 +1084,13 @@ function toggleMeioEnvioPedido(){
   $('fpEnvioManual').style.display=correios?'none':'block';
   if(!correios) $('fpEntregadorWrap').style.display=retirada?'none':'block';
 }
+// Empresa assumindo o frete = campo de valor cobrado não faz sentido (fica
+// zerado/escondido) — a escolha fica explícita em vez de só "deixar em branco".
+function toggleQuemPagaFretePedido(){
+  const clientePaga=val('fpQuemPagaFrete')==='Cliente';
+  $('fpValorCobradoWrap').style.display=clientePaga?'block':'none';
+  if(!clientePaga) $('fpValorCobrado').value='';
+}
 // Troca o meio de envio (ex.: foi registrado como Correios por engano e era
 // Motoboy) ou corrige nome/valores já salvos. Reaproveita o mesmo formulário
 // de registrar envio, só pré-preenchido com o que já existe — registrarRastreioPedido()
@@ -991,6 +1104,8 @@ function editarEnvioPedido(){
   toggleMeioEnvioPedido();
   $('fpCodigoRastreio').value=r.codigo_rastreio||'';
   $('fpEntregadorNome').value=r.entregador_nome||'';
+  $('fpQuemPagaFrete').value=r.valor_cobrado_cliente>0?'Cliente':'Empresa';
+  toggleQuemPagaFretePedido();
   $('fpValorCobrado').value=r.valor_cobrado_cliente!=null?Number(r.valor_cobrado_cliente).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
   $('fpCustoFrete').value=r.valor_frete!=null?Number(r.valor_frete).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 }
@@ -1003,12 +1118,48 @@ function cancelarEdicaoEnvioPedido(){
 // referencia_tipo/referencia_id já usado nas parcelas): receita se cobrou
 // do cliente, despesa se teve custo — as duas linhas são opcionais e
 // independentes, um pedido pode ter só uma, as duas, ou nenhuma.
+// Venda faturada (ainda tem parcela pendente) é o gatilho pra perguntar se o
+// frete entra separado ou somado — venda já paga na hora não tem com o que
+// "somar", então nem pergunta.
+async function buscarParcelaPendenteMaisRecente(vendaId){
+  try{
+    const parcelas=await dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${vendaId}&status=eq.Pendente&categoria=neq.${encodeURIComponent('Frete cobrado do cliente')}&categoria=neq.${encodeURIComponent('Frete/Envio')}&select=id,valor,parcela_numero&order=parcela_numero.desc.nullslast&limit=1`);
+    return parcelas[0]||null;
+  }catch(e){ return null; }
+}
+// Núcleo compartilhado: cria o registro de envio (rastreios_correios) +
+// lançamentos de Financeiro do frete — reaproveitado tanto da Ficha do
+// Pedido (salvarEnvioManualPedido) quanto direto na tela de criar o pedido
+// (registrarPedido), pra não duplicar a mesma regra em dois lugares.
+async function registrarEnvioEFinanceiro(vendaId,numeroPedido,{meio,entregador,valorCobrado,custo,statusNovo}){
+  const criado=await dbPost('rastreios_correios',withEmpresa({
+    venda_id:vendaId, meio_envio:meio, tipo:'manual',
+    entregador_nome:entregador||null,
+    valor_cobrado_cliente:valorCobrado||null, valor_frete:custo||null,
+    status:statusNovo, atualizado_em:new Date().toISOString(),
+  }));
+  if(valorCobrado>0){
+    const parcelaPendente=await buscarParcelaPendenteMaisRecente(vendaId);
+    let somarNaFatura=false;
+    if(parcelaPendente){
+      somarNaFatura=await confirmarAcao('Esse pedido ainda tem parcela pendente. Cobrar o frete separado (agora) ou somar na fatura (entra na parcela, paga junto com a compra)?',{labelOk:'Somar na fatura',labelCancelar:'Cobrar separado',variante:'neutro'});
+    }
+    if(somarNaFatura){
+      await dbPatch('financeiro',parcelaPendente.id,{valor:arred2(Number(parcelaPendente.valor)+valorCobrado)});
+    } else {
+      await dbPost('financeiro',withEmpresa({tipo:'Receita',categoria:'Frete cobrado do cliente',descricao:`Frete do Pedido Nº ${numeroPedido}`,valor:arred2(valorCobrado),data_lancamento:hoje(),status:'Recebido',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:vendaId}));
+    }
+  }
+  if(custo>0) await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (${meio}) do Pedido Nº ${numeroPedido}`,valor:arred2(custo),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:vendaId}));
+  return Array.isArray(criado)?criado[0]:criado;
+}
 async function salvarEnvioManualPedido(){
   const meio=val('fpMeioEnvio');
   const retirada=meio==='Retirada no local';
   const entregador=val('fpEntregadorNome').trim();
   if(!retirada&&!entregador){toast('Informe o nome de quem entregou.','err');return;}
-  const valorCobrado=numBR('fpValorCobrado');
+  const clientePagaFrete=val('fpQuemPagaFrete')==='Cliente';
+  const valorCobrado=clientePagaFrete?numBR('fpValorCobrado'):0;
   const custo=numBR('fpCustoFrete');
   const statusNovo=retirada?'Retirado':'Enviado';
   // Corrigindo um envio que já existia (ex.: registrado como Correios por
@@ -1032,16 +1183,8 @@ async function salvarEnvioManualPedido(){
     return;
   }
   try{
-    const criado=await dbPost('rastreios_correios',withEmpresa({
-      venda_id:fichaAbertaId, meio_envio:meio, tipo:'manual',
-      entregador_nome:retirada?null:(entregador||null),
-      valor_cobrado_cliente:valorCobrado||null, valor_frete:custo||null,
-      status:statusNovo, atualizado_em:new Date().toISOString(),
-    }));
-    rastreioAtual=Array.isArray(criado)?criado[0]:criado;
     const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
-    if(valorCobrado>0) await dbPost('financeiro',withEmpresa({tipo:'Receita',categoria:'Frete cobrado do cliente',descricao:`Frete do Pedido Nº ${numeroPedido}`,valor:arred2(valorCobrado),data_lancamento:hoje(),status:'Recebido',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
-    if(custo>0) await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (${meio}) do Pedido Nº ${numeroPedido}`,valor:arred2(custo),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
+    rastreioAtual=await registrarEnvioEFinanceiro(fichaAbertaId,numeroPedido,{meio,entregador:retirada?null:entregador,valorCobrado,custo,statusNovo});
     await avancarStatusEntregaPedido(statusNovo);
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast('Envio registrado!','ok');

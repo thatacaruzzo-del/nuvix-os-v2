@@ -134,7 +134,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <h2 style="margin-bottom:14px">Pedidos individuais</h2>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Canal</th><th>Total</th><th>Status</th><th>Entrega</th></tr></thead>
+            <thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Canal</th><th>Total</th><th>Frete</th><th>Status</th><th>Entrega</th></tr></thead>
             <tbody id="pedidosTable"></tbody>
           </table>
         </div>
@@ -402,7 +402,11 @@ async function carregarPainel(){
   renderEvolucao(linhas,de,ate);
   renderVendasPorLojaPainel(linhas);
   renderCancelamentos(cancelamentos);
-  renderPedidosIndividuais(vendasUnicasPainel(linhas));
+  const pedidosUnicos=vendasUnicasPainel(linhas);
+  _ultimosFretesPorVenda=await buscarFretesPainel(pedidosUnicos.map(v=>v.id));
+  renderPedidosIndividuais(pedidosUnicos);
+  const freteCobradoTotal=Object.values(_ultimosFretesPorVenda).reduce((a,r)=>a+Number(r.valor_cobrado_cliente||0),0);
+  const freteCustoTotal=Object.values(_ultimosFretesPorVenda).reduce((a,r)=>a+Number(r.valor_frete||0),0);
 
   const porProduto={};
   let fatProprio=0, fatConsignado=0;
@@ -438,7 +442,7 @@ async function carregarPainel(){
 
   renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
     faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado,
-    aReceber:aReceberInfo.aReceber,atrasado:aReceberInfo.atrasado});
+    aReceber:aReceberInfo.aReceber,atrasado:aReceberInfo.atrasado,freteCobradoTotal,freteCustoTotal});
   renderAbc(produtos,faturamentoTotal);
   renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
 }
@@ -453,7 +457,7 @@ const KPI_ICONES={
   caixa:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   fatia:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
 };
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado,aReceber,atrasado}){
+function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado,aReceber,atrasado,freteCobradoTotal,freteCustoTotal}){
   // Faturado ≠ recebido: o valor pendente não é erro nem alerta por si só (venda a prazo é
   // normal), por isso âmbar — só vira vermelho quando parte dele já está atrasado (vencido
   // e ainda não pago), que aí sim é risco de verdade.
@@ -467,6 +471,8 @@ function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numP
     {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',ic:'caixa'},
     {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
+    {lbl:'Frete cobrado dos clientes',val:money(freteCobradoTotal||0),sub:'no período',ic:'caixa'},
+    {lbl:'Custo de frete pago',val:money(freteCustoTotal||0),sub:'no período',ic:'caixa'},
   ].map(k=>`<div class="kpi-card">
     <div class="kpi-ic ${k.principal?'p':'n'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KPI_ICONES[k.ic]}</svg></div>
     <div class="kpi-label">${k.lbl}</div>
@@ -516,6 +522,28 @@ function vendasUnicasPainel(linhas){
   }
   return out.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 }
+// rastreios_correios de cada venda (1 por venda_id, mesmo "limit=1" implícito
+// da Ficha do Pedido) — carregada por fora e repassada aqui só pra ter o
+// valor do frete na coluna, sem duplicar a query a cada render/paginação.
+let _ultimosFretesPorVenda={};
+async function buscarFretesPainel(vendaIds){
+  if(!vendaIds.length)return{};
+  try{
+    const blocos=[];
+    for(let i=0;i<vendaIds.length;i+=200)blocos.push(vendaIds.slice(i,i+200));
+    const resultados=await Promise.all(blocos.map(b=>dbGet('rastreios_correios',`?venda_id=in.(${b.join(',')})&select=venda_id,valor_cobrado_cliente,valor_frete`)));
+    const mapa={};
+    resultados.flat().forEach(r=>{mapa[r.venda_id]=r;});
+    return mapa;
+  }catch(e){ return {}; }
+}
+function fretePainelTexto(r){
+  if(!r)return'—';
+  const partes=[];
+  if(r.valor_cobrado_cliente>0)partes.push(`Cliente: ${money(r.valor_cobrado_cliente)}`);
+  if(r.valor_frete>0)partes.push(`Custo: ${money(r.valor_frete)}`);
+  return partes.length?partes.join(' · '):'Grátis (empresa)';
+}
 let _ultimosPedidos=[];
 function renderPedidosIndividuais(vendas){
   if(vendas===undefined) vendas=_ultimosPedidos;
@@ -528,9 +556,10 @@ function renderPedidosIndividuais(vendas){
       <td>${esc(v.cliente_nome||'—')}</td>
       <td><span class="badge">${esc(v.canal||'—')}</span></td>
       <td>${money(v.total)}</td>
+      <td style="font-size:12px">${fretePainelTexto(_ultimosFretesPorVenda[v.id])}</td>
       <td><span class="badge ok">${esc(v.status||'—')}</span></td>
       <td>${badgeStatusEntregaPainel(v.status_entrega)}</td>
-    </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido no período.</td></tr>');
+    </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido no período.</td></tr>');
 }
 function badgeStatusEntregaPainel(status){
   const s=status||'Registrado';
