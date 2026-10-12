@@ -2946,11 +2946,20 @@ function abrirSenha(id,nome){
   $('senhaUsuId').value=id;$('senhaUsuNome').textContent=nome;$('novaSenha').value='';
   abrirModal('modalSenha');
 }
+let _confirmarSenhaEmAndamento=false;
 async function confirmarSenha(){
+  // Trava contra duplo-clique/duplo-envio — sem isso, dois cliques rápidos no
+  // botão disparavam duas chamadas simultâneas pra essa function (nenhuma
+  // delas cancelada), e não havia garantia de qual delas "vencia" por último
+  // no servidor nem de qual resposta o admin via na tela primeiro.
+  if(_confirmarSenhaEmAndamento)return;
   const id=val('senhaUsuId'),senha=val('novaSenha').trim();
   if(!senha||senha.length<8){msgEl('senhaMsg','Senha mínima: 8 caracteres.','err');return;}
   const token=tokenAtual();
   if(!token){msgEl('senhaMsg','Sessão inválida, saia e entre de novo.','err');return;}
+  const btn=document.querySelector('#modalSenha .modal-actions .btn');
+  _confirmarSenhaEmAndamento=true;
+  if(btn){btn.disabled=true;btn.textContent='Redefinindo...';}
   try{
     const r=await fetch(`${SB_URL}/functions/v1/redefinir-senha-usuario`,{
       method:'POST',
@@ -2962,6 +2971,10 @@ async function confirmarSenha(){
     msgEl('senhaMsg','Senha redefinida! Já vale pro próximo login.','ok');
     setTimeout(()=>fecharModal('modalSenha'),1500);
   }catch(e){msgEl('senhaMsg','Erro: '+e.message,'err');}
+  finally{
+    _confirmarSenhaEmAndamento=false;
+    if(btn){btn.disabled=false;btn.textContent='Redefinir';}
+  }
 }
 
 // ═══ PERMISSÕES ═══
