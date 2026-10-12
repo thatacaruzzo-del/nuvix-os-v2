@@ -19,8 +19,11 @@ h1{font-size:18px;font-weight:800;color:#2A145D;margin-bottom:8px}
 .sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:24px}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:12px;font-weight:600;color:#5935C8;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
-.field input{width:100%;height:48px;padding:0 16px;background:#fff;border:1.5px solid #DDD6FF;border-radius:14px;color:#2A145D;font-size:15px;font-family:inherit;outline:none;transition:all 150ms ease}
+.field-wrap{position:relative}
+.field input{width:100%;height:48px;padding:0 44px 0 16px;background:#fff;border:1.5px solid #DDD6FF;border-radius:14px;color:#2A145D;font-size:15px;font-family:inherit;outline:none;transition:all 150ms ease}
 .field input:focus{border-color:#6D5EF5;box-shadow:0 0 0 4px rgba(109,94,245,.15)}
+.field-eye{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#9B8EC4;cursor:pointer;display:flex;align-items:center;transition:color .2s ease}
+.field-eye:hover{color:#5935C8}
 .divider{height:1px;background:var(--line);margin:20px 0}
 .btn{width:100%;height:48px;background:var(--c4);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:background 150ms ease}
 .btn:hover{background:var(--c3)}
@@ -44,16 +47,31 @@ h1{font-size:18px;font-weight:800;color:#2A145D;margin-bottom:8px}
     <p class="sub">Você entrou com uma senha temporária. Por segurança, ninguém além de você pode saber sua senha final — confirme a temporária e crie a sua.</p>
     <div class="field">
       <label>Senha temporária</label>
-      <input type="password" id="senhaTemp" placeholder="A que você acabou de usar" autocomplete="current-password">
+      <div class="field-wrap">
+        <input type="password" id="senhaTemp" placeholder="A que você acabou de usar" autocomplete="current-password">
+        <span class="field-eye" onclick="toggleSenhaCampo('senhaTemp')" title="Mostrar senha">
+          <svg id="eye_senhaTemp" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+      </div>
     </div>
     <div class="divider"></div>
     <div class="field">
       <label>Nova senha</label>
-      <input type="password" id="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      <div class="field-wrap">
+        <input type="password" id="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+        <span class="field-eye" onclick="toggleSenhaCampo('senha')" title="Mostrar senha">
+          <svg id="eye_senha" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+      </div>
     </div>
     <div class="field">
       <label>Confirmar nova senha</label>
-      <input type="password" id="senha2" placeholder="Repita a senha" autocomplete="new-password" onkeydown="if(event.key==='Enter')trocarSenha()">
+      <div class="field-wrap">
+        <input type="password" id="senha2" placeholder="Repita a senha" autocomplete="new-password" onkeydown="if(event.key==='Enter')trocarSenha()">
+        <span class="field-eye" onclick="toggleSenhaCampo('senha2')" title="Mostrar senha">
+          <svg id="eye_senha2" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+      </div>
     </div>
     <button class="btn" id="btnSalvar" onclick="trocarSenha()">Salvar e entrar</button>
     <div id="msg" class="msg"></div>
@@ -85,6 +103,18 @@ if(!pendente?.access_token||!pendente?.email){
 function sair(){
   sessionStorage.removeItem(PENDENTE_KEY);
   window.location.href='index.html';
+}
+
+function toggleSenhaCampo(id){
+  const inp=document.getElementById(id);
+  const icon=document.getElementById('eye_'+id);
+  if(inp.type==='password'){
+    inp.type='text';
+    icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }else{
+    inp.type='password';
+    icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
 }
 
 async function trocarSenha(){
