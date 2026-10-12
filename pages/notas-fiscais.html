@@ -743,12 +743,17 @@ async function simularErroTeste(nota){
 // não document.write(), que se mostrou pouco confiável em navegadores embutidos de app
 // (testado: WhatsApp in-app browser mostrava o HTML como texto cru em vez de renderizar,
 // mesmo com o conteúdo certo chegando). Mesmo motivo em pages/caixa.html.
+// PDF (DANFE) e HTML (DANFCE) são bytes diferentes por natureza — ler PDF
+// como texto (r.text()) corrompe o binário. BUG REAL corrigido: "Ver PDF"
+// de nota com PDF de verdade (NF-e) abria um arquivo corrompido.
 async function abrirDanfce(url){
   const janela=window.open('','_blank');
+  const ehPdf=/\.pdf(\?|$)/i.test(url);
   try{
     const r=await fetch(url);
-    const html=await r.text();
-    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    const blobUrl=ehPdf
+      ? URL.createObjectURL(new Blob([await r.arrayBuffer()],{type:'application/pdf'}))
+      : URL.createObjectURL(new Blob([await r.text()],{type:'text/html'}));
     if(janela) janela.location.href=blobUrl;
     else window.open(blobUrl,'_blank');
   }catch(e){

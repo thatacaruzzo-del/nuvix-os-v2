@@ -108,12 +108,17 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 // mostrava o HTML como texto cru em vez de renderizar, mesmo com o conteúdo certo
 // chegando). Blob URL é uma navegação de verdade pro motor de renderização normal do
 // navegador, funciona igual em qualquer contexto — webview de app incluído.
+// PDF (DANFE/etiqueta) e HTML (DANFCE) são bytes diferentes por natureza —
+// ler PDF como texto (r.text()) corrompe o binário. BUG REAL corrigido:
+// "Ver PDF" de nota com PDF de verdade abria um arquivo corrompido.
 async function abrirDanfce(url,janelaPreAberta){
   const janela=janelaPreAberta||window.open('','_blank');
+  const ehPdf=/\.pdf(\?|$)/i.test(url);
   try{
     const r=await fetch(url);
-    const html=await r.text();
-    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    const blobUrl=ehPdf
+      ? URL.createObjectURL(new Blob([await r.arrayBuffer()],{type:'application/pdf'}))
+      : URL.createObjectURL(new Blob([await r.text()],{type:'text/html'}));
     if(janela) janela.location.href=blobUrl;
     else window.open(blobUrl,'_blank'); // primeira tentativa de popup pode ter sido bloqueada
   }catch(e){

@@ -58,12 +58,21 @@ function promptAcao(mensagem,opts){opts=opts||{};return new Promise(resolve=>{co
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 // Mesmo padrão do Caixa pra abrir DANFCE/DANFE — fetch + Blob URL, não document.write()
 // (confiável até dentro de webview de app, ex: navegador embutido do WhatsApp).
+// Abre o documento (DANFCE em HTML, ou DANFE/etiqueta em PDF de verdade) numa
+// aba nova. Os dois tipos vêm da mesma `link_pdf` em lugares diferentes do
+// sistema (notas_fiscais_nfce/nfe, rastreios_correios), por isso uma função
+// só — mas HTML e PDF são bytes diferentes por natureza: ler PDF como texto
+// (r.text()) corrompe o binário, por isso o PDF usa arrayBuffer()+Blob
+// próprio, nunca o caminho de texto. BUG REAL corrigido aqui: antes disso,
+// "Ver etiqueta (PDF)"/"Ver PDF" da NF-e abriam um PDF corrompido.
 async function abrirDanfce(url,janelaPreAberta){
   const janela=janelaPreAberta||window.open('','_blank');
+  const ehPdf=/\.pdf(\?|$)/i.test(url);
   try{
     const r=await fetch(url);
-    const html=await r.text();
-    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    const blobUrl=ehPdf
+      ? URL.createObjectURL(new Blob([await r.arrayBuffer()],{type:'application/pdf'}))
+      : URL.createObjectURL(new Blob([await r.text()],{type:'text/html'}));
     if(janela) janela.location.href=blobUrl;
     else window.open(blobUrl,'_blank');
   }catch(e){
