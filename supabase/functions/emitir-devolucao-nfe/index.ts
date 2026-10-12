@@ -184,6 +184,26 @@ function montarPayload(empresa: any, devolucao: any, notaOriginal: any, cliente:
   };
 }
 
+// A função roda com service_role (ignora RLS) pra poder ler/escrever nas
+// tabelas — por isso precisa checar NA MÃO que a devolução pertence à mesma
+// empresa de quem está chamando, senão qualquer usuário autenticado de
+// QUALQUER empresa poderia emitir a nota de devolução de outra só sabendo
+// o id (RLS não ajuda aqui, já que a função nunca passa por ela).
+function chamadaAutorizada(req: Request, empresaIdRecurso: string): boolean {
+  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+  // Mesma trava de chamada interna que as outras funções fiscais usam —
+  // hoje só pages/caixa.html chama esta aqui, mas mantém o mesmo padrão.
+  if (token && token === SERVICE_KEY) return true;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return claims.empresa_id === empresaIdRecurso;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -193,6 +213,10 @@ Deno.serve(async (req) => {
 
     const [devolucao] = await sbGet(`devolucoes?id=eq.${devolucao_id}&select=*`);
     if (!devolucao) return json({ ok: false, erro: 'devolucao_nao_encontrada' }, 404);
+
+    if (!chamadaAutorizada(req, devolucao.empresa_id)) {
+      return json({ ok: false, erro: 'devolucao_de_outra_empresa' }, 403);
+    }
 
     const [empresa] = await sbGet(`empresas?id=eq.${devolucao.empresa_id}&select=*`);
     if (!empresa?.nfe_ativo) {

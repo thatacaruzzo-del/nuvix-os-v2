@@ -298,6 +298,27 @@ function dataEmissaoBrasilia(): string {
   return menos3h.toISOString().slice(0, 19) + '-03:00';
 }
 
+// A função roda com service_role (ignora RLS) pra poder ler/escrever nas
+// tabelas — por isso precisa checar NA MÃO que a nota pertence à mesma
+// empresa de quem está chamando, senão qualquer usuário autenticado de
+// QUALQUER empresa poderia emitir/cancelar/consultar a nota de outra só
+// sabendo o id (RLS não ajuda aqui, já que a função nunca passa por ela).
+function chamadaAutorizada(req: Request, empresaIdRecurso: string): boolean {
+  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+  // Chamada interna (ml-webhook — emissão automática de NF-e de marketplace)
+  // usa a própria service_role key como token — sempre confiável, não
+  // carrega (nem tem como) empresa_id.
+  if (token && token === SERVICE_KEY) return true;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return claims.empresa_id === empresaIdRecurso;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -307,6 +328,10 @@ Deno.serve(async (req) => {
 
     const [nota] = await sbGet(`notas_fiscais_nfe?id=eq.${nota_fiscal_nfe_id}&select=*`);
     if (!nota) return json({ ok: false, erro: 'nota_nao_encontrada' }, 404);
+
+    if (!chamadaAutorizada(req, nota.empresa_id)) {
+      return json({ ok: false, erro: 'nota_de_outra_empresa' }, 403);
+    }
 
     const [[empresa], [cred]] = await Promise.all([
       sbGet(`empresas?id=eq.${nota.empresa_id}&select=*`),
