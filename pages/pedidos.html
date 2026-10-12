@@ -680,6 +680,12 @@ async function registrarPedido(){
     statusPagamentoAtual='agora'; escolherStatusPagamentoPedido('agora');
     $('pedVencimento').value=hoje();
     await carregarHistoricoPedidos();
+
+    // Meio de envio não entra no formulário de criação (às vezes ainda não
+    // foi decidido nesse momento) — oferece abrir a Ficha já configurada pra
+    // quem já sabe, sem obrigar quem só quer seguir direto pro próximo pedido.
+    const querEnvio=await confirmarAcao('Pedido registrado! Quer informar o meio de envio agora?',{labelOk:'Informar agora',labelCancelar:'Depois',variante:'neutro'});
+    if(querEnvio) abrirFichaPedidoPorId(vendaId);
   }catch(e){
     msg('pedMsg','Erro ao registrar pedido: '+e.message,'err');
   }finally{
