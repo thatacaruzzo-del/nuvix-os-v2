@@ -165,15 +165,6 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <input type="text" id="pedProdutoBusca" placeholder="Buscar produto por nome, SKU ou código de barras..." oninput="buscarProdutoPedido()" autocomplete="off">
             <div class="ped-busca-resultados" id="pedProdutoResultados"></div>
           </div>
-          <div class="field-hint"><a href="#" onclick="toggleItemAvulsoPedido();return false" id="btnToggleAvulsoPed">+ Vender item sem cadastro</a></div>
-          <div id="pedAvulsoWrap" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
-            <div class="form-grid" style="grid-template-columns:2fr 1fr 1fr">
-              <div class="field" style="margin-bottom:0"><label>Nome</label><input id="pedAvulsoNome" placeholder="Descrição do item"></div>
-              <div class="field" style="margin-bottom:0"><label>Valor unitário</label><input id="pedAvulsoValor" inputmode="decimal" oninput="sanitizarDecimal(this)" placeholder="0,00"></div>
-              <div class="field" style="margin-bottom:0"><label>Quantidade</label><input id="pedAvulsoQtd" type="number" min="1" value="1"></div>
-            </div>
-            <button class="btn2" style="margin-top:10px" onclick="adicionarItemAvulsoPedido()">Adicionar ao pedido</button>
-          </div>
         </div>
 
         <div id="pedCarrinhoVazio" class="ped-carrinho-vazio">Nenhum produto adicionado ainda.</div>
@@ -332,13 +323,6 @@ async function init(){
     const [e]=await dbGet('empresas',`?id=eq.${session.empresa_id}&select=nfce_ativo,nfce_simulacao,nfe_ativo,nfe_simulacao,correios_ativo,razao,fantasia,cnpj,endereco_logradouro,endereco_numero,endereco_bairro,cidade,endereco_uf`);
     if(e)empresaFiscal=e;
   }catch(e){ /* segue sem nota ativa — Pedidos nunca trava por causa disso */ }
-  // "Vender item sem cadastro" nunca tem NCM/CST (não existe produto por trás
-  // pra ter esse dado) — mesmo motivo de produtoSemDadosFiscais: é garantia de
-  // erro na hora de emitir a nota. Some o atalho em empresa que emite nota.
-  if(empresaFiscal.nfce_ativo||empresaFiscal.nfe_ativo){
-    const hintAvulso=$('btnToggleAvulsoPed')?.closest('.field-hint');
-    if(hintAvulso)hintAvulso.style.display='none';
-  }
   await carregarLojas();
   await carregarHistoricoPedidos();
   // Vindo de um link do Painel de Vendas (?abrir=<numero>) — abre a ficha
@@ -495,27 +479,6 @@ function adicionarAoCarrinhoPedido(produto){
     const preco=Number(produto.preco_venda_final||0);
     carrinho.push({produto_id:produto.id,nome:produto.nome,quantidade:1,valor_unitario:preco,custo_unitario:Number(produto.custo_atual||0),estoque_disponivel:disp,avulso:false});
   }
-  renderCarrinhoPedido();
-}
-function toggleItemAvulsoPedido(){
-  const wrap=$('pedAvulsoWrap');
-  const aberto=wrap.style.display==='block';
-  wrap.style.display=aberto?'none':'block';
-  $('btnToggleAvulsoPed').textContent=aberto?'+ Vender item sem cadastro':'− Ocultar item sem cadastro';
-}
-function adicionarItemAvulsoPedido(){
-  if(empresaFiscal.nfce_ativo||empresaFiscal.nfe_ativo){
-    toast('Essa empresa emite nota fiscal — item sem cadastro não tem NCM/CST e a nota vai dar erro. Cadastre o produto em Produtos antes de vender.','err');
-    return;
-  }
-  const nome=val('pedAvulsoNome').trim();
-  const valor=numBR('pedAvulsoValor');
-  const qtd=Number(val('pedAvulsoQtd')||0);
-  if(!nome){toast('Informe o nome do produto.','err');return;}
-  if(!valor||valor<=0){toast('Informe o valor unitário.','err');return;}
-  if(!qtd||qtd<=0){toast('Informe a quantidade.','err');return;}
-  carrinho.push({produto_id:null,nome,quantidade:qtd,valor_unitario:arred2(valor),custo_unitario:0,estoque_disponivel:Infinity,avulso:true});
-  $('pedAvulsoNome').value=''; $('pedAvulsoValor').value=''; $('pedAvulsoQtd').value='1';
   renderCarrinhoPedido();
 }
 function renderCarrinhoPedido(){
