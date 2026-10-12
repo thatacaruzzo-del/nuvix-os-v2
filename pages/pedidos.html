@@ -915,9 +915,10 @@ async function abrirFichaPedido(venda){
 // correios_ativo — ver CORREIOS-ATIVACAO.md), ou um meio manual (Motoboy/
 // Transportadora/Retirada no local — sem integração nenhuma, é tudo digitado).
 let rastreioAtual=null;
+let editandoEnvioPedido=false; // true = o formulário abaixo está corrigindo um envio já registrado, não criando um novo
 const MEIOS_ENVIO=['Correios','Motoboy','Transportadora','Retirada no local'];
 function renderEnvioPedido(){
-  if(!rastreioAtual){
+  if(!rastreioAtual||editandoEnvioPedido){
     return `
       <div class="field" style="max-width:260px;margin-bottom:10px">
         <label>Meio de envio</label>
@@ -931,10 +932,10 @@ function renderEnvioPedido(){
             <label>Código de rastreio</label>
             <input type="text" id="fpCodigoRastreio" placeholder="AA123456789BR">
           </div>
-          <button class="btn2" onclick="registrarRastreioPedido()">Registrar e rastrear</button>
-          ${empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
+          <button class="btn2" onclick="registrarRastreioPedido()">${editandoEnvioPedido?'Salvar':'Registrar e rastrear'}</button>
+          ${!editandoEnvioPedido&&empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${!editandoEnvioPedido&&empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
       </div>
       <div id="fpEnvioManual" style="display:none">
         <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
@@ -944,6 +945,7 @@ function renderEnvioPedido(){
         </div>
         <button class="btn2" style="margin-top:8px" onclick="salvarEnvioManualPedido()">Salvar envio</button>
       </div>
+      ${editandoEnvioPedido?`<div style="margin-top:8px"><a href="#" onclick="cancelarEdicaoEnvioPedido();return false">Cancelar edição</a></div>`:''}
     `;
   }
   const r=rastreioAtual;
@@ -959,6 +961,7 @@ function renderEnvioPedido(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${r.meio_envio==='Correios'||!r.meio_envio?`<button class="btn2" onclick="atualizarRastreioPedido()">Atualizar status</button>`:''}
       ${r.codigo_rastreio?`<button class="btn2" onclick="copiarMensagemRastreioPedido()">Copiar mensagem pro cliente</button>`:''}
+      <button class="btn2" onclick="editarEnvioPedido()">Editar envio</button>
     </div>
   `;
 }
@@ -968,6 +971,26 @@ function toggleMeioEnvioPedido(){
   $('fpEnvioCorreios').style.display=correios?'block':'none';
   $('fpEnvioManual').style.display=correios?'none':'block';
   if(!correios) $('fpEntregadorWrap').style.display=retirada?'none':'block';
+}
+// Troca o meio de envio (ex.: foi registrado como Correios por engano e era
+// Motoboy) ou corrige nome/valores já salvos. Reaproveita o mesmo formulário
+// de registrar envio, só pré-preenchido com o que já existe — registrarRastreioPedido()
+// e salvarEnvioManualPedido() checam editandoEnvioPedido pra saber se é PATCH
+// (corrigindo o registro atual) ou POST (criando um novo).
+function editarEnvioPedido(){
+  editandoEnvioPedido=true;
+  setHTML('fpEnvioConteudo',renderEnvioPedido());
+  const r=rastreioAtual;
+  $('fpMeioEnvio').value=MEIOS_ENVIO.includes(r.meio_envio)?r.meio_envio:'Correios';
+  toggleMeioEnvioPedido();
+  $('fpCodigoRastreio').value=r.codigo_rastreio||'';
+  $('fpEntregadorNome').value=r.entregador_nome||'';
+  $('fpValorCobrado').value=r.valor_cobrado_cliente!=null?Number(r.valor_cobrado_cliente).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  $('fpCustoFrete').value=r.valor_frete!=null?Number(r.valor_frete).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+}
+function cancelarEdicaoEnvioPedido(){
+  editandoEnvioPedido=false;
+  setHTML('fpEnvioConteudo',renderEnvioPedido());
 }
 // Sem API nenhuma pros três meios manuais — é tudo digitado pelo vendedor.
 // Ao salvar, lança automaticamente no Financeiro (mesmo padrão de
@@ -981,19 +1004,39 @@ async function salvarEnvioManualPedido(){
   if(!retirada&&!entregador){toast('Informe o nome de quem entregou.','err');return;}
   const valorCobrado=numBR('fpValorCobrado');
   const custo=numBR('fpCustoFrete');
+  const statusNovo=retirada?'Retirado':'Enviado';
+  // Corrigindo um envio que já existia (ex.: registrado como Correios por
+  // engano) — PATCH na mesma linha, sem criar lançamento novo no Financeiro
+  // de novo (já foi lançado quando o envio foi registrado a primeira vez;
+  // se o valor mudou, ajustar direto no Financeiro pra não duplicar).
+  if(editandoEnvioPedido&&rastreioAtual){
+    try{
+      const atualizado=await dbPatch('rastreios_correios',rastreioAtual.id,{
+        meio_envio:meio, tipo:'manual', codigo_rastreio:null,
+        entregador_nome:retirada?null:(entregador||null),
+        valor_cobrado_cliente:valorCobrado||null, valor_frete:custo||null,
+        status:statusNovo, atualizado_em:new Date().toISOString(),
+      });
+      rastreioAtual=Array.isArray(atualizado)?atualizado[0]:atualizado;
+      editandoEnvioPedido=false;
+      await avancarStatusEntregaPedido(statusNovo);
+      setHTML('fpEnvioConteudo',renderEnvioPedido());
+      toast('Envio atualizado! (Financeiro não foi alterado — ajuste lá direto se o valor mudou.)','ok');
+    }catch(e){ toast('Erro: '+e.message,'err'); }
+    return;
+  }
   try{
-    const statusInicial=retirada?'Retirado':'Enviado';
     const criado=await dbPost('rastreios_correios',withEmpresa({
       venda_id:fichaAbertaId, meio_envio:meio, tipo:'manual',
       entregador_nome:retirada?null:(entregador||null),
       valor_cobrado_cliente:valorCobrado||null, valor_frete:custo||null,
-      status:statusInicial, atualizado_em:new Date().toISOString(),
+      status:statusNovo, atualizado_em:new Date().toISOString(),
     }));
     rastreioAtual=Array.isArray(criado)?criado[0]:criado;
     const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
     if(valorCobrado>0) await dbPost('financeiro',withEmpresa({tipo:'Receita',categoria:'Frete cobrado do cliente',descricao:`Frete do Pedido Nº ${numeroPedido}`,valor:arred2(valorCobrado),data_lancamento:hoje(),status:'Recebido',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
     if(custo>0) await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (${meio}) do Pedido Nº ${numeroPedido}`,valor:arred2(custo),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
-    await avancarStatusEntregaPedido(statusInicial);
+    await avancarStatusEntregaPedido(statusNovo);
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast('Envio registrado!','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
@@ -1010,6 +1053,21 @@ function copiarMensagemRastreioPedido(){
 async function registrarRastreioPedido(){
   const codigo=val('fpCodigoRastreio').trim();
   if(!codigo){toast('Informe o código de rastreio.','err');return;}
+  // Corrigindo um envio que já existia (ex.: tinha ido como Motoboy e na
+  // verdade foi pelos Correios) — a function rastrear-correios recusa
+  // registrar de novo pra um pedido que já tem rastreio (409), então aqui é
+  // PATCH direto na mesma linha, sem passar pela function.
+  if(editandoEnvioPedido&&rastreioAtual){
+    try{
+      const atualizado=await dbPatch('rastreios_correios',rastreioAtual.id,{meio_envio:'Correios',codigo_rastreio:codigo,entregador_nome:null,status:'Aguardando primeira consulta',atualizado_em:new Date().toISOString()});
+      rastreioAtual=Array.isArray(atualizado)?atualizado[0]:atualizado;
+      editandoEnvioPedido=false;
+      await avancarStatusEntregaPedido('Enviado');
+      setHTML('fpEnvioConteudo',renderEnvioPedido());
+      toast('Envio atualizado!','ok');
+    }catch(e){ toast('Erro: '+e.message,'err'); }
+    return;
+  }
   try{
     const r=await fetch(`${SB_URL}/functions/v1/rastrear-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'registrar',venda_id:fichaAbertaId,codigo_rastreio:codigo})});
     const resp=await r.json();
