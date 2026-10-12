@@ -1431,8 +1431,19 @@ function toggleSenhaAdmin(){
   </div>
   <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
     <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">Correios — gerar etiqueta automática (Pedido Manual)</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Rastreio por código digitado já funciona pra qualquer empresa sem precisar disso. Isso aqui é só pro nível avançado: gerar etiqueta + calcular frete automático, que exige a empresa ter contrato próprio nos Correios. Cadastre o contrato em <code>correios_credenciais</code> por SQL direto antes de ativar — ver CORREIOS-ATIVACAO.md.</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Rastreio por código digitado já funciona pra qualquer empresa sem precisar disso. Isso aqui é só pro nível avançado: gerar etiqueta + calcular frete automático, que exige a empresa ter contrato próprio nos Correios. Preencha o contrato abaixo (dados do "Meu Correios"/Gestão de acesso a APIs da empresa) antes de ativar.</div>
     <div class="form-grid">
+      <div class="field"><label>Número do contrato</label><input id="editEmpCorreiosContrato"></div>
+      <div class="field"><label>Cartão de postagem</label><input id="editEmpCorreiosCartao"></div>
+      <div class="field"><label>Usuário Meu Correios</label><input id="editEmpCorreiosUsuario" placeholder="E-mail ou usuário"></div>
+      <div class="field"><label>Código de acesso à API</label><input id="editEmpCorreiosCodigoAcesso" type="password"></div>
+      <div class="field"><label>Código do serviço</label><input id="editEmpCorreiosServico" placeholder="Ex: 03298 (PAC), 03220 (SEDEX)"></div>
+      <div class="field"><label>Ambiente</label>
+        <select id="editEmpCorreiosAmbiente">
+          <option value="producao">Produção</option>
+          <option value="homologacao">Homologação (teste)</option>
+        </select>
+      </div>
       <div class="field" style="display:flex;align-items:center;gap:8px;margin-top:20px">
         <input type="checkbox" id="editEmpCorreiosAtivo" style="width:16px;height:16px">
         <label style="margin:0" for="editEmpCorreiosAtivo">Postagem automática (Correios) ativa pra esta empresa</label>
@@ -2535,7 +2546,7 @@ async function salvarEmpresa(){
 }
 
 // Editar empresa
-function editarEmpresa(id){
+async function editarEmpresa(id){
   const e=empresas.find(x=>x.id===id);if(!e)return;
   $('editEmpId').value=e.id;
   $('editEmpFantasia').value=e.fantasia||'';
@@ -2573,6 +2584,21 @@ function editarEmpresa(id){
   $('editEmpNfeSimulacao').checked=!!e.nfe_simulacao;
   $('editEmpCorreiosAtivo').checked=!!e.correios_ativo;
   $('editEmpCorreiosSimulacao').checked=!!e.correios_simulacao;
+  $('editEmpCorreiosContrato').value='';
+  $('editEmpCorreiosCartao').value='';
+  $('editEmpCorreiosUsuario').value='';
+  $('editEmpCorreiosCodigoAcesso').value='';
+  $('editEmpCorreiosServico').value='';
+  $('editEmpCorreiosAmbiente').value='producao';
+  dbGet('correios_credenciais',`?empresa_id=eq.${id}&select=*&limit=1`).then(([cred])=>{
+    if(!cred)return;
+    $('editEmpCorreiosContrato').value=cred.numero_contrato||'';
+    $('editEmpCorreiosCartao').value=cred.cartao_postagem||'';
+    $('editEmpCorreiosUsuario').value=cred.usuario_meu_correios||'';
+    $('editEmpCorreiosCodigoAcesso').value=cred.codigo_acesso_api||'';
+    $('editEmpCorreiosServico').value=cred.codigo_servico||'';
+    $('editEmpCorreiosAmbiente').value=cred.ambiente||'producao';
+  }).catch(()=>{});
   renderEfiStatusEmpresa(e);
   abrirModal('modalEditEmp');
 }
@@ -2727,6 +2753,30 @@ async function salvarEdicaoEmpresa(){
       correios_ativo:$('editEmpCorreiosAtivo').checked,
       correios_simulacao:$('editEmpCorreiosSimulacao').checked,
     });
+    // Contrato dos Correios (nível 2, gerar etiqueta/frete automático) — só
+    // grava se os campos obrigatórios da tabela estiverem preenchidos; se a
+    // empresa não tem contrato próprio ainda, esses campos ficam vazios e não
+    // mexe em nada (correios_ativo marcado sem contrato vira erro claro na
+    // function, não aqui).
+    const correiosContrato=val('editEmpCorreiosContrato').trim();
+    const correiosCartao=val('editEmpCorreiosCartao').trim();
+    const correiosUsuario=val('editEmpCorreiosUsuario').trim();
+    const correiosCodigoAcesso=val('editEmpCorreiosCodigoAcesso').trim();
+    const correiosServico=val('editEmpCorreiosServico').trim();
+    if(correiosContrato&&correiosCartao&&correiosUsuario&&correiosCodigoAcesso&&correiosServico){
+      await dbUpsert('correios_credenciais',{
+        empresa_id:id,
+        numero_contrato:correiosContrato,
+        cartao_postagem:correiosCartao,
+        usuario_meu_correios:correiosUsuario,
+        codigo_acesso_api:correiosCodigoAcesso,
+        codigo_servico:correiosServico,
+        ambiente:val('editEmpCorreiosAmbiente')||'producao',
+        updated_at:new Date().toISOString(),
+      },'empresa_id').catch(e=>{throw new Error('Contrato dos Correios: '+e.message);});
+    } else if($('editEmpCorreiosAtivo').checked&&(correiosContrato||correiosCartao||correiosUsuario||correiosCodigoAcesso||correiosServico)){
+      throw new Error('Preencha todos os campos do contrato dos Correios (ou deixe todos em branco).');
+    }
     // Troca de plano não desligava sozinha os módulos do novo plano quando a
     // empresa já tinha alguma linha liberado=false em empresa_modulos (de uma
     // config antiga, ou de antes de existir esse módulo) — cliente pagava o
