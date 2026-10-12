@@ -187,6 +187,20 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
 
+// Mesmo motivo de rastrear-correios: roda com service_role (ignora RLS), então
+// precisa checar na mão que o pedido é da mesma empresa de quem está chamando.
+function empresaIdDoChamador(req: Request): string | null {
+  try {
+    const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return claims.empresa_id || null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -196,6 +210,11 @@ Deno.serve(async (req) => {
 
     const [venda] = await sbGet(`vendas?id=eq.${venda_id}&select=*`);
     if (!venda) return json({ ok: false, erro: 'venda_nao_encontrada' }, 404);
+
+    const callerEmpresaId = empresaIdDoChamador(req);
+    if (!callerEmpresaId || callerEmpresaId !== venda.empresa_id) {
+      return json({ ok: false, erro: 'pedido_de_outra_empresa' }, 403);
+    }
 
     const [[empresa], [cred], itens] = await Promise.all([
       sbGet(`empresas?id=eq.${venda.empresa_id}&select=*`),

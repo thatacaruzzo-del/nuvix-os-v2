@@ -111,6 +111,23 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
 
+// A função roda com service_role (ignora RLS) pra poder ler/escrever nas
+// tabelas — por isso precisa checar NA MÃO que o pedido pertence à mesma
+// empresa de quem está chamando, senão qualquer usuário autenticado de
+// QUALQUER empresa poderia rastrear/mexer no pedido de outra só sabendo o
+// id (RLS não ajuda aqui, já que a função nunca passa pelo caminho dela).
+function empresaIdDoChamador(req: Request): string | null {
+  try {
+    const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return claims.empresa_id || null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -120,6 +137,11 @@ Deno.serve(async (req) => {
 
     const [venda] = await sbGet(`vendas?id=eq.${venda_id}&select=id,empresa_id`);
     if (!venda) return json({ ok: false, erro: 'venda_nao_encontrada' }, 404);
+
+    const callerEmpresaId = empresaIdDoChamador(req);
+    if (!callerEmpresaId || callerEmpresaId !== venda.empresa_id) {
+      return json({ ok: false, erro: 'pedido_de_outra_empresa' }, 403);
+    }
 
     let rastreio;
     if (acao === 'registrar') {

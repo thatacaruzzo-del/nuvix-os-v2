@@ -113,7 +113,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">De</label><input type="date" id="painelDe" onchange="carregarPainel()"></div>
           <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Até</label><input type="date" id="painelAte" onchange="carregarPainel()"></div>
-          <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Canal</label><select id="painelCanal" onchange="carregarPainel()"><option value="">Todos os canais</option><option value="Loja">Loja</option><option value="Mercado Livre">Mercado Livre</option><option value="Nuvemshop">Nuvemshop</option><option value="PedidoOK">PedidoOK</option></select></div>
+          <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Canal</label><select id="painelCanal" onchange="carregarPainel()"><option value="">Todos os canais</option><option value="Loja">Loja</option><option value="Pedido Manual">Pedido Manual</option><option value="Mercado Livre">Mercado Livre</option><option value="Nuvemshop">Nuvemshop</option><option value="PedidoOK">PedidoOK</option></select></div>
           <div style="font-size:12px;color:var(--muted);padding-bottom:10px">Giro é estimado com base no estoque atual (não há histórico diário de estoque salvo). Vendas canceladas não entram nos números.</div>
         </div>
       </div>
@@ -128,6 +128,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <tbody id="painelLojaTable"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <h2 style="margin-bottom:14px">Pedidos individuais</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Canal</th><th>Total</th><th>Status</th><th>Entrega</th></tr></thead>
+            <tbody id="pedidosTable"></tbody>
+          </table>
+        </div>
+        <div id="pedidosTablePaginacao"></div>
       </div>
 
       <div class="card" id="cancelWrap" style="margin-bottom:16px;display:none">
@@ -391,6 +402,7 @@ async function carregarPainel(){
   renderEvolucao(linhas,de,ate);
   renderVendasPorLojaPainel(linhas);
   renderCancelamentos(cancelamentos);
+  renderPedidosIndividuais(vendasUnicasPainel(linhas));
 
   const porProduto={};
   let fatProprio=0, fatConsignado=0;
@@ -491,6 +503,39 @@ function renderEvolucao(linhas,de,ate){
     labels:chaves.map(k=>fmtData(k)+(porSemana?' (semana)':'')),
     datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
   },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
+}
+// `linhas` (de buscarVendasCompletas) tem uma linha POR ITEM, não por pedido
+// — `total_venda` carrega a venda inteira em cada linha. Reaproveita o
+// mesmo dado já buscado pro resto da tela em vez de uma query nova.
+function vendasUnicasPainel(linhas){
+  const vistos=new Set(), out=[];
+  for(const l of linhas){
+    if(!l.venda_id||vistos.has(l.venda_id)||!l.total_venda)continue;
+    vistos.add(l.venda_id);
+    out.push(l.total_venda);
+  }
+  return out.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+}
+let _ultimosPedidos=[];
+function renderPedidosIndividuais(vendas){
+  if(vendas===undefined) vendas=_ultimosPedidos;
+  else _ultimosPedidos=vendas;
+  renderPaginacao('pedidosTable',vendas.length,'renderPedidosIndividuais');
+  setHTML('pedidosTable',vendas.length?paginar(vendas,'pedidosTable').map(v=>`
+    <tr style="cursor:pointer" onclick="window.open('pedidos.html?abrir=${v.numero}','_blank')">
+      <td><b>${v.numero??'—'}</b></td>
+      <td>${fmtData(v.data_venda)}</td>
+      <td>${esc(v.cliente_nome||'—')}</td>
+      <td><span class="badge">${esc(v.canal||'—')}</span></td>
+      <td>${money(v.total)}</td>
+      <td><span class="badge ok">${esc(v.status||'—')}</span></td>
+      <td>${badgeStatusEntregaPainel(v.status_entrega)}</td>
+    </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhum pedido no período.</td></tr>');
+}
+function badgeStatusEntregaPainel(status){
+  const s=status||'Registrado';
+  const cor=({'Em separação':'warn','Enviado':'warn','Entregue':'ok','Retirado':'ok'})[s]||'';
+  return `<span class="badge ${cor}">${esc(s)}</span>`;
 }
 let _ultimoAbc={produtos:[],faturamentoTotal:0};
 function renderAbc(produtos,faturamentoTotal){

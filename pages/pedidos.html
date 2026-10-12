@@ -248,7 +248,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
         </div>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Data</th></tr></thead>
+            <thead><tr><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Entrega</th><th>Data</th></tr></thead>
             <tbody id="pedHistoricoTable"></tbody>
           </table>
           <div id="pedHistoricoPaginacao"></div>
@@ -334,6 +334,15 @@ async function init(){
   }catch(e){ /* segue sem nota ativa — Pedidos nunca trava por causa disso */ }
   await carregarLojas();
   await carregarHistoricoPedidos();
+  // Vindo de um link do Painel de Vendas (?abrir=<numero>) — abre a ficha
+  // sozinho, mesma busca que o campo "Buscar por número" já faz.
+  const numeroUrl=new URLSearchParams(location.search).get('abrir');
+  if(numeroUrl){
+    try{
+      const [venda]=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&numero=eq.${encodeURIComponent(numeroUrl)}&select=*`);
+      if(venda){ pedFichaCache[venda.id]=venda; abrirFichaPedido(venda); }
+    }catch(e){}
+  }
   $('pageLoader')?.classList.add('hide');
 }
 
@@ -459,7 +468,18 @@ function adicionarAoCarrinhoPedidoPorId(id){
   if(p)adicionarAoCarrinhoPedido(p);
   $('pedProdutoBusca').value=''; $('pedProdutoResultados').classList.remove('open');
 }
+// Produto sem NCM/CST cadastrado passa pela venda mas derruba a nota na hora
+// de emitir (a SEFAZ rejeita, não dá pra adivinhar o valor aqui). Só trava
+// em empresa que realmente emite nota — quem não emite não precisa disso.
+function produtoSemDadosFiscais(produto){
+  if(!(empresaFiscal.nfce_ativo||empresaFiscal.nfe_ativo))return false;
+  return !produto.ncm||!produto.csosn_cst;
+}
 function adicionarAoCarrinhoPedido(produto){
+  if(produtoSemDadosFiscais(produto)){
+    toast(`"${produto.nome}" está sem NCM/CST cadastrado — corrija em Produtos antes de vender (senão a nota fiscal vai dar erro na hora de emitir).`,'err');
+    return;
+  }
   const disp=disponivel(produto.id);
   const item=carrinho.find(i=>i.produto_id===produto.id);
   const qtdAtual=item?item.quantidade:0;
@@ -814,6 +834,33 @@ async function carregarHistoricoPedidos(){
   renderHistoricoPedidos();
 }
 function abrirFichaPedidoPorId(id){ const v=pedFichaCache[id]; if(v) abrirFichaPedido(v); }
+// Badge do status de ENTREGA — separado do status financeiro/estoque
+// (vendas.status, que já tem seu próprio badge "Registrado"/"Cancelada"
+// acima). Reaproveitado na Ficha do Pedido e no histórico.
+const BADGE_STATUS_ENTREGA={'Registrado':'','Em separação':'warn','Enviado':'warn','Entregue':'ok','Retirado':'ok'};
+function badgeStatusEntrega(status){
+  const s=status||'Registrado';
+  const cor=BADGE_STATUS_ENTREGA[s]||'';
+  return `<span class="badge ${cor}">${esc(s)}</span>`;
+}
+// Cada estágio só mostra os próximos passos que fazem sentido a partir dele —
+// "Em separação" pode virar "Enviado" OU "Retirado" (retirada no local não
+// passa por "Enviado"). "Entregue"/"Retirado" são estágios finais, sem botão.
+const PROXIMOS_STATUS_ENTREGA={'Registrado':['Em separação'],'Em separação':['Enviado','Retirado'],'Enviado':['Entregue']};
+function renderBotoesStatusEntrega(atual){
+  const proximos=PROXIMOS_STATUS_ENTREGA[atual||'Registrado']||[];
+  if(!proximos.length)return '';
+  return proximos.map(s=>`<button class="btn2" style="font-size:12px;padding:6px 12px" onclick="avancarStatusEntregaPedido('${s}')">Marcar como ${s}</button>`).join('');
+}
+async function avancarStatusEntregaPedido(novoStatus){
+  try{
+    await dbPatch('vendas',fichaAbertaId,{status_entrega:novoStatus});
+    const v=pedFichaCache[fichaAbertaId]; if(v)v.status_entrega=novoStatus;
+    toast(`Pedido marcado como "${novoStatus}".`,'ok');
+    if(v) abrirFichaPedidoPorId(fichaAbertaId);
+    await carregarHistoricoPedidos();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
 function renderHistoricoPedidos(){
   renderPaginacao('pedHistoricoTable',historicoPedidos.length,'renderHistoricoPedidos');
   const pagina=paginar(historicoPedidos,'pedHistoricoTable');
@@ -825,8 +872,9 @@ function renderHistoricoPedidos(){
       <td>${money(v.total)}</td>
       <td>${v.status==='Cancelada'?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Registrado</span>'}</td>
       <td>—</td>
+      <td>${v.status==='Cancelada'?'—':badgeStatusEntrega(v.status_entrega)}</td>
       <td style="font-size:11px;color:var(--muted)">${fmtDataHora(v.created_at)}</td>
-    </tr>`).join('')||'<tr><td colspan="6" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
+    </tr>`).join('')||'<tr><td colspan="7" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
 }
 
 // ══ FICHA DO PEDIDO — leitura, abre tanto da busca por número quanto do histórico ══
@@ -857,7 +905,9 @@ async function abrirFichaPedido(venda){
       <div><b>Canal:</b> ${esc(venda.canal||'—')}</div>
       <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
       <div><b>Total:</b> ${money(venda.total)}</div>
-      <div><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
+      <div style="margin-top:10px"><b>Status do pedido:</b> ${badgeStatusEntrega(venda.status_entrega)}</div>
+      ${venda.status!=='Cancelada'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${renderBotoesStatusEntrega(venda.status_entrega)}</div>`:''}
+      <div style="margin-top:10px"><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
       <div style="margin-top:14px;font-weight:700">Envio</div>
       <div id="fpEnvioConteudo" style="margin-top:6px">${renderEnvioPedido()}</div>
       <div style="margin-top:14px;font-weight:700">Itens</div>
@@ -886,33 +936,102 @@ async function abrirFichaPedido(venda){
     setHTML('fpConteudo','Não foi possível carregar os detalhes: '+e.message);
   }
 }
-// ══ ENVIO (Correios) ══ — nível 1 (rastreio por código digitado, sempre
+// ══ ENVIO ══ — Correios nível 1 (rastreio por código digitado, sempre
 // disponível) e nível 2 (gerar etiqueta automática, só se a empresa tiver
-// correios_ativo e contrato próprio cadastrado — ver CORREIOS-ATIVACAO.md).
+// correios_ativo — ver CORREIOS-ATIVACAO.md), ou um meio manual (Motoboy/
+// Transportadora/Retirada no local — sem integração nenhuma, é tudo digitado).
 let rastreioAtual=null;
+const MEIOS_ENVIO=['Correios','Motoboy','Transportadora','Retirada no local'];
 function renderEnvioPedido(){
   if(!rastreioAtual){
     return `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div class="field" style="margin-bottom:0;flex:1;min-width:180px">
-          <label>Código de rastreio</label>
-          <input type="text" id="fpCodigoRastreio" placeholder="AA123456789BR">
-        </div>
-        <button class="btn2" onclick="registrarRastreioPedido()">Registrar e rastrear</button>
-        ${empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
+      <div class="field" style="max-width:260px;margin-bottom:10px">
+        <label>Meio de envio</label>
+        <select id="fpMeioEnvio" onchange="toggleMeioEnvioPedido()">
+          ${MEIOS_ENVIO.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('')}
+        </select>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
+      <div id="fpEnvioCorreios">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin-bottom:0;flex:1;min-width:180px">
+            <label>Código de rastreio</label>
+            <input type="text" id="fpCodigoRastreio" placeholder="AA123456789BR">
+          </div>
+          <button class="btn2" onclick="registrarRastreioPedido()">Registrar e rastrear</button>
+          ${empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
+      </div>
+      <div id="fpEnvioManual" style="display:none">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="field" style="margin-bottom:0" id="fpEntregadorWrap"><label>Nome de quem entregou</label><input type="text" id="fpEntregadorNome"></div>
+          <div class="field" style="margin-bottom:0"><label>Valor cobrado do cliente</label><input type="text" inputmode="decimal" id="fpValorCobrado" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+          <div class="field" style="margin-bottom:0"><label>Custo do frete (opcional)</label><input type="text" inputmode="decimal" id="fpCustoFrete" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+        </div>
+        <button class="btn2" style="margin-top:8px" onclick="salvarEnvioManualPedido()">Salvar envio</button>
+      </div>
     `;
   }
   const r=rastreioAtual;
   return `
-    <div><b>Código:</b> ${esc(r.codigo_rastreio||'—')}</div>
+    <div><b>Meio de envio:</b> ${esc(r.meio_envio||'Correios')}</div>
+    ${r.codigo_rastreio?`<div><b>Código:</b> ${esc(r.codigo_rastreio)}</div>`:''}
+    ${r.entregador_nome?`<div><b>Entregue por:</b> ${esc(r.entregador_nome)}</div>`:''}
     <div><b>Status:</b> ${esc(r.status||'Aguardando primeira consulta')}</div>
-    ${r.tipo==='etiqueta'&&r.valor_frete!=null?`<div><b>Valor do frete:</b> ${money(r.valor_frete)}</div>`:''}
+    ${r.valor_cobrado_cliente!=null?`<div><b>Cobrado do cliente:</b> ${money(r.valor_cobrado_cliente)}</div>`:''}
+    ${r.valor_frete!=null?`<div><b>Custo do frete:</b> ${money(r.valor_frete)}</div>`:''}
     ${r.link_pdf?`<div><a href="#" onclick="abrirDanfce('${esc(r.link_pdf)}');return false">Ver etiqueta (PDF)</a></div>`:''}
     <div style="font-size:11px;color:var(--muted);margin-top:4px">Atualizado em ${r.atualizado_em?fmtDataHora(r.atualizado_em):'—'}</div>
-    <button class="btn2" style="margin-top:6px" onclick="atualizarRastreioPedido()">Atualizar status</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      ${r.meio_envio==='Correios'||!r.meio_envio?`<button class="btn2" onclick="atualizarRastreioPedido()">Atualizar status</button>`:''}
+      ${r.codigo_rastreio?`<button class="btn2" onclick="copiarMensagemRastreioPedido()">Copiar mensagem pro cliente</button>`:''}
+    </div>
   `;
+}
+function toggleMeioEnvioPedido(){
+  const correios=val('fpMeioEnvio')==='Correios';
+  const retirada=val('fpMeioEnvio')==='Retirada no local';
+  $('fpEnvioCorreios').style.display=correios?'block':'none';
+  $('fpEnvioManual').style.display=correios?'none':'block';
+  if(!correios) $('fpEntregadorWrap').style.display=retirada?'none':'block';
+}
+// Sem API nenhuma pros três meios manuais — é tudo digitado pelo vendedor.
+// Ao salvar, lança automaticamente no Financeiro (mesmo padrão de
+// referencia_tipo/referencia_id já usado nas parcelas): receita se cobrou
+// do cliente, despesa se teve custo — as duas linhas são opcionais e
+// independentes, um pedido pode ter só uma, as duas, ou nenhuma.
+async function salvarEnvioManualPedido(){
+  const meio=val('fpMeioEnvio');
+  const retirada=meio==='Retirada no local';
+  const entregador=val('fpEntregadorNome').trim();
+  if(!retirada&&!entregador){toast('Informe o nome de quem entregou.','err');return;}
+  const valorCobrado=numBR('fpValorCobrado');
+  const custo=numBR('fpCustoFrete');
+  try{
+    const statusInicial=retirada?'Retirado':'Enviado';
+    const criado=await dbPost('rastreios_correios',withEmpresa({
+      venda_id:fichaAbertaId, meio_envio:meio, tipo:'manual',
+      entregador_nome:retirada?null:(entregador||null),
+      valor_cobrado_cliente:valorCobrado||null, valor_frete:custo||null,
+      status:statusInicial, atualizado_em:new Date().toISOString(),
+    }));
+    rastreioAtual=Array.isArray(criado)?criado[0]:criado;
+    const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
+    if(valorCobrado>0) await dbPost('financeiro',withEmpresa({tipo:'Receita',categoria:'Frete cobrado do cliente',descricao:`Frete do Pedido Nº ${numeroPedido}`,valor:arred2(valorCobrado),data_lancamento:hoje(),status:'Recebido',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
+    if(custo>0) await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (${meio}) do Pedido Nº ${numeroPedido}`,valor:arred2(custo),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId}));
+    await avancarStatusEntregaPedido(statusInicial);
+    setHTML('fpEnvioConteudo',renderEnvioPedido());
+    toast('Envio registrado!','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+function copiarMensagemRastreioPedido(){
+  const r=rastreioAtual; if(!r?.codigo_rastreio)return;
+  const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
+  // Formato do link público de rastreio não confirmado contra uma conta real
+  // ainda (ver CORREIOS-ATIVACAO.md) — se mudar, só ajustar aqui.
+  const link=`https://rastreamento.correios.com.br/app/index.php?objetos=${r.codigo_rastreio}`;
+  const texto=`Seu pedido Nº ${numeroPedido} já foi enviado!\nCódigo de rastreio: ${r.codigo_rastreio}\nAcompanhe aqui: ${link}`;
+  navigator.clipboard?.writeText(texto).then(()=>toast('Mensagem copiada!','ok')).catch(()=>toast('Não consegui copiar automaticamente.','err'));
 }
 async function registrarRastreioPedido(){
   const codigo=val('fpCodigoRastreio').trim();
@@ -922,6 +1041,7 @@ async function registrarRastreioPedido(){
     const resp=await r.json();
     if(!resp.ok){toast(resp.erro==='ja_existe_rastreio_pra_esse_pedido'?'Esse pedido já tem rastreio registrado.':'Erro ao registrar: '+(resp.mensagem||resp.erro),'err');return;}
     rastreioAtual=resp.rastreio;
+    await avancarStatusEntregaPedido('Enviado');
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast(resp.simulado?'Registrado (modo simulação — sem conta real dos Correios ainda).':'Rastreio registrado!','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
@@ -932,6 +1052,12 @@ async function atualizarRastreioPedido(){
     const resp=await r.json();
     if(!resp.ok){toast('Erro ao atualizar: '+(resp.mensagem||resp.erro),'err');return;}
     rastreioAtual=resp.rastreio;
+    // Heurística simples, não garantida: o texto que os Correios devolvem é
+    // livre, não um código fixo — se tiver "entregue" no status, assume que
+    // chegou. Se marcar errado, dá pra corrigir manualmente a qualquer hora.
+    if(/entregue/i.test(rastreioAtual.status||'')){
+      await avancarStatusEntregaPedido('Entregue');
+    }
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast('Status atualizado.','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
@@ -947,6 +1073,13 @@ async function gerarEtiquetaPedido(){
       return;
     }
     rastreioAtual=resp.rastreio;
+    // O custo que os Correios cobraram vira despesa no Financeiro — antes
+    // ficava só visível aqui na tela, sem aparecer em nenhum relatório.
+    if(rastreioAtual.valor_frete>0){
+      const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
+      try{ await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (Correios) do Pedido Nº ${numeroPedido}`,valor:arred2(rastreioAtual.valor_frete),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId})); }catch(e){}
+    }
+    await avancarStatusEntregaPedido('Enviado');
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast(resp.simulado?'Etiqueta gerada (modo simulação).':'Etiqueta gerada!','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
