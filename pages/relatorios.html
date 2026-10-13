@@ -107,6 +107,28 @@ async function buscarPorVendaIds(t,ids,selectQ){
   const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas(t,`?venda_id=in.(${bloco.join(',')})&${selectQ}`)));
   return paginas.flat();
 }
+
+// Frete e comissão de marketplace vivem em `financeiro` (referencia_tipo='venda'),
+// não em `vendas` — mesma fonte que painel-vendas.html já usa pros KPIs agregados.
+// Aqui monta o mapa por venda pra dar o detalhe linha a linha no relatório: o
+// cliente precisa ver não só o faturamento bruto, mas quanto disso foi retido em
+// taxa/frete e quanto sobrou líquido — por canal, não só o agregado da empresa.
+async function buscarFreteComissaoRelatorio(ids){
+  const TAM_BLOCO=400;
+  const blocos=[];
+  for(let i=0;i<ids.length;i+=TAM_BLOCO) blocos.push(ids.slice(i,i+TAM_BLOCO));
+  const paginas=await Promise.all(blocos.map(bloco=>dbGetTodas('financeiro',`?referencia_tipo=eq.venda&referencia_id=in.(${bloco.join(',')})&select=referencia_id,categoria,valor`)));
+  const porVenda={};
+  paginas.flat().forEach(l=>{
+    const id=l.referencia_id;
+    if(!porVenda[id]) porVenda[id]={freteCobrado:0,freteCusto:0,comissao:0};
+    const v=Number(l.valor||0);
+    if(l.categoria==='Frete cobrado do cliente') porVenda[id].freteCobrado+=v;
+    else if(l.categoria==='Frete/Envio') porVenda[id].freteCusto+=v;
+    else if(l.categoria==='Comissão Marketplace') porVenda[id].comissao+=v;
+  });
+  return porVenda;
+}
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
 function logout(){sessionStorage.removeItem(SESSION_KEY);window.location.href='../index.html'}
@@ -613,8 +635,8 @@ let paginaProdutoRel = 1;
 let paginaConsignadoItensRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
 let relVendasSecoes = { resumo:true, forma:true, produto:true, consignado:true, detalhe:true };
-let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, forma:true, subtotal:true, desconto:true, total:true, retroativa:true };
-const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', vendedor:'Vendedor', cliente:'Cliente', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total', retroativa:'Retroativa' };
+let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, canal:true, forma:true, subtotal:true, desconto:true, total:true, freteCobrado:true, freteCusto:true, comissao:true, liquido:true, retroativa:true };
+const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', vendedor:'Vendedor', cliente:'Cliente', canal:'Canal', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total (bruto)', freteCobrado:'Frete cobrado do cliente', freteCusto:'Frete pago pela empresa', comissao:'Comissão do canal', liquido:'Valor líquido', retroativa:'Retroativa' };
 
 async function gerarRelatorioVendas(){
   const de=val('relDe'), ate=val('relAte');
@@ -629,7 +651,7 @@ async function gerarRelatorioVendas(){
       return;
     }
     const ids=vendas.map(v=>v.id);
-    const [itens,formas,lojas,consignadores,produtosConsignados,estoqueConsignados]=await Promise.all([
+    const [itens,formas,lojas,consignadores,produtosConsignados,estoqueConsignados,freteComissaoPorVenda]=await Promise.all([
       buscarPorVendaIds('itens_venda',ids,'select=venda_id,produto_nome,quantidade,valor_unitario,is_consignado,consignador_id,percentual_repasse_snapshot'),
       buscarPorVendaIds('venda_formas_pagamento',ids,'select=venda_id,forma_pagamento,valor'),
       db.get('lojas',`?empresa_id=eq.${session.empresa_id}&select=id,nome`),
@@ -638,10 +660,11 @@ async function gerarRelatorioVendas(){
       // não "nesse mês" — por isso busca à parte, sem filtro de data.
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&is_consignado=eq.true&select=id,nome,consignador_id,preco_venda_final`).catch(()=>[]),
       dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade,loja_id`).catch(()=>[]),
+      buscarFreteComissaoRelatorio(ids).catch(()=>({})),
     ]);
     const nomeLoja={}; lojas.forEach(l=>{nomeLoja[l.id]=l.nome;});
     const nomeConsignador={}; consignadores.forEach(c=>{nomeConsignador[c.id]=c.nome;});
-    _vendasBrutas = { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad:consignadores, produtosConsignados, estoqueConsignados };
+    _vendasBrutas = { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad:consignadores, produtosConsignados, estoqueConsignados, freteComissaoPorVenda };
     paginaVendasRel = 1;
     renderRelatorioVendas();
   }catch(e){
@@ -658,12 +681,26 @@ function irParaPaginaConsignadoItensRel(p){ paginaConsignadoItensRel=p; renderRe
 
 function renderRelatorioVendas(){
   if(!_vendasBrutas){ setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhuma venda nesse período.</div>'); return; }
-  const { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad, produtosConsignados, estoqueConsignados } = _vendasBrutas;
+  const { vendas, itens, formas, nomeLoja, nomeConsignador, consignadoresCad, produtosConsignados, estoqueConsignados, freteComissaoPorVenda } = _vendasBrutas;
 
   const faturamentoTotal=vendas.reduce((a,v)=>a+Number(v.total||0),0);
   const qtdVendas=vendas.length;
   const ticketMedio=qtdVendas?faturamentoTotal/qtdVendas:0;
   const qtdItens=itens.reduce((a,i)=>a+Number(i.quantidade||0),0);
+
+  // Bruto (vendas.total) é só o produto — frete cobrado do cliente e taxa/comissão
+  // de canal vivem à parte em `financeiro` e nunca entram nesse número. Líquido por
+  // venda = bruto + o que cobrou de frete do cliente - o que pagou de frete pro
+  // transportador - a comissão que o canal (Mercado Livre etc) reteve.
+  const liquidoVenda=v=>{
+    const fc=freteComissaoPorVenda[v.id];
+    if(!fc) return Number(v.total||0);
+    return Number(v.total||0)+fc.freteCobrado-fc.freteCusto-fc.comissao;
+  };
+  const freteCobradoTotal=vendas.reduce((a,v)=>a+(freteComissaoPorVenda[v.id]?.freteCobrado||0),0);
+  const freteCustoTotal=vendas.reduce((a,v)=>a+(freteComissaoPorVenda[v.id]?.freteCusto||0),0);
+  const comissaoTotal=vendas.reduce((a,v)=>a+(freteComissaoPorVenda[v.id]?.comissao||0),0);
+  const faturamentoLiquidoTotal=faturamentoTotal+freteCobradoTotal-freteCustoTotal-comissaoTotal;
 
   const porForma={};
   formas.forEach(f=>{ porForma[f.forma_pagamento]=(porForma[f.forma_pagamento]||0)+Number(f.valor||0); });
@@ -776,8 +813,14 @@ function renderRelatorioVendas(){
   const colunasAtivas=Object.keys(relVendasColunas).filter(c=>relVendasColunas[c]);
   const valorLinha={
     data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', vendedor:v=>v.vendedor_nome||'—', cliente:v=>v.cliente_nome||'—',
+    canal:v=>v.canal||'Loja',
     forma:v=>(formasPorVenda[v.id]||[]).join(' + ')||'—', subtotal:v=>v.subtotal, desconto:v=>v.desconto_total,
-    total:v=>v.total, retroativa:v=>v.retroativa?'Sim':'Não',
+    total:v=>v.total,
+    freteCobrado:v=>freteComissaoPorVenda[v.id]?.freteCobrado||0,
+    freteCusto:v=>freteComissaoPorVenda[v.id]?.freteCusto||0,
+    comissao:v=>freteComissaoPorVenda[v.id]?.comissao||0,
+    liquido:v=>liquidoVenda(v),
+    retroativa:v=>v.retroativa?'Sim':'Não',
   };
   // Exporta exatamente as colunas marcadas — é o que "o cliente selecionou que quer no relatório".
   _relDados = vendas.map(v=>{
@@ -814,11 +857,17 @@ function renderRelatorioVendas(){
     </div>`;
 
   const kpisHTML = relVendasSecoes.resumo ? `
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-      <div class="card" style="margin:0;border-left:4px solid var(--muted2)"><div class="metric-label">Faturamento</div><div class="metric-value" style="font-size:20px">${money(faturamentoTotal)}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+      <div class="card" style="margin:0;border-left:4px solid var(--muted2)"><div class="metric-label">Faturamento (bruto)</div><div class="metric-value" style="font-size:20px">${money(faturamentoTotal)}</div></div>
       <div class="card" style="margin:0;border-left:4px solid var(--muted2)"><div class="metric-label">Vendas</div><div class="metric-value" style="font-size:20px">${qtdVendas}</div></div>
       <div class="card" style="margin:0;border-left:4px solid var(--muted2)"><div class="metric-label">Ticket médio</div><div class="metric-value" style="font-size:20px">${money(ticketMedio)}</div></div>
       <div class="card" style="margin:0;border-left:4px solid var(--muted2)"><div class="metric-label">Itens vendidos</div><div class="metric-value" style="font-size:20px">${qtdItens}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="margin:0;border-left:4px solid var(--p)"><div class="metric-label">Faturamento líquido</div><div class="metric-value" style="font-size:20px;color:var(--p)">${money(faturamentoLiquidoTotal)}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--amber,#F59E0B)"><div class="metric-label">Frete cobrado do cliente</div><div class="metric-value" style="font-size:20px">${money(freteCobradoTotal)}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--amber,#F59E0B)"><div class="metric-label">Frete pago pela empresa</div><div class="metric-value" style="font-size:20px">${money(freteCustoTotal)}</div></div>
+      <div class="card" style="margin:0;border-left:4px solid var(--amber,#F59E0B)"><div class="metric-label">Comissão de canal (ML etc)</div><div class="metric-value" style="font-size:20px">${money(comissaoTotal)}</div></div>
     </div>` : '';
 
   const formaHTML = relVendasSecoes.forma ? `
@@ -928,8 +977,14 @@ function renderRelatorioVendas(){
     const inicio=(paginaVendasRel-1)*VENDAS_REL_POR_PAGINA;
     const paginaVendas=vendas.slice(inicio,inicio+VENDAS_REL_POR_PAGINA);
     const FMT_COL={ data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), vendedor:v=>esc(v.vendedor_nome||'—'), cliente:v=>esc(v.cliente_nome||'—'),
+      canal:v=>esc(v.canal||'Loja'),
       forma:v=>esc((formasPorVenda[v.id]||[]).join(' + ')||'—'), subtotal:v=>money(v.subtotal), desconto:v=>money(v.desconto_total),
-      total:v=>`<b>${money(v.total)}</b>`, retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—' };
+      total:v=>money(v.total),
+      freteCobrado:v=>freteComissaoPorVenda[v.id]?.freteCobrado?money(freteComissaoPorVenda[v.id].freteCobrado):'—',
+      freteCusto:v=>freteComissaoPorVenda[v.id]?.freteCusto?money(freteComissaoPorVenda[v.id].freteCusto):'—',
+      comissao:v=>freteComissaoPorVenda[v.id]?.comissao?money(freteComissaoPorVenda[v.id].comissao):'—',
+      liquido:v=>`<b>${money(liquidoVenda(v))}</b>`,
+      retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—' };
     const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${
       Array.from({length:totalPaginas},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaVendasRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaVendasRel(${p})">${p}</button>`).join('')
     }</div>` : '';
