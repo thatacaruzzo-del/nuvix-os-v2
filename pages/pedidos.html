@@ -18,6 +18,8 @@
 .ped-pgto-opcoes{display:flex;gap:8px;margin-bottom:12px}
 .ped-pgto-opcao{flex:1;padding:12px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer;text-align:center;font-weight:700;font-size:13px;color:var(--muted)}
 .ped-pgto-opcao.active{border-color:var(--p);background:var(--p-light);color:var(--p)}
+.pgto-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.pgto-row select{flex:1;min-width:0}.pgto-row input{width:110px;max-width:100%;flex-shrink:0}
 .ped-qtd-input{padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:13px}
 .table-empty{text-align:center;color:var(--muted);padding:28px;font-size:13px}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
@@ -334,7 +336,57 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
   <div id="fpMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalFichaPedido')">Fechar</button>
+    <button class="btn2" id="fpBtnEditarPagamento" onclick="abrirEditarPagamento(fichaAbertaId)">Editar pagamento</button>
+    <button class="btn2" id="fpBtnDevolver" onclick="abrirModalDevolucao(fichaAbertaId)">Devolver</button>
     <button class="danger" id="fpBtnCancelar" onclick="cancelarPedidoAtual()">Cancelar pedido</button>
+  </div>
+</div>
+</div>
+
+<!-- Devolver itens, Editar pagamento — mesma lógica/telas de pages/caixa.html,
+     só com o tail (recarregar lista) apontando pro histórico de Pedidos. -->
+<div class="modal-overlay" id="modalDevolucao">
+<div class="modal" style="max-width:560px">
+  <h3>Devolver itens do pedido</h3>
+  <p class="field-hint" style="margin-bottom:12px">Pedido continua no histórico como Concluído — a devolução fica registrada à parte, com estorno na data de hoje.</p>
+  <input type="hidden" id="devVendaId">
+  <div id="devItensLista" style="margin-bottom:14px"></div>
+  <div class="field"><label>Motivo *</label><select id="devMotivo"><option value="Arrependimento">Arrependimento</option><option value="Defeito">Defeito</option><option value="Troca">Troca</option><option value="Outro">Outro</option></select></div>
+  <div class="field"><label>Forma de reembolso *</label><select id="devFormaReembolso"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Estorno cartão">Estorno cartão</option><option value="Crédito na loja">Crédito na loja</option></select></div>
+  <div class="field"><label>Observação</label><input id="devObservacao" placeholder="Opcional"></div>
+  <div style="text-align:right;font-weight:700;margin-bottom:10px">Total a devolver: <span id="devTotal">R$ 0,00</span></div>
+  <div id="devMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalDevolucao')">Cancelar</button>
+    <button class="btn" onclick="confirmarDevolucao()">Confirmar devolução</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalEditarPagamento">
+<div class="modal" style="max-width:480px">
+  <h3>Editar forma de pagamento</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Corrige a forma e o parcelamento de um pedido já concluído — o valor de cada forma não muda, só como foi pago. Precisa da senha de um Administrador pra salvar.</p>
+  <input type="hidden" id="editPgtoVendaId">
+  <div id="editPgtoLinhas"></div>
+  <div id="editPgtoMsg" class="msg" style="margin-top:12px"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalEditarPagamento')">Cancelar</button>
+    <button class="btn" onclick="pedirAprovacaoEdicaoPagamento()">Salvar alterações</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalAprovacaoEdicaoPagto">
+<div class="modal" style="max-width:420px">
+  <h3>Confirmar edição de pagamento</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Editar o pagamento de um pedido já concluído precisa da senha de um Administrador.</p>
+  <div class="field"><label>E-mail do administrador</label><input id="editPgtoAprovEmail" placeholder="admin@empresa.com"></div>
+  <div class="field"><label>Senha</label><input id="editPgtoAprovSenha" type="password"></div>
+  <div id="editPgtoAprovMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalAprovacaoEdicaoPagto')">Cancelar</button>
+    <button class="btn" onclick="confirmarAprovacaoEdicaoPagamento()">Confirmar e salvar</button>
   </div>
 </div>
 </div>
@@ -968,6 +1020,8 @@ async function abrirFichaPedido(venda){
   setHTML('fpConteudo','Carregando...');
   setHTML('fpMsg','');$('fpMsg').className='msg';
   $('fpBtnCancelar').style.display=venda.status==='Cancelada'?'none':'block';
+  $('fpBtnEditarPagamento').style.display=venda.status==='Cancelada'?'none':'block';
+  $('fpBtnDevolver').style.display=venda.status==='Cancelada'?'none':'block';
   abrirModal('modalFichaPedido');
   try{
     const [itens,formasPagamento,parcelasFinA,notaNfce,notaNfe,rastreiosA]=await Promise.all([
@@ -1412,6 +1466,160 @@ async function cancelarPedidoAtual(){
     await carregarProdutosLoja(lojaAtualId());
     await carregarHistoricoPedidos();
   }catch(e){ msgEl('fpMsg','Erro ao cancelar: '+e.message); }
+}
+
+// ══ DEVOLUÇÃO DE ITENS — mesma lógica/RPC de pages/caixa.html (registrar_devolucao):
+// pedido continua Concluído, estorno é registrado à parte (estoque + financeiro),
+// permite devolução parcial. Qualquer venda tem os mesmos dados por trás (itens_venda,
+// financeiro), não importa o canal — por isso é a MESMA função, só o final (o que
+// recarrega depois) aponta pra cá em vez de pro Caixa. ══
+let _devItensVenda=[];
+async function abrirModalDevolucao(vendaId){
+  if(!vendaId)return;
+  if(!temPermissao('vendas','editar')){toast('Sem permissão para devolver itens de venda.','err');return;}
+  $('devVendaId').value=vendaId;
+  $('devObservacao').value=''; $('devMsg').textContent=''; $('devMsg').className='msg';
+  $('devItensLista').innerHTML='<p class="field-hint">Carregando itens…</p>';
+  abrirModal('modalDevolucao');
+  try{
+    const itens=await dbGet('itens_venda',`?venda_id=eq.${vendaId}&select=*`);
+    const ids=itens.map(i=>i.id).join(',')||'00000000-0000-0000-0000-000000000000';
+    const devolvidos=await dbGet('itens_devolvidos',`?item_venda_id=in.(${ids})&select=item_venda_id,quantidade_devolvida`);
+    _devItensVenda=itens.map(i=>{
+      const jaDevolvido=devolvidos.filter(d=>d.item_venda_id===i.id).reduce((a,d)=>a+Number(d.quantidade_devolvida||0),0);
+      return {...i, disponivelDevolucao:Number(i.quantidade||0)-jaDevolvido};
+    });
+    renderItensDevolucao();
+  }catch(e){$('devItensLista').innerHTML=`<p class="field-hint" style="color:var(--red)">Erro ao carregar itens: ${esc(e.message)}</p>`;}
+}
+function renderItensDevolucao(){
+  $('devItensLista').innerHTML=_devItensVenda.map((i,idx)=>{
+    if(i.disponivelDevolucao<=0) return `<div class="field-hint" style="padding:6px 0">${esc(i.produto_nome)} — já devolvido integralmente.</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;font-size:13px">${esc(i.produto_nome)}<div class="field-hint">${money(i.valor_unitario)}/un · comprado ${i.quantidade}, disponível pra devolver ${i.disponivelDevolucao}</div></div>
+      <input type="number" min="0" max="${i.disponivelDevolucao}" step="1" value="0" style="width:64px" id="devQtd_${idx}" oninput="atualizarTotalDevolucao()">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap"><input type="checkbox" id="devVolta_${idx}" checked style="width:auto"> volta ao estoque</label>
+    </div>`;
+  }).join('')||'<p class="field-hint">Sem itens disponíveis pra devolução.</p>';
+  atualizarTotalDevolucao();
+}
+function atualizarTotalDevolucao(){
+  let total=0;
+  _devItensVenda.forEach((i,idx)=>{
+    const qtd=Number($('devQtd_'+idx)?.value||0);
+    total+=qtd*Number(i.valor_unitario||0);
+  });
+  $('devTotal').textContent=money(total);
+}
+async function confirmarDevolucao(){
+  const vendaId=val('devVendaId');
+  const motivo=val('devMotivo');
+  const formaReembolso=val('devFormaReembolso');
+  const observacao=val('devObservacao').trim()||null;
+  const itens=_devItensVenda.map((i,idx)=>({
+    item_venda_id:i.id, produto_id:i.produto_id, produto_nome:i.produto_nome,
+    quantidade_devolvida:Number($('devQtd_'+idx)?.value||0),
+    valor_unitario:Number(i.valor_unitario||0),
+    volta_estoque:!!$('devVolta_'+idx)?.checked,
+  })).filter(i=>i.quantidade_devolvida>0);
+  if(!itens.length){msg('devMsg','Informe a quantidade de ao menos um item pra devolver.','err');return;}
+  const btn=document.querySelector('#modalDevolucao .btn');
+  if(btn){btn.disabled=true;btn.textContent='Confirmando...';}
+  try{
+    const resultado=await dbRpc('registrar_devolucao',{p:{
+      empresa_id:session.empresa_id, venda_id:vendaId, motivo, forma_reembolso:formaReembolso,
+      usuario_id:session.id, observacao, itens,
+    }});
+    toast('Devolução registrada — estoque e financeiro atualizados.','ok');
+    fecharModal('modalDevolucao');
+    // Nota de devolução dispara sozinha depois de dar certo (mesmo padrão do Caixa) —
+    // só tenta se a empresa tiver NF-e ativo; falha na emissão nunca desfaz a devolução.
+    if(empresaFiscal.nfe_ativo&&resultado?.devolucao_id){
+      try{
+        await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
+          method:'POST', headers:H,
+          body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
+        });
+      }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+    }
+    await carregarProdutosLoja(lojaAtualId());
+    await carregarHistoricoPedidos();
+    if(fichaAbertaId) abrirFichaPedidoPorId(fichaAbertaId);
+  }catch(e){msg('devMsg','Erro: '+e.message,'err');}
+  finally{ if(btn){btn.disabled=false;btn.textContent='Confirmar devolução';} }
+}
+
+// ══ EDITAR FORMA DE PAGAMENTO — mesma lógica de pages/caixa.html. Exige senha de
+// Administrador reautenticado na hora (venda_formas_pagamento é livro-razão, sem
+// policy de UPDATE pra ninguém além de Administrador/SuperAdmin). ══
+let linhasEdicaoPagamento=[];
+async function abrirEditarPagamento(vendaId){
+  if(!vendaId)return;
+  if(!temPermissao('vendas','editar')){toast('Sem permissão para editar vendas.','err');return;}
+  try{
+    linhasEdicaoPagamento=await dbGet('venda_formas_pagamento',`?venda_id=eq.${vendaId}&select=*`);
+  }catch(e){toast('Erro ao carregar pagamento: '+e.message,'err');return;}
+  if(!linhasEdicaoPagamento.length){toast('Esse pedido não tem forma de pagamento registrada (ex: Boleto/Combinado só ficam no Financeiro).','err');return;}
+  $('editPgtoVendaId').value=vendaId;
+  $('editPgtoMsg').textContent='';$('editPgtoMsg').className='msg';
+  renderLinhasEdicaoPagamento();
+  abrirModal('modalEditarPagamento');
+}
+function htmlHintParcelaEdicao(p){
+  return p.forma_pagamento==='Cartão Crédito'?`<div class="field-hint">${(p.parcelas||1)>1?`${p.parcelas}x de ${money(p.valor/p.parcelas)}`:'À vista no crédito (1x)'}</div>`:'';
+}
+function atualizarHintEdicaoPagamento(idx){
+  const el=$('editPgtoHint-'+idx); if(el) el.innerHTML=htmlHintParcelaEdicao(linhasEdicaoPagamento[idx]);
+}
+function renderLinhasEdicaoPagamento(){
+  const ativo=document.activeElement;
+  let foco=null;
+  if(ativo && $('editPgtoLinhas')?.contains(ativo)){
+    foco={idx:ativo.dataset.pgIdx, ini:ativo.selectionStart, fim:ativo.selectionEnd};
+  }
+  $('editPgtoLinhas').innerHTML=linhasEdicaoPagamento.map((p,idx)=>`
+    <div style="margin-bottom:10px;padding-bottom:10px;${idx<linhasEdicaoPagamento.length-1?'border-bottom:1px solid var(--line)':''}">
+      <div class="pgto-row">
+        <select onchange="linhasEdicaoPagamento[${idx}].forma_pagamento=this.value;renderLinhasEdicaoPagamento()">
+          ${['Dinheiro','Pix','Cartão Débito','Cartão Crédito'].map(f=>`<option value="${f}"${p.forma_pagamento===f?' selected':''}>${f}</option>`).join('')}
+        </select>
+        <span style="font-weight:700;padding:0 8px;white-space:nowrap">${money(p.valor)}</span>
+        ${p.forma_pagamento==='Cartão Crédito'?`<input type="text" inputmode="numeric" data-pg-idx="${idx}" placeholder="parcelas" value="${p.parcelas||1}" oninput="this.value=this.value.replace(/[^0-9]/g,'');linhasEdicaoPagamento[${idx}].parcelas=Number(this.value||1);atualizarHintEdicaoPagamento(${idx})" style="width:80px">`:''}
+      </div>
+      <div id="editPgtoHint-${idx}">${htmlHintParcelaEdicao(p)}</div>
+    </div>`).join('');
+  if(foco){
+    const el=$('editPgtoLinhas').querySelector(`[data-pg-idx="${foco.idx}"]`);
+    if(el){ el.focus(); try{ el.setSelectionRange(foco.ini,foco.fim); }catch(e){} }
+  }
+}
+function pedirAprovacaoEdicaoPagamento(){
+  $('editPgtoAprovEmail').value='';$('editPgtoAprovSenha').value='';$('editPgtoAprovMsg').textContent='';$('editPgtoAprovMsg').className='msg';
+  abrirModal('modalAprovacaoEdicaoPagto');
+}
+async function confirmarAprovacaoEdicaoPagamento(){
+  const email=val('editPgtoAprovEmail').trim(); const senha=val('editPgtoAprovSenha');
+  if(!email||!senha){msg('editPgtoAprovMsg','Informe e-mail e senha.','err');return;}
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:senha})});
+    const j=await r.json();
+    if(!r.ok||!j.access_token){msg('editPgtoAprovMsg','E-mail ou senha inválidos.','err');return;}
+    const usuarios=await fetch(`${SB_URL}/rest/v1/usuarios?id=eq.${j.user.id}&select=id,perfil,empresa_id`,{headers:{...H,Authorization:'Bearer '+j.access_token}}).then(x=>x.json());
+    const u=usuarios[0];
+    if(!u||u.empresa_id!==session.empresa_id||!['Administrador','SuperAdmin'].includes(u.perfil)){
+      msg('editPgtoAprovMsg','Esse usuário não tem perfil de Administrador.','err');return;
+    }
+    const headersAdmin={...H, Authorization:'Bearer '+j.access_token};
+    for(const p of linhasEdicaoPagamento){
+      const resp=await fetch(`${SB_URL}/rest/v1/venda_formas_pagamento?id=eq.${p.id}`,{method:'PATCH',headers:headersAdmin,body:JSON.stringify({forma_pagamento:p.forma_pagamento,parcelas:p.forma_pagamento==='Cartão Crédito'?(p.parcelas||1):null})});
+      if(!resp.ok) throw new Error(traduzErroGenerico(await resp.text()));
+    }
+    toast('Pagamento atualizado!','ok');
+    fecharModal('modalAprovacaoEdicaoPagto');
+    fecharModal('modalEditarPagamento');
+    await carregarHistoricoPedidos();
+    if(fichaAbertaId) abrirFichaPedidoPorId(fichaAbertaId);
+  }catch(e){msg('editPgtoAprovMsg','Erro: '+e.message,'err');}
 }
 
 init();

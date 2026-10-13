@@ -1772,7 +1772,7 @@ function renderHistoricoVendas(vendas,itens,formas,devolucoes){
       <td>${esc(suasFormas)}</td>
       <td><b>${money(v.total)}</b></td>
       <td>${badgeStatus}</td>
-      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button></div>`}</td>
+      <td>${cancelada?'':`<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="reimprimirRecibo('${v.id}')">Imprimir recibo</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirEditarPagamento('${v.id}')">Editar pagamento</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="abrirModalDevolucao('${v.id}')">Devolver</button><button class="btn2" style="padding:6px 10px;font-size:12px" onclick="cancelarVenda('${v.id}')">Cancelar</button>${v.numero?`<button class="btn2" style="padding:6px 10px;font-size:12px" onclick="window.open('pedidos.html?abrir=${v.numero}','_blank')" title="Status de entrega, envio e etiqueta dos Correios">Ver pedido completo</button>`:''}</div>`}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--muted)">Nenhuma venda nessa data.</td></tr>';
 }
