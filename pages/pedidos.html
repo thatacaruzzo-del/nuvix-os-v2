@@ -1014,8 +1014,14 @@ function renderHistoricoPedidos(){
 
 // ══ FICHA DO PEDIDO — leitura, abre tanto da busca por número quanto do histórico ══
 let fichaAbertaId=null;
+// Canal do pedido aberto — guardado à parte pra renderEnvioPedido() saber se
+// é Mercado Livre/Nuvemshop (envio já é gerenciado por eles, direto na
+// plataforma deles) sem precisar reconsultar a venda toda vez que redesenha.
+let fichaCanalAtual=null;
+const CANAIS_ENVIO_PROPRIO={'Mercado Livre':'Mercado Envios','Nuvemshop':'o painel de envios da Nuvemshop'};
 async function abrirFichaPedido(venda){
   fichaAbertaId=venda.id;
+  fichaCanalAtual=venda.canal||null;
   $('fpTitulo').textContent=`Pedido Nº ${venda.numero}`;
   setHTML('fpConteudo','Carregando...');
   setHTML('fpMsg','');$('fpMsg').className='msg';
@@ -1050,6 +1056,7 @@ async function abrirFichaPedido(venda){
       <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
       <div><b>Total:</b> ${money(venda.total)}</div>
       <div style="margin-top:10px"><b>Status do pedido:</b> ${badgeStatusEntrega(venda.status_entrega)}</div>
+      ${CANAIS_ENVIO_PROPRIO[venda.canal]?`<div style="font-size:12px;color:var(--muted);margin-top:4px">Esse status não atualiza sozinho pra pedidos do ${esc(venda.canal)} — o Nuvix só recebe aviso de pedido pago, não de separação/envio/entrega. Acompanhe isso direto em ${esc(CANAIS_ENVIO_PROPRIO[venda.canal])}, ou marque manualmente aqui se quiser espelhar.</div>`:''}
       ${venda.status!=='Cancelada'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${renderBotoesStatusEntrega(venda.status_entrega)}</div>`:''}
       <div style="margin-top:10px"><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
       <div style="margin-top:14px;font-weight:700">Envio</div>
@@ -1089,7 +1096,11 @@ let editandoEnvioPedido=false; // true = o formulário abaixo está corrigindo u
 const MEIOS_ENVIO=['Correios','Motoboy','Transportadora','Retirada no local'];
 function renderEnvioPedido(){
   if(!rastreioAtual||editandoEnvioPedido){
+    const avisoCanalProprio=(!rastreioAtual&&!editandoEnvioPedido&&CANAIS_ENVIO_PROPRIO[fichaCanalAtual])
+      ?`<div class="notice" style="margin-bottom:10px">📦 Esse pedido veio do ${esc(fichaCanalAtual)} — o envio normalmente já é feito por eles, direto em ${esc(CANAIS_ENVIO_PROPRIO[fichaCanalAtual])}. Só preencha abaixo se a empresa estiver enviando por fora disso.</div>`
+      :'';
     return `
+      ${avisoCanalProprio}
       <div class="field" style="max-width:260px;margin-bottom:10px">
         <label>Meio de envio</label>
         <select id="fpMeioEnvio" onchange="toggleMeioEnvioPedido()">

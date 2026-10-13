@@ -1,3 +1,6 @@
 .claude/settings.local.json
 Conteudo-Redes-Sociais-2026-07/
 Manual-do-Sistema-Nuvix.pdf
+
+.vercel
+.env*

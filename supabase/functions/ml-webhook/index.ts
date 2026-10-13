@@ -602,6 +602,49 @@ async function retentarPedidoML(empresaId: string, mlOrderId: string) {
   return { ok: true, resultado };
 }
 
+// Status de ENVIO do Mercado Livre (separação/despacho/entrega) — tópico
+// separado do pedido em si ("shipments", não "orders_v2"). Até aqui o webhook
+// só escutava pedido pago e ignorava esse aviso por completo — o status do
+// pedido ficava parado em "Registrado" pra sempre pra venda de Mercado Livre,
+// mesmo o Mercado Livre já sabendo (e mostrando pro comprador) que já foi
+// separado/enviado/entregue. Mapeia o status deles pro nosso.
+//
+// ATENÇÃO — não confirmado contra uma notificação real ainda: o nome exato do
+// campo que liga o shipment ao pedido (usado abaixo como shipment.order_id,
+// um dos formatos documentados pelo Mercado Livre) e a lista completa de
+// valores possíveis de shipment.status. Testar no primeiro envio real antes
+// de confiar 100% — mesmo processo que Correios/NFC-e já passaram.
+const STATUS_ENVIO_ML: Record<string, string> = {
+  pending: "Em separação",
+  handling: "Em separação",
+  ready_to_ship: "Em separação",
+  shipped: "Enviado",
+  delivered: "Entregue",
+};
+// Ordem de avanço — nunca deixa uma notificação atrasada/fora de ordem fazer
+// o status VOLTAR (ex: "shipped" chegando depois de "delivered" por retry).
+const ORDEM_STATUS_ENTREGA = ["Registrado", "Em separação", "Enviado", "Entregue"];
+
+async function processarAtualizacaoEnvioML(empresa: any, accessToken: string, resource: string) {
+  const shipResp = await fetch(`https://api.mercadolibre.com${resource}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const shipment = await shipResp.json();
+  if (!shipResp.ok || !shipment?.id) return { ignorado: "falha_buscar_shipment" };
+
+  const mlOrderId = shipment.order_id != null ? String(shipment.order_id) : null;
+  const statusNovo = STATUS_ENVIO_ML[String(shipment.status || "")];
+  if (!mlOrderId || !statusNovo) return { ignorado: `shipment_sem_mapeamento_${shipment.status}` };
+
+  const [venda] = await sbGet(`vendas?ml_order_id=eq.${mlOrderId}&empresa_id=eq.${empresa.id}&select=id,status,status_entrega`);
+  if (!venda || venda.status === "Cancelada") return { ignorado: "venda_nao_encontrada_ou_cancelada" };
+
+  const rankAtual = ORDEM_STATUS_ENTREGA.indexOf(venda.status_entrega || "Registrado");
+  const rankNovo = ORDEM_STATUS_ENTREGA.indexOf(statusNovo);
+  if (rankNovo <= rankAtual) return { ignorado: "status_nao_avanca" };
+
+  await sbPatch(`vendas?id=eq.${venda.id}`, { status_entrega: statusNovo });
+  return { venda_id: venda.id, status_entrega: statusNovo };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -629,8 +672,11 @@ Deno.serve(async (req) => {
 
     // ML manda outros tópicos além de orders_v2 se o app tiver mais escopos
     // (ex: messages, items) — ignora com 200 pra não gerar retry por algo que
-    // não vamos processar mesmo.
-    if (body?.topic && body.topic !== "orders_v2") return json({ ok: true, ignorado: body.topic });
+    // não vamos processar mesmo. "shipments" é tratado à parte abaixo (status
+    // de separação/envio/entrega, que orders_v2 não cobre).
+    if (body?.topic && body.topic !== "orders_v2" && body.topic !== "shipments") {
+      return json({ ok: true, ignorado: body.topic });
+    }
 
     const resource: string | undefined = body?.resource;
     const mlUserId = body?.user_id != null ? String(body.user_id) : null;
@@ -646,6 +692,11 @@ Deno.serve(async (req) => {
     if (!empresa) return json({ ok: true, ignorado: "empresa_nao_encontrada" });
 
     const accessToken = await garantirTokenValido(cred);
+
+    if (body.topic === "shipments") {
+      const resultadoEnvio = await processarAtualizacaoEnvioML(empresa, accessToken, resource);
+      return json({ ok: true, ...resultadoEnvio });
+    }
 
     const orderResp = await fetch(`https://api.mercadolibre.com${resource}`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const order = await orderResp.json();
