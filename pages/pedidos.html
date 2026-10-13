@@ -1049,9 +1049,24 @@ function renderEnvioPedido(){
             <input type="text" id="fpCodigoRastreio" placeholder="AA123456789BR">
           </div>
           <button class="btn2" onclick="registrarRastreioPedido()">${editandoEnvioPedido?'Salvar':'Registrar e rastrear'}</button>
-          ${!editandoEnvioPedido&&empresaFiscal.correios_ativo?`<button class="btn2" onclick="gerarEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
+          ${!editandoEnvioPedido&&empresaFiscal.correios_ativo?`<button class="btn2" onclick="abrirConfirmacaoEtiquetaPedido()">Gerar etiqueta dos Correios</button>`:''}
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${!editandoEnvioPedido&&empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
+        <div id="fpEtiquetaConfirmar" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Confirme as medidas da caixa</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Sugestão calculada a partir do cadastro dos produtos — confira e ajuste pro tamanho real da caixa que vai ser postada antes de gerar.</div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+            <div class="field" style="margin-bottom:0"><label>Peso (kg)</label><input type="text" inputmode="decimal" id="fpEtiquetaPeso" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
+            <div class="field" style="margin-bottom:0"><label>Altura (cm)</label><input type="text" inputmode="decimal" id="fpEtiquetaAltura" placeholder="0" oninput="sanitizarDecimal(this)"></div>
+            <div class="field" style="margin-bottom:0"><label>Largura (cm)</label><input type="text" inputmode="decimal" id="fpEtiquetaLargura" placeholder="0" oninput="sanitizarDecimal(this)"></div>
+            <div class="field" style="margin-bottom:0"><label>Comprimento (cm)</label><input type="text" inputmode="decimal" id="fpEtiquetaComprimento" placeholder="0" oninput="sanitizarDecimal(this)"></div>
+          </div>
+          <div id="fpEtiquetaMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn2" onclick="confirmarGerarEtiquetaPedido()">Confirmar e gerar etiqueta</button>
+            <a href="#" onclick="cancelarConfirmacaoEtiquetaPedido();return false" style="align-self:center;font-size:13px">Cancelar</a>
+          </div>
+        </div>
       </div>
       <div id="fpEnvioManual" style="display:none">
         <div class="field" style="max-width:260px"><label>Quem paga o frete</label>
@@ -1253,17 +1268,63 @@ async function atualizarRastreioPedido(){
     toast('Status atualizado.','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
-async function gerarEtiquetaPedido(){
+// Sugestão de peso/medida a partir do cadastro dos produtos do pedido — só
+// um PONTO DE PARTIDA pro formulário de confirmação, nunca mais enviado
+// direto pra function sem a pessoa que empacotou revisar. Pedido com mais de
+// um produto não tem como ter o tamanho real da caixa adivinhado só
+// somando/pegando o maior entre os itens — por isso isso aqui é só sugestão.
+async function calcularSugestaoEtiquetaPedido(){
+  try{
+    const itens=await dbGet('itens_venda',`?venda_id=eq.${fichaAbertaId}&select=produto_id,quantidade`);
+    const produtoIds=[...new Set(itens.map(i=>i.produto_id).filter(Boolean))];
+    if(!produtoIds.length) return {peso:0,altura:0,largura:0,comprimento:0};
+    const produtos=await dbGet('produtos',`?id=in.(${produtoIds.join(',')})&select=id,peso_kg,altura_cm,largura_cm,comprimento_cm`);
+    const produtoPorId={}; produtos.forEach(p=>produtoPorId[p.id]=p);
+    let peso=0,altura=0,largura=0,comprimento=0;
+    for(const item of itens){
+      const p=produtoPorId[item.produto_id];
+      if(!p)continue;
+      peso+=Number(p.peso_kg||0)*Number(item.quantidade||0);
+      altura=Math.max(altura,Number(p.altura_cm||0));
+      largura=Math.max(largura,Number(p.largura_cm||0));
+      comprimento=Math.max(comprimento,Number(p.comprimento_cm||0));
+    }
+    return {peso,altura,largura,comprimento};
+  }catch(e){ return {peso:0,altura:0,largura:0,comprimento:0}; }
+}
+async function abrirConfirmacaoEtiquetaPedido(){
+  $('fpEtiquetaConfirmar').style.display='block';
+  setHTML('fpEtiquetaMsg','Calculando sugestão a partir dos produtos...');
+  const sug=await calcularSugestaoEtiquetaPedido();
+  const fmt=v=>v?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  $('fpEtiquetaPeso').value=fmt(sug.peso);
+  $('fpEtiquetaAltura').value=sug.altura||'';
+  $('fpEtiquetaLargura').value=sug.largura||'';
+  $('fpEtiquetaComprimento').value=sug.comprimento||'';
+  setHTML('fpEtiquetaMsg',sug.peso&&sug.altura&&sug.largura&&sug.comprimento
+    ?'Sugestão calculada a partir do cadastro dos produtos — confira se bate com a caixa real antes de confirmar.'
+    :'Não achei peso/medida cadastrado pros produtos desse pedido — preencha manualmente com a medida real da caixa.');
+}
+function cancelarConfirmacaoEtiquetaPedido(){
+  $('fpEtiquetaConfirmar').style.display='none';
+}
+async function confirmarGerarEtiquetaPedido(){
+  const peso=numBR('fpEtiquetaPeso'), altura=numBR('fpEtiquetaAltura'), largura=numBR('fpEtiquetaLargura'), comprimento=numBR('fpEtiquetaComprimento');
+  if(!(peso>0)||!(altura>0)||!(largura>0)||!(comprimento>0)){
+    setHTML('fpEtiquetaMsg','Preencha peso e as três medidas (todos maiores que zero) antes de gerar.');
+    return;
+  }
   if(!await confirmarAcao('Gerar etiqueta dos Correios pra esse pedido? Vai calcular o frete e o código de rastreio usando o contrato dessa empresa.',{labelOk:'Gerar etiqueta'}))return;
   try{
-    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId})});
+    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId,peso_kg:peso,altura_cm:altura,largura_cm:largura,comprimento_cm:comprimento})});
     const resp=await r.json();
     if(!resp.ok){
-      const MSGS={correios_nao_configurado:'Correios ainda não configurado pra essa empresa.',pedido_sem_cliente_vinculado:'Esse pedido não tem cliente vinculado.',cliente_sem_endereco_completo:'O cliente não tem endereço completo cadastrado.',empresa_sem_endereco_completo:'Sua empresa não tem endereço completo cadastrado.',produto_sem_peso_dimensoes:`O produto "${resp.produto}" não tem peso/dimensões cadastrados.`};
+      const MSGS={correios_nao_configurado:'Correios ainda não configurado pra essa empresa.',pedido_sem_cliente_vinculado:'Esse pedido não tem cliente vinculado.',cliente_sem_endereco_completo:'O cliente não tem endereço completo cadastrado.',empresa_sem_endereco_completo:'Sua empresa não tem endereço completo cadastrado.',dados_envio_invalidos:'Preencha peso e medidas válidos (maiores que zero).'};
       toast(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)),'err');
       return;
     }
     rastreioAtual=resp.rastreio;
+    cancelarConfirmacaoEtiquetaPedido();
     // O custo que os Correios cobraram vira despesa no Financeiro — antes
     // ficava só visível aqui na tela, sem aparecer em nenhum relatório.
     if(rastreioAtual.valor_frete>0){

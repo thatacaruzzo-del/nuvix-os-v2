@@ -7,16 +7,23 @@
 // gerar etiqueta/calcular preço de verdade exige ser quem está postando.
 //
 // Corpo esperado (POST, JSON):
-//   { "venda_id": "<uuid>" }
+//   { "venda_id": "<uuid>", "peso_kg": number, "altura_cm": number, "largura_cm": number, "comprimento_cm": number }
+//
+// peso_kg/altura_cm/largura_cm/comprimento_cm são da CAIXA DE VERDADE que vai
+// ser postada, confirmados por quem empacotou o pedido numa telinha em
+// pages/pedidos.html (pré-preenchida com uma sugestão a partir do cadastro
+// dos produtos, mas sempre revisável antes de confirmar) — NÃO são mais
+// calculados sozinhos aqui a partir de produtos.peso_kg/altura_cm/etc. Pedido
+// com mais de um produto não tem como ter o tamanho da caixa adivinhado só
+// somando/pegando o maior entre os itens (uma caixa com 5 produtos pequenos
+// é maior que qualquer um deles sozinho) — só quem empacotou sabe o real.
 //
 // Pré-requisitos — ver CORREIOS-ATIVACAO.md:
 //   1. Empresa tem contrato ativo nos Correios, com os serviços de Preço
 //      (38202) e Postagem vinculados ao cartão de postagem.
-//   2. correios_credenciais cadastrado por SQL direto (nunca por UI, mesmo
-//      motivo de nfse_credenciais — é um segredo).
+//   2. correios_credenciais cadastrado via pages/correios-contrato.html
+//      (autoatendimento) ou por Admin → Editar empresa.
 //   3. empresas.correios_ativo = true pra essa empresa.
-//   4. Cada produto do pedido com peso_kg/altura_cm/largura_cm/comprimento_cm
-//      preenchidos (pages/produtos.html) — sem isso não dá pra calcular nada.
 // Até isso acontecer, responde "correios_nao_configurado" de propósito.
 //
 // Payload exato da API de Preço e da API de Pré-postagem/Rótulo NÃO
@@ -205,8 +212,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { venda_id } = await req.json();
+    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm } = await req.json();
     if (!venda_id) throw new Error('venda_id é obrigatório.');
+
+    const pesoTotalKg = Number(peso_kg), maiorAltura = Number(altura_cm), maiorLargura = Number(largura_cm), maiorComprimento = Number(comprimento_cm);
+    if (!(pesoTotalKg > 0) || !(maiorAltura > 0) || !(maiorLargura > 0) || !(maiorComprimento > 0)) {
+      return json({ ok: false, erro: 'dados_envio_invalidos' }, 422);
+    }
 
     const [venda] = await sbGet(`vendas?id=eq.${venda_id}&select=*`);
     if (!venda) return json({ ok: false, erro: 'venda_nao_encontrada' }, 404);
@@ -216,10 +228,9 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: 'pedido_de_outra_empresa' }, 403);
     }
 
-    const [[empresa], [cred], itens] = await Promise.all([
+    const [[empresa], [cred]] = await Promise.all([
       sbGet(`empresas?id=eq.${venda.empresa_id}&select=*`),
       sbGet(`correios_credenciais?empresa_id=eq.${venda.empresa_id}&select=*`),
-      sbGet(`itens_venda?venda_id=eq.${venda_id}&select=produto_id,produto_nome,quantidade`),
     ]);
 
     if (!empresa?.correios_ativo || !cred) {
@@ -235,26 +246,6 @@ Deno.serve(async (req) => {
     }
     if (!empresa.endereco_logradouro || !empresa.endereco_cep || !empresa.endereco_uf) {
       return json({ ok: false, erro: 'empresa_sem_endereco_completo' }, 422);
-    }
-
-    // Soma peso/maior dimensão dos itens — produto sem peso/dimensões cadastrados bloqueia aqui,
-    // com erro claro apontando qual produto falta ajustar (pages/produtos.html).
-    const produtoIds = [...new Set(itens.map((i: any) => i.produto_id).filter(Boolean))];
-    const produtos = produtoIds.length
-      ? await sbGet(`produtos?id=in.(${produtoIds.join(',')})&select=id,nome,peso_kg,altura_cm,largura_cm,comprimento_cm`)
-      : [];
-    const produtoPorId = new Map(produtos.map((p: any) => [p.id, p]));
-
-    let pesoTotalKg = 0, maiorAltura = 0, maiorLargura = 0, maiorComprimento = 0;
-    for (const item of itens) {
-      const p = produtoPorId.get(item.produto_id);
-      if (!p?.peso_kg || !p?.altura_cm || !p?.largura_cm || !p?.comprimento_cm) {
-        return json({ ok: false, erro: 'produto_sem_peso_dimensoes', produto: item.produto_nome }, 422);
-      }
-      pesoTotalKg += Number(p.peso_kg) * Number(item.quantidade);
-      maiorAltura = Math.max(maiorAltura, Number(p.altura_cm));
-      maiorLargura = Math.max(maiorLargura, Number(p.largura_cm));
-      maiorComprimento = Math.max(maiorComprimento, Number(p.comprimento_cm));
     }
 
     let resultado: { simulado: boolean; codigo_rastreio: string; valor_frete: number; link_pdf: string | null };
