@@ -448,6 +448,42 @@ async function processarPedidoML(empresa: any, cred: any, accessToken: string, o
   }
   const vendaId = resultado.venda_id;
 
+  // Frete e comissão do Mercado Livre — confirmados num pedido real já recebido
+  // (payments[].shipping_cost e payments[].marketplace_fee, ver ml_pedidos_erro
+  // de 13/09/2026). Sem isso, o faturamento/margem da venda ficava inflado — o
+  // valor cheio que o comprador pagou entrava como receita, sem descontar o que
+  // o Mercado Livre fica e sem registrar o frete em lugar nenhum. sale_fee (por
+  // item) é a alternativa mais granular, usada só como reforço se marketplace_fee
+  // vier zerado mas sale_fee tiver valor (campo pode povoar em momentos diferentes
+  // do ciclo de vida do pagamento — não confirmado qual sempre vem preenchido).
+  const pagamentosML: any[] = order.payments || [];
+  const freteCobrado = arred2(pagamentosML.reduce((a, pg) => a + Number(pg?.shipping_cost || 0), 0));
+  const comissaoPorPagamento = arred2(pagamentosML.reduce((a, pg) => a + Number(pg?.marketplace_fee || 0), 0));
+  const comissaoPorItem = arred2((order.order_items || []).reduce((a: number, oi: any) => a + Number(oi?.sale_fee || 0), 0));
+  const comissaoMarketplace = comissaoPorPagamento > 0 ? comissaoPorPagamento : comissaoPorItem;
+  try {
+    if (freteCobrado > 0) {
+      await sbPost("financeiro", {
+        empresa_id: empresa.id, tipo: "Receita", categoria: "Frete cobrado do cliente",
+        descricao: `Frete do pedido Mercado Livre #${mlOrderId}`, valor: freteCobrado,
+        data_lancamento: dataVenda, status: "Recebido", data_pagamento: dataVenda,
+        referencia_tipo: "venda", referencia_id: vendaId,
+      });
+    }
+    if (comissaoMarketplace > 0) {
+      await sbPost("financeiro", {
+        empresa_id: empresa.id, tipo: "Despesa", categoria: "Comissão Marketplace",
+        descricao: `Comissão Mercado Livre do pedido #${mlOrderId}`, valor: comissaoMarketplace,
+        data_lancamento: dataVenda, status: "Pago", data_pagamento: dataVenda,
+        referencia_tipo: "venda", referencia_id: vendaId,
+      });
+    }
+  } catch (e) {
+    // Não derruba a importação da venda por isso — a venda em si já está
+    // gravada e correta; só o lançamento extra de frete/comissão que falhou.
+    console.warn(`Falha ao lançar frete/comissão do pedido ML ${mlOrderId} (venda já importada):`, e);
+  }
+
   // NF-e tentada ANTES da NFC-e quando a empresa tem nfe_ativo: venda de
   // marketplace é sempre não presencial, então NF-e é o documento fiscalmente
   // mais correto quando o comprador pediu nota com CPF/CNPJ. Se o comprador
