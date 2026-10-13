@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nuvix — Pedidos</title>
 <link rel="stylesheet" href="../css/nuvix.css">
+<script src="../js/vendor/exceljs.min.js"></script>
 <style>
 .ped-busca-field{position:relative}
 .ped-busca-resultados{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md);margin-top:6px;max-height:280px;overflow-y:auto;z-index:20;display:none}
@@ -92,6 +93,55 @@ async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_UR
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
 async function dbRpc(nome,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+// Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, um filtro de
+// período com mais de 1000 pedidos ficaria cortado silenciosamente pela
+// paginação padrão do PostgREST. Mesmo helper de relatorios.html.
+async function dbGetTodas(t,q){
+  _verificarSessao();
+  const TAM=1000;
+  const sep=(q||'').includes('?')?'&':'?';
+  const buscar=async(offset,headers)=>{
+    let r;
+    try{ r=await fetch(`${SB_URL}/rest/v1/${t}${q||''}${sep}limit=${TAM}&offset=${offset}`,{headers}); }
+    catch(e){ throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.'); }
+    if(!r.ok) throw new Error(traduzErroGenerico(await r.text()));
+    return r;
+  };
+  const r0=await buscar(0,{...H,Prefer:(H.Prefer?H.Prefer+',':'')+'count=exact'});
+  const pagina0=await r0.json();
+  if(pagina0.length<TAM) return pagina0;
+  const total=Number((r0.headers.get('content-range')||'').split('/')[1]);
+  if(Number.isFinite(total)){
+    const offsets=[]; for(let o=TAM;o<total;o+=TAM) offsets.push(o);
+    const resto=await Promise.all(offsets.map(o=>buscar(o,H).then(r=>r.json())));
+    return pagina0.concat(...resto);
+  }
+  let offset=TAM, tudo=pagina0;
+  while(true){
+    const pag=await buscar(offset,H).then(r=>r.json());
+    tudo=tudo.concat(pag);
+    if(pag.length<TAM) break;
+    offset+=TAM;
+  }
+  return tudo;
+}
+async function exportXLSX(data,fn){
+  if(!data?.length){toast('Nada para exportar.','err');return}
+  const cols=Object.keys(data[0]);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Pedidos');
+  ws.columns=cols.map(c=>({header:c,key:c,width:Math.max(12,Math.min(40,c.length+4))}));
+  ws.getRow(1).eachCell(cell=>{
+    cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF6343A4'}};
+  });
+  data.forEach(r=>ws.addRow(r));
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=fn+'_'+hoje()+'.xlsx';
+  a.click();
+}
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -281,8 +331,24 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <h2 style="margin:0">Histórico de pedidos</h2>
-          <button class="btn2" onclick="carregarHistoricoPedidos()">Atualizar</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn2" onclick="exportarHistoricoPedidos()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</button>
+            <button class="btn2" onclick="carregarHistoricoPedidos()">Atualizar</button>
+          </div>
         </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+          <div style="min-width:140px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">De</label><input type="date" id="pedHistDe"></div>
+          <div style="min-width:140px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Até</label><input type="date" id="pedHistAte"></div>
+          <div style="min-width:160px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status do pedido</label>
+            <select id="pedHistStatus"><option value="">Todos</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select>
+          </div>
+          <div style="min-width:170px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status de entrega</label>
+            <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Enviado">Enviado</option><option value="Entregue">Entregue</option><option value="Retirado">Retirado</option></select>
+          </div>
+          <button class="btn2" onclick="carregarHistoricoPedidos()">Filtrar</button>
+          <button class="btn2" onclick="limparFiltroHistoricoPedidos()">Limpar filtro</button>
+        </div>
+        <div id="pedHistInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Entrega</th><th>Data</th></tr></thead>
@@ -962,11 +1028,38 @@ async function buscarPedidoPorNumero(){
 }
 
 // ══ HISTÓRICO — só canal Pedido Manual, pra focar no dia a dia daqui ══
+// Sem filtro ativo: últimos 200 (visão rápida de sempre). Com filtro de
+// data/status: busca TUDO que casa (dbGetTodas, sem limite) — o cliente
+// filtrando um período específico precisa ver o total real, não só os
+// primeiros 200 cortados silenciosamente.
 async function carregarHistoricoPedidos(){
+  const de=val('pedHistDe'), ate=val('pedHistAte'), status=val('pedHistStatus'), statusEntrega=val('pedHistStatusEntrega');
+  const temFiltro=!!(de||ate||status||statusEntrega);
+  let q=`?empresa_id=eq.${session.empresa_id}&canal=eq.Pedido Manual&select=*`;
+  if(de) q+=`&data_venda=gte.${de}`;
+  if(ate) q+=`&data_venda=lte.${ate}`;
+  if(status) q+=`&status=eq.${encodeURIComponent(status)}`;
+  if(statusEntrega) q+=`&status_entrega=eq.${encodeURIComponent(statusEntrega)}`;
+  q+='&order=data_venda.desc,numero.desc';
   try{
-    historicoPedidos=await dbGet('vendas',`?empresa_id=eq.${session.empresa_id}&canal=eq.Pedido Manual&select=*&order=created_at.desc&limit=200`);
-  }catch(e){ historicoPedidos=[]; }
+    historicoPedidos=temFiltro ? await dbGetTodas('vendas',q) : await dbGet('vendas',q+'&limit=200');
+  }catch(e){ historicoPedidos=[]; toast('Erro ao carregar: '+e.message,'err'); }
+  setHTML('pedHistInfo', temFiltro
+    ? `<b>${historicoPedidos.length}</b> pedido${historicoPedidos.length===1?'':'s'} encontrado${historicoPedidos.length===1?'':'s'} com esse filtro.`
+    : `Mostrando os últimos ${historicoPedidos.length} pedidos. Use os filtros acima pra buscar por período ou status.`);
   renderHistoricoPedidos();
+}
+function limparFiltroHistoricoPedidos(){
+  $('pedHistDe').value=''; $('pedHistAte').value=''; $('pedHistStatus').value=''; $('pedHistStatusEntrega').value='';
+  carregarHistoricoPedidos();
+}
+function exportarHistoricoPedidos(){
+  if(!temPermissao('vendas','exportar')){toast('Sem permissão para exportar.','err');return;}
+  const dados=historicoPedidos.map(v=>({
+    'Número': v.numero, 'Data': fmtData(v.data_venda), 'Cliente': v.cliente_nome||'—',
+    'Valor': Number(v.total||0), 'Status do pedido': v.status||'—', 'Status de entrega': v.status_entrega||'Registrado',
+  }));
+  exportXLSX(dados,'pedidos');
 }
 function abrirFichaPedidoPorId(id){ const v=pedFichaCache[id]; if(v) abrirFichaPedido(v); }
 // Badge do status de ENTREGA — separado do status financeiro/estoque
