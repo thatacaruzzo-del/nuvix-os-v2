@@ -4,3 +4,6 @@ Manual-do-Sistema-Nuvix.pdf
 
 .vercel
 .env*
+
+scratch/
+.claude/
