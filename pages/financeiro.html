@@ -266,6 +266,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="fin-tab" onclick="finTab('receber',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> A Receber</button>
         <button class="fin-tab" onclick="finTab('pagar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> A Pagar</button>
         <button class="fin-tab" onclick="finTab('conciliacao',this);carregarConciliacaoBancaria()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Conciliação bancária</button>
+        <button class="fin-tab" onclick="finTab('planoContas',this);carregarPlanoContas()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="13" y2="11"/></svg> Plano de Contas</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -448,6 +449,39 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      <!-- PLANO DE CONTAS -->
+      <div id="pane-planoContas" class="fin-pane">
+        <div class="card" id="cardSemearPlanoContas" style="display:none">
+          <h2 style="margin:0 0 6px">Comece por aqui</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Sua empresa ainda não tem um plano de contas. Clique abaixo pra criar um padrão (editável depois) com as contas mais usadas — leva 1 clique.</p>
+          <button class="btn" onclick="usarPlanoContasPadrao()">Usar plano de contas padrão</button>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Plano de contas</h2>
+            <button class="btn2" onclick="abrirModalPlanoConta()">+ Nova conta</button>
+          </div>
+          <div id="listaPlanoContas"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Centros de custo</h2>
+            <button class="btn2" onclick="abrirModalCentroCusto()">+ Novo centro de custo</button>
+          </div>
+          <div id="listaCentrosCusto"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 6px">Classificar categorias</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Vincule cada categoria já usada nos seus lançamentos a uma conta do plano — isso classifica os lançamentos existentes e deixa os próximos já entrando certos sozinhos.</p>
+          <div id="listaClassificarCategorias"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+          <div id="classificarMsg" class="msg" style="margin-top:10px"></div>
+          <div style="margin-top:14px"><button class="btn" onclick="salvarClassificacaoCategorias()">Salvar classificação</button></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -551,6 +585,48 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   <div class="modal-actions">
     <button class="btn2" onclick="ignorarTransacao()">Ignorar esta transação</button>
     <button class="btn2" onclick="fecharModal('modalResolverTransacao')">Fechar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CONTA DO PLANO -->
+<div class="modal-overlay" id="modalPlanoConta">
+<div class="modal" style="max-width:480px">
+  <h3>Nova conta do plano</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="field"><label>Código</label><input id="pcCodigo" placeholder="Ex: 4.12"></div>
+    <div class="field" style="grid-column:2/3"></div>
+    <div class="field" style="grid-column:1/-1"><label>Nome *</label><input id="pcNome" placeholder="Ex: Contabilidade"></div>
+    <div class="field"><label>Tipo *</label><select id="pcTipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
+    <div class="field"><label>Grupo no DRE *</label>
+      <select id="pcGrupoDre">
+        <option value="receita_bruta">Receita bruta</option>
+        <option value="deducoes">Deduções</option>
+        <option value="custos">Custos</option>
+        <option value="despesas_operacionais">Despesas operacionais</option>
+        <option value="despesas_financeiras">Despesas financeiras</option>
+        <option value="receitas_financeiras">Receitas financeiras</option>
+        <option value="impostos_lucro">Impostos sobre o lucro</option>
+      </select>
+    </div>
+  </div>
+  <div id="pcMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalPlanoConta')">Cancelar</button>
+    <button class="btn" onclick="salvarPlanoConta()">Salvar conta</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CENTRO DE CUSTO -->
+<div class="modal-overlay" id="modalCentroCusto">
+<div class="modal" style="max-width:420px">
+  <h3>Novo centro de custo</h3>
+  <div class="field"><label>Nome *</label><input id="ccNome" placeholder="Ex: Loja Centro"></div>
+  <div id="ccMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalCentroCusto')">Cancelar</button>
+    <button class="btn" onclick="salvarCentroCusto()">Salvar</button>
   </div>
 </div>
 </div>
@@ -1741,6 +1817,123 @@ async function ignorarTransacao(){
     fecharModal('modalResolverTransacao');
     await carregarTransacoesPendentes();
   }catch(e){ msg('rtMsg','Erro: '+e.message,'err'); }
+}
+
+// ═══ PLANO DE CONTAS ═══
+const GRUPO_DRE_LBL={receita_bruta:'Receita bruta',deducoes:'Deduções',custos:'Custos',despesas_operacionais:'Despesas operacionais',despesas_financeiras:'Despesas financeiras',receitas_financeiras:'Receitas financeiras',impostos_lucro:'Impostos sobre o lucro'};
+const GRUPO_DRE_ORDEM=['receita_bruta','deducoes','custos','despesas_operacionais','despesas_financeiras','receitas_financeiras','impostos_lucro'];
+let planoContasLista=[], centrosCustoLista=[], mapeamentoCategoriaAtual=[], categoriasDistintas=[];
+
+async function carregarPlanoContas(){
+  try{
+    [planoContasLista,centrosCustoLista,mapeamentoCategoriaAtual,categoriasDistintas]=await Promise.all([
+      db.get('plano_contas','?select=*&order=codigo.asc.nullslast,nome.asc'),
+      db.get('centros_custo','?select=*&order=nome.asc'),
+      db.get('categoria_plano_conta_map','?select=*'),
+      db.rpc('categorias_financeiro_distintas',{}),
+    ]);
+  }catch(e){
+    toast('Erro ao carregar plano de contas: '+e.message,'err');
+    return;
+  }
+  $('cardSemearPlanoContas').style.display=planoContasLista.length?'none':'block';
+  renderPlanoContas();
+  renderCentrosCusto();
+  renderClassificarCategorias();
+}
+
+async function usarPlanoContasPadrao(){
+  try{
+    const resp=await db.rpc('semear_plano_contas_padrao',{});
+    toast(resp.ja_existia?'Sua empresa já tinha um plano de contas.':`${resp.criadas} conta(s) criada(s).`,'ok');
+    await carregarPlanoContas();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function renderPlanoContas(){
+  if(!planoContasLista.length){ setHTML('listaPlanoContas','<p style="color:var(--muted);font-size:13px">Nenhuma conta cadastrada ainda.</p>'); return; }
+  const porGrupo={};
+  planoContasLista.forEach(c=>{ (porGrupo[c.grupo_dre]=porGrupo[c.grupo_dre]||[]).push(c); });
+  setHTML('listaPlanoContas',GRUPO_DRE_ORDEM.filter(g=>porGrupo[g]).map(g=>`
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${esc(GRUPO_DRE_LBL[g])}</div>
+      ${porGrupo[g].map(c=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
+          <span>${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}</span>
+          <span style="color:var(--muted)">${c.tipo==='receita'?'Receita':'Despesa'}${c.ativo?'':' · inativa'}</span>
+        </div>`).join('')}
+    </div>`).join(''));
+}
+function renderCentrosCusto(){
+  if(!centrosCustoLista.length){ setHTML('listaCentrosCusto','<p style="color:var(--muted);font-size:13px">Nenhum centro de custo cadastrado ainda.</p>'); return; }
+  setHTML('listaCentrosCusto',centrosCustoLista.map(c=>`
+    <div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">${esc(c.nome)}${c.ativo?'':' <span style="color:var(--muted)">(inativo)</span>'}</div>`).join(''));
+}
+function optionsContasHTML(selecionadaId){
+  return '<option value="">Não classificar</option>'+GRUPO_DRE_ORDEM.filter(g=>planoContasLista.some(c=>c.grupo_dre===g)).map(g=>
+    `<optgroup label="${esc(GRUPO_DRE_LBL[g])}">`+
+    planoContasLista.filter(c=>c.grupo_dre===g).map(c=>`<option value="${c.id}"${c.id===selecionadaId?' selected':''}>${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}</option>`).join('')+
+    '</optgroup>'
+  ).join('');
+}
+function renderClassificarCategorias(){
+  if(!planoContasLista.length){ setHTML('listaClassificarCategorias','<p style="color:var(--muted);font-size:13px">Crie o plano de contas primeiro.</p>'); return; }
+  if(!categoriasDistintas.length){ setHTML('listaClassificarCategorias','<p style="color:var(--muted);font-size:13px">Nenhum lançamento com categoria ainda.</p>'); return; }
+  setHTML('listaClassificarCategorias',categoriasDistintas.map(cat=>{
+    const catNorm=normalizarCategoriaJS(cat);
+    const mapeado=mapeamentoCategoriaAtual.find(m=>m.categoria_normalizada===catNorm);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);gap:10px">
+      <span style="font-size:13px;flex:1">${esc(cat)}</span>
+      <select data-categoria="${esc(cat)}" style="max-width:260px">${optionsContasHTML(mapeado?.plano_conta_id)}</select>
+    </div>`;
+  }).join(''));
+}
+// Mesma regra de normalização do banco (normalizar_categoria_financeiro), só
+// pra decidir qual opção já vem pré-selecionada na tela — quem decide de
+// verdade, na gravação, é sempre a função SQL.
+function normalizarCategoriaJS(c){ return String(c||'').trim().replace(/\s*\/\s*/g,'/'); }
+
+async function salvarClassificacaoCategorias(){
+  const selects=[...document.querySelectorAll('#listaClassificarCategorias select')];
+  const mapeamentos=selects.filter(s=>s.value).map(s=>({categoria:s.dataset.categoria,plano_conta_id:s.value}));
+  if(!mapeamentos.length){ msg('classificarMsg','Escolha pelo menos uma conta pra classificar.','err'); return; }
+  try{
+    const resp=await db.rpc('salvar_mapeamento_categoria',{p:{mapeamentos}});
+    msg('classificarMsg',`${resp.mapeamentos_salvos} categoria(s) classificada(s).`,'ok');
+    await carregarPlanoContas();
+  }catch(e){ msg('classificarMsg','Erro: '+e.message,'err'); }
+}
+
+function abrirModalPlanoConta(){
+  ['pcCodigo','pcNome'].forEach(id=>{if($(id))$(id).value=''});
+  $('pcTipo').value='despesa';$('pcGrupoDre').value='despesas_operacionais';
+  $('pcMsg').className='msg';
+  abrirModal('modalPlanoConta');
+}
+async function salvarPlanoConta(){
+  const nome=val('pcNome').trim();
+  if(!nome){ msg('pcMsg','Informe o nome da conta.','err'); return; }
+  try{
+    await db.post('plano_contas',withEmpresa({codigo:val('pcCodigo')||null,nome,tipo:val('pcTipo'),grupo_dre:val('pcGrupoDre')}));
+    toast('Conta criada.','ok');
+    fecharModal('modalPlanoConta');
+    await carregarPlanoContas();
+  }catch(e){ msg('pcMsg','Erro: '+e.message,'err'); }
+}
+function abrirModalCentroCusto(){
+  $('ccNome').value='';
+  $('ccMsg').className='msg';
+  abrirModal('modalCentroCusto');
+}
+async function salvarCentroCusto(){
+  const nome=val('ccNome').trim();
+  if(!nome){ msg('ccMsg','Informe o nome do centro de custo.','err'); return; }
+  try{
+    await db.post('centros_custo',withEmpresa({nome}));
+    toast('Centro de custo criado.','ok');
+    fecharModal('modalCentroCusto');
+    await carregarPlanoContas();
+  }catch(e){ msg('ccMsg','Erro: '+e.message,'err'); }
 }
 
 init();
