@@ -156,8 +156,11 @@
 .agenda-row .info b{display:block;font-size:12.5px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agenda-row .info span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agenda-empty{text-align:center;padding:20px;color:var(--muted);font-size:13px}
-.hstat{display:flex;flex-direction:column;gap:3px;background:var(--bg);border:none;border-radius:12px;padding:12px 14px;min-width:0;text-align:left;font-family:inherit;cursor:pointer;transition:background .12s,transform .12s}
-.hstat:hover{background:var(--p-light);transform:translateY(-1px)}
+/* Sentado dentro de um .card já branco — fundo sozinho não dava pra ver a borda do
+   mini-card (var(--bg) é quase branco também), por isso usa borda visível, igual os
+   outros cards de KPI do sistema (.kpi-card). */
+.hstat{display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0;text-align:left;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(31,41,55,.04);transition:border-color .12s,box-shadow .12s,transform .12s}
+.hstat:hover{border-color:var(--p);box-shadow:0 4px 10px rgba(99,67,164,.12);transform:translateY(-1px)}
 .hstat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:flex;align-items:center;gap:5px}
 .hstat-lbl .atencao-dot{width:6px;height:6px}
 .hstat-val{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1468,11 +1471,15 @@ function gerarResumoExecutivo(atual, diff, principais, diagConfiavel){
   if(atencao && oportunidade) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}, e aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
   if(atencao) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}.`;
 
-  // Nenhum ponto de atenção nas outras áreas — "tudo bem" só pode ser afirmado se margem e
-  // caixa (os dados que realmente definem saúde financeira, via dashboard-confiavel.js)
-  // também confirmarem isso, em vez de só pela ausência de alerta nas outras áreas.
-  if(diagConfiavel && diagConfiavel.tom!=='ok') return diagConfiavel.texto;
-  if(oportunidade) return `A empresa está saudável, com espaço para melhorar no ${AREA_LABEL[oportunidade.area]}.`;
+  // Existe uma oportunidade real (ex: caixa com fôlego) — mas só chama a empresa de
+  // "saudável" se margem e caixa (dashboard-confiavel.js) confirmarem isso; senão, menciona
+  // a oportunidade sem fazer uma alegação de saúde geral que ainda não dá pra garantir. Nunca
+  // deixa o resumo dizer uma coisa boa aqui enquanto o banner mostra a mesma oportunidade —
+  // os dois precisam contar a mesma história.
+  if(oportunidade){
+    if(diagConfiavel && diagConfiavel.tom!=='ok') return `${diagConfiavel.texto} Vale aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
+    return `A empresa está saudável, com espaço para melhorar no ${AREA_LABEL[oportunidade.area]}.`;
+  }
   if(diagConfiavel) return diagConfiavel.texto;
   return 'Sem pontos relevantes para destacar neste período.';
 }
