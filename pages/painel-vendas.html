@@ -508,7 +508,7 @@ function renderPainelKpis(DC,{faturamentoTotal,ticketMedio,numVendas,numProdutos
   const cards=[
     {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}${subReceber}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)+rotuloHTML},
     {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)+rotuloHTML},
-    {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',ic:'caixa'},
+    {lbl:'Variedade de produtos',val:String(numProdutos),sub:'produtos diferentes vendidos — não é quantidade de itens nem categorias',ic:'caixa'},
     {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Frete cobrado dos clientes',val:money(freteCobradoTotal||0),sub:'no período',ic:'caixa'},
