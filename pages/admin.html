@@ -1245,6 +1245,12 @@ function toggleSenhaAdmin(){
   </div>
 
   <div class="card">
+    <h2 style="margin:0 0 6px">Em andamento</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads já contatados — clique pra abrir a ficha, registrar resposta, marcar demonstração ou converter em cliente.</p>
+    <div id="listaLeadsAndamento"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+  </div>
+
+  <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Importações de leads</h2>
       <button class="btn" onclick="abrirModalImportarLeads()">+ Importar CSV</button>
@@ -3874,7 +3880,7 @@ function showTab(id,btn){
   if(id==='logs')carregarLogs();
   if(id==='certificados')carregarCertificados();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
-  if(id==='prospeccao'){carregarFunilProspeccao();carregarFilaAprovacao();carregarImportacoesLeads();}
+  if(id==='prospeccao'){carregarFunilProspeccao();carregarFilaAprovacao();carregarLeadsAndamento();carregarImportacoesLeads();}
   if(id==='planejamento')carregarPlanejamento();
   if(id==='comercial')carregarComercial();
   if(id==='inicio')carregarInicio();
@@ -4726,6 +4732,28 @@ function leadCardHTML(l){
 function renderFilaAprovacao(){
   setHTML('listaFilaAprovacao',filaAprovacaoLeads.map(leadCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Fila vazia. Importe leads e rode a qualificação por IA.</p>');
 }
+
+// ── Em andamento (contatado/respondeu/demo_agendada) — único jeito de
+// reabrir a ficha de um lead depois que ele sai da fila de aprovação.
+let leadsAndamento=[];
+async function carregarLeadsAndamento(){
+  try{
+    leadsAndamento=await dbRpc('leads_em_andamento',{});
+    renderLeadsAndamento();
+  }catch(e){
+    setHTML('listaLeadsAndamento',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function renderLeadsAndamento(){
+  setHTML('listaLeadsAndamento',leadsAndamento.map(l=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="abrirFichaLead('${l.id}')">
+      <div>
+        <div style="font-weight:600;font-size:13px">${esc(l.nome_fantasia||l.razao_social||'(sem nome)')}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(l.bairro||'—')}</div>
+      </div>
+      ${statusLeadBadgeHTML(l.status)}
+    </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Nenhum lead em andamento no momento.</p>');
+}
 function abrirWhatsAppLead(telefone,mensagem){
   if(!telefone){ toast('Lead aprovado, mas sem telefone cadastrado — envie manualmente.','err'); return; }
   const tel=String(telefone).replace(/\D/g,'');
@@ -4736,7 +4764,7 @@ async function aprovarEEnviarLead(id){
     const r=await dbRpc('aprovar_e_enviar_lead',{p_lead_id:id});
     abrirWhatsAppLead(r.telefone,r.mensagem_whatsapp);
     toast('Lead aprovado e marcado como contatado.','ok');
-    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 async function descartarLead(id){
@@ -4744,7 +4772,7 @@ async function descartarLead(id){
   try{
     await dbRpc('descartar_lead',{p_lead_id:id,p_motivo:null});
     toast('Lead descartado.','ok');
-    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 async function optOutLead(id){
@@ -4752,7 +4780,7 @@ async function optOutLead(id){
   try{
     await dbRpc('opt_out_lead',{p_lead_id:id,p_motivo:null});
     toast('Opt-out registrado.','ok');
-    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
@@ -4812,7 +4840,7 @@ async function aprovarEEnviarFichaLead(){
     const r=await dbRpc('aprovar_e_enviar_lead',{p_lead_id:id});
     abrirWhatsAppLead(r.telefone,r.mensagem_whatsapp);
     msgEl('fichaLeadMsg','Aprovado e marcado como contatado.','ok');
-    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 async function descartarFichaLead(){
@@ -4820,7 +4848,7 @@ async function descartarFichaLead(){
   if(!await confirmarAcao('Descartar este lead?',{labelOk:'Descartar'}))return;
   try{
     await dbRpc('descartar_lead',{p_lead_id:id,p_motivo:null});
-    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 async function optOutFichaLead(){
@@ -4828,7 +4856,7 @@ async function optOutFichaLead(){
   if(!await confirmarAcao('Marcar como opt-out? Esse CNPJ nunca mais entra na fila nem em futuras importações.',{labelOk:'Opt-out',variante:'perigo'}))return;
   try{
     await dbRpc('opt_out_lead',{p_lead_id:id,p_motivo:null});
-    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 async function registrarRespostaFichaLead(){
@@ -4838,7 +4866,7 @@ async function registrarRespostaFichaLead(){
   try{
     await dbRpc('registrar_resposta_lead',{p_lead_id:id,p_texto:texto});
     msgEl('fichaLeadMsg','Resposta registrada.','ok');
-    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao()]);
+    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 async function marcarDemoFichaLead(){
@@ -4846,7 +4874,7 @@ async function marcarDemoFichaLead(){
   try{
     await dbRpc('marcar_demo_lead',{p_lead_id:id});
     msgEl('fichaLeadMsg','Demonstração marcada como agendada.','ok');
-    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao()]);
+    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao(),carregarLeadsAndamento()]);
   }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 

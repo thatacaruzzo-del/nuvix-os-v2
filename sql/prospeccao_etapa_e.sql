@@ -361,3 +361,27 @@ set search_path to 'public', 'pg_temp'
 as $$ select prospeccao.obter_lead(p_lead_id); $$;
 revoke execute on function public.obter_lead(uuid) from public, anon;
 grant execute on function public.obter_lead(uuid) to authenticated;
+
+-- 13) Leads em andamento (contatado/respondeu/demo_agendada) — achado ao
+-- testar de ponta a ponta: sem isso, a ficha de um lead que já saiu da
+-- fila de aprovação não tinha mais nenhum jeito de ser reaberta pela
+-- tela, deixando "registrar resposta"/"marcar demo"/"converter em
+-- cliente" inacessíveis na prática.
+create or replace function prospeccao.leads_em_andamento()
+returns setof prospeccao.leads
+language sql
+stable
+set search_path to 'prospeccao', 'public', 'pg_temp'
+as $$
+  select * from leads where status in ('contatado','respondeu','demo_agendada')
+  order by atualizado_em desc;
+$$;
+
+create or replace function public.leads_em_andamento()
+returns setof prospeccao.leads
+language sql
+stable
+set search_path to 'public', 'pg_temp'
+as $$ select * from prospeccao.leads_em_andamento(); $$;
+revoke execute on function public.leads_em_andamento() from public, anon;
+grant execute on function public.leads_em_andamento() to authenticated;
