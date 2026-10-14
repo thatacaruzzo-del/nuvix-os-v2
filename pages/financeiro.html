@@ -267,6 +267,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="fin-tab" onclick="finTab('pagar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> A Pagar</button>
         <button class="fin-tab" onclick="finTab('conciliacao',this);carregarConciliacaoBancaria()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Conciliação bancária</button>
         <button class="fin-tab" onclick="finTab('planoContas',this);carregarPlanoContas()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="13" y2="11"/></svg> Plano de Contas</button>
+        <button class="fin-tab" onclick="finTab('relatorios',this);carregarRelatorios()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M3 3v18h18"/><path d="M18.4 8.6 12 15l-3.5-3.5L4 16"/></svg> Relatórios</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -487,6 +488,47 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div id="listaClassificarCategorias"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
           <div id="classificarMsg" class="msg" style="margin-top:10px"></div>
           <div style="margin-top:14px"><button class="btn" onclick="salvarClassificacaoCategorias()">Salvar classificação</button></div>
+        </div>
+      </div>
+
+      <!-- RELATÓRIOS -->
+      <div id="pane-relatorios" class="fin-pane">
+        <div class="card">
+          <h2 style="margin:0 0 6px">Aging de inadimplência</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Contas a receber ainda não recebidas, por cliente e por tempo de atraso.</p>
+          <div id="agingConteudo"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Fluxo de caixa projetado</h2>
+            <select id="fluxoProjHorizonte" onchange="carregarFluxoProjetado()" style="max-width:160px">
+              <option value="30">Próximos 30 dias</option>
+              <option value="60">Próximos 60 dias</option>
+              <option value="90" selected>Próximos 90 dias</option>
+            </select>
+          </div>
+          <div id="fluxoProjConteudo"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 10px">DRE mensal</h2>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+            <div class="field" style="margin:0"><label>Mês</label>
+              <select id="dreMes">
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0"><label>Ano</label><input id="dreAno" type="number" style="max-width:100px"></div>
+            <div class="field" style="margin:0"><label>Regime</label>
+              <select id="dreRegime"><option value="caixa">Caixa (pago/recebido no mês)</option><option value="competencia">Competência (emitido no mês)</option></select>
+            </div>
+            <button class="btn" onclick="carregarDreMensal()">Gerar</button>
+          </div>
+          <div id="dreConteudo"></div>
         </div>
       </div>
 
@@ -2038,6 +2080,120 @@ async function salvarCentroCusto(){
     fecharModal('modalCentroCusto');
     await carregarPlanoContas();
   }catch(e){ msg('ccMsg','Erro: '+e.message,'err'); }
+}
+
+// ═══ RELATÓRIOS (Etapa 3.3) ═══
+function irParaClassificarCategorias(){
+  finTab('planoContas',document.querySelector('.fin-tab[onclick*="planoContas"]'));
+  carregarPlanoContas();
+}
+function carregarRelatorios(){
+  if(!$('dreAno').value)$('dreAno').value=new Date().getFullYear();
+  if(!$('dreMes').value)$('dreMes').value=new Date().getMonth()+1;
+  carregarAgingInadimplencia();
+  carregarFluxoProjetado();
+}
+
+async function carregarAgingInadimplencia(){
+  try{
+    const linhas=await db.rpc('aging_inadimplencia',{});
+    renderAging(linhas||[]);
+  }catch(e){
+    setHTML('agingConteudo',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+function renderAging(linhas){
+  if(!linhas.length){ setHTML('agingConteudo','<p style="color:var(--muted);font-size:13px">Nenhum valor a receber pendente.</p>'); return; }
+  const cols=[['a_vencer','A vencer','var(--p)'],['dias_1_30','1 a 30 dias','var(--amber)'],['dias_31_60','31 a 60 dias','var(--amber)'],['dias_61_90','61 a 90 dias','var(--red)'],['acima_90','Acima de 90 dias','var(--red)']];
+  const totais={};cols.forEach(([k])=>totais[k]=0);let totalGeral=0;
+  linhas.forEach(l=>{cols.forEach(([k])=>totais[k]+=Number(l[k]||0));totalGeral+=Number(l.total||0);});
+  setHTML('agingConteudo',`
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em">
+        <th style="padding:6px 8px">Cliente</th>${cols.map(([,lbl])=>`<th style="padding:6px 8px;text-align:right">${lbl}</th>`).join('')}<th style="padding:6px 8px;text-align:right">Total</th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr style="border-top:1px solid var(--line)">
+          <td style="padding:6px 8px">${esc(l.favorecido)}</td>
+          ${cols.map(([k,,cor])=>`<td style="padding:6px 8px;text-align:right;${Number(l[k]||0)>0?'color:'+cor+';font-weight:700':'color:var(--muted)'}">${Number(l[k]||0)>0?money(l[k]):'—'}</td>`).join('')}
+          <td style="padding:6px 8px;text-align:right;font-weight:700">${money(l.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="border-top:2px solid var(--line);font-weight:800">
+        <td style="padding:8px">Total</td>
+        ${cols.map(([k])=>`<td style="padding:8px;text-align:right">${money(totais[k])}</td>`).join('')}
+        <td style="padding:8px;text-align:right">${money(totalGeral)}</td>
+      </tr></tfoot>
+    </table>
+    </div>`);
+}
+
+async function carregarFluxoProjetado(){
+  const dias=Number(val('fluxoProjHorizonte')||90);
+  setHTML('fluxoProjConteudo','<p style="color:var(--muted);font-size:13px">Carregando...</p>');
+  try{
+    const resp=await db.rpc('fluxo_caixa_projetado',{p_dias:dias});
+    renderFluxoProjetado(resp);
+  }catch(e){
+    setHTML('fluxoProjConteudo',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+function renderFluxoProjetado(resp){
+  const estimado=resp.fonte==='estimada';
+  const negativo=resp.dias_ate_negativo!==null&&resp.dias_ate_negativo!==undefined;
+  const serie=resp.serie||[];
+  const diasComSaldoNegativo=serie.filter(d=>Number(d.saldo_projetado)<0).length;
+  setHTML('fluxoProjConteudo',`
+    ${estimado?`<div style="background:var(--amber-bg,#FEF3C7);color:#92400E;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600">Saldo estimado a partir dos lançamentos confirmados — cadastre uma conta bancária em "Conciliação bancária" pra um saldo real.</div>`:''}
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px">
+      <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Saldo atual${estimado?' (estimado)':''}</div><div style="font-size:20px;font-weight:800">${money(resp.saldo_atual)}</div></div>
+      <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Fica negativo em</div><div style="font-size:20px;font-weight:800;color:${negativo?(resp.dias_ate_negativo<=14?'var(--red)':'var(--amber)'):'var(--green)'}">${negativo?resp.dias_ate_negativo+' dia(s)':'Não projetado nesse período'}</div></div>
+    </div>
+    ${diasComSaldoNegativo?`<div style="overflow-x:auto;max-height:260px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em"><th style="padding:6px 8px">Dia</th><th style="padding:6px 8px;text-align:right">Saldo projetado</th></tr></thead>
+        <tbody>${serie.filter(d=>Number(d.saldo_projetado)<0).slice(0,30).map(d=>`<tr style="border-top:1px solid var(--line)"><td style="padding:6px 8px">${fmtData(d.dia)}</td><td style="padding:6px 8px;text-align:right;color:var(--red);font-weight:700">${money(d.saldo_projetado)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`:`<p style="color:var(--muted);font-size:13px">Nenhum dia com saldo projetado negativo no período.</p>`}
+  `);
+}
+
+async function carregarDreMensal(){
+  const ano=Number(val('dreAno'));const mes=Number(val('dreMes'));const regime=val('dreRegime');
+  setHTML('dreConteudo','<p style="color:var(--muted);font-size:13px">Carregando...</p>');
+  try{
+    const linhas=await db.rpc('dre_mensal',{p_ano:ano,p_mes:mes,p_regime:regime});
+    renderDre(linhas||[]);
+  }catch(e){
+    setHTML('dreConteudo',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+const GRUPO_DRE_SINAL={receita_bruta:1,deducoes:-1,custos:-1,despesas_operacionais:-1,despesas_financeiras:-1,receitas_financeiras:1,impostos_lucro:-1};
+function renderDre(linhas){
+  if(!linhas.length){ setHTML('dreConteudo','<p style="color:var(--muted);font-size:13px">Nenhum lançamento no período selecionado.</p>'); return; }
+  const porGrupo={};
+  linhas.forEach(l=>{ (porGrupo[l.grupo_dre]=porGrupo[l.grupo_dre]||[]).push(l); });
+  let resultado=0;
+  const ordem=[...GRUPO_DRE_ORDEM,'nao_classificado'];
+  const html=ordem.filter(g=>porGrupo[g]).map(g=>{
+    const itens=porGrupo[g];
+    const subtotal=itens.reduce((a,i)=>a+Number(i.total||0),0);
+    resultado+=subtotal*(GRUPO_DRE_SINAL[g]||1);
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+        <span>${esc(GRUPO_DRE_LBL[g]||'Não classificado')}</span><span>${money(subtotal)}</span>
+      </div>
+      ${itens.map(i=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
+        <span>${i.plano_conta_codigo?esc(i.plano_conta_codigo)+' — ':''}${esc(i.plano_conta_nome)}${i.plano_conta_nome==='Não classificado'?' <a href="#" onclick="irParaClassificarCategorias();return false" style="font-size:11px">classificar →</a>':''}</span>
+        <span>${money(i.total)}</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+  setHTML('dreConteudo',html+`
+    <div style="display:flex;justify-content:space-between;border-top:2px solid var(--line);padding-top:10px;margin-top:4px;font-weight:800;font-size:15px">
+      <span>Resultado do período</span><span style="color:${resultado>=0?'var(--green)':'var(--red)'}">${money(resultado)}</span>
+    </div>`);
 }
 
 init();
