@@ -1238,9 +1238,12 @@ function toggleSenhaAdmin(){
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Fila de aprovação</h2>
-      <span style="font-size:12px;color:var(--muted)" id="contadorEnviosHoje"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--muted)" id="contadorEnviosHoje"></span>
+        <button class="btn" id="btnQualificarLeadsIA" onclick="qualificarLeadsIA()">Qualificar novos leads (IA)</button>
+      </div>
     </div>
-    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads qualificados pela IA, nota mais alta primeiro. Nada é enviado sem clicar em "Aprovar e enviar".</p>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads qualificados pela IA, nota mais alta primeiro. Nada é enviado sem clicar em "Aprovar e enviar". O botão acima pega até 25 leads novos e manda pra IA avaliar.</p>
     <div id="listaFilaAprovacao"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
   </div>
 
@@ -4693,6 +4696,29 @@ function renderFunilProspeccao(f){
   }).join(''));
   const por=f?.por_status||{};
   setHTML('rodapeFunilProspeccao',`Descartados: ${por.descartado||0} · Opt-out: ${por.opt_out||0}. Taxa de conversão compara a distribuição atual de status entre si — não é o histórico completo de cada lead.`);
+}
+
+// ── Qualificar leads novos (IA) — dispara a edge function qualificar-leads
+// com o JWT de quem clicou (nunca service role). Pega até 25 leads 'novo'.
+async function qualificarLeadsIA(){
+  const btn=$('btnQualificarLeadsIA');
+  btn.disabled=true;btn.textContent='Qualificando...';
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/qualificar-leads`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminSession.access_token},
+      body:'{}',
+    });
+    const data=await r.json();
+    if(!r.ok||data.ok===false){ toast('Erro ao qualificar: '+(data.erro||r.status),'err'); return; }
+    if(data.processados===0){ toast('Nenhum lead novo pra qualificar no momento.','ok'); return; }
+    toast(`${data.processados} lead(s) processado(s): ${data.qualificados} qualificado(s), ${data.descartados} descartado(s)${data.erros?`, ${data.erros} com erro`:''}.`,data.erros?'err':'ok');
+    await Promise.all([carregarFunilProspeccao(),carregarFilaAprovacao()]);
+  }catch(e){
+    toast('Erro de conexão ao qualificar: '+e.message,'err');
+  }finally{
+    btn.disabled=false;btn.textContent='Qualificar novos leads (IA)';
+  }
 }
 
 // ── Fila de aprovação ──
