@@ -9,9 +9,11 @@
 // nfse_credenciais.
 //
 // Corpo esperado (POST, JSON):
-//   { "acao": "emitir",    "nota_fiscal_nfe_id": "<uuid>" }
-//   { "acao": "consultar", "nota_fiscal_nfe_id": "<uuid>" }
-//   { "acao": "cancelar",  "nota_fiscal_nfe_id": "<uuid>", "justificativa": "..." }
+//   { "acao": "emitir",       "nota_fiscal_nfe_id": "<uuid>" }
+//   { "acao": "consultar",    "nota_fiscal_nfe_id": "<uuid>" }
+//   { "acao": "cancelar",     "nota_fiscal_nfe_id": "<uuid>", "justificativa": "..." }
+//   { "acao": "arquivar_xml", "nota_fiscal_nfe_id": "<uuid>" } — re-arquiva o XML no
+//     nosso Storage quando link_xml ainda aponta direto pra Focus NFe.
 //
 // Pré-requisitos:
 //   1. Empresa contratou um plano na Focus NFe (mesma conta de NFC-e/NFS-e).
@@ -392,6 +394,34 @@ Deno.serve(async (req) => {
       const focusData = await r.json();
       const atualizado = await aplicarCancelamentoFocus(nota_fiscal_nfe_id, focusData, justificativa);
       return json({ ok: r.ok, nota: atualizado });
+    }
+
+    // Autoconserto: mesmo problema do emitir-nfce — arquivarDocumentos marca
+    // arquivos_arquivados=true se QUALQUER um dos dois (PDF ou XML) subir, então uma
+    // falha silenciosa no XML passa despercebida. Link direto da Focus NFe exige o
+    // token de autenticação, que o navegador nunca tem — "Baixar XML" e o ZIP em
+    // lote falhavam sempre pra essas notas. Busca de novo (com auth) e arquiva pra
+    // valer, uma vez só.
+    if (acao === 'arquivar_xml') {
+      if (nota.link_xml && nota.link_xml.startsWith(`${SUPABASE_URL}/storage/`)) {
+        return json({ ok: true, nota, ja_arquivado: true });
+      }
+      let xmlBytes = nota.link_xml ? await baixarBytes(nota.link_xml, auth) : null;
+      if (!xmlBytes && nota.focus_nfe_ref) {
+        const rc = await fetch(`${base}/v2/nfe/${nota.focus_nfe_ref}`, { headers: { Authorization: auth } });
+        const focusData = await rc.json().catch(() => null);
+        if (focusData?.caminho_xml_nota_fiscal) {
+          xmlBytes = await baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth);
+        }
+      }
+      if (!xmlBytes) return json({ ok: false, erro: 'falha_baixar_xml_focus' }, 502);
+      const novoLink = await sbUpload(`${nota.empresa_id}/nfe-${nota_fiscal_nfe_id}.xml`, xmlBytes, 'application/xml');
+      const atualizado = await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, {
+        link_xml: novoLink,
+        arquivos_arquivados: true,
+        updated_at: new Date().toISOString(),
+      });
+      return json({ ok: true, nota: atualizado });
     }
 
     // acao === 'emitir' (padrão)

@@ -12,9 +12,12 @@
 // conta Focus NFe por CNPJ cobre os dois tipos de nota.
 //
 // Corpo esperado (POST, JSON):
-//   { "acao": "emitir",    "nota_fiscal_nfce_id": "<uuid>" }
-//   { "acao": "consultar", "nota_fiscal_nfce_id": "<uuid>" }
-//   { "acao": "cancelar",  "nota_fiscal_nfce_id": "<uuid>", "justificativa": "..." }
+//   { "acao": "emitir",       "nota_fiscal_nfce_id": "<uuid>" }
+//   { "acao": "consultar",    "nota_fiscal_nfce_id": "<uuid>" }
+//   { "acao": "cancelar",     "nota_fiscal_nfce_id": "<uuid>", "justificativa": "..." }
+//   { "acao": "arquivar_xml", "nota_fiscal_nfce_id": "<uuid>" } — re-arquiva o XML no
+//     nosso Storage quando link_xml ainda aponta direto pra Focus NFe (autoconserto,
+//     chamado pelo front antes de baixar XML de uma nota que nunca foi arquivada).
 //
 // Pré-requisitos pra isso funcionar de verdade — ver NFCE-ATIVACAO.md:
 //   1. Empresa contratou um plano na Focus NFe (mesma conta da NFS-e serve).
@@ -523,6 +526,41 @@ Deno.serve(async (req) => {
       const focusData = await r.json();
       const atualizado = await aplicarCancelamentoFocus(nota_fiscal_nfce_id, focusData, justificativa);
       return json({ ok: r.ok, nota: atualizado });
+    }
+
+    // Autoconserto: algumas notas (achado real — Yup, notas 6/7/11, canceladas em
+    // 03/09) ficaram com link_xml apontando direto pra Focus NFe, nunca arquivado no
+    // nosso Storage — o arquivamento na emissão original é "um dos dois, PDF ou XML"
+    // (arquivarDocumentos só marca arquivos_arquivados=true se QUALQUER um dos dois
+    // subir, então uma falha silenciosa no XML passava despercebida mesmo com a nota
+    // marcada como arquivada). O link direto da Focus NFe exige o token de autenticação
+    // pra baixar — o navegador nunca teria esse token, então "Baixar XML" e o ZIP em
+    // lote falhavam sempre pra essas notas, sem forma de corrigir sozinho pelo front.
+    // Essa ação busca o XML de novo (com auth) e arquiva pra valer, uma vez só — depois
+    // disso o link_xml aponta pro nosso Storage e os dois caminhos de download passam
+    // a funcionar normalmente, sem precisar chamar essa ação de novo pra essa nota.
+    if (acao === 'arquivar_xml') {
+      if (nota.link_xml && nota.link_xml.startsWith(`${SUPABASE_URL}/storage/`)) {
+        return json({ ok: true, nota, ja_arquivado: true });
+      }
+      let xmlBytes = nota.link_xml ? await baixarBytes(nota.link_xml, auth) : null;
+      // Link da Focus NFe pode ter expirado (retenção deles não é eterna) — tenta
+      // reconsultar a nota lá pra pegar um caminho novo antes de desistir.
+      if (!xmlBytes && nota.focus_nfe_ref) {
+        const rc = await fetch(`${base}/v2/nfce/${nota.focus_nfe_ref}`, { headers: { Authorization: auth } });
+        const focusData = await rc.json().catch(() => null);
+        if (focusData?.caminho_xml_nota_fiscal) {
+          xmlBytes = await baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth);
+        }
+      }
+      if (!xmlBytes) return json({ ok: false, erro: 'falha_baixar_xml_focus' }, 502);
+      const novoLink = await sbUpload(`${nota.empresa_id}/nfce-${nota_fiscal_nfce_id}.xml`, xmlBytes, 'application/xml');
+      const atualizado = await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
+        link_xml: novoLink,
+        arquivos_arquivados: true,
+        updated_at: new Date().toISOString(),
+      });
+      return json({ ok: true, nota: atualizado });
     }
 
     // acao === 'emitir' (padrão) — checa a cota do plano ANTES de gastar uma

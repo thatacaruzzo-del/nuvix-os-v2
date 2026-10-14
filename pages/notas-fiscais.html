@@ -408,6 +408,28 @@ function renderLista(){
   }).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">${esc(cfg.vazio)}</td></tr>`);
 }
 
+// Algumas notas antigas (achado real: Yup, NFC-e 6/7/11, canceladas em sequência
+// rápida em 03/09) ficaram com link_xml apontando direto pra Focus NFe, nunca
+// arquivado no nosso Storage — fetch direto do navegador falha sempre pra essas
+// (o link da Focus NFe exige o token de autenticação deles, que só o back-end tem).
+// Antes de baixar, garante que o link já é do nosso Storage, chamando a ação que
+// arquiva pra valer quando ainda não é — só nfce/nfe têm essa ação implementada
+// hoje; nfse/devolução seguem usando o link como está (comportamento inalterado).
+async function garantirXmlArquivado(nota, tipo){
+  if(nota.link_xml && nota.link_xml.includes('/storage/')) return nota.link_xml;
+  if(tipo!=='nfce' && tipo!=='nfe') return nota.link_xml;
+  const cfg=TIPO_CFG[tipo];
+  try{
+    const r=await fetch(`${SB}/functions/v1/${cfg.funcao}`,{method:'POST',headers:H,body:JSON.stringify({acao:'arquivar_xml',[cfg.idCampo]:nota.id})});
+    const resp=await r.json();
+    if(resp?.ok && resp.nota?.link_xml){
+      nota.link_xml=resp.nota.link_xml;
+      return resp.nota.link_xml;
+    }
+  }catch(e){ /* segue com o link antigo — se o fetch direto falhar também, o catch de quem chamou avisa o usuário */ }
+  return nota.link_xml;
+}
+
 // Baixa em lote o XML de cada nota que passa nos filtros atuais (Status,
 // Buscar, período) — mesmo filtro que a lista na tela já mostra, pra "o que
 // você tá vendo é o que baixa" ficar óbvio. Nem toda nota tem arquivo: "Não
@@ -431,7 +453,8 @@ async function baixarXmlsEmLote(){
     for(const n of comXml){
       btn.textContent=`Baixando... (${baixados+falharam}/${comXml.length})`;
       try{
-        const r=await fetch(n.link_xml);
+        const linkFinal=await garantirXmlArquivado(n,tipoAtual);
+        const r=await fetch(linkFinal);
         if(!r.ok)throw new Error('http '+r.status);
         const conteudo=await r.blob();
         const numero=n[cfg.campoNumero]||n.id.slice(0,8);
@@ -836,7 +859,8 @@ async function baixarXml(){
     // o texto cru numa aba, nunca baixava um arquivo de verdade. Busca o
     // conteúdo e força o download via blob, mesmo padrão de baixarXmlsEmLote().
     try{
-      const r=await fetch(notaAtual.link_xml);
+      const linkFinal=await garantirXmlArquivado(notaAtual,tipoAtual);
+      const r=await fetch(linkFinal);
       if(!r.ok)throw new Error('http '+r.status);
       const blob=await r.blob();
       const cfg=TIPO_CFG[tipoAtual];
