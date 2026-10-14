@@ -81,7 +81,7 @@ const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
 const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
-function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir: esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente. Se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbRpc(fn,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 // Ponte pro dashboard-confiavel.js: ele foi escrito esperando um client supabase-js
@@ -508,12 +508,12 @@ function renderPainelKpis(DC,{faturamentoTotal,ticketMedio,numVendas,numProdutos
   const cards=[
     {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}${subReceber}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)+rotuloHTML},
     {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)+rotuloHTML},
-    {lbl:'Variedade de produtos',val:String(numProdutos),sub:'produtos diferentes vendidos — não é quantidade de itens nem categorias',ic:'caixa'},
+    {lbl:'Variedade de produtos',val:String(numProdutos),sub:'produtos diferentes vendidos, não é quantidade de itens nem categorias',ic:'caixa'},
     {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Frete cobrado dos clientes',val:money(freteCobradoTotal||0),sub:'no período',ic:'caixa'},
     {lbl:'Custo de frete pago',val:money(freteCustoTotal||0),sub:'no período',ic:'caixa'},
-    {lbl:'Comissão de marketplace',val:money(comissaoMarketplaceTotal||0),sub:'Mercado Livre e outros canais — no período',ic:'fatia'},
+    {lbl:'Comissão de marketplace',val:money(comissaoMarketplaceTotal||0),sub:'Mercado Livre e outros canais, no período',ic:'fatia'},
   ].map(k=>`<div class="kpi-card">
     <div class="kpi-ic ${k.principal?'p':'n'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KPI_ICONES[k.ic]}</svg></div>
     <div class="kpi-label">${k.lbl}</div>

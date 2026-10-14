@@ -72,7 +72,7 @@ const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
 const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||SB_KEY);},'Content-Type':'application/json','Prefer':'return=representation'};
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
-function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';if(/^Já existe uma promoção ativa/i.test(m))return m;return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir: esse registro está vinculado a outro cadastro.';if(/^Já existe uma promoção ativa/i.test(m))return m;return'Algo deu errado. Tente novamente. Se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPost(t,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 async function dbPatch(t,id,d){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j}
@@ -252,10 +252,10 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-validade" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
           <h2 style="margin:0 0 4px">Entrada de mercadoria</h2>
-          <p class="field-hint" style="margin-bottom:8px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote — a venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
+          <p class="field-hint" style="margin-bottom:8px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote. A venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
           <div class="insight-line" style="margin-bottom:14px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;margin-top:2px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span>É uma compra de um fornecedor, com nota fiscal (XML ou não)? Use <a href="notas-fiscais.html" style="color:var(--p);font-weight:700">Notas Fiscais → Notas de Entrada</a> — além do estoque e do lote, já registra o fornecedor e lança a conta a pagar no Financeiro sozinho.</span>
+            <span>É uma compra de um fornecedor, com nota fiscal (XML ou não)? Use <a href="notas-fiscais.html" style="color:var(--p);font-weight:700">Notas Fiscais → Notas de Entrada</a>: além do estoque e do lote, já registra o fornecedor e lança a conta a pagar no Financeiro sozinho.</span>
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:1;min-width:180px"><label>Loja *</label><select id="entLoja"></select></div>
@@ -345,7 +345,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-promocoes" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
           <h2 style="margin:0 0 4px">Nova promoção</h2>
-          <p class="field-hint" style="margin-bottom:14px">Preço vale só dentro do período — o cadastro do produto não muda. Não dá pra ter duas promoções do mesmo produto com período sobreposto na mesma loja (o sistema bloqueia).</p>
+          <p class="field-hint" style="margin-bottom:14px">Preço vale só dentro do período. O cadastro do produto não muda. Não dá pra ter duas promoções do mesmo produto com período sobreposto na mesma loja (o sistema bloqueia).</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:2;min-width:220px"><label>Produto *</label><select id="promoProduto"></select></div>
             <div class="field" id="promoLojaWrap" style="flex:1;min-width:180px;display:none"><label>Loja</label><select id="promoLoja"><option value="">Todas as lojas</option></select></div>
@@ -374,7 +374,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-kits" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
           <h2 style="margin:0 0 4px" id="kitFormTitulo">Novo kit</h2>
-          <p class="field-hint" style="margin-bottom:14px">O kit não tem estoque próprio — ao vender, cada produto que faz parte dele é baixado do estoque normalmente. Preço combinado é feito na venda toda, item a item, igual um desconto.</p>
+          <p class="field-hint" style="margin-bottom:14px">O kit não tem estoque próprio: ao vender, cada produto que faz parte dele é baixado do estoque normalmente. Preço combinado é feito na venda toda, item a item, igual um desconto.</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:2;min-width:220px"><label>Nome do kit *</label><input id="kitNome" placeholder="Ex: Kit Churrasco"></div>
             <div class="field" style="flex:1;min-width:180px"><label>Código de barras</label><input id="kitCodigoBarras" placeholder="Opcional"></div>
@@ -432,7 +432,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <input type="hidden" id="consId">
   <div class="field"><label>Nome *</label><input id="consNome" placeholder="Nome de quem consigna"></div>
   <div class="field"><label>Telefone</label><input id="consTelefone" placeholder="(11) 99999-9999"></div>
-  <div class="field"><label>Markup informado pelo consignador (%)</label><input id="consMarkup" type="text" inputmode="decimal" placeholder="Ex: 250" oninput="sanitizarDecimal(this);calcularRepassePorMarkup()"><div class="field-hint">Se ele só passou o preço de venda e disse algo como "boto 250% em cima do custo", preencha aqui — calculamos o % de repasse equivalente (100 ÷ (1 + markup/100)) no campo abaixo, que continua editável.</div></div>
+  <div class="field"><label>Markup informado pelo consignador (%)</label><input id="consMarkup" type="text" inputmode="decimal" placeholder="Ex: 250" oninput="sanitizarDecimal(this);calcularRepassePorMarkup()"><div class="field-hint">Se ele só passou o preço de venda e disse algo como "boto 250% em cima do custo", preencha aqui: calculamos o % de repasse equivalente (100 ÷ (1 + markup/100)) no campo abaixo, que continua editável.</div></div>
   <div class="field"><label>% de repasse *</label><input id="consPercentual" type="text" inputmode="decimal" placeholder="Ex: 50" oninput="sanitizarDecimal(this)"><div class="field-hint">Quanto ele recebe de cada venda dos produtos dele. O resto fica com você.</div></div>
   <div id="consignadorMsg" class="msg"></div>
   <div class="modal-actions">
@@ -446,7 +446,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <div class="modal-overlay" id="modalCsosnPadrao">
 <div class="modal">
   <h3>CSOSN/CST padrão da empresa</h3>
-  <p class="field-hint" style="margin-bottom:12px">Na prática é o mesmo código pra quase todo o catálogo — depende do regime tributário da empresa, não do produto. Configure uma vez aqui e todo produto novo (inclusive os importados do Mercado Livre) já nasce preenchido. Não sabe o valor certo? Confirme com seu contador.</p>
+  <p class="field-hint" style="margin-bottom:12px">Na prática é o mesmo código pra quase todo o catálogo, depende do regime tributário da empresa, não do produto. Configure uma vez aqui e todo produto novo (inclusive os importados do Mercado Livre) já nasce preenchido. Não sabe o valor certo? Confirme com seu contador.</p>
   <div class="field"><label>CSOSN/CST padrão</label><input id="csosnPadraoInput" placeholder="Ex: 102"></div>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:12px 0 4px">
     <input type="checkbox" id="csosnPadraoAplicarTodos" checked>
@@ -484,15 +484,15 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div class="field" style="flex:1;margin-bottom:0">
         <label>Origem da mercadoria</label>
         <select id="prodOrigem">
-          <option value="0">0 — Nacional</option>
-          <option value="1">1 — Estrangeira, importação direta</option>
-          <option value="2">2 — Estrangeira, adquirida no mercado interno</option>
-          <option value="3">3 — Nacional, +40% importado</option>
-          <option value="4">4 — Nacional, processo produtivo básico</option>
-          <option value="5">5 — Nacional, ≤40% importado</option>
-          <option value="6">6 — Estrangeira, importação direta, sem similar nacional</option>
-          <option value="7">7 — Estrangeira, mercado interno, sem similar nacional</option>
-          <option value="8">8 — Nacional, +70% importado</option>
+          <option value="0">0: Nacional</option>
+          <option value="1">1: Estrangeira, importação direta</option>
+          <option value="2">2: Estrangeira, adquirida no mercado interno</option>
+          <option value="3">3: Nacional, +40% importado</option>
+          <option value="4">4: Nacional, processo produtivo básico</option>
+          <option value="5">5: Nacional, ≤40% importado</option>
+          <option value="6">6: Estrangeira, importação direta, sem similar nacional</option>
+          <option value="7">7: Estrangeira, mercado interno, sem similar nacional</option>
+          <option value="8">8: Nacional, +70% importado</option>
         </select>
       </div>
       <div class="field" style="flex:1;margin-bottom:0"><label>CST/CSOSN</label><input id="prodCstCsosn" placeholder="Depende do regime tributário da empresa"></div>
@@ -506,11 +506,11 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div class="field" style="flex:1;margin-bottom:0"><label>CST IBS/CBS (Reforma)</label><input id="prodCstIbsCbs" placeholder="000" maxlength="3"></div>
       <div class="field" style="flex:2;margin-bottom:0"><label>cClassTrib (Reforma)</label><input id="prodCclasstrib" placeholder="000001" maxlength="6"></div>
     </div>
-    <div class="field-hint" style="margin-top:4px">Reforma Tributária (IBS/CBS) — "000" + "000001" é a classificação padrão de venda tributada normalmente, sem isenção/redução. Só muda se o produto tiver uma regra especial (cesta básica, medicamento etc.) — confirme com a contabilidade antes de alterar.</div>
+    <div class="field-hint" style="margin-top:4px">Reforma Tributária (IBS/CBS): "000" + "000001" é a classificação padrão de venda tributada normalmente, sem isenção/redução. Só muda se o produto tiver uma regra especial (cesta básica, medicamento etc.). Confirme com a contabilidade antes de alterar.</div>
   </div>
   <div class="field">
     <label>Dimensões (envio)</label>
-    <div class="field-hint" style="margin-bottom:8px">Opcional — só precisa preencher se for gerar etiqueta dos Correios automaticamente pra esse produto (Pedido Manual → Envio).</div>
+    <div class="field-hint" style="margin-bottom:8px">Opcional, só precisa preencher se for gerar etiqueta dos Correios automaticamente pra esse produto (Pedido Manual → Envio).</div>
     <div style="display:flex;gap:12px">
       <div class="field" style="flex:1;margin-bottom:0"><label>Peso (kg)</label><input id="prodPesoKg" type="text" inputmode="decimal" placeholder="0,000" oninput="sanitizarDecimal(this)"></div>
       <div class="field" style="flex:1;margin-bottom:0"><label>Altura (cm)</label><input id="prodAlturaCm" type="text" inputmode="decimal" placeholder="0" oninput="sanitizarDecimal(this)"></div>
@@ -523,21 +523,21 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodConsignado" onchange="toggleFornecedorConsignado()" style="width:auto"> Produto consignado</label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="prodControlaValidade" style="width:auto"> Controla validade (lote)</label>
   </div>
-  <div class="field-hint" style="margin-top:-10px;margin-bottom:14px">Perecível — ligue aqui pra exigir data de validade na Entrada de Mercadoria e habilitar a baixa por lote (FEFO) e os alertas de vencimento.</div>
+  <div class="field-hint" style="margin-top:-10px;margin-bottom:14px">Perecível: ligue aqui pra exigir data de validade na Entrada de Mercadoria e habilitar a baixa por lote (FEFO) e os alertas de vencimento.</div>
   <div class="field" id="prodConsignadoFornecedorWrap" style="display:none">
     <label>Consignador *</label>
     <div style="display:flex;gap:8px">
       <select id="prodConsignador" style="flex:1"></select>
       <button type="button" class="btn2" onclick="abrirModalConsignador(true)" style="white-space:nowrap">+ Novo</button>
     </div>
-    <div class="field-hint">De quem é esse produto — define quanto repassar quando ele vender.</div>
+    <div class="field-hint">De quem é esse produto: define quanto repassar quando ele vender.</div>
   </div>
   <div style="display:flex;gap:12px">
     <div class="field" style="flex:1"><label>Custo do produto</label><input id="prodCusto" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);atualizarPrecoSugerido()"><div class="field-hint">Quanto custou pra você. Usado pra calcular o preço sugerido.</div></div>
-    <div class="field" style="flex:1"><label>Preço sugerido (automático)</label><input id="prodSugerido" disabled style="background:#F7F7FA"><div class="field-hint">Calculado pelo custo + markup da categoria — só uma referência.</div></div>
+    <div class="field" style="flex:1"><label>Preço sugerido (automático)</label><input id="prodSugerido" disabled style="background:#F7F7FA"><div class="field-hint">Calculado pelo custo + markup da categoria, só uma referência.</div></div>
   </div>
   <div class="field">
-    <label>👉 Preço de venda final — digite aqui *</label>
+    <label>👉 Preço de venda final, digite aqui *</label>
     <input id="prodPrecoFinal" type="text" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);checarSobrescrito()">
     <div class="field-hint" id="prodSobrescritoHint">Esse é o preço que o cliente vai pagar. Pode ser igual ao sugerido ou diferente.</div>
   </div>
@@ -619,7 +619,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
   <div id="importProdLojaWrap" class="field" style="display:none">
     <label>Loja (aplicada às linhas sem coluna "loja" reconhecida) *</label>
     <select id="importProdLojaPadrao" onchange="reprocessarImportacaoProdutos()"></select>
-    <div class="field-hint">Sua empresa tem mais de uma loja ativa. O CSV pode trazer uma coluna "loja" com o identificador de cada loja (ex: L1, L2) — quando uma linha não tiver isso ou não bater com nenhuma loja cadastrada, ela usa a loja escolhida aqui.</div>
+    <div class="field-hint">Sua empresa tem mais de uma loja ativa. O CSV pode trazer uma coluna "loja" com o identificador de cada loja (ex: L1, L2). Quando uma linha não tiver isso ou não bater com nenhuma loja cadastrada, ela usa a loja escolhida aqui.</div>
   </div>
   <div class="field">
     <label>Arquivo (.csv)</label>
@@ -726,7 +726,7 @@ async function carregarTudo(){
     try{
       const nova=await dbPost('lojas',withEmpresa({nome:'Loja 1',tipo:'Loja física',identificador:'L1',ativo:true}));
       dados.lojas=[Array.isArray(nova)?nova[0]:nova];
-      toast('Criamos a "Loja 1" automaticamente pra você começar — pode renomear na aba Lojas.','ok');
+      toast('Criamos a "Loja 1" automaticamente pra você começar. Pode renomear na aba Lojas.','ok');
     }catch(e){ /* se falhar, segue sem loja — usuário ainda consegue criar manualmente na aba Lojas */ }
   }
   renderProdutos(); renderCategorias(); renderEstoque(); renderTransferencias(); renderLojas(); renderKpisProdutos(); renderConsignadores(); renderValidade(); renderPromocoes(); renderKits();
@@ -812,7 +812,7 @@ function renderProdutos(){
   if(filtroSemCustoAtivo) lista=lista.filter(p=>p.ativo!==false&&!(Number(p.custo_atual||0)>0));
   setHTML('produtosFiltroBanner', filtroSemCustoAtivo
     ? `<div class="msg show err" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <span>Mostrando só produtos ativos sem custo cadastrado (${lista.length}) — é o que está deixando a margem do dashboard "Indisponível" ou parcial.</span>
+        <span>Mostrando só produtos ativos sem custo cadastrado (${lista.length}). É o que está deixando a margem do dashboard "Indisponível" ou parcial.</span>
         <button class="btn2" style="padding:6px 12px;font-size:12px;flex-shrink:0" onclick="limparFiltroSemCusto()">Limpar filtro</button>
       </div>` : '');
   const ordem=val('ordemProduto')||'nome_asc';
@@ -853,7 +853,7 @@ function renderEstoqueAtualCampos(produtoId){
       <span style="flex:1;font-size:13px">${esc(nomeLoja(e.loja_id))}</span>
       <b style="width:60px;text-align:right">${Number(e.quantidade||0)}</b>
       <button class="btn2" style="padding:6px 12px" onclick="abrirModalAjusteEstoque('${e.id}')">Ajustar</button>
-    </div>`).join(''):'<p class="field-hint">Sem estoque cadastrado pra esse produto ainda — cadastre uma loja em "Lojas".</p>';
+    </div>`).join(''):'<p class="field-hint">Sem estoque cadastrado pra esse produto ainda. Cadastre uma loja em "Lojas".</p>';
 }
 function toggleFornecedorConsignado(){
   $('prodConsignadoFornecedorWrap').style.display=$('prodConsignado').checked?'block':'none';
@@ -939,7 +939,7 @@ function checarSobrescrito(){
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);
   const final=numBR('prodPrecoFinal');
-  $('prodSobrescritoHint').textContent=(final&&sugerido&&Math.abs(final-sugerido)>0.01)?'Preço editado manualmente — diferente do sugerido.':DICA_PRECO_PADRAO;
+  $('prodSobrescritoHint').textContent=(final&&sugerido&&Math.abs(final-sugerido)>0.01)?'Preço editado manualmente, diferente do sugerido.':DICA_PRECO_PADRAO;
 }
 async function salvarProduto(){
   const nome=val('prodNome').trim();
@@ -1196,7 +1196,7 @@ function renderPreviewImportacaoProdutos(){
   const nadaPraImportar=(novos+atualizacoes)===0;
   $('importProdConfirmarBtn').disabled=nadaPraImportar||semLojaResolvida;
   if(semLojaResolvida){
-    $('importProdMsg').textContent='Algumas linhas não têm loja identificada — selecione uma loja padrão acima.';
+    $('importProdMsg').textContent='Algumas linhas não têm loja identificada. Selecione uma loja padrão acima.';
     $('importProdMsg').className='msg show err';
   }else{
     $('importProdMsg').textContent='';$('importProdMsg').className='msg';
@@ -1394,7 +1394,7 @@ function abrirModalAjusteEstoque(estoqueId){
   if(!linha)return;
   const produto=dados.produtos.find(p=>p.id===linha.produto_id);
   $('ajusteEstoqueId').value=estoqueId;
-  $('ajusteEstoqueInfo').textContent=`${produto?.nome||''} — ${nomeLoja(linha.loja_id)} — estoque atual: ${Number(linha.quantidade||0)}`;
+  $('ajusteEstoqueInfo').textContent=`${produto?.nome||''} · ${nomeLoja(linha.loja_id)} · estoque atual: ${Number(linha.quantidade||0)}`;
   $('ajusteNovaQtd').value=Number(linha.quantidade||0);
   $('ajusteEstoqueMinimo').value=Number(linha.estoque_minimo||0);
   $('ajusteMotivo').value='';
@@ -1411,7 +1411,7 @@ async function confirmarAjusteEstoque(){
   if(!motivo){msg('ajusteEstoqueMsg','Informe o motivo do ajuste.','err');return;}
   const anterior=Number(linha.quantidade||0);
   const minimoAnterior=Number(linha.estoque_minimo||0);
-  if(novaQtd===anterior&&novoMinimo===minimoAnterior){msg('ajusteEstoqueMsg','Nada mudou — quantidade e mínimo iguais aos atuais.','err');return;}
+  if(novaQtd===anterior&&novoMinimo===minimoAnterior){msg('ajusteEstoqueMsg','Nada mudou, quantidade e mínimo iguais aos atuais.','err');return;}
   try{
     await dbPatch('estoque_por_loja',estoqueId,{quantidade:novaQtd,estoque_minimo:novoMinimo,updated_at:new Date().toISOString()});
     if(novaQtd!==anterior){
@@ -1476,7 +1476,7 @@ async function confirmarEntradaMercadoria(){
   if(!quantidade||quantidade<=0){msg('entradaMsg','Informe uma quantidade válida.','err');return;}
   const controlaValidade=!!produto?.controla_validade;
   const dataValidade=val('entValidade');
-  if(controlaValidade&&!dataValidade){msg('entradaMsg','Esse produto controla validade — informe a data de vencimento.','err');return;}
+  if(controlaValidade&&!dataValidade){msg('entradaMsg','Esse produto controla validade: informe a data de vencimento.','err');return;}
   const custoUnitario=val('entCusto')?numBR('entCusto'):null;
   if(custoUnitario!==null&&custoUnitario<0){msg('entradaMsg','O custo não pode ser negativo.','err');return;}
   const linhaEstoque=dados.estoque.find(e=>e.produto_id===produtoId&&e.loja_id===lojaId);
@@ -1521,7 +1521,7 @@ async function descartarLote(id){
         referencia_tipo:'ajuste', usuario_id:session?.id||null,
       }));
     }
-    toast('Lote descartado — baixado do estoque e registrado como perda.','ok');
+    toast('Lote descartado, baixado do estoque e registrado como perda.','ok');
     await carregarTudo();
   }catch(e){toast('Erro ao descartar: '+e.message,'err');}
 }

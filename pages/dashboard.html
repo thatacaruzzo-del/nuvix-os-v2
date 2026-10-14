@@ -310,7 +310,7 @@ const KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 function tokenAtual(){try{return JSON.parse(sessionStorage.getItem('nuvix_v2_session')||'null')?.access_token||null;}catch(e){return null;}}
 const H={'apikey':KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||KEY);}};
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
-function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
+function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir: esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente. Se continuar, entre em contato com o suporte.';}
 const db={get:async(t,q)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}};
 async function dbRpc(fn,params){_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 // Ponte pro dashboard-confiavel.js: ele foi escrito esperando um client supabase-js
@@ -433,9 +433,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <span class="adv-lbl">Base da consulta
               <button class="info-btn" type="button" aria-label="O que é base da consulta">i
                 <span class="info-tooltip">
-                  <b>Vencimento</b> — data em que a conta vence.<br>
-                  <b>Pagamento</b> — data em que foi efetivamente paga ou recebida.<br>
-                  <b>Lançamento</b> — data em que o registro foi criado.
+                  <b>Vencimento</b>: data em que a conta vence.<br>
+                  <b>Pagamento</b>: data em que foi efetivamente paga ou recebida.<br>
+                  <b>Lançamento</b>: data em que o registro foi criado.
                 </span>
               </button>
             </span>
@@ -653,7 +653,7 @@ async function init(){
   $('userAvatar').textContent = initials(session.nome||'');
   const h = new Date().getHours();
   const nome = session.nome?.split(' ')[0]||'';
-  const saudacao = (h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+(nome?' — '+nome:'')+' 👋';
+  const saudacao = (h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+(nome?', '+nome:'')+' 👋';
   const emp = session.empresa;
   if(emp){
     $('topbarSub').textContent = saudacao+' · '+(emp.fantasia||emp.razao||'');
@@ -1377,12 +1377,12 @@ const NARRATIVA_TEMPLATES = {
 };
 const PORQUE_IMPORTA = {
   'financeiro-caixa-negativo':'Sem caixa positivo, compromissos já assumidos podem ficar sem cobertura.',
-  'financeiro-resultado-negativo':'O resultado do período é diferente do caixa disponível — ele mostra se o ritmo atual está gerando ou consumindo caixa.',
+  'financeiro-resultado-negativo':'O resultado do período é diferente do caixa disponível: ele mostra se o ritmo atual está gerando ou consumindo caixa.',
   'financeiro-contas-desequilibradas':'Contas a pagar são compromissos praticamente certos; contas a receber dependem do cliente pagar em dia.',
   'operacao-atrasadas':'Atrasos recorrentes afetam a percepção do cliente sobre a confiabilidade do serviço.',
   'operacao-fila-crescendo':'Quando mais OS abrem do que fecham no mesmo período, o trabalho pendente se acumula.',
   'comercial-sem-leads':'Sem leads entrando, não há novos negócios em formação no funil.',
-  'comercial-conversao-queda':'Conversão mede quantos leads viram negócio — uma queda indica perda de eficiência no funil.',
+  'comercial-conversao-queda':'Conversão mede quantos leads viram negócio, uma queda indica perda de eficiência no funil.',
   'materiais-zerado':'Sem estoque, uma OS que dependa desse material não pode ser concluída.',
   'materiais-abaixo-minimo':'Estoque abaixo do mínimo é o estágio anterior a zerar.',
   'rh-horas-extras':'Horas extras sustentadas por muito tempo custam mais que reforçar a equipe, e podem indicar sobrecarga.',
@@ -1391,7 +1391,7 @@ const PORQUE_IMPORTA = {
   'materiais-consumo-eficiente':'Manter o mesmo volume de operação consumindo menos material é ganho de eficiência real.',
   'operacao-os-concluidas':'Mostra o ritmo de entrega da operação no período.',
   'comercial-novos-clientes':'Reflete o resultado direto do funil comercial no período.',
-  'financeiro-projecao-negativa':'Essa projeção considera só o que já está agendado no sistema — não é previsão de novas vendas.',
+  'financeiro-projecao-negativa':'Essa projeção considera só o que já está agendado no sistema, não é previsão de novas vendas.',
   'comercial-tendencia-leads-queda':'Um funil mais vazio hoje tende a significar menos fechamentos daqui a algumas semanas.',
 };
 const IMPACTO = {
@@ -1451,7 +1451,7 @@ function gerarResumoExecutivo(atual, diff, principais){
     const complemento = semPontos.length ? `, enquanto ${semPontos.slice(0,2).map(a=>AREA_LABEL[a]).join(' e ')} segue${semPontos.length===1?'':'m'} estável` : '';
     return `O principal ponto de atenção hoje está no ${AREA_LABEL[prioridade.area]}${complemento}.`;
   }
-  if(atencao && oportunidade) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]} — e aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
+  if(atencao && oportunidade) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}, e aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
   if(atencao) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}.`;
   if(oportunidade) return `A empresa está saudável, com espaço para melhorar no ${AREA_LABEL[oportunidade.area]}.`;
   return 'Sem pontos relevantes para destacar neste período.';
@@ -1461,7 +1461,7 @@ function gerarResumoExecutivo(atual, diff, principais){
 // categoria), "ver todos" só quando existirem mais insights do que os 4 mostrados.
 const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
 const CONFIANCA_LBL = {alta:'Alta', media:'Média', baixa:'Baixa'};
-const CONFIANCA_TOOLTIP = '<b>Alta</b> — fato direto nos dados.<br><b>Média</b> — leitura de tendência, com alguma interpretação.<br><b>Baixa</b> — correlação entre métricas que pode ter outras causas; vale investigar antes de agir.';
+const CONFIANCA_TOOLTIP = '<b>Alta</b>: fato direto nos dados.<br><b>Média</b>: leitura de tendência, com alguma interpretação.<br><b>Baixa</b>: correlação entre métricas que pode ter outras causas; vale investigar antes de agir.';
 // Onboarding: com poucos lançamentos confirmados, qualquer veredito (mesmo "empresa saudável")
 // é pouco confiável — a régua é contar dado real (nunca proxy), então usamos o próprio total de
 // lançamentos confirmados na história inteira da conta, sem filtro de período.
@@ -1570,12 +1570,12 @@ function renderInteligenciaNuvix(){
   if(!podeVerIA()){ renderInteligenciaNuvixBloqueada(); return; }
   const totalConfirmados = contarLancamentosConfirmados();
   if(totalConfirmados < MIN_LANCAMENTOS_DIAGNOSTICO){
-    setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><span class="estado-geral-dot"></span>Ainda reunindo dados — ${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div>`);
+    setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><span class="estado-geral-dot"></span>Ainda reunindo dados, ${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div>`);
     setHTML('inteligenciaNuvix', `
       <div class="ia-master-card">
         <div class="ia-eyebrow">Inteligência Nuvix</div>
         <div class="ia-resumo">Ainda reunindo dados suficientes pra gerar diagnósticos confiáveis.</div>
-        <div class="ia-onboarding-txt">Continue lançando receitas e despesas confirmadas — a análise aparece automaticamente assim que houver histórico suficiente (${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO}).</div>
+        <div class="ia-onboarding-txt">Continue lançando receitas e despesas confirmadas. A análise aparece automaticamente assim que houver histórico suficiente (${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO}).</div>
         <div class="ia-checklist-titulo">Primeiros passos</div>
         ${renderChecklistOnboarding()}
       </div>`);
@@ -1794,7 +1794,7 @@ async function renderHeroDiagnostico(){
 
   let sub, acaoSub='', badgeHTML=`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`;
   if(caixa<0){
-    sub='O caixa está negativo — verifique os pagamentos pendentes antes de assumir novos compromissos.';
+    sub='O caixa está negativo. Verifique os pagamentos pendentes antes de assumir novos compromissos.';
   }else if(negDias){
     sub=`Seu caixa pode ficar negativo em ${negDias} dia${negDias>1?'s':''} caso nenhum recebimento previsto se confirme.`;
   }else{
@@ -1821,7 +1821,7 @@ async function renderHeroDiagnostico(){
   if(prox){
     const dias=Math.round((new Date(prox.vencimento+'T12:00:00')-new Date(hoje()+'T12:00:00'))/864e5);
     const quando=dias<=0?'Vence hoje':dias===1?'Vence amanhã':`Vence em ${dias} dias`;
-    setHTML('heroProximoVal',`${esc(prox.favorecido||prox.descricao||'Pagamento')} — ${money(prox.valor)}`);
+    setHTML('heroProximoVal',`${esc(prox.favorecido||prox.descricao||'Pagamento')} · ${money(prox.valor)}`);
     setHTML('heroProximoDias',quando);
   }else{
     setHTML('heroProximoVal','Nenhum pagamento pendente');
