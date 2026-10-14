@@ -392,6 +392,7 @@ const MODULOS_TODOS=[
 ];
 const MODULOS_PLANO={
   'Start':['dashboard','financeiro','contas_pagar','contas_receber','usuarios','relatorios','configuracoes'],
+  'Financeiro':['dashboard','financeiro','contas_pagar','contas_receber','notas_fiscais','usuarios','relatorios','configuracoes'],
   'Pro':  ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','ordens_servico','servicos','usuarios','relatorios','configuracoes','notas_fiscais'],
   'Plus': ['dashboard','caixa','produtos','estoque','financeiro','contas_pagar','contas_receber','transporte','crm','materiais','vendas','ordens_servico','servicos','rh','folha_ponto','folha_pagamento','usuarios','relatorios','configuracoes','integracoes','ia','notas_fiscais'],
 };
@@ -963,7 +964,7 @@ function toggleSenhaAdmin(){
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="field"><label>Empresa</label><select id="assEmpresa"></select></div>
       <div class="field"><label>Plano</label>
-        <select id="assPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+        <select id="assPlano"><option>Start</option><option>Financeiro</option><option>Pro</option><option>Plus</option></select>
       </div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="assValor" step="0.01" placeholder="0,00"></div>
       <div class="field"><label>Vencimento</label><input type="date" id="assVenc"></div>
@@ -1078,7 +1079,7 @@ function toggleSenhaAdmin(){
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="field"><label>Empresa (cliente)</label><select id="finRecEmpresa"></select></div>
       <div class="field"><label>Plano</label>
-        <select id="finRecPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+        <select id="finRecPlano"><option>Start</option><option>Financeiro</option><option>Pro</option><option>Plus</option></select>
       </div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="finRecValor" step="0.01" placeholder="0,00"></div>
       <div class="field"><label>Data do pagamento</label><input type="date" id="finRecData"></div>
@@ -1346,7 +1347,7 @@ function toggleSenhaAdmin(){
       </select>
     </div>
     <div class="field"><label>Plano *</label>
-      <select id="empPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+      <select id="empPlano"><option>Start</option><option>Financeiro</option><option>Pro</option><option>Plus</option></select>
     </div>
     <div class="field"><label>Status *</label>
       <select id="empStatusConta">
@@ -1399,7 +1400,7 @@ function toggleSenhaAdmin(){
     </div>
     <div class="field"><label>Plano</label>
       <select id="editEmpPlano" onchange="atualizarModulosPorPlano()">
-        <option>Start</option><option>Pro</option><option>Plus</option>
+        <option>Start</option><option>Financeiro</option><option>Pro</option><option>Plus</option>
       </select>
     </div>
     <div class="field"><label>Status</label>
@@ -1625,7 +1626,7 @@ function toggleSenhaAdmin(){
   <input type="hidden" id="editAssId">
   <div class="form-grid" style="grid-template-columns:1fr 1fr">
     <div class="field"><label>Plano</label>
-      <select id="editAssPlano"><option>Start</option><option>Pro</option><option>Plus</option></select>
+      <select id="editAssPlano"><option>Start</option><option>Financeiro</option><option>Pro</option><option>Plus</option></select>
     </div>
     <div class="field"><label>Valor (R$)</label><input type="number" id="editAssValor" step="0.01"></div>
     <div class="field"><label>Vencimento</label><input type="date" id="editAssVenc"></div>

@@ -28,7 +28,7 @@ const PLANO_MINIMO_MODULO = {
   rh: 'Plus', folha_ponto: 'Plus', folha_pagamento: 'Plus', integracoes: 'Plus', ia: 'Plus',
   notas_fiscais: 'Pro', // liberado a partir do Pro, mas com cota mensal — ver plano_cota_nf
 };
-const PRECO_PLANO = { Start: '97,90', Pro: '147,90', Plus: '190,00' };
+const PRECO_PLANO = { Start: '97,90', Financeiro: '147,90', Pro: '147,90', Plus: '190,00' };
 const ORDEM_PLANO = ['Start', 'Pro', 'Plus'];
 
 // Copy de cada módulo bloqueável — usado no card de upsell. Só precisa de
