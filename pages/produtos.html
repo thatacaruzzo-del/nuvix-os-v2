@@ -698,6 +698,16 @@ async function init(){
     if(emp.trial_fim){const dias=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(dias>0){$('trialBadge').textContent=`Teste grátis: ${dias} dias`;$('trialBadge').style.display='inline-block';}}
   }
   await carregarTudo();
+  // ?aba=estoque&status=zerado — vindo do mini-card "Estoque" do Painel Executivo,
+  // que precisa abrir direto na lista de produtos zerados, sem o cliente ter que
+  // navegar até a aba e escolher o filtro na mão.
+  const paramsUrl=new URLSearchParams(location.search);
+  if(paramsUrl.get('aba')==='estoque'){
+    abaTab('estoque',$('tabBtnEstoque'));
+    const status=paramsUrl.get('status');
+    if(status&&$('estoqueStatusFiltro')){ $('estoqueStatusFiltro').value=status; paginaEstoque=1; renderEstoque(); }
+    $('pane-estoque')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
   $('pageLoader')?.classList.add('hide');
 }
 

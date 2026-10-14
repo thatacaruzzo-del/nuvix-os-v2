@@ -645,6 +645,12 @@ async function init(){
   recomputePeriodo();
   atualizarLegendaFiltro();
   await loadData();
+  // ?novo=despesa — vindo do aviso "Cadastre suas despesas fixas" do dashboard confiável
+  // (Painel Executivo), que precisa abrir direto no formulário de despesa, não só na tela.
+  if(new URLSearchParams(location.search).get('novo')==='despesa'){
+    abrirNovoLancamento();
+    if($('lanTipo'))$('lanTipo').value='Despesa';
+  }
   $('pageLoader')?.classList.add('hide');
 }
 

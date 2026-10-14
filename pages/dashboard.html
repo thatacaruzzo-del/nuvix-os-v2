@@ -115,13 +115,19 @@
 #heroCaixaTrend .kpi-trend{font-weight:700}
 
 /* ── Selo de estado geral — veredito único cruzando os 5 setores + Inteligência Nuvix,
-   sempre mostrando o pior caso primeiro (evita o selo antigo, que só refletia o caixa) ── */
-.estado-geral{display:flex;align-items:center;gap:10px;padding:11px 18px;border-radius:12px;margin-bottom:16px;font-size:13.5px;font-weight:700}
+   sempre mostrando o pior caso primeiro (evita o selo antigo, que só refletia o caixa).
+   Banner baixo: título + 1 linha à esquerda, botão de ação à direita — só o alerta de
+   maior prioridade (o resto fica na aba Visão geral, sem repetir aqui). ── */
+.estado-geral{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px;border-radius:12px;margin-bottom:16px}
 .estado-geral.prioridade{background:var(--red-bg);color:var(--red)}
 .estado-geral.atencao{background:var(--amber-bg);color:var(--amber)}
 .estado-geral.ok{background:var(--green-bg);color:var(--green)}
 .estado-geral.onboarding{background:var(--p-light);color:var(--p2)}
-.estado-geral-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.estado-geral-txt{min-width:0}
+.estado-geral-titulo{font-size:12.5px;font-weight:800;line-height:1.3}
+.estado-geral-linha{font-size:12px;font-weight:500;opacity:.85;line-height:1.35;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.estado-geral-btn{flex-shrink:0;background:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:11.5px;font-weight:700;color:inherit;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.estado-geral-btn:hover{opacity:.85}
 .ia-onboarding-txt{font-size:13px;color:var(--muted);line-height:1.5;margin-top:4px}
 .ia-checklist-titulo{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin:20px 0 10px}
 .ia-checklist{display:flex;flex-direction:column;gap:2px}
@@ -134,14 +140,14 @@
 .ia-checklist-item.done .ia-checklist-txt{color:var(--muted);text-decoration:line-through}
 .ia-checklist-link{font-size:12.5px;color:var(--p);font-weight:700;text-decoration:none;white-space:nowrap}
 
-/* ── Hero consolidado — caixa + tira de status dos 5 setores + top insight, tudo em 1 lugar ── */
-.hero-status-strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+/* ── Hero consolidado — caixa + tira de status dos 5 setores + top insight, tudo em 1 lugar.
+   Cada setor é um mini-card clicável (não só texto), levando direto pra tela do setor. ── */
+.hero-status-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 
 .agenda-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
 @media(max-width:1100px){.agenda-grid{grid-template-columns:1fr}}
 .widget-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .widget-head h3{font-size:14px;font-weight:800;color:var(--txt)}
-.widget-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--p);background:var(--p-light);padding:3px 9px;border-radius:20px;white-space:nowrap}
 .agenda-row{display:flex;align-items:center;gap:12px;width:100%;padding:9px;margin:1px 0;border-radius:11px;border:none;background:none;cursor:pointer;text-align:left;font-family:inherit;transition:background .12s}
 .agenda-row:hover{background:var(--bg)}
 .agenda-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -150,7 +156,8 @@
 .agenda-row .info b{display:block;font-size:12.5px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agenda-row .info span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agenda-empty{text-align:center;padding:20px;color:var(--muted);font-size:13px}
-.hstat{flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px}
+.hstat{display:flex;flex-direction:column;gap:3px;background:var(--bg);border:none;border-radius:12px;padding:12px 14px;min-width:0;text-align:left;font-family:inherit;cursor:pointer;transition:background .12s,transform .12s}
+.hstat:hover{background:var(--p-light);transform:translateY(-1px)}
 .hstat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:flex;align-items:center;gap:5px}
 .hstat-lbl .atencao-dot{width:6px;height:6px}
 .hstat-val{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -183,21 +190,24 @@
 .ia-master-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:24px 26px;box-shadow:var(--shadow)}
 .ia-eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--p2);margin-bottom:9px}
 .ia-resumo{font-size:16px;font-weight:600;color:var(--txt);line-height:1.45;letter-spacing:-.01em;margin-bottom:16px}
+.ia-aviso-cobertura{font-size:12.5px;color:var(--muted);background:var(--bg,#FAFAFB);border-radius:10px;padding:10px 14px;margin:-6px 0 16px}
+.ia-aviso-cobertura a{color:var(--p);font-weight:700;text-decoration:none;margin-left:4px}
 .ia-lista{display:flex;flex-direction:column}
 .ia-row{display:flex;gap:12px;padding:16px 0;border-top:1px solid var(--bg)}
 .ia-row:first-child{border-top:none;padding-top:0}
-.ia-dot{width:7px;height:7px;border-radius:50%;margin-top:7px;flex-shrink:0}
-.ia-dot.prioridade{background:var(--red)}
-.ia-dot.atencao{background:var(--amber)}
-.ia-dot.oportunidade{background:var(--green)}
-.ia-dot.informacao{background:var(--blue)}
 .ia-row-body{flex:1;min-width:0}
-.ia-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:block;margin-bottom:4px}
+/* Etiqueta colorida de tipo — substitui o antigo par "pontinho colorido + texto cinza
+   maiúsculo" por uma única pílula já com a cor do tipo, mais fácil de escanear. */
+.ia-badge{font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:8px}
+.ia-badge.prioridade{background:var(--red-bg);color:var(--red)}
+.ia-badge.atencao{background:var(--amber-bg);color:var(--amber)}
+.ia-badge.oportunidade{background:var(--green-bg);color:var(--green)}
+.ia-badge.informacao{background:var(--blue-bg);color:var(--blue)}
 .ia-row-titulo{font-size:14.5px;font-weight:700;color:var(--txt);margin-bottom:10px}
 /* Cada insight sempre nas mesmas 4 etapas, cada uma com seu próprio rótulo — nunca um parágrafo só */
 .ia-block{margin-bottom:10px}
 .ia-block:last-of-type{margin-bottom:8px}
-.ia-block-lbl{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:3px}
+.ia-block-lbl{display:block;font-size:12.5px;font-weight:700;color:var(--txt);margin-bottom:3px}
 .ia-block-txt{font-size:13px;color:var(--muted);line-height:1.5}
 .ia-row-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted2);margin-top:4px}
 .ia-row-footer a{color:var(--p);font-weight:600;text-decoration:none}
@@ -281,10 +291,8 @@
   .dash-hero-grid{gap:14px}
   .dash-hero-grid .card{padding:20px}
   .hero-caixa-val{font-size:30px}
-  /* Status por setor: era uma lista de texto solto competindo por espaço — vira
-     grade 2x2 de mini-cards, mesma linguagem visual do resto dos KPIs do sistema. */
-  .hero-status-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex-wrap:nowrap}
-  .hstat{background:var(--bg);border-radius:12px;padding:12px 14px;min-width:0}
+  /* Mini-cards de setor viram 2 colunas no mobile (no desktop o grid se ajusta sozinho). */
+  .hero-status-strip{grid-template-columns:1fr 1fr}
   .hstat-val{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
 }
 </style>
@@ -494,16 +502,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- AGENDA CONSOLIDADA + CENTRAL DE ATENÇÃO — o que vem pela frente e o que já precisa de
            ação, cruzando Financeiro/OS/Comercial/Materiais/Notas Fiscais num lugar só. Nenhum
            dado novo: só agrega o que cada módulo já calcula separado. -->
-      <div class="agenda-grid">
+      <div class="agenda-grid" id="agendaGrid">
         <div class="card">
-          <div class="widget-head"><h3>Agenda consolidada</h3><span class="widget-tag">Financeiro + OS + Comercial</span></div>
+          <div class="widget-head"><h3>Agenda consolidada</h3></div>
           <div id="agendaConsolidada"></div>
         </div>
         <div class="card">
-          <div class="widget-head"><h3>Central de Atenção</h3><span class="widget-tag">Materiais + Notas Fiscais + Financeiro</span></div>
+          <div class="widget-head"><h3>Central de Atenção</h3></div>
           <div id="centralAtencao"></div>
         </div>
       </div>
+      <div class="card" id="agendaECentralVazia" style="display:none;text-align:center;padding:20px;color:var(--muted);font-size:13px">Tudo em dia: nada agendado e nada precisando de atenção.</div>
 
       <!-- ABAS — cada setor vira uma aba, sem scroll infinito -->
       <div class="tabs">
@@ -872,8 +881,7 @@ function renderAll(){
   renderIndicadores();
   renderFluxoChart();
   renderProximosCompromissos();
-  renderAgendaConsolidada();
-  renderCentralAtencao();
+  renderAgendaECentralAtencao();
   renderComercial();
   if(isVarejo||isMista) renderVendas();
   renderOperacao();
@@ -1052,10 +1060,12 @@ function renderSetores(){
   const fin=calcStatusFinanceiro();
   const rhCls = rh.faltas>=3 ? 'warn' : 'ok';
 
-  const stat=(titulo,cls,headline)=>`<div class="hstat">
+  // Cada mini-card leva direto pra tela do setor — Estoque já abre filtrado nos produtos
+  // zerados (o alerta que realmente importa ali), não só na aba genérica.
+  const stat=(titulo,cls,headline,href)=>`<button type="button" class="hstat" onclick="location.href='${href}'">
     <div class="hstat-lbl"><span class="atencao-dot ${cls}"></span>${titulo}</div>
     <div class="hstat-val">${headline}</div>
-  </div>`;
+  </button>`;
 
   let statsSetor;
   if(isVarejo && !isServico && !isMista){
@@ -1064,8 +1074,8 @@ function renderSetores(){
     let estCls='ok';
     if(est.zerados>0) estCls='crit'; else if(est.abaixoMinimo>0) estCls='warn';
     statsSetor=[
-      stat('Vendas', 'ok', `${v.numVendas} venda${v.numVendas!==1?'s':''} · ${money(v.faturamento)}`),
-      stat('Estoque', estCls, est.zerados?`${est.zerados} produto${est.zerados!==1?'s':''} zerado${est.zerados!==1?'s':''}`:(est.abaixoMinimo?`${est.abaixoMinimo} abaixo do mín.`:'Estoque em dia')),
+      stat('Vendas', 'ok', `${v.numVendas} venda${v.numVendas!==1?'s':''} · ${money(v.faturamento)}`, 'painel-vendas.html'),
+      stat('Estoque', estCls, est.zerados?`${est.zerados} produto${est.zerados!==1?'s':''} zerado${est.zerados!==1?'s':''}`:(est.abaixoMinimo?`${est.abaixoMinimo} abaixo do mín.`:'Estoque em dia'), 'produtos.html?aba=estoque&status=zerado'),
     ];
   }else{
     const comA=calcComercial(periodo.de,periodo.ate), comB=calcComercial(antDe,antAte);
@@ -1081,16 +1091,16 @@ function renderSetores(){
     if(mat.zerados>0) matCls='crit';
     else if(mat.abaixoMinimo>0) matCls='warn';
     statsSetor=[
-      stat('Comercial', comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`),
-      stat('Operação', oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`),
-      stat('Materiais', matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mín.` : 'Estoque em dia'),
+      stat('Comercial', comCls, `${comA.fechados} novo${comA.fechados!==1?'s':''} cliente${comA.fechados!==1?'s':''}`, 'crm.html'),
+      stat('Operação', oprCls, `${opr.abertasPeriodo} OS aberta${opr.abertasPeriodo!==1?'s':''}`, 'os.html'),
+      stat('Materiais', matCls, mat.abaixoMinimo ? `${mat.abaixoMinimo} ${mat.abaixoMinimo===1?'item':'itens'} abaixo do mín.` : 'Estoque em dia', 'materiais.html'),
     ];
   }
 
   setHTML('heroStatusStrip', [
     ...statsSetor,
-    stat('RH', rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`),
-    stat('Financeiro', fin.cls, fin.txt),
+    stat('RH', rhCls, `${rh.ativos} colaborador${rh.ativos!==1?'es':''}`, 'rh.html'),
+    stat('Financeiro', fin.cls, fin.txt, 'financeiro.html'),
   ].join(''));
 }
 
@@ -1284,9 +1294,13 @@ const REGRAS = [
       titulo:'Conversão comercial melhorou', evidencias:{atual:atual.comercial.conversao,anterior:anterior.comercial.conversao},
       confianca:'media', recomendacao:'Identificar o que mudou na abordagem e repetir.', periodo:atual.periodo, href:'crm.html'};
   },
+  // Dashboard confiável: usa a média real de despesa (RPC dashboard_cobertura_caixa), não os
+  // últimos 30 dias calculados no navegador. Com status "insuficiente" (pouca despesa
+  // cadastrada pra confiar na conta) o campo nem existe em atual.financeiro, então a regra
+  // simplesmente não dispara — nunca recomenda investir com base num número que não existe.
   (atual)=>{
-    if(atual.financeiro.caixa>=0 && atual.financeiro.runway_dias && atual.financeiro.runway_dias>45) return {id:'financeiro-caixa-folego', categoria:'oportunidade', area:'financeiro',
-      titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:atual.financeiro.runway_dias},
+    if(atual.financeiro.caixa>=0 && atual.financeiro.cobertura_status==='ok' && atual.financeiro.cobertura_dias>45) return {id:'financeiro-caixa-folego', categoria:'oportunidade', area:'financeiro',
+      titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:atual.financeiro.cobertura_dias},
       confianca:'media', recomendacao:'Bom momento para considerar investimentos ou antecipar pagamentos com desconto.', periodo:atual.periodo, href:'financeiro.html'};
   },
   // Projeção — só dispara com caixa ainda positivo (se já estiver negativo, a regra
@@ -1368,7 +1382,7 @@ const NARRATIVA_TEMPLATES = {
   'materiais-abaixo-minimo': ev=>`${ev.itens_abaixo_minimo} ite${ev.itens_abaixo_minimo!==1?'ns estão':'m está'} abaixo do estoque mínimo.`,
   'rh-horas-extras': ev=>`Horas extras foram de ${Number(ev.anterior).toFixed(0)}h para ${Number(ev.atual).toFixed(0)}h, acompanhando ${ev.os_abertas} OS abertas.`,
   'comercial-conversao-alta': ev=>`A conversão foi de ${ev.anterior}% para ${ev.atual}% em relação ao período anterior.`,
-  'financeiro-caixa-folego': ev=>`O caixa atual (${money(ev.caixa)}) cobre aproximadamente ${ev.dias_cobertos} dias de compromissos.`,
+  'financeiro-caixa-folego': ev=>`O caixa atual (${money(ev.caixa)}) cobre aproximadamente ${ev.dias_cobertos>365?'mais de 1 ano':`${ev.dias_cobertos} dias`} de compromissos.`,
   'materiais-consumo-eficiente': ev=>`Consumo caiu de ${money(ev.consumo_anterior)} para ${money(ev.consumo_atual)}, com ${ev.os_abertas} OS abertas no mesmo intervalo.`,
   'operacao-os-concluidas': ev=>`${ev.os_concluidas} ordens de serviço foram concluídas neste período.`,
   'comercial-novos-clientes': ev=>`${ev.novos_clientes} novo${ev.novos_clientes!==1?'s':''} cliente${ev.novos_clientes!==1?'s':''} fechado${ev.novos_clientes!==1?'s':''} neste período.`,
@@ -1436,7 +1450,7 @@ function renderImpacto(insight){
 // RESUMO EXECUTIVO — 1 frase no topo do bloco, cruzando setores só quando há evidência dupla
 // e real (nunca causalidade inventada). Reaproveita só o que a camada 3/4 já decidiu.
 const AREA_LABEL = {financeiro:'financeiro', operacao:'operacional', comercial:'comercial', materiais:'materiais', rh:'RH'};
-function gerarResumoExecutivo(atual, diff, principais){
+function gerarResumoExecutivo(atual, diff, principais, diagConfiavel){
   const prioridade = principais.find(i=>i.categoria==='prioridade');
   const atencao = principais.find(i=>i.categoria==='atencao');
   const oportunidade = principais.find(i=>i.categoria==='oportunidade');
@@ -1453,13 +1467,20 @@ function gerarResumoExecutivo(atual, diff, principais){
   }
   if(atencao && oportunidade) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}, e aproveitar a oportunidade no ${AREA_LABEL[oportunidade.area]}.`;
   if(atencao) return `Nada exige ação imediata hoje. Vale acompanhar o ${AREA_LABEL[atencao.area]}.`;
+
+  // Nenhum ponto de atenção nas outras áreas — "tudo bem" só pode ser afirmado se margem e
+  // caixa (os dados que realmente definem saúde financeira, via dashboard-confiavel.js)
+  // também confirmarem isso, em vez de só pela ausência de alerta nas outras áreas.
+  if(diagConfiavel && diagConfiavel.tom!=='ok') return diagConfiavel.texto;
   if(oportunidade) return `A empresa está saudável, com espaço para melhorar no ${AREA_LABEL[oportunidade.area]}.`;
+  if(diagConfiavel) return diagConfiavel.texto;
   return 'Sem pontos relevantes para destacar neste período.';
 }
 
 // RENDER — Inteligência Nuvix: 1 bloco único, resumo no topo, até 4 linhas internas (1 por
 // categoria), "ver todos" só quando existirem mais insights do que os 4 mostrados.
-const CATEGORIA_LBL = {prioridade:'Prioridade', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
+const CATEGORIA_LBL = {prioridade:'Risco', atencao:'Atenção', oportunidade:'Oportunidade', informacao:'Informação'};
+const BOTAO_BANNER = {prioridade:'Resolver agora', atencao:'Ver detalhes', oportunidade:'Ver oportunidade', informacao:'Ver detalhes'};
 const CONFIANCA_LBL = {alta:'Alta', media:'Média', baixa:'Baixa'};
 const CONFIANCA_TOOLTIP = '<b>Alta</b>: fato direto nos dados.<br><b>Média</b>: leitura de tendência, com alguma interpretação.<br><b>Baixa</b>: correlação entre métricas que pode ter outras causas; vale investigar antes de agir.';
 // Onboarding: com poucos lançamentos confirmados, qualquer veredito (mesmo "empresa saudável")
@@ -1536,12 +1557,11 @@ function podeVerIA(){
 const PRECO_PLANO_IA = { Start: '97,90', Pro: '147,90', Plus: '190,00' };
 function renderInteligenciaNuvixBloqueada(){
   const planoAtual = session.empresa?.plano || 'Start';
-  setHTML('estadoGeralWrap', `<div class="estado-geral bloqueado"><span class="estado-geral-dot"></span>Inteligência Nuvix disponível no plano Plus</div>`);
+  setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><div class="estado-geral-txt"><div class="estado-geral-titulo">Inteligência Nuvix disponível no plano Plus</div></div></div>`);
   const previewInsight = `
     <div class="ia-row">
-      <span class="ia-dot prioridade"></span>
       <div class="ia-row-body">
-        <div class="ia-row-hd"><span class="ia-badge">Fluxo de caixa · Prioridade</span></div>
+        <span class="ia-badge prioridade">Risco</span>
         <div class="ia-row-titulo">Saldo projetado fica negativo em poucos dias</div>
         <div class="ia-block"><span class="ia-block-lbl">O que está acontecendo</span><span class="ia-block-txt">Considerando contas a pagar já lançadas e o ritmo de recebimento recente, o caixa tende a ficar negativo em breve.</span></div>
       </div>
@@ -1566,11 +1586,11 @@ function renderInteligenciaNuvixBloqueada(){
   setHTML('heroInsight', '');
   ['financeiro','comercial','operacao','materiais','rh'].forEach(area=>{ const el=$('tabAlert-'+area); if(el) el.style.display='none'; });
 }
-function renderInteligenciaNuvix(){
+async function renderInteligenciaNuvix(){
   if(!podeVerIA()){ renderInteligenciaNuvixBloqueada(); return; }
   const totalConfirmados = contarLancamentosConfirmados();
   if(totalConfirmados < MIN_LANCAMENTOS_DIAGNOSTICO){
-    setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><span class="estado-geral-dot"></span>Ainda reunindo dados, ${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div>`);
+    setHTML('estadoGeralWrap', `<div class="estado-geral onboarding"><div class="estado-geral-txt"><div class="estado-geral-titulo">Ainda reunindo dados</div><div class="estado-geral-linha">${totalConfirmados} de ${MIN_LANCAMENTOS_DIAGNOSTICO} lançamentos confirmados para o primeiro diagnóstico.</div></div></div>`);
     setHTML('inteligenciaNuvix', `
       <div class="ia-master-card">
         <div class="ia-eyebrow">Inteligência Nuvix</div>
@@ -1586,6 +1606,25 @@ function renderInteligenciaNuvix(){
   const {de:antDe,ate:antAte} = periodoAnterior();
   const atual = coletarMetricas(periodo.de, periodo.ate);
   const anterior = coletarMetricas(antDe, antAte);
+
+  // Dashboard confiável: o insight de caixa (REGRA financeiro-caixa-folego) e o diagnóstico
+  // geral passam a usar a RPC dashboard_cobertura_caixa (despesa real cadastrada) em vez do
+  // runway calculado no navegador (só os últimos 30 dias). Com status "insuficiente", o campo
+  // cobertura_status nem existe em atual.financeiro — a regra de caixa simplesmente não
+  // dispara (nunca recomenda investir sem base real), e o resumo avisa que falta cadastrar
+  // despesa em vez de arriscar um "tudo bem" sem dado suficiente. RPC fora do ar não derruba
+  // o resto do painel, só perde essa leitura extra.
+  let cobertura=null, diagConfiavel=null;
+  try{
+    const DC=await carregarDashboardConfiavel();
+    const [coberturaRes,margemRes]=await Promise.all([DC.carregarCobertura(atual.financeiro.caixa), DC.carregarMargem(periodo.de,periodo.ate)]);
+    cobertura=coberturaRes;
+    atual.financeiro.cobertura_status=coberturaRes.status;
+    atual.financeiro.cobertura_dias=coberturaRes.dias_cobertos;
+    atual.financeiro.cobertura_gasto_medio=coberturaRes.gasto_medio_mensal;
+    diagConfiavel=DC.diagnostico(margemRes,coberturaRes);
+  }catch(e){ console.warn('Dashboard confiável indisponível neste render:', e); }
+
   const diff = compararPeriodos(atual, anterior);
   const timeline = construirTimeline();
   // Varejo puro não usa Comercial/Operação/Materiais (modelo antigo) — o motor de regras
@@ -1596,15 +1635,17 @@ function renderInteligenciaNuvix(){
     insightsBrutos = insightsBrutos.filter(i=>!['comercial','operacao','materiais'].includes(i.area));
   }
   const {principais, todos} = priorizarInsights(insightsBrutos);
-  const resumo = gerarResumoExecutivo(atual, diff, principais);
+  const resumo = gerarResumoExecutivo(atual, diff, principais, diagConfiavel);
   const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
   const overflow = todos.length - principais.length;
 
-  // Selo de estado geral: reaproveita o mesmo veredito (principais[0] + resumo) já usado no
-  // card de Inteligência Nuvix, em vez de calcular um status paralelo que poderia divergir.
-  const piorCategoria = principais[0]?.categoria;
-  const estadoCls = piorCategoria==='prioridade' ? 'prioridade' : piorCategoria==='atencao' ? 'atencao' : 'ok';
-  setHTML('estadoGeralWrap', `<div class="estado-geral ${estadoCls}"><span class="estado-geral-dot"></span>${esc(resumo)}</div>`);
+  // Banner: só o alerta de maior prioridade (título + 1 linha + botão de ação) — o resto
+  // dos insights continua disponível na lista abaixo, sem repetir esse aqui.
+  const top = principais[0];
+  const estadoCls = top ? (top.categoria==='prioridade'?'prioridade':top.categoria==='atencao'?'atencao':'ok') : 'ok';
+  setHTML('estadoGeralWrap', top
+    ? `<div class="estado-geral ${estadoCls}"><div class="estado-geral-txt"><div class="estado-geral-titulo">${esc(top.titulo)}</div><div class="estado-geral-linha">${esc(gerarNarrativaTemplate(top))}</div></div><button type="button" class="estado-geral-btn" onclick="location.href='${top.href}'">${BOTAO_BANNER[top.categoria]||'Ver detalhes'} →</button></div>`
+    : `<div class="estado-geral ok"><div class="estado-geral-txt"><div class="estado-geral-titulo">Tudo em dia</div><div class="estado-geral-linha">${esc(resumo)}</div></div></div>`);
 
   // Ponto de alerta nas abas: pior categoria de CADA área entre todos os insights (não só os
   // 4 principais), pra uma área com problema real nunca ficar "silenciosa" só porque outra
@@ -1637,9 +1678,8 @@ function renderInteligenciaNuvix(){
     const detalhes = temDetalhes ? `<button type="button" class="ia-vermais" onclick="const d=this.nextElementSibling;d.classList.toggle('open');this.textContent=d.classList.contains('open')?'Ver menos ↑':'Ver por que importa e o impacto provável →'">Ver por que importa e o impacto provável →</button>
         <div class="ia-detalhes">${bloco('Por que importa', esc(porque))}${bloco('Impacto provável', impactoHTML)}</div>` : '';
     return `<div class="ia-row">
-      <span class="ia-dot ${ins.categoria}"></span>
       <div class="ia-row-body">
-        <div class="ia-row-hd"><span class="ia-badge">${CATEGORIA_LBL[ins.categoria]}</span></div>
+        <span class="ia-badge ${ins.categoria}">${CATEGORIA_LBL[ins.categoria]}</span>
         <div class="ia-row-titulo">${esc(ins.titulo)}</div>
         ${bloco('O que está acontecendo', esc(oQueAconteceu))}
         ${detalhes}
@@ -1649,19 +1689,29 @@ function renderInteligenciaNuvix(){
     </div>`;
   };
 
-  const linhas = principais.length ? principais.map(linha).join('') : `<div class="ia-row"><div class="ia-row-body"><div class="ia-block-txt">Nenhum ponto relevante para destacar neste período.</div></div></div>`;
+  // O top (principais[0]) já foi mostrado no banner roxo acima — não repete aqui, só o resto.
+  const principaisSemTop = principais.slice(1);
+  const linhas = principaisSemTop.length
+    ? principaisSemTop.map(linha).join('')
+    : principais.length
+      ? `<div class="ia-row"><div class="ia-row-body"><div class="ia-block-txt">Esse é o único ponto do período, já mostrado no resumo acima.</div></div></div>`
+      : `<div class="ia-row"><div class="ia-row-body"><div class="ia-block-txt">Nenhum ponto relevante para destacar neste período.</div></div></div>`;
   const verTodos = overflow>0 ? `<button type="button" class="ia-vertodos" onclick="this.nextElementSibling.classList.toggle('open');this.style.display='none'">Ver todos os insights (${todos.length}) →</button><div class="ia-extra">${todos.slice(principais.length).map(linha).join('')}</div>` : '';
+
+  const avisoCobertura = cobertura && cobertura.status==='insuficiente'
+    ? `<div class="ia-aviso-cobertura">Cadastre suas despesas fixas para avaliarmos o caixa. <a href="financeiro.html?novo=despesa">Lançar despesas →</a></div>`
+    : '';
 
   setHTML('inteligenciaNuvix', `
     <div class="ia-master-card">
       <div class="ia-eyebrow">Inteligência Nuvix</div>
       <div class="ia-resumo">${esc(resumo)}</div>
+      ${avisoCobertura}
       <div class="ia-lista">${linhas}</div>
       ${verTodos}
     </div>`);
 
-  // Teaser no Hero consolidado: só o insight nº1, com link pra abrir a aba "Visão geral".
-  const top = principais[0];
+  // Teaser no Hero consolidado: só o insight nº1 (já calculado acima), com link pra abrir a aba "Visão geral".
   if(top){
     const oQueAconteceu = gerarNarrativaTemplate(top);
     setHTML('heroInsight', `
@@ -2053,6 +2103,7 @@ function renderAgendaConsolidada(){
 
   itens.sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')));
   setHTML('agendaConsolidada', itens.length?itens.map(rowHTML).join(''):'<div class="agenda-empty">Nada agendado nos próximos dias.</div>');
+  return itens.length;
 }
 
 // CENTRAL DE ATENÇÃO — o que já precisa de ação: estoque crítico, nota fiscal com erro,
@@ -2113,6 +2164,17 @@ function renderCentralAtencao(){
   }
 
   setHTML('centralAtencao', itens.length?itens.map(rowHTML).join(''):'<div class="agenda-empty">Nada precisando de atenção agora.</div>');
+  return itens.length;
+}
+// Quando as duas listas vêm vazias ao mesmo tempo, troca os 2 cards por 1 linha só —
+// dois cards dizendo "nada aqui" cada um é mais ruído do que uma mensagem direta.
+function renderAgendaECentralAtencao(){
+  const nAgenda=renderAgendaConsolidada();
+  const nCentral=renderCentralAtencao();
+  const vazio=nAgenda===0 && nCentral===0;
+  const grid=$('agendaGrid'), unica=$('agendaECentralVazia');
+  if(grid) grid.style.display = vazio?'none':'';
+  if(unica) unica.style.display = vazio?'':'none';
 }
 
 // QUEM MOVE O NEGÓCIO — Top clientes e Serviços mais vendidos, a partir dos orçamentos já carregados
