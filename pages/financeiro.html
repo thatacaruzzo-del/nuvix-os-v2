@@ -2169,7 +2169,6 @@ async function carregarDreMensal(){
     setHTML('dreConteudo',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
   }
 }
-const GRUPO_DRE_SINAL={receita_bruta:1,deducoes:-1,custos:-1,despesas_operacionais:-1,despesas_financeiras:-1,receitas_financeiras:1,impostos_lucro:-1};
 function renderDre(linhas){
   if(!linhas.length){ setHTML('dreConteudo','<p style="color:var(--muted);font-size:13px">Nenhum lançamento no período selecionado.</p>'); return; }
   const porGrupo={};
@@ -2179,7 +2178,7 @@ function renderDre(linhas){
   const html=ordem.filter(g=>porGrupo[g]).map(g=>{
     const itens=porGrupo[g];
     const subtotal=itens.reduce((a,i)=>a+Number(i.total||0),0);
-    resultado+=subtotal*(GRUPO_DRE_SINAL[g]||1);
+    resultado+=subtotal;
     return `<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
         <span>${esc(GRUPO_DRE_LBL[g]||'Não classificado')}</span><span>${money(subtotal)}</span>
