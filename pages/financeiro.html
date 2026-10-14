@@ -106,6 +106,7 @@
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
 <script src="../js/csv-import.js"></script>
+<script src="../js/ofx-parser.js"></script>
 </head>
 <body>
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
@@ -143,6 +144,7 @@ const db={
   post:async(t,d)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()},
   patch:async(t,id,d)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const j=await r.json();if(Array.isArray(j)&&j.length===0)throw new Error('Nenhuma linha foi alterada, confira se o registro ainda existe ou se você tem permissão pra editá-lo.');return j},
   delete:async(t,id)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true},
+  rpc:async(nome,params)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));if(r.status===204)return null;const t=await r.text();return t?JSON.parse(t):null},
 };
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -263,6 +265,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="fin-tab" onclick="finTab('fluxo',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Fluxo de Caixa</button>
         <button class="fin-tab" onclick="finTab('receber',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> A Receber</button>
         <button class="fin-tab" onclick="finTab('pagar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> A Pagar</button>
+        <button class="fin-tab" onclick="finTab('conciliacao',this);carregarConciliacaoBancaria()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Conciliação bancária</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -420,6 +423,31 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
       </div>
 
+      <!-- CONCILIAÇÃO BANCÁRIA -->
+      <div id="pane-conciliacao" class="fin-pane">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Contas bancárias</h2>
+            <button class="btn2" onclick="abrirModalContaBancaria()">+ Nova conta</button>
+          </div>
+          <div id="listaContasBancarias"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Importar extrato (OFX)</h2>
+            <button class="btn" onclick="abrirModalImportarExtrato()">+ Importar extrato</button>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin:0">Baixe o extrato no formato OFX direto do internet banking do seu banco e suba aqui. O sistema casa automaticamente o que bate certinho e deixa o resto pra você resolver.</p>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 6px">Transações a resolver</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Transações do extrato que não bateram sozinhas com nenhum lançamento.</p>
+          <div id="listaTransacoesPendentes"><p style="color:var(--muted);font-size:13px">Nenhum extrato importado ainda.</p></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -472,6 +500,57 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalBaixar')">Cancelar</button>
     <button class="btn" onclick="confirmarBaixa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Confirmar baixa</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CONTA BANCÁRIA -->
+<div class="modal-overlay" id="modalContaBancaria">
+<div class="modal" style="max-width:480px">
+  <h3>Nova conta bancária</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="field" style="grid-column:1/-1"><label>Nome / apelido *</label><input id="cbNome" placeholder="Ex: Conta corrente principal"></div>
+    <div class="field"><label>Código do banco</label><input id="cbBancoCodigo" placeholder="Ex: 341"></div>
+    <div class="field"><label>Agência</label><input id="cbAgencia"></div>
+    <div class="field"><label>Conta</label><input id="cbConta"></div>
+    <div class="field"><label>Saldo inicial (R$)</label><input id="cbSaldoInicial" type="number" step="0.01" placeholder="0,00"></div>
+    <div class="field" style="grid-column:1/-1"><label>Data do saldo inicial</label><input id="cbDataSaldoInicial" type="date"></div>
+  </div>
+  <div id="cbMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalContaBancaria')">Cancelar</button>
+    <button class="btn" onclick="salvarContaBancaria()">Salvar conta</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL IMPORTAR EXTRATO (OFX) -->
+<div class="modal-overlay" id="modalImportarExtrato">
+<div class="modal" style="max-width:640px">
+  <h3>Importar extrato (OFX)</h3>
+  <div class="field"><label>Conta bancária *</label><select id="ieContaBancaria"></select></div>
+  <div class="field"><label>Arquivo OFX *</label><input type="file" id="ieArquivo" accept=".ofx,.qfx" onchange="lerArquivoExtrato(this)"></div>
+  <div id="ieResumo" style="font-size:13px;margin:10px 0"></div>
+  <div id="ieMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalImportarExtrato')">Cancelar</button>
+    <button class="btn" id="ieConfirmarBtn" onclick="confirmarImportacaoExtrato()" disabled>Confirmar e importar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL RESOLVER TRANSAÇÃO -->
+<div class="modal-overlay" id="modalResolverTransacao">
+<div class="modal" style="max-width:560px">
+  <h3>Resolver transação</h3>
+  <input type="hidden" id="rtTransacaoId">
+  <div id="rtTransacaoInfo" style="font-size:13px;background:#FAFAFA;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:14px"></div>
+  <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Sugestões</label>
+  <div id="rtSugestoes" style="margin:8px 0 14px">Carregando...</div>
+  <div id="rtMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="ignorarTransacao()">Ignorar esta transação</button>
+    <button class="btn2" onclick="fecharModal('modalResolverTransacao')">Fechar</button>
   </div>
 </div>
 </div>
@@ -1488,6 +1567,180 @@ function finTab(id,btn){
   const pane=$('pane-'+id);if(pane)pane.classList.add('active');
   if(btn)btn.classList.add('active');
   const ms=document.querySelector('.main-scroll');if(ms)ms.scrollTop=0;
+}
+
+// ═══ CONCILIAÇÃO BANCÁRIA ═══
+let contasBancarias=[], transacoesPendentes=[];
+
+async function carregarConciliacaoBancaria(){
+  try{
+    contasBancarias=await db.get('contas_bancarias','?select=*&order=nome.asc');
+    renderContasBancarias();
+    preencherSelectContasBancarias();
+  }catch(e){
+    setHTML('listaContasBancarias',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+  await carregarTransacoesPendentes();
+}
+
+function renderContasBancarias(){
+  if(!contasBancarias.length){ setHTML('listaContasBancarias','<p style="color:var(--muted);font-size:13px">Nenhuma conta bancária cadastrada ainda.</p>'); return; }
+  setHTML('listaContasBancarias',contasBancarias.map(c=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div>
+        <div style="font-weight:600;font-size:13px">${esc(c.nome)}</div>
+        <div style="font-size:12px;color:var(--muted)">Banco ${esc(c.banco_codigo||'—')} · Ag. ${esc(c.agencia||'—')} · Conta ${esc(c.conta||'—')}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">Saldo inicial</div>
+        <div style="font-weight:600">${money(c.saldo_inicial||0)}</div>
+      </div>
+    </div>`).join(''));
+}
+function preencherSelectContasBancarias(){
+  const sel=$('ieContaBancaria');
+  if(!sel)return;
+  sel.innerHTML=contasBancarias.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('')||'<option value="">Cadastre uma conta primeiro</option>';
+}
+
+function abrirModalContaBancaria(){
+  ['cbNome','cbBancoCodigo','cbAgencia','cbConta','cbSaldoInicial','cbDataSaldoInicial'].forEach(id=>{if($(id))$(id).value=''});
+  $('cbMsg').className='msg';
+  abrirModal('modalContaBancaria');
+}
+async function salvarContaBancaria(){
+  const nome=val('cbNome').trim();
+  if(!nome){ msg('cbMsg','Informe um nome pra essa conta.','err'); return; }
+  try{
+    await db.post('contas_bancarias',withEmpresa({
+      nome, banco_codigo:val('cbBancoCodigo')||null, agencia:val('cbAgencia')||null, conta:val('cbConta')||null,
+      saldo_inicial:Number(val('cbSaldoInicial')||0), data_saldo_inicial:val('cbDataSaldoInicial')||null,
+    }));
+    toast('Conta bancária criada.','ok');
+    fecharModal('modalContaBancaria');
+    await carregarConciliacaoBancaria();
+  }catch(e){ msg('cbMsg','Erro: '+e.message,'err'); }
+}
+
+// ── Importar extrato (OFX) ──
+let extratoParsed=null;
+function abrirModalImportarExtrato(){
+  extratoParsed=null;
+  $('ieArquivo').value='';
+  setHTML('ieResumo','');
+  $('ieMsg').className='msg';
+  $('ieConfirmarBtn').disabled=true;
+  if(!contasBancarias.length){ msg('ieMsg','Cadastre uma conta bancária antes de importar um extrato.','err'); }
+  abrirModal('modalImportarExtrato');
+}
+async function lerArquivoExtrato(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  try{
+    const texto=await ofxLerArquivo(arquivo);
+    extratoParsed=parseOFX(texto);
+    if(!extratoParsed.transacoes.length){
+      msg('ieMsg','Não encontrei nenhuma transação nesse arquivo. Confira se é um OFX válido.','err');
+      $('ieConfirmarBtn').disabled=true;
+      return;
+    }
+    const contaSelecionada=contasBancarias.find(c=>c.id===val('ieContaBancaria'));
+    let avisoConta='';
+    if(contaSelecionada){
+      const confere=ofxConfereConta(extratoParsed,contaSelecionada);
+      if(!confere.confere) avisoConta=`<div style="color:var(--red);margin-top:6px">${esc(confere.motivo)} Confira se escolheu a conta certa antes de confirmar.</div>`;
+    }
+    setHTML('ieResumo',`${extratoParsed.transacoes.length} transação(ões) encontrada(s)${extratoParsed.dtStart?`, de ${fmtData(extratoParsed.dtStart)} a ${fmtData(extratoParsed.dtEnd)}`:''}.${avisoConta}`);
+    $('ieConfirmarBtn').disabled=false;
+  }catch(e){
+    msg('ieMsg','Não foi possível ler o arquivo: '+e.message,'err');
+    $('ieConfirmarBtn').disabled=true;
+  }
+}
+async function confirmarImportacaoExtrato(){
+  const contaId=val('ieContaBancaria');
+  if(!contaId){ msg('ieMsg','Selecione a conta bancária.','err'); return; }
+  if(!extratoParsed){ msg('ieMsg','Selecione um arquivo OFX primeiro.','err'); return; }
+  const btn=$('ieConfirmarBtn');
+  btn.disabled=true;btn.textContent='Importando...';
+  try{
+    const resp=await db.rpc('importar_extrato',{p:{
+      conta_bancaria_id:contaId,
+      arquivo_nome:$('ieArquivo').files?.[0]?.name||null,
+      periodo_inicio:extratoParsed.dtStart, periodo_fim:extratoParsed.dtEnd,
+      saldo_final_banco:extratoParsed.ledgerBal,
+      transacoes:extratoParsed.transacoes.map(t=>({fitid:t.fitid,data:t.data,valor:t.valor,descricao:t.descricao,memo:t.memo})),
+    }});
+    toast(`${resp.novas} transação(ões) nova(s), ${resp.auto} conciliada(s) automaticamente, ${resp.duplicadas} já importada(s) antes.`,'ok');
+    fecharModal('modalImportarExtrato');
+    await carregarConciliacaoBancaria();
+  }catch(e){
+    msg('ieMsg','Erro ao importar: '+e.message,'err');
+  }finally{
+    btn.disabled=false;btn.textContent='Confirmar e importar';
+  }
+}
+
+// ── Transações pendentes de resolução ──
+async function carregarTransacoesPendentes(){
+  try{
+    transacoesPendentes=await db.get('extratos_transacoes','?select=*&status=eq.pendente&order=data.desc&limit=200');
+    renderTransacoesPendentes();
+  }catch(e){
+    setHTML('listaTransacoesPendentes',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function renderTransacoesPendentes(){
+  if(!transacoesPendentes.length){ setHTML('listaTransacoesPendentes','<p style="color:var(--muted);font-size:13px">Nenhuma transação pendente de resolução.</p>'); return; }
+  setHTML('listaTransacoesPendentes',transacoesPendentes.map(t=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="abrirResolverTransacao('${t.id}')">
+      <div>
+        <div style="font-weight:600;font-size:13px">${esc(t.descricao||'(sem descrição)')}</div>
+        <div style="font-size:12px;color:var(--muted)">${fmtData(t.data)}</div>
+      </div>
+      <span style="font-size:13px;font-weight:700;color:${t.valor>=0?'var(--green)':'var(--red)'}">${money(t.valor)}</span>
+    </div>`).join(''));
+}
+async function abrirResolverTransacao(id){
+  $('rtTransacaoId').value=id;
+  const t=transacoesPendentes.find(x=>x.id===id);
+  setHTML('rtTransacaoInfo',`<b>${esc(t.descricao||'(sem descrição)')}</b><br>${fmtData(t.data)} · <span style="color:${t.valor>=0?'var(--green)':'var(--red)'}">${money(t.valor)}</span>`);
+  setHTML('rtSugestoes','Carregando...');
+  $('rtMsg').className='msg';
+  abrirModal('modalResolverTransacao');
+  try{
+    const sugestoes=await db.rpc('sugerir_conciliacao',{p_transacao_id:id});
+    if(!sugestoes||!sugestoes.length){ setHTML('rtSugestoes','<p style="color:var(--muted);font-size:13px">Nenhum lançamento parecido encontrado. Ignore esta transação ou lance o título manualmente em Lançamentos.</p>'); return; }
+    setHTML('rtSugestoes',sugestoes.map(s=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+        <div>
+          <div style="font-size:13px">${esc(s.descricao||'(sem descrição)')} ${s.favorecido?' · '+esc(s.favorecido):''}</div>
+          <div style="font-size:12px;color:var(--muted)">${money(s.valor)} · vence ${fmtData(s.vencimento)} · ${esc(s.status)}</div>
+        </div>
+        <button class="btn2" onclick="confirmarConciliacaoManual('${s.id}')">Vincular</button>
+      </div>`).join(''));
+  }catch(e){
+    setHTML('rtSugestoes',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+async function confirmarConciliacaoManual(financeiroId){
+  const transacaoId=val('rtTransacaoId');
+  const t=transacoesPendentes.find(x=>x.id===transacaoId);
+  try{
+    await db.rpc('conciliar',{p:{pares:[{transacao_id:transacaoId,financeiro_id:financeiroId,valor_aplicado:Math.abs(t.valor)}]}});
+    toast('Conciliado.','ok');
+    fecharModal('modalResolverTransacao');
+    await carregarTransacoesPendentes();
+  }catch(e){ msg('rtMsg','Erro: '+e.message,'err'); }
+}
+async function ignorarTransacao(){
+  const id=val('rtTransacaoId');
+  try{
+    await db.patch('extratos_transacoes',id,{status:'ignorado'});
+    toast('Transação ignorada.','ok');
+    fecharModal('modalResolverTransacao');
+    await carregarTransacoesPendentes();
+  }catch(e){ msg('rtMsg','Erro: '+e.message,'err'); }
 }
 
 init();
