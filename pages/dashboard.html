@@ -32,7 +32,7 @@
 .hero-spark-range{font-size:12.5px;font-weight:700;color:var(--txt);text-align:center;flex-shrink:0;margin-top:4px}
 #heroSparkline{max-height:46px}
 .hero-proximo-lbl{font-size:11.5px;color:var(--muted2);margin-bottom:3px}
-.hero-proximo-val{font-size:14.5px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero-proximo-val{font-size:14.5px;font-weight:600;color:var(--txt);line-height:1.3}
 .hero-proximo-valor{font-size:22px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-top:4px}
 .hero-proximo-dias{font-size:12px;color:var(--muted);margin-top:4px}
 
@@ -332,6 +332,26 @@ async function carregarDashboardConfiavel(){
   if(!_dcModulo) _dcModulo=await import('../js/dashboard-confiavel.js');
   return _dcModulo;
 }
+// RH e Financeiro são módulos separados — a folha pode existir (gente cadastrada, salário
+// preenchido) sem nunca ter virado um lançamento de despesa de verdade. Nesse caso a
+// cobertura de caixa da RPC (que só enxerga o Financeiro) subestima o gasto real da empresa,
+// porque ignora a maior despesa que ela tem. Enquanto a folha não aparecer como despesa
+// confirmada, a cobertura usa o maior valor entre os dois pra não prometer um fôlego de caixa
+// maior do que existe de verdade. Não altera a RPC nem o banco — só recalcula no navegador,
+// com a mesma fórmula que dashboard_cobertura_caixa já usa (saldo / gasto diário).
+function ajustarCoberturaComFolha(cobertura, caixa, periodoDe, periodoAte){
+  const resultado = {cobertura, alertaFolha:false, folhaMensalEst:0};
+  if(!cobertura || cobertura.status==='insuficiente') return resultado;
+  const folhaMensalEst = calcRHSetor(periodoDe, periodoAte).folhaMensalEst;
+  resultado.folhaMensalEst = folhaMensalEst;
+  if(!(folhaMensalEst > cobertura.gasto_medio_mensal)) return resultado;
+  resultado.alertaFolha = true;
+  const gastoAjustado = folhaMensalEst;
+  const diasAjustado = gastoAjustado>0 ? Math.min(Math.floor(caixa/(gastoAjustado/30)), 9999) : cobertura.dias_cobertos;
+  const statusAjustado = caixa < cobertura.a_pagar_proximos_30d ? 'risco' : (diasAjustado < 30 ? 'atencao' : 'ok');
+  resultado.cobertura = {...cobertura, gasto_medio_mensal: gastoAjustado, dias_cobertos: diasAjustado, status: statusAjustado};
+  return resultado;
+}
 // Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, período com mais
 // de 1000 linhas fica cortado silenciosamente pela paginação padrão do PostgREST.
 async function dbGetTodas(t,q){
@@ -478,7 +498,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div class="dash-hero-grid">
         <div class="card hero-card-caixa">
           <span class="hero-badge-corner" id="heroStatusBadge"></span>
-          <div class="hero-caixa-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Caixa disponível</div>
+          <div class="hero-caixa-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Caixa disponível
+            <button type="button" class="info-btn" aria-label="Como o caixa disponível é calculado">i<span class="info-tooltip">Soma de todas as receitas confirmadas menos todas as despesas confirmadas, desde o início do histórico da empresa — não é um extrato bancário, é o que já está registrado e confirmado na Nuvix.</span></button>
+          </div>
           <div class="hero-val-row" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
             <div class="hero-caixa-val" id="heroCaixaVal">—</div>
             <span id="heroCaixaTrend"></span>
@@ -1305,6 +1327,15 @@ const REGRAS = [
       titulo:'Caixa com fôlego confortável', evidencias:{caixa:atual.financeiro.caixa,dias_cobertos:atual.financeiro.cobertura_dias},
       confianca:'media', recomendacao:'Bom momento para considerar investimentos ou antecipar pagamentos com desconto.', periodo:atual.periodo, href:'financeiro.html'};
   },
+  // RH e Financeiro são módulos separados — dá pra ter a folha toda cadastrada (gente ativa,
+  // salário preenchido) sem nunca ter virado uma despesa de verdade no Financeiro. Enquanto
+  // isso não acontece, qualquer leitura de resultado/caixa está sem a maior despesa real da
+  // empresa, inflando o resultado sem avisar ninguém.
+  (atual)=>{
+    if(atual.financeiro.folha_sem_despesa) return {id:'financeiro-folha-sem-despesa', categoria:'atencao', area:'financeiro',
+      titulo:'Folha não aparece nas despesas', evidencias:{folha:atual.financeiro.folha_mensal_est},
+      confianca:'alta', recomendacao:'Lance a folha como despesa no Financeiro pra ver o resultado real da empresa.', periodo:atual.periodo, href:'financeiro.html?novo=despesa'};
+  },
   // Projeção — só dispara com caixa ainda positivo (se já estiver negativo, a regra
   // "financeiro-caixa-negativo" acima já cobre isso, evitando mensagem duplicada).
   (atual)=>{
@@ -1384,7 +1415,10 @@ const NARRATIVA_TEMPLATES = {
   'materiais-abaixo-minimo': ev=>`${ev.itens_abaixo_minimo} ite${ev.itens_abaixo_minimo!==1?'ns estão':'m está'} abaixo do estoque mínimo.`,
   'rh-horas-extras': ev=>`Horas extras foram de ${Number(ev.anterior).toFixed(0)}h para ${Number(ev.atual).toFixed(0)}h, acompanhando ${ev.os_abertas} OS abertas.`,
   'comercial-conversao-alta': ev=>`A conversão foi de ${ev.anterior}% para ${ev.atual}% em relação ao período anterior.`,
-  'financeiro-caixa-folego': ev=>`O caixa atual (${money(ev.caixa)}) cobre aproximadamente ${ev.dias_cobertos>365?'mais de 1 ano':`${ev.dias_cobertos} dias`} de compromissos.`,
+  'financeiro-caixa-folego': ev=>ev.dias_cobertos>365
+    ? `O caixa atual (${money(ev.caixa)}) cobre mais de 1 ano de compromissos.`
+    : `O caixa atual (${money(ev.caixa)}) cobre aproximadamente ${ev.dias_cobertos} dias de compromissos.`,
+  'financeiro-folha-sem-despesa': ev=>`Sua folha de ${money(ev.folha)}/mês não aparece nas despesas. Lance para ver o resultado real.`,
   'materiais-consumo-eficiente': ev=>`Consumo caiu de ${money(ev.consumo_anterior)} para ${money(ev.consumo_atual)}, com ${ev.os_abertas} OS abertas no mesmo intervalo.`,
   'operacao-os-concluidas': ev=>`${ev.os_concluidas} ordens de serviço foram concluídas neste período.`,
   'comercial-novos-clientes': ev=>`${ev.novos_clientes} novo${ev.novos_clientes!==1?'s':''} cliente${ev.novos_clientes!==1?'s':''} fechado${ev.novos_clientes!==1?'s':''} neste período.`,
@@ -1404,6 +1438,7 @@ const PORQUE_IMPORTA = {
   'rh-horas-extras':'Horas extras sustentadas por muito tempo custam mais que reforçar a equipe, e podem indicar sobrecarga.',
   'comercial-conversao-alta':'Uma conversão maior significa que o mesmo esforço comercial está gerando mais negócios.',
   'financeiro-caixa-folego':'Um fôlego de caixa alto abre espaço para decisões que normalmente ficariam travadas por falta de caixa.',
+  'financeiro-folha-sem-despesa':'Sem a folha lançada, o resultado e a cobertura de caixa parecem melhores do que realmente são — a maior despesa da empresa fica de fora da conta.',
   'materiais-consumo-eficiente':'Manter o mesmo volume de operação consumindo menos material é ganho de eficiência real.',
   'operacao-os-concluidas':'Mostra o ritmo de entrega da operação no período.',
   'comercial-novos-clientes':'Reflete o resultado direto do funil comercial no período.',
@@ -1620,15 +1655,19 @@ async function renderInteligenciaNuvix(){
   // dispara (nunca recomenda investir sem base real), e o resumo avisa que falta cadastrar
   // despesa em vez de arriscar um "tudo bem" sem dado suficiente. RPC fora do ar não derruba
   // o resto do painel, só perde essa leitura extra.
-  let cobertura=null, diagConfiavel=null;
+  let cobertura=null, margem=null, diagConfiavel=null;
   try{
     const DC=await carregarDashboardConfiavel();
-    const [coberturaRes,margemRes]=await Promise.all([DC.carregarCobertura(atual.financeiro.caixa), DC.carregarMargem(periodo.de,periodo.ate)]);
-    cobertura=coberturaRes;
-    atual.financeiro.cobertura_status=coberturaRes.status;
-    atual.financeiro.cobertura_dias=coberturaRes.dias_cobertos;
-    atual.financeiro.cobertura_gasto_medio=coberturaRes.gasto_medio_mensal;
-    diagConfiavel=DC.diagnostico(margemRes,coberturaRes);
+    const [coberturaBruta,margemRes]=await Promise.all([DC.carregarCobertura(atual.financeiro.caixa), DC.carregarMargem(periodo.de,periodo.ate)]);
+    const ajuste=ajustarCoberturaComFolha(coberturaBruta, atual.financeiro.caixa, periodo.de, periodo.ate);
+    cobertura=ajuste.cobertura;
+    margem=margemRes;
+    atual.financeiro.cobertura_status=cobertura.status;
+    atual.financeiro.cobertura_dias=cobertura.dias_cobertos;
+    atual.financeiro.cobertura_gasto_medio=cobertura.gasto_medio_mensal;
+    atual.financeiro.folha_sem_despesa=ajuste.alertaFolha;
+    atual.financeiro.folha_mensal_est=ajuste.folhaMensalEst;
+    diagConfiavel=DC.diagnostico(margem,cobertura);
   }catch(e){ console.warn('Dashboard confiável indisponível neste render:', e); }
 
   const diff = compararPeriodos(atual, anterior);
@@ -1647,14 +1686,22 @@ async function renderInteligenciaNuvix(){
 
   // Banner: mostra o resultado de diagnostico() (dashboard-confiavel.js) com o tom
   // correspondente — é a leitura mais confiável de saúde geral (cruza margem + caixa de
-  // verdade), por isso vira a frase de abertura da tela. O botão continua levando pro
-  // alerta de maior prioridade dos outros setores, quando existir um — ação continua
-  // disponível mesmo quando o texto principal é sobre o financeiro.
+  // verdade), por isso vira a frase de abertura da tela. O botão combina com a mensagem: se
+  // o motivo for falta de custo cadastrado, leva pra cadastrar custo; se for falta de
+  // despesa lançada, leva pra lançar despesa. Só cai no botão genérico (alerta de maior
+  // prioridade dos outros setores) quando o motivo não é um desses dois.
   const top = principais[0];
   const TOM_BANNER_CLS = {info:'onboarding', ok:'ok', atencao:'atencao', critico:'prioridade'};
   const bannerCls = diagConfiavel ? (TOM_BANNER_CLS[diagConfiavel.tom]||'ok') : (top ? (top.categoria==='prioridade'?'prioridade':top.categoria==='atencao'?'atencao':'ok') : 'ok');
   const bannerTexto = diagConfiavel ? diagConfiavel.texto : (top ? top.titulo : resumo);
-  const bannerBtn = top ? `<button type="button" class="estado-geral-btn" onclick="location.href='${top.href}'">${BOTAO_BANNER[top.categoria]||'Ver detalhes'} →</button>` : '';
+  let bannerBtn = '';
+  if(margem?.status==='insuficiente'){
+    bannerBtn = `<button type="button" class="estado-geral-btn" onclick="location.href='produtos.html?filtro=sem_custo'">Cadastrar custos →</button>`;
+  }else if(cobertura?.status==='insuficiente'){
+    bannerBtn = `<button type="button" class="estado-geral-btn" onclick="location.href='financeiro.html?novo=despesa'">Lançar despesas →</button>`;
+  }else if(top){
+    bannerBtn = `<button type="button" class="estado-geral-btn" onclick="location.href='${top.href}'">${BOTAO_BANNER[top.categoria]||'Ver detalhes'} →</button>`;
+  }
   setHTML('estadoGeralWrap', `<div class="estado-geral ${bannerCls}"><div class="estado-geral-txt"><div class="estado-geral-titulo">${esc(bannerTexto)}</div></div>${bannerBtn}</div>`);
 
   // Ponto de alerta nas abas: pior categoria de CADA área entre todos os insights (não só os
@@ -1721,8 +1768,12 @@ async function renderInteligenciaNuvix(){
       ${verTodos}
     </div>`);
 
-  // Teaser no Hero consolidado: só o insight nº1 (já calculado acima), com link pra abrir a aba "Visão geral".
-  if(top){
+  // Teaser no Hero consolidado (o box roxo): só aparece quando diagnostico() confirma saúde
+  // financeira "ok" — é um box com visual de boa notícia (gradiente, "Ver Inteligência
+  // Nuvix →"), e mostrar isso junto de um insight qualquer enquanto a faixa do topo ainda
+  // avisa "falta cadastrar X" ou está em alerta é duas mensagens batendo de frente. Com tom
+  // diferente de "ok", quem precisa saber já viu a faixa do topo e a lista de insights.
+  if(top && diagConfiavel?.tom==='ok'){
     const oQueAconteceu = gerarNarrativaTemplate(top);
     setHTML('heroInsight', `
       <span class="hero-insight-badge">✦ Inteligência Nuvix · ${CATEGORIA_LBL[top.categoria]||top.categoria}</span>
@@ -1759,7 +1810,9 @@ function trendBadge(atual, anterior, invertido, confiavel){
   // desse teto o número não comunica nada de útil, só assusta — melhor não mostrar.
   if(Math.abs(pct)>=1000) return '';
   const bom = invertido ? pct<0 : pct>0;
-  return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}% vs período anterior</span>`;
+  // Só seta + percentual — "vs período anterior" já fica implícito pelo contexto (e,
+  // onde cabia confusão, agora tem o rótulo com as datas comparadas ao lado).
+  return `<span class="kpi-trend ${bom?'up':'down'}">${pct>0?setaUp:setaDown} ${Math.abs(pct)}%</span>`;
 }
 
 // ── CAIXA DISPONÍVEL ──
@@ -1858,7 +1911,8 @@ async function renderHeroDiagnostico(){
     // responsabilidade só da faixa do topo, calculado em renderInteligenciaNuvix().
     try{
       const DC=await carregarDashboardConfiavel();
-      const cobertura=await DC.carregarCobertura(caixa);
+      const coberturaBruta=await DC.carregarCobertura(caixa);
+      const {cobertura}=ajustarCoberturaComFolha(coberturaBruta, caixa, periodo.de, periodo.ate);
       const tc=DC.textoCobertura(cobertura);
       sub=tc.texto;
       if(tc.acao) acaoSub=` <a href="${esc(tc.acao.href)}" style="color:var(--p);font-weight:700;text-decoration:none">${esc(tc.acao.texto)} →</a>`;
@@ -1933,10 +1987,23 @@ function kpiCardsHTML(items){
   </div>`).join('');
 }
 
+// "1 título", "2 títulos", "Nenhum título" — em vez do "(s)" que não lê certo em
+// nenhum dos dois casos ("1 título(s)"/"2 título(s)").
+function pluralComZero(n, singular, plural, zeroTexto){
+  if(n===0) return zeroTexto;
+  return `${n} ${n===1?singular:plural}`;
+}
+
 // INDICADORES-CHAVE — Movimento do período (Recebido/Pago/Resultado, com tendência) + Compromissos futuros (totais em aberto)
 async function renderIndicadores(){
   const atual = calcIndicadoresJanela(periodo.de, periodo.ate);
-  const {de:antDe,ate:antAte} = periodoAnterior();
+  const DC = await carregarDashboardConfiavel();
+  // "Mês atual" compara com o mesmo intervalo de dias no mês civil anterior (1 a 14/10 vs 1
+  // a 14/09) — não com os 14 dias corridos antes do dia 1º, que é o que o período de mesma
+  // duração (modo padrão) daria. Os outros filtros (semana, 30 dias, 3 meses, personalizado)
+  // não têm um "mês anterior" óbvio, então continuam no modo padrão.
+  const modoAnterior = periodo.dias==='mes' ? 'mes_atual' : undefined;
+  const {inicio:antDe,fim:antAte} = DC.periodoAnterior(periodo.de, periodo.ate, modoAnterior);
   const anterior = calcIndicadoresJanela(antDe, antAte);
   const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -1948,17 +2015,14 @@ async function renderIndicadores(){
   // Rótulo com as datas comparadas (ex: "vs 1/09 a 30/09") acima do grid — as 3
   // variações ao lado usam exatamente esse mesmo período, então 1 legenda compartilhada
   // em vez de repetir a mesma data 3 vezes.
-  try{
-    const DC=await carregarDashboardConfiavel();
-    setHTML('indicadoresRotulo', confiavel?DC.rotuloComparacao({inicio:antDe,fim:antAte}):'');
-  }catch(e){ setHTML('indicadoresRotulo',''); }
+  setHTML('indicadoresRotulo', confiavel?DC.rotuloComparacao({inicio:antDe,fim:antAte}):'');
 
   setHTML('indicadores', kpiCardsHTML([
     {ico:icoWallet,cls:'m',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
     {ico:icoDown,cls:'m',lbl:'Despesas pagas',val:money(atual.pago),trend:trendBadge(atual.pago,anterior.pago,true,confiavel)},
     {ico:icoScale,cls:atual.saldo>=0?'p':'r',lbl:rotuloResultado,val:money(atual.saldo),trend:trendBadge(atual.saldo,anterior.saldo,false,confiavel),destaque:atual.saldo>=0},
-    {ico:icoClock,cls:'m',lbl:'A receber',val:money(aReceber),sub:nRec+' título(s) em aberto'},
-    {ico:icoClock,cls:'m',lbl:'A pagar',val:money(aPagar),sub:nDesp+' parcela(s) em aberto'},
+    {ico:icoClock,cls:'m',lbl:'A receber',val:money(aReceber),sub:pluralComZero(nRec,'título','títulos','Nenhum título')+' em aberto'},
+    {ico:icoClock,cls:'m',lbl:'A pagar',val:money(aPagar),sub:pluralComZero(nDesp,'parcela','parcelas','Nenhuma parcela')+' em aberto'},
   ]));
 }
 
