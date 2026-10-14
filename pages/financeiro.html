@@ -313,6 +313,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div class="field"><label>Agência</label><input id="lanAgencia" placeholder="0000"></div>
             <div class="field"><label>Conta</label><input id="lanConta" placeholder="00000-0"></div>
             <div class="field" style="grid-column:1/-1"><label>Observações</label><textarea id="lanObs" rows="2" style="resize:vertical;width:100%" placeholder="Observações adicionais..."></textarea></div>
+            <!-- JUROS / MULTA / DESCONTO -->
+            <div class="field" style="grid-column:1/-1">
+              <div style="background:var(--p-light);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+                <div class="field" style="margin:0"><label>Juros ao mês (%)</label><input id="lanJuros" type="number" step="0.01" min="0" placeholder="Ex: 1,00"></div>
+                <div class="field" style="margin:0"><label>Multa (%)</label><input id="lanMulta" type="number" step="0.01" min="0" placeholder="Ex: 2,00"></div>
+                <div class="field" style="margin:0"><label>Desconto (R$)</label><input id="lanDesconto" type="number" step="0.01" min="0" placeholder="0,00"></div>
+              </div>
+            </div>
             <!-- PARCELAMENTO -->
             <div class="field" style="grid-column:1/-1">
               <div style="background:var(--p-light);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px">
@@ -492,6 +500,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
   <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg> Detalhes do lançamento</h3>
   <input type="hidden" id="detId">
   <div id="detConteudo"></div>
+  <div class="det-section">Anexos</div>
+  <div id="detAnexos"></div>
+  <div style="margin:8px 0 16px">
+    <label class="btn2" style="display:inline-block;cursor:pointer;font-size:12px" for="detAnexoInput">+ Anexar comprovante</label>
+    <input type="file" id="detAnexoInput" style="display:none" onchange="enviarAnexo(this)">
+  </div>
   <div class="field" id="detNotaServicoWrap" style="display:none;margin-top:8px">
     <label>Serviço do catálogo (opcional)</label>
     <select id="detNotaServico"><option value="">Nenhum — usa a classificação fiscal padrão da empresa</option></select>
@@ -933,6 +947,9 @@ async function salvarLancamento(){
     agencia:val('lanAgencia').trim()||null,
     conta:val('lanConta').trim()||null,
     observacao:val('lanObs').trim()||null,
+    juros_mes_percentual:val('lanJuros')?Number(val('lanJuros')):null,
+    multa_percentual:val('lanMulta')?Number(val('lanMulta')):null,
+    desconto_valor:val('lanDesconto')?Number(val('lanDesconto')):null,
   });
 
   try{
@@ -1011,8 +1028,11 @@ function previewParcelas(){
 function editarLancamento(id){
   const f=financeiro.find(x=>x.id===id);if(!f)return;
   fecharModal('modalDetalhe');
-  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs'].forEach(el=>{if($(el))$(el).value='';});
+  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
   $('lanId').value=f.id;
+  if($('lanJuros'))$('lanJuros').value=f.juros_mes_percentual??'';
+  if($('lanMulta'))$('lanMulta').value=f.multa_percentual??'';
+  if($('lanDesconto'))$('lanDesconto').value=f.desconto_valor??'';
   $('lanTipo').value=f.tipo||'Receita';
   $('lanCat').value=f.categoria||'Serviços';
   if($('lanLoja'))$('lanLoja').value=f.loja_id||'';
@@ -1069,6 +1089,7 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Valor original</span><span class="det-val">${money(f.valor)}</span></div>
     ${f.valor_pago?`<div class="det-row"><span class="det-lbl">Valor pago</span><span class="det-val">${money(f.valor_pago)}</span></div>`:''}
     ${f.valor_pago&&f.valor?`<div class="det-row"><span class="det-lbl">Valor restante</span><span class="det-val">${money(Number(f.valor||0)-Number(f.valor_pago||0))}</span></div>`:''}
+    ${atrasado&&(f.juros_mes_percentual||f.multa_percentual||f.desconto_valor)?`<div class="det-row"><span class="det-lbl">Valor atualizado hoje</span><span class="det-val" style="color:var(--amber)">${money(valorAtualizado(f))}</span></div>`:''}
     <div class="det-section">Datas</div>
     <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${fmtData(f.data_lancamento)}</span></div>
     <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
@@ -1098,7 +1119,89 @@ function verDetalhe(id){
     if($('detNotaServicoWrap'))$('detNotaServicoWrap').style.display='none';
     notaAtual=null;
   }
+  carregarAnexos(f.id);
   abrirModal('modalDetalhe');
+}
+// Juros corrido por mês de atraso (sem capitalizar, mesma convenção de boleto
+// bancário simples) + multa fixa sobre o valor original, menos desconto já
+// negociado. Só chamada quando o título está vencido, nunca altera o valor
+// gravado no banco — é só exibição, a baixa de verdade continua manual.
+function valorAtualizado(f){
+  const venc=String(f.vencimento||'').slice(0,10);
+  if(!venc)return Number(f.valor||0);
+  const dias=Math.max(0,Math.floor((new Date(hoje())-new Date(venc))/86400000));
+  const meses=dias/30;
+  const juros=Number(f.valor||0)*(Number(f.juros_mes_percentual||0)/100)*meses;
+  const multa=Number(f.valor||0)*(Number(f.multa_percentual||0)/100);
+  const desconto=Number(f.desconto_valor||0);
+  return Math.max(0,Number(f.valor||0)+juros+multa-desconto);
+}
+
+// ── ANEXOS (comprovantes) ──
+// Bucket privado (financeiro-anexos) — path {empresa_id}/{financeiro_id}/{uuid}.ext,
+// RLS de storage filtra por empresa, igual às tabelas. Como não é bucket público,
+// a URL salva em financeiro_anexos.url é o PATH, nunca o link direto; o link de
+// download é assinado na hora (expira em segundos), nunca fica salvo em lugar nenhum.
+let anexosAtuais=[];
+async function carregarAnexos(financeiroId){
+  try{
+    anexosAtuais=await db.get('financeiro_anexos',`?select=*&financeiro_id=eq.${financeiroId}&order=created_at.desc`);
+  }catch(e){ anexosAtuais=[]; }
+  renderAnexos();
+}
+function renderAnexos(){
+  if(!anexosAtuais.length){ setHTML('detAnexos','<p style="color:var(--muted);font-size:13px">Nenhum anexo ainda.</p>'); return; }
+  setHTML('detAnexos',anexosAtuais.map(a=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
+      <a href="#" onclick="abrirAnexo('${a.id}');return false" style="color:var(--p2);font-weight:600">${esc(a.nome)}</a>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span style="color:var(--muted)">${fmtData(a.created_at)}</span>
+        <a href="#" onclick="excluirAnexo('${a.id}');return false" style="color:var(--red)">Excluir</a>
+      </span>
+    </div>`).join(''));
+}
+async function enviarAnexo(input){
+  const file=input.files[0];if(!file)return;
+  const financeiroId=val('detId');
+  if(!financeiroId){toast('Salve o lançamento antes de anexar arquivos.','err');return;}
+  try{
+    const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+    const path=`${session.empresa_id}/${financeiroId}/${crypto.randomUUID()}.${ext}`;
+    const r=await fetch(`${SB}/storage/v1/object/financeiro-anexos/${path}`,{
+      method:'POST',
+      headers:{'apikey':KEY,'Authorization':'Bearer '+(tokenAtual()||KEY),'Content-Type':file.type||'application/octet-stream'},
+      body:file,
+    });
+    if(!r.ok)throw new Error(await r.text());
+    await db.post('financeiro_anexos',withEmpresa({financeiro_id:financeiroId,url:path,nome:file.name,tipo:file.type||null,tamanho_bytes:file.size,usuario_id:session?.id||null}));
+    toast('Anexo enviado.','ok');
+    await carregarAnexos(financeiroId);
+  }catch(e){ toast('Erro ao enviar anexo: '+e.message,'err'); }
+  input.value='';
+}
+async function abrirAnexo(anexoId){
+  const a=anexosAtuais.find(x=>x.id===anexoId);if(!a)return;
+  try{
+    const r=await fetch(`${SB}/storage/v1/object/sign/financeiro-anexos/${a.url}`,{
+      method:'POST',
+      headers:{'apikey':KEY,'Authorization':'Bearer '+(tokenAtual()||KEY),'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:60}),
+    });
+    if(!r.ok)throw new Error(await r.text());
+    const {signedURL}=await r.json();
+    window.open(`${SB}/storage/v1${signedURL}`,'_blank');
+  }catch(e){ toast('Erro ao abrir anexo: '+e.message,'err'); }
+}
+async function excluirAnexo(anexoId){
+  const a=anexosAtuais.find(x=>x.id===anexoId);if(!a)return;
+  const ok=await confirmarAcao(`Excluir o anexo "${a.nome}"? Essa ação não pode ser desfeita.`,{labelOk:'Excluir',variante:'perigo'});
+  if(!ok)return;
+  try{
+    await fetch(`${SB}/storage/v1/object/financeiro-anexos/${a.url}`,{method:'DELETE',headers:H});
+    await db.delete('financeiro_anexos',anexoId);
+    toast('Anexo excluído.','ok');
+    await carregarAnexos(a.financeiro_id);
+  }catch(e){ toast('Erro ao excluir anexo: '+e.message,'err'); }
 }
 
 // ── NOTA FISCAL (NFS-e) ──
@@ -1463,7 +1566,7 @@ async function excluirLancamento(id){
 
 // ── LIMPAR ──
 function limparLancamento(){
-  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs'].forEach(id=>{if($(id))$(id).value=''});
+  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(id=>{if($(id))$(id).value=''});
   if($('lanData'))$('lanData').value=hoje();
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
