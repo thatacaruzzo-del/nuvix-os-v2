@@ -9,8 +9,11 @@
 <style>
 /* ── Hero rico: caixa + barra de saúde à esquerda, sparkline + próximo compromisso à direita ── */
 .dash-hero-grid{display:grid;grid-template-columns:1.3fr 1fr .85fr;gap:20px;margin-bottom:20px;align-items:stretch}
-.dash-hero-grid .card{margin:0;padding:26px 28px;position:relative;display:flex;flex-direction:column;justify-content:center;border-left:4px solid var(--p)}
-.hero-card-trend{justify-content:flex-start!important;gap:10px}
+/* Altura igual e compacta nos 3 cards (180-200px), conteúdo sempre alinhado no topo —
+   antes cada card tinha uma altura diferente (dependia de quanto texto tinha dentro) e
+   ficava tudo centralizado verticalmente, o que parecia desalinhado lado a lado. */
+.dash-hero-grid .card{margin:0;height:192px;padding:22px 26px;position:relative;display:flex;flex-direction:column;justify-content:flex-start;border-left:4px solid var(--p);overflow:hidden}
+.hero-card-trend{gap:8px}
 .hero-card-proximo{border-left-color:var(--amber)!important}
 .hero-badge-corner{position:absolute;top:24px;right:26px}
 .hero-caixa-lbl{font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:8px}
@@ -22,20 +25,16 @@
 .hero-status-badge.warn{background:var(--p-light);color:var(--p2)}
 .hero-status-badge.crit{background:var(--red-bg);color:var(--red)}
 .veredito-sub{font-size:13.5px;font-weight:400;color:var(--muted);margin-top:6px;max-width:460px}
-.hero-health-track{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:16px;max-width:320px}
-.hero-health-fill{height:100%;border-radius:99px;background:var(--green);transition:width .5s ease}
-.hero-caption{font-size:11px;color:var(--muted2);margin-top:9px}
-.hero-diagnostico{font-size:12.5px;font-weight:700;margin-top:10px;display:flex;align-items:center;gap:7px}
-.hero-diagnostico::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
-.hero-diagnostico.info{color:var(--muted)}
-.hero-diagnostico.ok{color:var(--green)}
-.hero-diagnostico.atencao{color:var(--amber)}
-.hero-diagnostico.critico{color:var(--red)}
-.hero-spark-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
+.hero-caption-btn{margin-top:9px}
+.hero-caption-btn .info-tooltip{top:0;left:20px}
+.hero-spark-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);flex-shrink:0}
+#heroSparkline{flex:1;min-height:0;width:100%!important}
+.hero-spark-range{font-size:12.5px;font-weight:700;color:var(--txt);text-align:center;flex-shrink:0;margin-top:4px}
 #heroSparkline{max-height:46px}
 .hero-proximo-lbl{font-size:11.5px;color:var(--muted2);margin-bottom:3px}
-.hero-proximo-val{font-size:15px;font-weight:600;color:var(--txt)}
-.hero-proximo-dias{font-size:12px;color:var(--muted);margin-top:2px}
+.hero-proximo-val{font-size:14.5px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero-proximo-valor{font-size:22px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-top:4px}
+.hero-proximo-dias{font-size:12px;color:var(--muted);margin-top:4px}
 
 /* ── Período (só isso na tela principal) + Análise Financeira Avançada, escondida ── */
 .period-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
@@ -292,7 +291,7 @@
   .period-btn{flex-shrink:0}
   .period-actions{justify-content:space-between}
   .dash-hero-grid{gap:14px}
-  .dash-hero-grid .card{padding:20px}
+  .dash-hero-grid .card{padding:20px;height:auto;min-height:192px;overflow:visible}
   .hero-caixa-val{font-size:30px}
   /* Mini-cards de setor viram 2 colunas no mobile (no desktop o grid se ajusta sozinho). */
   .hero-status-strip{grid-template-columns:1fr 1fr}
@@ -485,17 +484,17 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <span id="heroCaixaTrend"></span>
           </div>
           <div class="veredito-sub" id="veredictoSub"></div>
-          <div class="hero-health-track"><div class="hero-health-fill" id="heroHealthFill"></div></div>
-          <div class="hero-caption" id="heroCaption"></div>
-          <div id="heroDiagnosticoConfiavel"></div>
+          <button type="button" class="info-btn hero-caption-btn" id="heroCaptionBtn" aria-label="Desde quando esse cálculo é válido" style="display:none">i<span class="info-tooltip" id="heroCaptionTooltip"></span></button>
         </div>
         <div class="card hero-card-trend">
           <div class="hero-spark-lbl">Tendência do caixa · 21 dias</div>
-          <canvas id="heroSparkline" height="46"></canvas>
+          <canvas id="heroSparkline"></canvas>
+          <div class="hero-spark-range" id="heroSparkRange"></div>
         </div>
         <div class="card hero-card-proximo">
           <div class="hero-proximo-lbl">Próximo compromisso</div>
           <div class="hero-proximo-val" id="heroProximoVal">—</div>
+          <div class="hero-proximo-valor" id="heroProximoValor"></div>
           <div class="hero-proximo-dias" id="heroProximoDias"></div>
         </div>
       </div>
@@ -1646,13 +1645,17 @@ async function renderInteligenciaNuvix(){
   const periodoFmt = `${fmtData(atual.periodo.inicio)} – ${fmtData(atual.periodo.fim)}`;
   const overflow = todos.length - principais.length;
 
-  // Banner: só o alerta de maior prioridade (título + 1 linha + botão de ação) — o resto
-  // dos insights continua disponível na lista abaixo, sem repetir esse aqui.
+  // Banner: mostra o resultado de diagnostico() (dashboard-confiavel.js) com o tom
+  // correspondente — é a leitura mais confiável de saúde geral (cruza margem + caixa de
+  // verdade), por isso vira a frase de abertura da tela. O botão continua levando pro
+  // alerta de maior prioridade dos outros setores, quando existir um — ação continua
+  // disponível mesmo quando o texto principal é sobre o financeiro.
   const top = principais[0];
-  const estadoCls = top ? (top.categoria==='prioridade'?'prioridade':top.categoria==='atencao'?'atencao':'ok') : 'ok';
-  setHTML('estadoGeralWrap', top
-    ? `<div class="estado-geral ${estadoCls}"><div class="estado-geral-txt"><div class="estado-geral-titulo">${esc(top.titulo)}</div><div class="estado-geral-linha">${esc(gerarNarrativaTemplate(top))}</div></div><button type="button" class="estado-geral-btn" onclick="location.href='${top.href}'">${BOTAO_BANNER[top.categoria]||'Ver detalhes'} →</button></div>`
-    : `<div class="estado-geral ok"><div class="estado-geral-txt"><div class="estado-geral-titulo">Tudo em dia</div><div class="estado-geral-linha">${esc(resumo)}</div></div></div>`);
+  const TOM_BANNER_CLS = {info:'onboarding', ok:'ok', atencao:'atencao', critico:'prioridade'};
+  const bannerCls = diagConfiavel ? (TOM_BANNER_CLS[diagConfiavel.tom]||'ok') : (top ? (top.categoria==='prioridade'?'prioridade':top.categoria==='atencao'?'atencao':'ok') : 'ok');
+  const bannerTexto = diagConfiavel ? diagConfiavel.texto : (top ? top.titulo : resumo);
+  const bannerBtn = top ? `<button type="button" class="estado-geral-btn" onclick="location.href='${top.href}'">${BOTAO_BANNER[top.categoria]||'Ver detalhes'} →</button>` : '';
+  setHTML('estadoGeralWrap', `<div class="estado-geral ${bannerCls}"><div class="estado-geral-txt"><div class="estado-geral-titulo">${esc(bannerTexto)}</div></div>${bannerBtn}</div>`);
 
   // Ponto de alerta nas abas: pior categoria de CADA área entre todos os insights (não só os
   // 4 principais), pra uma área com problema real nunca ficar "silenciosa" só porque outra
@@ -1843,12 +1846,6 @@ async function renderHeroDiagnostico(){
   const caixaAntes = calcSparklineCaixa(21)[0];
   setHTML('heroCaixaTrend', trendBadge(caixa, caixaAntes, false, dadosSuficientesParaTendencia()));
 
-  // Barra de saúde financeira: 0 se negativo, senão proporcional ao fôlego de caixa (45 dias = 100%)
-  const healthPct = caixa<0 ? 4 : Math.max(6, Math.min(100, Math.round((runway||20)/45*100)));
-  const healthColor = statusCls==='crit' ? 'var(--red)' : statusCls==='warn' ? 'var(--amber)' : 'var(--green)';
-  const fillEl=$('heroHealthFill');
-  if(fillEl){ fillEl.style.width=healthPct+'%'; fillEl.style.background=healthColor; }
-
   let sub, acaoSub='', badgeHTML=`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`;
   if(caixa<0){
     sub='O caixa está negativo. Verifique os pagamentos pendentes antes de assumir novos compromissos.';
@@ -1857,35 +1854,41 @@ async function renderHeroDiagnostico(){
   }else{
     // Só aqui (nenhum risco imediato já identificado) é que a leitura "cobre X dias"/
     // "Caixa saudável" passa a vir da RPC — tenta buscar; se falhar, cai no texto antigo.
+    // Margem não é mais buscada aqui: o diagnóstico geral (margem+cobertura) virou
+    // responsabilidade só da faixa do topo, calculado em renderInteligenciaNuvix().
     try{
       const DC=await carregarDashboardConfiavel();
-      const [cobertura,margem]=await Promise.all([DC.carregarCobertura(caixa), DC.carregarMargem(periodo.de,periodo.ate)]);
+      const cobertura=await DC.carregarCobertura(caixa);
       const tc=DC.textoCobertura(cobertura);
       sub=tc.texto;
       if(tc.acao) acaoSub=` <a href="${esc(tc.acao.href)}" style="color:var(--p);font-weight:700;text-decoration:none">${esc(tc.acao.texto)} →</a>`;
       badgeHTML=tc.selo ? `<span class="hero-status-badge ${tc.selo.tom==='ok'?'ok':tc.selo.tom==='critico'?'crit':'warn'}">${esc(tc.selo.texto)}</span>` : '';
-      const diag=DC.diagnostico(margem,cobertura);
-      setHTML('heroDiagnosticoConfiavel',`<div class="hero-diagnostico ${diag.tom}">${esc(diag.texto)}</div>`);
     }catch(e){
       sub=runway?`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos, no ritmo atual.`:'Ainda reunindo histórico suficiente pra estimar o fôlego de caixa.';
-      setHTML('heroDiagnosticoConfiavel','');
     }
   }
-  if(caixa<0||negDias) setHTML('heroDiagnosticoConfiavel','');
   setHTML('heroStatusBadge',badgeHTML);
   setHTML('veredictoSub',esc(sub)+acaoSub);
 
   if(prox){
     const dias=Math.round((new Date(prox.vencimento+'T12:00:00')-new Date(hoje()+'T12:00:00'))/864e5);
     const quando=dias<=0?'Vence hoje':dias===1?'Vence amanhã':`Vence em ${dias} dias`;
-    setHTML('heroProximoVal',`${esc(prox.favorecido||prox.descricao||'Pagamento')} · ${money(prox.valor)}`);
-    setHTML('heroProximoDias',quando);
+    setHTML('heroProximoVal', esc(prox.favorecido||prox.descricao||'Pagamento'));
+    setHTML('heroProximoValor', money(prox.valor));
+    setHTML('heroProximoDias', `${quando} · ${fmtData(prox.vencimento)}`);
   }else{
     setHTML('heroProximoVal','Nenhum pagamento pendente');
+    setHTML('heroProximoValor','');
     setHTML('heroProximoDias','');
   }
 
-  setHTML('heroCaption', primeira ? `Considera lançamentos confirmados desde ${fmtData(primeira)}` : '');
+  // "Desde quando esse cálculo vale" virou ícone (i) com tooltip, não mais uma linha de
+  // texto solta — card mais compacto, informação continua acessível no hover/foco.
+  const captionBtn=$('heroCaptionBtn');
+  if(captionBtn){
+    captionBtn.style.display = primeira ? '' : 'none';
+    if(primeira) setHTML('heroCaptionTooltip', `Considera lançamentos confirmados desde ${fmtData(primeira)}`);
+  }
   renderHeroSparkline();
 }
 
@@ -1902,6 +1905,14 @@ function calcSparklineCaixa(dias){
   }
   return pontos;
 }
+// "R$ 38 mil" em vez do valor cheio — o card da tendência só tem espaço pra um número
+// curto embaixo do gráfico, e a casa decimal exata não muda a leitura de tendência.
+function moneyAbbrev(v){
+  const abs=Math.abs(v);
+  if(abs>=1e6) return 'R$ '+(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mi';
+  if(abs>=1e3) return 'R$ '+Math.round(v/1e3)+' mil';
+  return money(v);
+}
 function renderHeroSparkline(){
   const pontos=calcSparklineCaixa(21);
   if(charts.spark)charts.spark.destroy();
@@ -1909,6 +1920,7 @@ function renderHeroSparkline(){
   if(!c)return;
   const subiu = pontos[pontos.length-1] >= pontos[0];
   charts.spark=new Chart(c,{type:'line',data:{labels:pontos.map((_,i)=>i),datasets:[{data:pontos,borderColor:subiu?'#16A34A':'#DC2626',backgroundColor:subiu?'rgba(22,163,74,.07)':'rgba(220,38,38,.07)',borderWidth:2,fill:true,tension:.35,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:150},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}},elements:{line:{borderJoinStyle:'round'}}}});
+  setHTML('heroSparkRange', `${moneyAbbrev(pontos[0])} → ${moneyAbbrev(pontos[pontos.length-1])}`);
 }
 
 // Template compartilhado por todos os grids de KPI (Financeiro/Comercial/Operação/Materiais/RH) —
