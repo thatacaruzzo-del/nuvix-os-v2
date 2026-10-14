@@ -266,6 +266,7 @@ async function abrirDanfce(url,janelaPreAberta){
 }
 </script>
 <script src="../js/nuvix-paginacao.js"></script>
+<script src="../js/csv-import.js"></script>
 <script>
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'—';const p=String(d).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d}
@@ -318,6 +319,7 @@ async function dbPatch(t,id,d){let r;try{const headers=t==='usuarios'?{...H,Pref
   return j}
 async function dbDelete(t,id){let r;try{const headers=t==='usuarios'?{...H,Prefer:'return=minimal'}:H;r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return true}
 async function dbUpsert(t,d,conflict){const r=await fetch(`${SB_URL}/rest/v1/${t}?on_conflict=${conflict}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(d)});if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbRpc(nome,params){let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
 
 // Cria usuário de verdade: conta de autenticação real no Supabase Auth + registro em
 // usuarios, com o mesmo id nos dois (ver edge function criar-usuario). Só inserir direto
@@ -659,6 +661,7 @@ function toggleSenhaAdmin(){
     <div class="sb-group">
       <div class="sb-group-label">Equipe</div>
       <a class="sb-btn" data-tip="Marketing" onclick="showTab('marketing',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Marketing</span></a>
+      <a class="sb-btn" data-tip="Prospecção" onclick="showTab('prospeccao',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg><span>Prospecção</span></a>
       <a class="sb-btn" data-tip="Planejamento" onclick="showTab('planejamento',this);return false" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Planejamento</span></a>
     </div>
     <div class="sb-group" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08)">
@@ -1216,6 +1219,25 @@ function toggleSenhaAdmin(){
       <p style="color:var(--muted);font-size:12px;margin-bottom:16px">100% manual: rascunho gerado no claude.ai (ou escrito à mão) e colado aqui. Sem chamada a nenhuma API de IA.</p>
       <div class="kanban" id="kanbanConteudo"></div>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ PANE: PROSPECÇÃO (uso interno, equipe Nuvix só — etapa c da Fase 1:
+     só importação de leads via CSV. Funil, fila de aprovação, ficha do lead
+     e opt-out entram numa etapa seguinte) ═══ -->
+<div id="pane-prospeccao" class="admin-pane">
+<div class="content">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Importações de leads</h2>
+      <button class="btn" onclick="abrirModalImportarLeads()">+ Importar CSV</button>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads vêm do script local de filtro da base de CNPJ da Receita (roda fora deste sistema, uma vez por mês). Envie aqui o CSV gerado por ele.</p>
+    <table>
+      <thead><tr><th>Data</th><th>Arquivo</th><th>Linhas</th><th>Novos</th><th>Ignorados</th></tr></thead>
+      <tbody id="listaImportacoesLeads"><tr><td colspan="5" style="color:var(--muted)">Carregando...</td></tr></tbody>
+    </table>
   </div>
 </div>
 </div>
@@ -1830,6 +1852,29 @@ function toggleSenhaAdmin(){
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalMetricasPost')">Fechar</button>
     <button class="btn" onclick="salvarMetricasPost()">Salvar métricas</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalImportarLeads">
+<div class="modal" style="max-width:640px">
+  <h3>Importar leads (CSV)</h3>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Colunas esperadas: cnpj, razao_social, nome_fantasia, cnae_principal, cnae_descricao, data_abertura, porte, bairro, municipio, telefone, email, instagram.</p>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn2" onclick="baixarModeloLeads()">Baixar modelo (.csv)</button>
+    <input type="file" id="importLeadsArquivo" accept=".csv" onchange="lerArquivoImportacaoLeads(this)">
+  </div>
+  <div id="importLeadsResumo" style="font-size:13px;margin-bottom:8px"></div>
+  <div style="max-height:320px;overflow:auto">
+    <table>
+      <thead><tr><th>CNPJ</th><th>Razão social</th><th>Nome fantasia</th><th>Bairro</th><th>Situação</th></tr></thead>
+      <tbody id="importLeadsPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="importLeadsMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalImportarLeads')">Cancelar</button>
+    <button class="btn" id="importLeadsConfirmarBtn" onclick="confirmarImportacaoLeads()" disabled>Confirmar e importar</button>
   </div>
 </div>
 </div>
@@ -3762,6 +3807,7 @@ function showTab(id,btn){
   if(id==='logs')carregarLogs();
   if(id==='certificados')carregarCertificados();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
+  if(id==='prospeccao')carregarImportacoesLeads();
   if(id==='planejamento')carregarPlanejamento();
   if(id==='comercial')carregarComercial();
   if(id==='inicio')carregarInicio();
@@ -4455,6 +4501,89 @@ function converterLeadEmCliente(){
   $('empTel').value=l.contato_telefone||'';
   if(l.segmento)$('empSegmento').value=l.segmento;
   $('empObs').value=`Convertido do pipeline comercial (lead: ${l.nome}).`;
+}
+
+// ═══ PROSPECÇÃO (uso interno, equipe Nuvix só — etapa c da Fase 1: só
+// importação de leads via CSV, reaproveitando js/csv-import.js e o mesmo
+// padrão de produtos.html. Funil, fila de aprovação e ficha do lead entram
+// numa etapa seguinte) ═══
+let importacoesLeads=[];
+async function carregarImportacoesLeads(){
+  try{
+    importacoesLeads=await dbRpc('listar_importacoes_leads',{});
+    renderImportacoesLeads();
+  }catch(e){
+    setHTML('listaImportacoesLeads',`<tr><td colspan="5" style="color:var(--muted)">Erro ao carregar: ${esc(e.message)}</td></tr>`);
+  }
+}
+function renderImportacoesLeads(){
+  setHTML('listaImportacoesLeads',importacoesLeads.map(i=>`<tr><td>${fmtData(i.criado_em)}</td><td>${esc(i.arquivo||'—')}</td><td>${i.total_linhas??0}</td><td>${i.novos??0}</td><td>${i.ignorados??0}</td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--muted)">Nenhuma importação ainda.</td></tr>');
+}
+
+const IMPORT_LEADS_CABECALHO=['cnpj','razao_social','nome_fantasia','cnae_principal','cnae_descricao','data_abertura','porte','bairro','municipio','telefone','email','instagram'];
+let importLeadsLinhas=[], importLeadsArquivoNome='';
+function abrirModalImportarLeads(){
+  importLeadsLinhas=[];importLeadsArquivoNome='';
+  $('importLeadsArquivo').value='';
+  setHTML('importLeadsPreviewTable','');setHTML('importLeadsResumo','');
+  $('importLeadsMsg').className='msg';
+  $('importLeadsConfirmarBtn').disabled=true;
+  abrirModal('modalImportarLeads');
+}
+function baixarModeloLeads(){
+  baixarModeloCSV(IMPORT_LEADS_CABECALHO,
+    ['11222333000181','Exemplo Comercio LTDA','Mercadinho Exemplo','4712-1/00','Comércio varejista em geral','2026-03-15','ME','Centro','Guarulhos','11988887777','contato@exemplo.com','@exemplo'],
+    'modelo_leads.csv');
+}
+function lerArquivoImportacaoLeads(input){
+  const arquivo=input.files?.[0];
+  if(!arquivo)return;
+  importLeadsArquivoNome=arquivo.name;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{ processarImportacaoLeads(parseCSV(String(reader.result||''))); }
+    catch(e){ msgEl('importLeadsMsg','Não foi possível ler o arquivo: '+esc(e.message),'err'); }
+  };
+  reader.onerror=()=>msgEl('importLeadsMsg','Erro ao ler o arquivo.','err');
+  reader.readAsText(arquivo,'UTF-8');
+}
+function validarLinhaImportacaoLead(linha){
+  const cnpj=String(linha.cnpj||'').replace(/\D/g,'');
+  if(cnpj.length!==14)return{...linha,cnpj,_situacao:'erro',_motivo:'CNPJ ausente ou inválido'};
+  return{...linha,cnpj,_situacao:'ok',_motivo:''};
+}
+function processarImportacaoLeads(linhas){
+  importLeadsLinhas=linhas.map(validarLinhaImportacaoLead);
+  renderPreviewImportacaoLeads();
+}
+function renderPreviewImportacaoLeads(){
+  const prontas=importLeadsLinhas.filter(l=>l._situacao==='ok').length;
+  const comErro=importLeadsLinhas.length-prontas;
+  setHTML('importLeadsResumo',`${importLeadsLinhas.length} linha(s) no arquivo — ${prontas} pronta(s) pra importar${comErro?`, ${comErro} com erro (ficam de fora)`:''}. CNPJ já cadastrado ou em opt-out é ignorado automaticamente pelo sistema na hora de importar.`);
+  setHTML('importLeadsPreviewTable',importLeadsLinhas.map(l=>`<tr${l._situacao==='erro'?' style="opacity:.5"':''}><td>${esc(l.cnpj||'—')}</td><td>${esc(l.razao_social||'—')}</td><td>${esc(l.nome_fantasia||'—')}</td><td>${esc(l.bairro||'—')}</td><td>${l._situacao==='erro'?`<span style="color:var(--red)">${esc(l._motivo)}</span>`:'<span style="color:var(--green)">OK</span>'}</td></tr>`).join(''));
+  $('importLeadsConfirmarBtn').disabled=prontas===0;
+}
+async function confirmarImportacaoLeads(){
+  const itens=importLeadsLinhas.filter(l=>l._situacao==='ok').map(l=>({
+    cnpj:l.cnpj, razao_social:l.razao_social||null, nome_fantasia:l.nome_fantasia||null,
+    cnae_principal:l.cnae_principal||null, cnae_descricao:l.cnae_descricao||null,
+    data_abertura:parseDataBR(l.data_abertura)||null, porte:l.porte||null,
+    bairro:l.bairro||null, municipio:l.municipio||null,
+    telefone:l.telefone||null, email:l.email||null, instagram:l.instagram||null,
+  }));
+  if(!itens.length){ msgEl('importLeadsMsg','Nenhuma linha pronta pra importar.','err'); return; }
+  const btn=$('importLeadsConfirmarBtn');
+  btn.disabled=true;btn.textContent='Importando...';
+  try{
+    const resp=await dbRpc('importar_leads',{p:{arquivo:importLeadsArquivoNome, usuario:adminSession?.id||null, itens}});
+    toast(`${resp.novos||0} lead(s) novo(s), ${resp.ignorados||0} ignorado(s).`,'ok');
+    fecharModal('modalImportarLeads');
+    carregarImportacoesLeads();
+  }catch(e){
+    msgEl('importLeadsMsg','Erro ao importar: '+esc(e.message),'err');
+  }finally{
+    btn.disabled=false;btn.textContent='Confirmar e importar';
+  }
 }
 
 // ═══ MODAIS ═══
