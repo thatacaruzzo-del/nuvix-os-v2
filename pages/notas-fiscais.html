@@ -613,6 +613,14 @@ async function verDetalhe(id){
     $('detXmlBtn').style.display='block';
     $('detCancelarBtn').style.display='block';
   }
+  // Achado real: nota cancelada não tinha NENHUM botão de documento — "Baixar XML" e
+  // "Ver/Imprimir" só apareciam pra "autorizada". A nota continua existindo e tendo
+  // XML/DANFCE válidos depois de cancelada (só não pode cancelar de novo nem reemitir
+  // por aqui), e é justamente nota cancelada que a contabilidade mais pede.
+  if(n.status==='cancelada'){
+    $('detVerBtn').style.display='block';
+    $('detXmlBtn').style.display='block';
+  }
   abrirModal('modalDetalhe');
 }
 
