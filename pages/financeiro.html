@@ -1197,7 +1197,8 @@ async function excluirAnexo(anexoId){
   const ok=await confirmarAcao(`Excluir o anexo "${a.nome}"? Essa ação não pode ser desfeita.`,{labelOk:'Excluir',variante:'perigo'});
   if(!ok)return;
   try{
-    await fetch(`${SB}/storage/v1/object/financeiro-anexos/${a.url}`,{method:'DELETE',headers:H});
+    const r=await fetch(`${SB}/storage/v1/object/financeiro-anexos`,{method:'DELETE',headers:H,body:JSON.stringify({prefixes:[a.url]})});
+    if(!r.ok)throw new Error(await r.text());
     await db.delete('financeiro_anexos',anexoId);
     toast('Anexo excluído.','ok');
     await carregarAnexos(a.financeiro_id);
