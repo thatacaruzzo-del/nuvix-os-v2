@@ -530,6 +530,13 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div id="dreConteudo"></div>
         </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 6px">Relatório mensal pro cliente</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Junta resumo do mês, DRE, fluxo de caixa, aging e principais despesas num único documento pra enviar ao cliente. Usa o mês e ano escolhidos acima no DRE.</p>
+          <div class="field"><label>Observações (opcional)</label><textarea id="relatorioObs" rows="3" style="resize:vertical;width:100%" placeholder="Algum comentário pra incluir no relatório..."></textarea></div>
+          <div style="margin-top:10px"><button class="btn" onclick="gerarRelatorioMensal()">Gerar relatório mensal (PDF)</button></div>
+        </div>
       </div>
 
     </div>
@@ -2193,6 +2200,84 @@ function renderDre(linhas){
     <div style="display:flex;justify-content:space-between;border-top:2px solid var(--line);padding-top:10px;margin-top:4px;font-weight:800;font-size:15px">
       <span>Resultado do período</span><span style="color:${resultado>=0?'var(--green)':'var(--red)'}">${money(resultado)}</span>
     </div>`);
+}
+
+// ═══ RELATÓRIO MENSAL (PDF via impressão do navegador — Etapa 4.1) ═══
+// Mesmo padrão já usado no cupom não-fiscal do caixa: monta o HTML completo,
+// abre numa aba nova como Blob e deixa o usuário "Imprimir" (salvar como PDF).
+// Nenhuma lib de PDF nova, igual ao achado da auditoria da Etapa 0.
+async function gerarRelatorioMensal(){
+  const ano=Number(val('dreAno'));const mes=Number(val('dreMes'));
+  if(!ano||!mes){ toast('Escolha mês e ano no DRE acima primeiro.','err'); return; }
+  toast('Gerando relatório...','ok');
+  try{
+    const [dreLinhas,agingLinhas,fluxoResp]=await Promise.all([
+      db.rpc('dre_mensal',{p_ano:ano,p_mes:mes,p_regime:'caixa'}),
+      db.rpc('aging_inadimplencia',{}),
+      db.rpc('fluxo_caixa_projetado',{p_dias:30}),
+    ]);
+    const mesInicio=`${ano}-${String(mes).padStart(2,'0')}-01`;
+    const mesFim=new Date(ano,mes,0).toISOString().slice(0,10);
+    const despesasMes=await db.get('financeiro',`?select=categoria,valor&tipo=eq.Despesa&status=eq.Pago&data_pagamento=gte.${mesInicio}&data_pagamento=lte.${mesFim}`);
+    const porCategoria={};
+    despesasMes.forEach(d=>{const cat=d.categoria||'Outros';porCategoria[cat]=(porCategoria[cat]||0)+Number(d.valor||0);});
+    const topDespesas=Object.entries(porCategoria).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+    const resultado=dreLinhas.reduce((a,l)=>a+Number(l.total||0),0);
+    const receitaBruta=dreLinhas.filter(l=>l.grupo_dre==='receita_bruta').reduce((a,l)=>a+Number(l.total||0),0);
+    const despesasTotais=resultado-receitaBruta;
+    const nomeMes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes-1];
+    const observacoes=val('relatorioObs');
+
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório ${nomeMes} de ${ano}</title>
+<style>
+  body{font-family:Arial,sans-serif;max-width:720px;margin:24px auto;color:#1A1A2E;font-size:13px;padding:0 16px}
+  h1{font-size:20px;margin-bottom:2px}
+  .sub{color:#667085;font-size:13px;margin-bottom:24px}
+  h2{font-size:14px;margin:24px 0 8px;border-bottom:2px solid #7C3AED;padding-bottom:4px}
+  table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  td,th{padding:5px 6px;font-size:12px;text-align:left}
+  .r{text-align:right}
+  .tot{font-weight:800;border-top:1px solid #ccc}
+  .neg{color:#DC2626}.pos{color:#16A34A}
+  .btn-imprimir{display:block;width:100%;margin-top:20px;padding:10px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+  @media print{.btn-imprimir{display:none}}
+</style></head><body>
+<h1>${esc(session.empresa?.fantasia||session.empresa?.razao||'Relatório financeiro')}</h1>
+<div class="sub">Relatório mensal · ${nomeMes} de ${ano} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+
+<h2>Resumo do mês</h2>
+<table>
+  <tr><td>Receita bruta</td><td class="r">${money(receitaBruta)}</td></tr>
+  <tr><td>Despesas e custos</td><td class="r neg">${money(despesasTotais)}</td></tr>
+  <tr class="tot"><td>Resultado do mês</td><td class="r ${resultado>=0?'pos':'neg'}">${money(resultado)}</td></tr>
+</table>
+
+<h2>DRE do mês (regime de caixa)</h2>
+<table>${dreLinhas.length?dreLinhas.map(l=>`<tr><td>${l.plano_conta_codigo?esc(l.plano_conta_codigo)+' — ':''}${esc(l.plano_conta_nome)}</td><td class="r">${money(l.total)}</td></tr>`).join(''):'<tr><td colspan="2">Nenhum lançamento no período.</td></tr>'}</table>
+
+<h2>Fluxo de caixa (próximos 30 dias)</h2>
+<table>
+  <tr><td>Saldo atual${fluxoResp.fonte==='estimada'?' (estimado)':''}</td><td class="r">${money(fluxoResp.saldo_atual)}</td></tr>
+  <tr><td>Previsão de ficar negativo</td><td class="r">${fluxoResp.dias_ate_negativo!=null?fluxoResp.dias_ate_negativo+' dia(s)':'Não projetado no período'}</td></tr>
+</table>
+
+<h2>Contas a receber em aberto (aging)</h2>
+${agingLinhas.length?`<table>
+  <tr><th>Cliente</th><th class="r">A vencer</th><th class="r">1-30d</th><th class="r">31-60d</th><th class="r">61-90d</th><th class="r">+90d</th><th class="r">Total</th></tr>
+  ${agingLinhas.map(l=>`<tr><td>${esc(l.favorecido)}</td><td class="r">${money(l.a_vencer)}</td><td class="r">${money(l.dias_1_30)}</td><td class="r">${money(l.dias_31_60)}</td><td class="r">${money(l.dias_61_90)}</td><td class="r">${money(l.acima_90)}</td><td class="r tot">${money(l.total)}</td></tr>`).join('')}
+</table>`:'<p>Nenhum valor a receber pendente.</p>'}
+
+<h2>Principais despesas por categoria</h2>
+${topDespesas.length?`<table>${topDespesas.map(([cat,v])=>`<tr><td>${esc(cat)}</td><td class="r">${money(v)}</td></tr>`).join('')}</table>`:'<p>Nenhuma despesa paga no período.</p>'}
+
+${observacoes?`<h2>Observações</h2><p>${esc(observacoes).replace(/\n/g,'<br>')}</p>`:''}
+
+<button class="btn-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+</body></html>`;
+    const blob=new Blob([html],{type:'text/html'});
+    window.open(URL.createObjectURL(blob),'_blank');
+  }catch(e){ toast('Erro ao gerar relatório: '+e.message,'err'); }
 }
 
 init();
