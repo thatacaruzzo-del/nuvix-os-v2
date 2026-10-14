@@ -176,6 +176,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ PRODUTOS ══ -->
       <div id="pane-produtos" class="pdv-pane active">
         <div class="card">
+          <div id="produtosFiltroBanner"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
             <input id="buscaProduto" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:320px" oninput="paginaProdutos=1;renderProdutos()">
             <select id="ordemProduto" onchange="paginaProdutos=1;renderProdutos()" style="max-width:210px">
@@ -649,6 +650,16 @@ const DICA_PRECO_PADRAO='Esse é o preço que o cliente vai pagar. Pode ser igua
 // listar tudo de uma vez (rolagem infinita) elas são divididas em páginas de 20 linhas.
 const ITENS_POR_PAGINA=20;
 let paginaProdutos=1, paginaEstoque=1, paginaCategorias=1, paginaTransferencias=1, paginaLojas=1;
+// ?filtro=sem_custo — vindo do "Cadastrar custos"/"Completar custos" do dashboard
+// confiável (Painel de Vendas e Painel Executivo): produto sem custo cadastrado
+// distorce margem pra menos trustworthy, então a ação leva direto pra cá já
+// filtrado, em vez do cliente ter que achar os produtos um a um na lista inteira.
+let filtroSemCustoAtivo=new URLSearchParams(location.search).get('filtro')==='sem_custo';
+function limparFiltroSemCusto(){
+  filtroSemCustoAtivo=false;
+  history.replaceState(null,'',location.pathname);
+  renderProdutos();
+}
 function irParaPaginaProdutos(p){paginaProdutos=p;renderProdutos();}
 function irParaPaginaEstoque(p){paginaEstoque=p;renderEstoque();}
 function irParaPaginaCategorias(p){paginaCategorias=p;renderCategorias();}
@@ -797,7 +808,13 @@ const ORDEM_PRODUTO_CMP={
 };
 function renderProdutos(){
   const q=(val('buscaProduto')||'').toLowerCase();
-  const lista=dados.produtos.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  let lista=dados.produtos.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'').toLowerCase().includes(q));
+  if(filtroSemCustoAtivo) lista=lista.filter(p=>p.ativo!==false&&!(Number(p.custo_atual||0)>0));
+  setHTML('produtosFiltroBanner', filtroSemCustoAtivo
+    ? `<div class="msg show err" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span>Mostrando só produtos ativos sem custo cadastrado (${lista.length}) — é o que está deixando a margem do dashboard "Indisponível" ou parcial.</span>
+        <button class="btn2" style="padding:6px 12px;font-size:12px;flex-shrink:0" onclick="limparFiltroSemCusto()">Limpar filtro</button>
+      </div>` : '');
   const ordem=val('ordemProduto')||'nome_asc';
   lista.sort(ORDEM_PRODUTO_CMP[ordem]||ORDEM_PRODUTO_CMP.nome_asc);
   paginaProdutos=renderPaginacao('produtosPaginacao',lista.length,paginaProdutos,'irParaPaginaProdutos');

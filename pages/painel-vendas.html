@@ -20,6 +20,22 @@
 .abc-A{background:#ECFDF5;color:#059669}
 .abc-B{background:#FEF3C7;color:#92400E}
 .abc-C{background:#FEF2F2;color:#DC2626}
+.abc-resumo{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.abc-lista{list-style:none;display:flex;flex-direction:column;gap:14px}
+.abc-lista>li{border-bottom:1px solid var(--line);padding-bottom:12px}
+.abc-lista>li:last-child{border-bottom:none;padding-bottom:0}
+.abc-linha{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.abc-classe{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:11px;font-weight:800;flex-shrink:0}
+.abc-classe.abc-A{background:#ECFDF5;color:#059669}
+.abc-classe.abc-B{background:#FEF3C7;color:#92400E}
+.abc-classe.abc-C{background:#FEF2F2;color:#DC2626}
+.abc-nome{flex:1;font-size:13.5px;font-weight:600;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.abc-valor{font-size:13.5px;font-weight:700;color:var(--txt);flex-shrink:0}
+.abc-barra{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:4px}
+.abc-barra>span{display:block;height:100%;background:var(--p);border-radius:99px}
+.abc-lista small{color:var(--muted2);font-size:11px}
+.abc-ver-mais{margin-top:14px;width:100%;background:transparent;border:1.5px solid var(--line);border-radius:10px;padding:9px;font-size:12.5px;font-weight:700;color:var(--p);cursor:pointer}
+.abc-ver-mais:hover{background:var(--p-light)}
 .giro-bar-track{height:6px;background:var(--line);border-radius:99px;overflow:hidden;min-width:60px}
 .giro-bar-track>div{height:100%;background:var(--p);border-radius:99px}
 .kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:6px}
@@ -67,6 +83,11 @@ const H={'apikey':SB_KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||S
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 async function dbGet(t,q=''){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/${t}${q}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+async function dbRpc(fn,params){_verificarSessao();let r;try{r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:H,body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+// Ponte pro dashboard-confiavel.js: ele foi escrito esperando um client supabase-js
+// (padrão `const {data,error}=await supabase.rpc(...)`), mas aqui o app inteiro fala
+// REST puro via dbRpc — só essa ponte muda, a lógica do arquivo fica intacta.
+window.supabase={rpc:(fn,params)=>dbRpc(fn,params).then(data=>({data,error:null})).catch(error=>({data:null,error}))};
 
 const SESSION_KEY='nuvix_v2_session';
 function getSession(){try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.loginAt>8*60*60*1000){sessionStorage.removeItem(SESSION_KEY);return null}return{...d.user,empresa_id:d.empresa?.id,empresa:d.empresa}}catch{return null}}
@@ -150,20 +171,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <div class="chart-card" style="margin-bottom:16px"><h3>Evolução do faturamento no período</h3><canvas id="chartEvolucao" height="90"></canvas></div>
 
-      <div class="chart-grid">
-        <div class="chart-card"><h3>Curva ABC — top produtos por faturamento</h3><canvas id="chartAbc" height="220"></canvas></div>
-        <div class="chart-card"><h3>Faturamento por categoria</h3><canvas id="chartCategoria" height="220"></canvas></div>
-      </div>
+      <div class="chart-card" style="margin-bottom:16px"><h3>Faturamento por categoria</h3><canvas id="chartCategoria" height="220"></canvas></div>
 
       <div class="card" style="margin-bottom:16px">
-        <h2 style="margin-bottom:14px">Curva ABC de produtos</h2>
-        <div class="tablewrap">
-          <table>
-            <thead><tr><th></th><th>Produto</th><th>Qtd. vendida</th><th>Faturamento</th><th>Margem</th><th>% do total</th><th>% acumulado</th></tr></thead>
-            <tbody id="abcTable"></tbody>
-          </table>
-        </div>
-        <div id="abcTablePaginacao"></div>
+        <h2 style="margin-bottom:4px">Curva ABC de produtos</h2>
+        <p class="field-hint" style="margin-bottom:14px">Todos os canais do período (a curva ABC não é filtrada por canal).</p>
+        <div id="curvaAbcBox"></div>
       </div>
 
       <div class="card">
@@ -207,7 +220,7 @@ async function init(){
   $('pageLoader')?.classList.add('hide');
 }
 
-let chartAbcInstance=null, chartCategoriaInstance=null, chartEvolucaoInstance=null;
+let chartCategoriaInstance=null, chartEvolucaoInstance=null;
 const setaUp='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
 const setaDown='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 
@@ -382,14 +395,25 @@ async function buscarAReceberPainel(de,ate,canal){
   });
   return {aReceber, atrasado};
 }
+// js/dashboard-confiavel.js carrega sob demanda (dynamic import) em vez de um
+// <script type="module"> fixo — módulo ES só termina de rodar depois do parse
+// do documento inteiro (igual defer), e o init() desta página chama
+// carregarPainel() antes disso. Import dinâmico garante que as funções já
+// estão prontas no exato momento em que são usadas, sem corrida de carregamento.
+let _dcModulo=null;
+async function carregarDashboardConfiavel(){
+  if(!_dcModulo) _dcModulo=await import('../js/dashboard-confiavel.js');
+  return _dcModulo;
+}
 async function carregarPainel(){
   if(!session?.empresa_id)return;
   const de=val('painelDe')||hoje(), ate=val('painelAte')||hoje();
   const canal=val('painelCanal')||'';
   const ant=periodoAnteriorPainel(de,ate);
-  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos;
+  const DC=await carregarDashboardConfiavel();
+  let linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos,margemResult,curvaAbcResult;
   try{
-    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos]=await Promise.all([
+    [linhas,totAnt,produtosTodos,categoriasTodas,estoqueTodasLojas,aReceberInfo,cancelamentos,margemResult,curvaAbcResult]=await Promise.all([
       buscarVendasCompletas(de,ate,canal),
       totaisPeriodoLeve(ant.de,ant.ate,canal),
       dbGetTodas('produtos',`?empresa_id=eq.${session.empresa_id}&select=id,nome,categoria_id`),
@@ -397,6 +421,8 @@ async function carregarPainel(){
       dbGetTodas('estoque_por_loja',`?empresa_id=eq.${session.empresa_id}&select=produto_id,quantidade`),
       buscarAReceberPainel(de,ate,canal),
       buscarCancelamentos(de,ate,canal),
+      DC.carregarMargem(de,ate),
+      DC.carregarCurvaABC(de,ate),
     ]);
   }catch(e){toast('Erro ao carregar painel: '+e.message,'err');return;}
 
@@ -410,42 +436,36 @@ async function carregarPainel(){
   const freteCustoTotal=Object.values(_ultimosFretesPorVenda).reduce((a,r)=>a+Number(r.valor_frete||0),0);
   const comissaoMarketplaceTotal=Object.values(_ultimosFretesPorVenda).reduce((a,r)=>a+Number(r.comissao||0),0);
 
+  // porProduto ainda alimenta Faturamento próprio/consignado e Giro por categoria —
+  // só a classificação ABC/margem por produto (que vinha daqui) foi substituída
+  // pela RPC dashboard_curva_abc, mais confiável (exclui custo zerado da conta em
+  // vez de tratar "sem custo" como "custo zero").
   const porProduto={};
   let fatProprio=0, fatConsignado=0;
   linhas.forEach(l=>{
     const k=l.produto_id||l.produto_nome;
-    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,custo:0,is_consignado:false};
+    if(!porProduto[k])porProduto[k]={produto_id:l.produto_id,nome:l.produto_nome,qtd:0,faturamento:0,is_consignado:false};
     const qtd=Number(l.quantidade||0);
     const valLinha=valorLiquidoLinha(l);
     porProduto[k].qtd+=qtd;
     porProduto[k].faturamento+=valLinha;
-    porProduto[k].custo+=qtd*Number(l.custo_unitario_snapshot||0);
     if(l.is_consignado){porProduto[k].is_consignado=true; fatConsignado+=valLinha;} else{fatProprio+=valLinha;}
   });
   const produtos=Object.values(porProduto).sort((a,b)=>b.faturamento-a.faturamento);
   const faturamentoTotal=produtos.reduce((a,p)=>a+p.faturamento,0);
-  const custoTotal=produtos.reduce((a,p)=>a+p.custo,0);
-
-  let acumulado=0;
-  produtos.forEach(p=>{
-    p.pct=faturamentoTotal?p.faturamento/faturamentoTotal*100:0;
-    acumulado+=p.pct;
-    p.pctAcumulado=acumulado;
-    p.classe=acumulado<=80?'A':acumulado<=95?'B':'C';
-    p.margemPct=p.faturamento?((p.faturamento-p.custo)/p.faturamento*100):0;
-  });
 
   const vendaIds=new Set(linhas.map(l=>l.venda_id));
   const ticketMedio=vendaIds.size?faturamentoTotal/vendaIds.size:0;
-  const margemPct=faturamentoTotal?((faturamentoTotal-custoTotal)/faturamentoTotal*100):0;
 
   const ticketMedioAnt=totAnt.numVendas?totAnt.faturamento/totAnt.numVendas:0;
   const confiavel=vendaIds.size>=3 && totAnt.numVendas>=3;
+  const rotuloAnt=DC.rotuloComparacao({inicio:ant.de,fim:ant.ate});
 
-  renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas:vendaIds.size,numProdutos:produtos.length,
+  renderPainelKpis(DC,{faturamentoTotal,ticketMedio,numVendas:vendaIds.size,numProdutos:produtos.length,
     faturamentoAnt:totAnt.faturamento,ticketMedioAnt,confiavel,fatProprio,fatConsignado,
-    aReceber:aReceberInfo.aReceber,atrasado:aReceberInfo.atrasado,freteCobradoTotal,freteCustoTotal,comissaoMarketplaceTotal});
-  renderAbc(produtos,faturamentoTotal);
+    aReceber:aReceberInfo.aReceber,atrasado:aReceberInfo.atrasado,freteCobradoTotal,freteCustoTotal,comissaoMarketplaceTotal,
+    margemResult,rotuloAnt});
+  renderCurvaAbcBox(DC,curvaAbcResult);
   renderGiroCategoria(produtos,produtosTodos,categoriasTodas,estoqueTodasLojas);
 }
 // Ícones — roxo só na métrica principal (Faturamento); as demais usam o mesmo
@@ -459,17 +479,35 @@ const KPI_ICONES={
   caixa:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   fatia:'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
 };
-function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado,aReceber,atrasado,freteCobradoTotal,freteCustoTotal,comissaoMarketplaceTotal}){
+// Cor do selo de margem: 'ok' não pinta (preto normal), 'atencao' usa âmbar
+// (margem parcial ou indisponível — falta custo cadastrado), 'info' usa cinza
+// neutro (sem vendas no período, não é nem bom nem ruim).
+const TOM_COR_MARGEM={ok:null,atencao:'var(--amber)',info:'var(--muted)'};
+function kpiMargemHTML(DC,margemResult){
+  const c=DC.cardMargem(margemResult);
+  const cor=TOM_COR_MARGEM[c.tom];
+  return `<div class="kpi-card">
+    <div class="kpi-ic n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KPI_ICONES.tendencia}</svg></div>
+    <div class="kpi-label">Margem estimada</div>
+    <div class="kpi-value"${cor?` style="color:${cor}"`:''}>${esc(c.valor)}</div>
+    <div class="kpi-sub">${esc(c.legenda)}</div>
+    ${c.acao?`<a class="btn2" style="display:inline-block;margin-top:8px;padding:5px 12px;font-size:11px;text-decoration:none" href="${esc(c.acao.href)}">${esc(c.acao.texto)}</a>`:''}
+  </div>`;
+}
+function renderPainelKpis(DC,{faturamentoTotal,ticketMedio,numVendas,numProdutos,faturamentoAnt,ticketMedioAnt,confiavel,fatProprio,fatConsignado,aReceber,atrasado,freteCobradoTotal,freteCustoTotal,comissaoMarketplaceTotal,margemResult,rotuloAnt}){
   // Faturado ≠ recebido: o valor pendente não é erro nem alerta por si só (venda a prazo é
   // normal), por isso âmbar — só vira vermelho quando parte dele já está atrasado (vencido
   // e ainda não pago), que aí sim é risco de verdade.
   const subReceber = aReceber>0
     ? ` · <span style="color:${atrasado>0?'var(--red)':'var(--amber)'};font-weight:700">${money(aReceber)} a receber</span>${atrasado>0?` (${money(atrasado)} atrasado)`:''}`
     : '';
-  setHTML('painelKpis',[
-    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}${subReceber}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)},
-    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)},
-    {lbl:'Margem estimada',val:margemPct.toFixed(1)+'%',sub:'faturamento − custo',ic:'tendencia',valorCor:margemPct<0?'var(--red)':null},
+  // Rótulo com as datas comparadas só aparece quando dá pra confiar na tendência
+  // (mesma régua de "confiavel" que já decide se mostra a seta ↑/↓) — senão fica
+  // uma comparação de datas sem nenhum selo de variação ao lado, confuso.
+  const rotuloHTML = confiavel ? `<div style="font-size:10.5px;color:var(--muted2);margin-top:2px">${esc(rotuloAnt)}</div>` : '';
+  const cards=[
+    {lbl:'Faturamento no período',val:money(faturamentoTotal),sub:`${numVendas} venda${numVendas===1?'':'s'}${subReceber}`,ic:'cifrao',principal:true,trend:trendBadge(faturamentoTotal,faturamentoAnt,false,confiavel)+rotuloHTML},
+    {lbl:'Ticket médio',val:money(ticketMedio),sub:'por venda',ic:'carrinho',trend:trendBadge(ticketMedio,ticketMedioAnt,false,confiavel)+rotuloHTML},
     {lbl:'Produtos vendidos',val:String(numProdutos),sub:'produtos diferentes',ic:'caixa'},
     {lbl:'Faturamento próprio',val:money(fatProprio),sub:faturamentoTotal?Math.round(fatProprio/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
     {lbl:'Faturamento consignado',val:money(fatConsignado),sub:faturamentoTotal?Math.round(fatConsignado/faturamentoTotal*100)+'% do total':'',ic:'fatia'},
@@ -482,7 +520,9 @@ function renderPainelKpis({faturamentoTotal,ticketMedio,margemPct,numVendas,numP
     <div class="kpi-value"${k.valorCor?` style="color:${k.valorCor}"`:''}>${k.val}</div>
     <div class="kpi-sub">${k.sub}</div>
     ${k.trend||''}
-  </div>`).join(''));
+  </div>`);
+  cards.splice(2,0,kpiMargemHTML(DC,margemResult));
+  setHTML('painelKpis',cards.join(''));
 }
 function renderEvolucao(linhas,de,ate){
   const dIni=new Date(de+'T12:00:00'), dFim=new Date(ate+'T12:00:00');
@@ -579,37 +619,20 @@ function badgeStatusEntregaPainel(status){
   const cor=({'Em separação':'warn','Enviado':'warn','Entregue':'ok','Retirado':'ok'})[s]||'';
   return `<span class="badge ${cor}">${esc(s)}</span>`;
 }
-let _ultimoAbc={produtos:[],faturamentoTotal:0};
-function renderAbc(produtos,faturamentoTotal){
-  if(produtos===undefined){ ({produtos,faturamentoTotal}=_ultimoAbc); }
-  else{ _ultimoAbc={produtos,faturamentoTotal}; }
-  renderPaginacao('abcTable',produtos.length,'renderAbc');
-  $('abcTable').innerHTML=produtos.length?paginar(produtos,'abcTable').map(p=>`
-    <tr>
-      <td><span class="abc-badge abc-${p.classe}">${p.classe}</span></td>
-      <td>${esc(p.nome||'—')}${p.is_consignado?' <span class="badge badge-amber">Consig.</span>':''}</td>
-      <td>${p.qtd}</td>
-      <td>${money(p.faturamento)}</td>
-      <td${p.margemPct<0?' style="color:var(--red)"':''}>${p.margemPct.toFixed(1)}%</td>
-      <td>${p.pct.toFixed(1)}%</td>
-      <td>${p.pctAcumulado.toFixed(1)}%</td>
-    </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted)">Nenhuma venda no período.</td></tr>';
-
-  const top=produtos.slice(0,10);
-  const ctx=$('chartAbc');
-  if(chartAbcInstance)chartAbcInstance.destroy();
-  if(ctx&&top.length){
-    // Esse gráfico é um RANKING (top 10 por faturamento), não a classificação
-    // ABC em si — colorir por classe A/B/C aqui saía quase todo verde (é
-    // normal um top 10 por faturamento ser majoritariamente classe A), o que
-    // não comunica nada. Intensidade do roxo por posição, igual "Vendas por
-    // loja"/"Giro por categoria" — o selo A/B/C continua na tabela abaixo.
-    const maiorValor=top[0]?.faturamento||1;
-    chartAbcInstance=new Chart(ctx,{type:'bar',data:{
-      labels:top.map(p=>p.nome),
-      datasets:[{label:'Faturamento',data:top.map(p=>p.faturamento),backgroundColor:top.map(p=>`rgba(99,67,164,${Math.max(.25,p.faturamento/maiorValor).toFixed(2)})`)}],
-    },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});
-  }
+// Curva ABC agora vem pronta da RPC dashboard_curva_abc (qtd/faturamento/%/%
+// acumulado/classe já calculados no banco) — renderCurvaABC() desenha a lista
+// com barra proporcional (substitui a tabela+gráfico antigos, mesmo raciocínio
+// do autor do dashboard-confiavel.js: rótulo de produto cortado no gráfico de
+// barra horizontal era pior que nome inteiro + barra abaixo).
+let _ultimaCurvaAbc=null, _dcModuloAbc=null;
+function renderCurvaAbcBox(DC,curvaAbcResult,limite=20){
+  _ultimaCurvaAbc=curvaAbcResult; _dcModuloAbc=DC;
+  const el=$('curvaAbcBox');
+  if(!el)return;
+  if(!curvaAbcResult.itens.length){ el.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px 0">Nenhuma venda no período.</p>'; return; }
+  DC.renderCurvaABC(el,curvaAbcResult,limite);
+  const btn=el.querySelector('.abc-ver-mais');
+  if(btn) btn.onclick=()=>renderCurvaAbcBox(DC,curvaAbcResult,curvaAbcResult.itens.length);
 }
 function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,estoqueTodasLojas){
   const nomeCategoriaMap={}; categoriasTodas.forEach(c=>nomeCategoriaMap[c.id]=c.nome);

@@ -25,6 +25,12 @@
 .hero-health-track{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:16px;max-width:320px}
 .hero-health-fill{height:100%;border-radius:99px;background:var(--green);transition:width .5s ease}
 .hero-caption{font-size:11px;color:var(--muted2);margin-top:9px}
+.hero-diagnostico{font-size:12.5px;font-weight:700;margin-top:10px;display:flex;align-items:center;gap:7px}
+.hero-diagnostico::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.hero-diagnostico.info{color:var(--muted)}
+.hero-diagnostico.ok{color:var(--green)}
+.hero-diagnostico.atencao{color:var(--amber)}
+.hero-diagnostico.critico{color:var(--red)}
 .hero-spark-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
 #heroSparkline{max-height:46px}
 .hero-proximo-lbl{font-size:11.5px;color:var(--muted2);margin-bottom:3px}
@@ -306,6 +312,16 @@ const H={'apikey':KEY,get 'Authorization'(){return 'Bearer '+(tokenAtual()||KEY)
 function _verificarSessao(){if(getSession())return true;setTimeout(()=>{window.location.href='../index.html';},1800);throw new Error('Sua sessão expirou. Redirecionando para o login...');}
 function traduzErroGenerico(textoBruto){let m=String(textoBruto||'');try{const obj=JSON.parse(m);m=obj.message||obj.details||obj.hint||m;}catch(e){}if(/duplicate key|already exists/i.test(m))return'Já existe um registro com essa informação.';if(/violates not-null constraint/i.test(m))return'Preencha todos os campos obrigatórios antes de salvar.';if(/violates foreign key constraint/i.test(m))return'Não é possível concluir — esse registro está vinculado a outro cadastro.';return'Algo deu errado. Tente novamente — se continuar, entre em contato com o suporte.';}
 const db={get:async(t,q)=>{_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/${t}${q||''}`,{headers:H});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}};
+async function dbRpc(fn,params){_verificarSessao();let r;try{r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify(params)});}catch(e){throw new Error('Sem conexão com a internet. Verifique sua rede e tente de novo.');}if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));return r.json()}
+// Ponte pro dashboard-confiavel.js: ele foi escrito esperando um client supabase-js
+// (padrão `const {data,error}=await supabase.rpc(...)`), mas aqui o app inteiro fala
+// REST puro via dbRpc — só essa ponte muda, a lógica do arquivo fica intacta.
+window.supabase={rpc:(fn,params)=>dbRpc(fn,params).then(data=>({data,error:null})).catch(error=>({data:null,error}))};
+let _dcModulo=null;
+async function carregarDashboardConfiavel(){
+  if(!_dcModulo) _dcModulo=await import('../js/dashboard-confiavel.js');
+  return _dcModulo;
+}
 // Busca todas as páginas de uma tabela (1000 em 1000) — sem isso, período com mais
 // de 1000 linhas fica cortado silenciosamente pela paginação padrão do PostgREST.
 async function dbGetTodas(t,q){
@@ -460,6 +476,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div class="veredito-sub" id="veredictoSub"></div>
           <div class="hero-health-track"><div class="hero-health-fill" id="heroHealthFill"></div></div>
           <div class="hero-caption" id="heroCaption"></div>
+          <div id="heroDiagnosticoConfiavel"></div>
         </div>
         <div class="card hero-card-trend">
           <div class="hero-spark-lbl">Tendência do caixa · 21 dias</div>
@@ -507,6 +524,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- FINANCEIRO — tenho dinheiro? Único lugar da tela com valores em R$. -->
       <div class="pane" id="pane-financeiro">
+        <div id="indicadoresRotulo" style="font-size:11px;color:var(--muted2);margin-bottom:8px"></div>
         <div class="kpi-grid" id="indicadores"></div>
         <div class="chart-card">
           <div class="chart-hd-row">
@@ -1749,12 +1767,18 @@ function calcStatusFinanceiro(){
 }
 
 // HERO — diagnóstico, não número solto: caixa, fôlego, risco e próximo compromisso.
-function renderHeroDiagnostico(){
+// Dashboard confiável (dashboard_cobertura_caixa/dashboard_margem): só entra na leitura
+// de "Caixa saudável" e no diagnóstico geral quando há despesa/custo cadastrado o
+// suficiente pra confiar na conta — regra de ouro do arquivo, "avisa em vez de
+// inventar número". calcStatusFinanceiro/calcRunway (30 dias, já previstos) continuam
+// cobrindo "caixa negativo"/"vai ficar negativo em N dias", que são fatos mais
+// precisos (compromissos JÁ agendados) do que a média histórica da RPC — por isso só
+// a leitura "tá tudo ok" é que passa a depender dos dados confiáveis.
+async function renderHeroDiagnostico(){
   const {caixa,runway,negDias,txt:statusTxt,cls:statusCls}=calcStatusFinanceiro();
   const prox=proximoCompromisso();
   const primeira=dataPrimeiroLancamento();
 
-  setHTML('heroStatusBadge',`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`);
   setHTML('heroCaixaVal',money(caixa));
 
   // Tendência do caixa: mesma janela de 21 dias já usada na sparkline ao lado, só que
@@ -1768,12 +1792,31 @@ function renderHeroDiagnostico(){
   const fillEl=$('heroHealthFill');
   if(fillEl){ fillEl.style.width=healthPct+'%'; fillEl.style.background=healthColor; }
 
-  let sub;
-  if(caixa<0) sub='O caixa está negativo — verifique os pagamentos pendentes antes de assumir novos compromissos.';
-  else if(negDias) sub=`Seu caixa pode ficar negativo em ${negDias} dia${negDias>1?'s':''} caso nenhum recebimento previsto se confirme.`;
-  else if(runway) sub=`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos, no ritmo atual.`;
-  else sub='Ainda reunindo histórico suficiente pra estimar o fôlego de caixa.';
-  setHTML('veredictoSub',esc(sub));
+  let sub, acaoSub='', badgeHTML=`<span class="hero-status-badge ${statusCls}">${statusTxt}</span>`;
+  if(caixa<0){
+    sub='O caixa está negativo — verifique os pagamentos pendentes antes de assumir novos compromissos.';
+  }else if(negDias){
+    sub=`Seu caixa pode ficar negativo em ${negDias} dia${negDias>1?'s':''} caso nenhum recebimento previsto se confirme.`;
+  }else{
+    // Só aqui (nenhum risco imediato já identificado) é que a leitura "cobre X dias"/
+    // "Caixa saudável" passa a vir da RPC — tenta buscar; se falhar, cai no texto antigo.
+    try{
+      const DC=await carregarDashboardConfiavel();
+      const [cobertura,margem]=await Promise.all([DC.carregarCobertura(caixa), DC.carregarMargem(periodo.de,periodo.ate)]);
+      const tc=DC.textoCobertura(cobertura);
+      sub=tc.texto;
+      if(tc.acao) acaoSub=` <a href="${esc(tc.acao.href)}" style="color:var(--p);font-weight:700;text-decoration:none">${esc(tc.acao.texto)} →</a>`;
+      badgeHTML=tc.selo ? `<span class="hero-status-badge ${tc.selo.tom==='ok'?'ok':tc.selo.tom==='critico'?'crit':'warn'}">${esc(tc.selo.texto)}</span>` : '';
+      const diag=DC.diagnostico(margem,cobertura);
+      setHTML('heroDiagnosticoConfiavel',`<div class="hero-diagnostico ${diag.tom}">${esc(diag.texto)}</div>`);
+    }catch(e){
+      sub=runway?`O caixa cobre aproximadamente ${runway} dia${runway>1?'s':''} de compromissos, no ritmo atual.`:'Ainda reunindo histórico suficiente pra estimar o fôlego de caixa.';
+      setHTML('heroDiagnosticoConfiavel','');
+    }
+  }
+  if(caixa<0||negDias) setHTML('heroDiagnosticoConfiavel','');
+  setHTML('heroStatusBadge',badgeHTML);
+  setHTML('veredictoSub',esc(sub)+acaoSub);
 
   if(prox){
     const dias=Math.round((new Date(prox.vencimento+'T12:00:00')-new Date(hoje()+'T12:00:00'))/864e5);
@@ -1822,7 +1865,7 @@ function kpiCardsHTML(items){
 }
 
 // INDICADORES-CHAVE — Movimento do período (Recebido/Pago/Resultado, com tendência) + Compromissos futuros (totais em aberto)
-function renderIndicadores(){
+async function renderIndicadores(){
   const atual = calcIndicadoresJanela(periodo.de, periodo.ate);
   const {de:antDe,ate:antAte} = periodoAnterior();
   const anterior = calcIndicadoresJanela(antDe, antAte);
@@ -1832,6 +1875,14 @@ function renderIndicadores(){
   const nDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).length;
   const rotuloResultado = RESULTADO_LBL[periodo.dias] || 'Resultado do período';
   const confiavel = dadosSuficientesParaTendencia();
+
+  // Rótulo com as datas comparadas (ex: "vs 1/09 a 30/09") acima do grid — as 3
+  // variações ao lado usam exatamente esse mesmo período, então 1 legenda compartilhada
+  // em vez de repetir a mesma data 3 vezes.
+  try{
+    const DC=await carregarDashboardConfiavel();
+    setHTML('indicadoresRotulo', confiavel?DC.rotuloComparacao({inicio:antDe,fim:antAte}):'');
+  }catch(e){ setHTML('indicadoresRotulo',''); }
 
   setHTML('indicadores', kpiCardsHTML([
     {ico:icoWallet,cls:'m',lbl:'Receitas recebidas',val:money(atual.recebido),trend:trendBadge(atual.recebido,anterior.recebido,false,confiavel)},
