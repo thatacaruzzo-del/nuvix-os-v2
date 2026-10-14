@@ -1223,11 +1223,27 @@ function toggleSenhaAdmin(){
 </div>
 </div>
 
-<!-- ═══ PANE: PROSPECÇÃO (uso interno, equipe Nuvix só — etapa c da Fase 1:
-     só importação de leads via CSV. Funil, fila de aprovação, ficha do lead
-     e opt-out entram numa etapa seguinte) ═══ -->
+<!-- ═══ PANE: PROSPECÇÃO (uso interno, equipe Nuvix só) ═══ -->
 <div id="pane-prospeccao" class="admin-pane">
 <div class="content">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Funil</h2>
+      <button class="btn2" onclick="carregarFunilProspeccao()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Atualizar</button>
+    </div>
+    <div class="grid-4" id="kpisFunilProspeccao" style="margin-bottom:10px"></div>
+    <p style="color:var(--muted);font-size:11px;margin:0" id="rodapeFunilProspeccao"></p>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Fila de aprovação</h2>
+      <span style="font-size:12px;color:var(--muted)" id="contadorEnviosHoje"></span>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Leads qualificados pela IA, nota mais alta primeiro. Nada é enviado sem clicar em "Aprovar e enviar".</p>
+    <div id="listaFilaAprovacao"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+  </div>
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <h2 style="margin:0">Importações de leads</h2>
@@ -1875,6 +1891,53 @@ function toggleSenhaAdmin(){
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalImportarLeads')">Cancelar</button>
     <button class="btn" id="importLeadsConfirmarBtn" onclick="confirmarImportacaoLeads()" disabled>Confirmar e importar</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalFichaLead">
+<div class="modal" style="max-width:640px">
+  <input type="hidden" id="fichaLeadId">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+    <h3 style="margin:0" id="fichaLeadNome">—</h3>
+    <span class="ia-badge" id="fichaLeadStatusBadge"></span>
+  </div>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:14px" id="fichaLeadSubtitulo"></p>
+
+  <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+    <div class="field"><label>CNAE</label><div id="fichaLeadCnae" style="font-size:13px">—</div></div>
+    <div class="field"><label>Porte / abertura</label><div id="fichaLeadPorte" style="font-size:13px">—</div></div>
+    <div class="field"><label>Telefone</label><div id="fichaLeadTelefone" style="font-size:13px">—</div></div>
+    <div class="field"><label>E-mail / Instagram</label><div id="fichaLeadContato" style="font-size:13px">—</div></div>
+  </div>
+
+  <div id="fichaLeadMensagemBox" style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Mensagem sugerida (WhatsApp)</label>
+    <textarea id="fichaLeadMensagem" rows="3" style="width:100%;margin-top:6px"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn2" onclick="salvarMensagemFichaLead()">Salvar edição</button>
+      <button class="btn" onclick="aprovarEEnviarFichaLead()">Aprovar e enviar</button>
+      <button class="btn2" onclick="descartarFichaLead()">Descartar</button>
+      <button class="btn2" style="color:var(--red)" onclick="optOutFichaLead()">Opt-out</button>
+    </div>
+  </div>
+
+  <div id="fichaLeadRespostaBox" style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Colar resposta do lead</label>
+    <textarea id="fichaLeadResposta" rows="2" style="width:100%;margin-top:6px" placeholder="Cole aqui o que o lead respondeu..."></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn2" onclick="registrarRespostaFichaLead()">Registrar resposta</button>
+      <button class="btn2" onclick="marcarDemoFichaLead()">Marcar demo agendada</button>
+      <button class="btn" onclick="converterFichaLeadEmCliente()">Converter em cliente</button>
+    </div>
+  </div>
+
+  <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Linha do tempo</label>
+  <div id="fichaLeadTimeline" style="margin-top:8px;max-height:220px;overflow:auto"></div>
+
+  <div id="fichaLeadMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalFichaLead')">Fechar</button>
   </div>
 </div>
 </div>
@@ -2564,6 +2627,10 @@ async function salvarEmpresa(){
     if(leadEmConversao){
       try{ await dbPatch('leads_comerciais',leadEmConversao,{convertido_empresa_id:emp.id}); }catch(e){}
       leadEmConversao=null;
+    }
+    if(leadProspeccaoEmConversao){
+      try{ await dbRpc('marcar_lead_convertido',{p_lead_id:leadProspeccaoEmConversao,p_empresa_id:emp.id}); }catch(e){}
+      leadProspeccaoEmConversao=null;
     }
 
     // Passos 2 e 3 (auxiliares): a empresa JÁ EXISTE a partir daqui — se algo falhar
@@ -3807,7 +3874,7 @@ function showTab(id,btn){
   if(id==='logs')carregarLogs();
   if(id==='certificados')carregarCertificados();
   if(id==='marketing'){carregarMarketing();carregarConteudo();}
-  if(id==='prospeccao')carregarImportacoesLeads();
+  if(id==='prospeccao'){carregarFunilProspeccao();carregarFilaAprovacao();carregarImportacoesLeads();}
   if(id==='planejamento')carregarPlanejamento();
   if(id==='comercial')carregarComercial();
   if(id==='inicio')carregarInicio();
@@ -4503,10 +4570,9 @@ function converterLeadEmCliente(){
   $('empObs').value=`Convertido do pipeline comercial (lead: ${l.nome}).`;
 }
 
-// ═══ PROSPECÇÃO (uso interno, equipe Nuvix só — etapa c da Fase 1: só
-// importação de leads via CSV, reaproveitando js/csv-import.js e o mesmo
-// padrão de produtos.html. Funil, fila de aprovação e ficha do lead entram
-// numa etapa seguinte) ═══
+// ═══ PROSPECÇÃO (uso interno, equipe Nuvix só) ═══
+// Importação de leads via CSV reaproveita js/csv-import.js e o mesmo
+// padrão de produtos.html.
 let importacoesLeads=[];
 async function carregarImportacoesLeads(){
   try{
@@ -4584,6 +4650,231 @@ async function confirmarImportacaoLeads(){
   }finally{
     btn.disabled=false;btn.textContent='Confirmar e importar';
   }
+}
+
+// ── Funil, fila de aprovação, ficha do lead, opt-out, converter em
+// cliente (etapa e da Fase 1). Cores seguem o padrão do sistema: verde
+// (aprovado/cliente), âmbar (pendente), vermelho (descartado/opt-out).
+const STATUS_LEAD_LBL={novo:'Novo',qualificado:'Qualificado',aprovado:'Aprovado',contatado:'Contatado',respondeu:'Respondeu',demo_agendada:'Demo agendada',cliente:'Cliente',descartado:'Descartado',opt_out:'Opt-out'};
+const STATUS_LEAD_COR={novo:'var(--blue)',qualificado:'var(--amber)',aprovado:'var(--amber)',contatado:'var(--amber)',respondeu:'var(--amber)',demo_agendada:'var(--amber)',cliente:'var(--green)',descartado:'var(--red)',opt_out:'var(--red)'};
+function statusLeadBadgeHTML(status){
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:${STATUS_LEAD_COR[status]||'var(--muted2)'}">${esc(STATUS_LEAD_LBL[status]||status)}</span>`;
+}
+function tempoAberturaTexto(dataAbertura){
+  if(!dataAbertura)return'—';
+  const dt=new Date(dataAbertura+'T00:00:00');
+  if(isNaN(dt))return'—';
+  const dias=Math.floor((Date.now()-dt.getTime())/86400000);
+  if(dias<0)return'—';
+  if(dias<30)return dias+' dia(s)';
+  return Math.floor(dias/30)+' mes(es)';
+}
+
+// ── Funil ──
+async function carregarFunilProspeccao(){
+  try{
+    renderFunilProspeccao(await dbRpc('prospeccao_funil',{}));
+  }catch(e){
+    setHTML('kpisFunilProspeccao',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+function renderFunilProspeccao(f){
+  const seq=f?.sequencia||[];
+  setHTML('kpisFunilProspeccao',seq.map(s=>{
+    const taxa=s.taxa_vs_anterior;
+    const taxaTxt=(taxa===null||taxa===undefined)?'':` <span style="font-size:11px;font-weight:600;color:var(--muted2)">(${taxa}%)</span>`;
+    return `<div class="kpi"><div class="kpi-label">${esc(STATUS_LEAD_LBL[s.status]||s.status)}</div><div class="kpi-value" style="color:${STATUS_LEAD_COR[s.status]||'var(--txt)'}">${s.total}${taxaTxt}</div></div>`;
+  }).join(''));
+  const por=f?.por_status||{};
+  setHTML('rodapeFunilProspeccao',`Descartados: ${por.descartado||0} · Opt-out: ${por.opt_out||0}. Taxa de conversão compara a distribuição atual de status entre si — não é o histórico completo de cada lead.`);
+}
+
+// ── Fila de aprovação ──
+let filaAprovacaoLeads=[];
+async function carregarFilaAprovacao(){
+  try{
+    filaAprovacaoLeads=await dbRpc('fila_aprovacao',{});
+    renderFilaAprovacao();
+    atualizarContadorEnviosHoje();
+  }catch(e){
+    setHTML('listaFilaAprovacao',`<p style="color:var(--muted);font-size:13px">Erro ao carregar: ${esc(e.message)}</p>`);
+  }
+}
+async function atualizarContadorEnviosHoje(){
+  try{ setHTML('contadorEnviosHoje',`${await dbRpc('contador_envios_hoje',{})} envio(s) hoje`); }
+  catch(e){ setHTML('contadorEnviosHoje',''); }
+}
+function leadCardHTML(l){
+  return `<div class="card" style="margin-bottom:10px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+      <div>
+        <div style="font-weight:700;cursor:pointer" onclick="abrirFichaLead('${l.id}')">${esc(l.nome_fantasia||l.razao_social||'(sem nome)')}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(l.bairro||'—')} · ${esc(l.cnae_descricao||l.cnae_principal||'—')} · aberta há ${tempoAberturaTexto(l.data_abertura)}</div>
+      </div>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;background:var(--amber)">Nota ${l.nota_ia??'—'}</span>
+    </div>
+    ${l.motivo_ia?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${esc(l.motivo_ia)}</div>`:''}
+    <div style="font-size:13px;background:#FAFAFA;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px;white-space:pre-wrap">${esc(l.mensagem_whatsapp||'(sem mensagem)')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn2" onclick="abrirFichaLead('${l.id}')">Ver ficha / editar</button>
+      <button class="btn" onclick="aprovarEEnviarLead('${l.id}')">Aprovar e enviar</button>
+      <button class="btn2" onclick="descartarLead('${l.id}')">Descartar</button>
+      <button class="btn2" style="color:var(--red)" onclick="optOutLead('${l.id}')">Opt-out</button>
+    </div>
+  </div>`;
+}
+function renderFilaAprovacao(){
+  setHTML('listaFilaAprovacao',filaAprovacaoLeads.map(leadCardHTML).join('')||'<p style="color:var(--muted);font-size:13px">Fila vazia. Importe leads e rode a qualificação por IA.</p>');
+}
+function abrirWhatsAppLead(telefone,mensagem){
+  if(!telefone){ toast('Lead aprovado, mas sem telefone cadastrado — envie manualmente.','err'); return; }
+  const tel=String(telefone).replace(/\D/g,'');
+  window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(mensagem||'')}`,'_blank');
+}
+async function aprovarEEnviarLead(id){
+  try{
+    const r=await dbRpc('aprovar_e_enviar_lead',{p_lead_id:id});
+    abrirWhatsAppLead(r.telefone,r.mensagem_whatsapp);
+    toast('Lead aprovado e marcado como contatado.','ok');
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function descartarLead(id){
+  if(!await confirmarAcao('Descartar este lead?',{labelOk:'Descartar'}))return;
+  try{
+    await dbRpc('descartar_lead',{p_lead_id:id,p_motivo:null});
+    toast('Lead descartado.','ok');
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function optOutLead(id){
+  if(!await confirmarAcao('Marcar como opt-out? Esse CNPJ nunca mais entra na fila nem em futuras importações.',{labelOk:'Opt-out',variante:'perigo'}))return;
+  try{
+    await dbRpc('opt_out_lead',{p_lead_id:id,p_motivo:null});
+    toast('Opt-out registrado.','ok');
+    await Promise.all([carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ── Ficha do lead ──
+async function abrirFichaLead(id){
+  $('fichaLeadId').value=id;
+  $('fichaLeadNome').textContent='Carregando...';
+  setHTML('fichaLeadTimeline','');
+  $('fichaLeadMsg').className='msg';
+  abrirModal('modalFichaLead');
+  await carregarFichaLead(id);
+}
+async function carregarFichaLead(id){
+  try{
+    const [lead,eventos]=await Promise.all([
+      dbRpc('obter_lead',{p_lead_id:id}),
+      dbRpc('eventos_do_lead',{p_lead_id:id}),
+    ]);
+    renderFichaLead(lead,eventos);
+  }catch(e){
+    msgEl('fichaLeadMsg','Erro ao carregar: '+esc(e.message),'err');
+  }
+}
+function renderFichaLead(l,eventos){
+  if(!l||!l.id){ $('fichaLeadNome').textContent='Lead não encontrado.'; return; }
+  $('fichaLeadNome').textContent=l.nome_fantasia||l.razao_social||'(sem nome)';
+  setHTML('fichaLeadStatusBadge',statusLeadBadgeHTML(l.status));
+  $('fichaLeadSubtitulo').textContent=`${l.razao_social||''} · CNPJ ${l.cnpj||'—'}`;
+  $('fichaLeadCnae').textContent=l.cnae_descricao||l.cnae_principal||'—';
+  $('fichaLeadPorte').textContent=`${l.porte||'—'} · aberta há ${tempoAberturaTexto(l.data_abertura)}`;
+  $('fichaLeadTelefone').textContent=l.telefone||'—';
+  $('fichaLeadContato').textContent=[l.email,l.instagram].filter(Boolean).join(' · ')||'—';
+  $('fichaLeadMensagem').value=l.mensagem_whatsapp||'';
+
+  // Ações fazem sentido em momentos diferentes do funil — mostra só o
+  // que cabe no status atual, pra não oferecer um botão que vai falhar.
+  $('fichaLeadMensagemBox').style.display=(l.status==='qualificado')?'block':'none';
+  $('fichaLeadRespostaBox').style.display=['contatado','respondeu','demo_agendada'].includes(l.status)?'block':'none';
+  $('fichaLeadResposta').value='';
+
+  setHTML('fichaLeadTimeline',(eventos||[]).map(ev=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="font-size:11px;color:var(--muted2)">${fmtData(ev.criado_em)} · ${esc(ev.tipo)}</div>
+      <div style="font-size:13px">${esc(ev.descricao||'')}</div>
+    </div>`).join('')||'<p style="color:var(--muted);font-size:13px">Sem eventos ainda.</p>');
+}
+async function salvarMensagemFichaLead(){
+  const id=$('fichaLeadId').value;
+  try{
+    await dbRpc('editar_mensagem_lead',{p_lead_id:id,p_mensagem_whatsapp:$('fichaLeadMensagem').value});
+    msgEl('fichaLeadMsg','Mensagem salva.','ok');
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+async function aprovarEEnviarFichaLead(){
+  const id=$('fichaLeadId').value;
+  try{
+    const r=await dbRpc('aprovar_e_enviar_lead',{p_lead_id:id});
+    abrirWhatsAppLead(r.telefone,r.mensagem_whatsapp);
+    msgEl('fichaLeadMsg','Aprovado e marcado como contatado.','ok');
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+async function descartarFichaLead(){
+  const id=$('fichaLeadId').value;
+  if(!await confirmarAcao('Descartar este lead?',{labelOk:'Descartar'}))return;
+  try{
+    await dbRpc('descartar_lead',{p_lead_id:id,p_motivo:null});
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+async function optOutFichaLead(){
+  const id=$('fichaLeadId').value;
+  if(!await confirmarAcao('Marcar como opt-out? Esse CNPJ nunca mais entra na fila nem em futuras importações.',{labelOk:'Opt-out',variante:'perigo'}))return;
+  try{
+    await dbRpc('opt_out_lead',{p_lead_id:id,p_motivo:null});
+    await Promise.all([carregarFichaLead(id),carregarFilaAprovacao(),carregarFunilProspeccao()]);
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+async function registrarRespostaFichaLead(){
+  const id=$('fichaLeadId').value;
+  const texto=val('fichaLeadResposta').trim();
+  if(!texto){ msgEl('fichaLeadMsg','Cole a resposta do lead antes de registrar.','err'); return; }
+  try{
+    await dbRpc('registrar_resposta_lead',{p_lead_id:id,p_texto:texto});
+    msgEl('fichaLeadMsg','Resposta registrada.','ok');
+    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao()]);
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+async function marcarDemoFichaLead(){
+  const id=$('fichaLeadId').value;
+  try{
+    await dbRpc('marcar_demo_lead',{p_lead_id:id});
+    msgEl('fichaLeadMsg','Demonstração marcada como agendada.','ok');
+    await Promise.all([carregarFichaLead(id),carregarFunilProspeccao()]);
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
+}
+
+// ── Converter em cliente: só CRIA empresa nova, nunca edita/vincula uma
+// já existente (se o CNPJ já for cliente, a ação fica bloqueada). Usa a
+// salvarEmpresa() real do Admin — leadProspeccaoEmConversao avisa o hook
+// de pós-criação (perto de salvarEmpresa) pra gravar o vínculo depois.
+let leadProspeccaoEmConversao=null;
+async function converterFichaLeadEmCliente(){
+  const id=$('fichaLeadId').value;
+  try{
+    const lead=await dbRpc('obter_lead',{p_lead_id:id});
+    if(!lead||!lead.id){ msgEl('fichaLeadMsg','Lead não encontrado.','err'); return; }
+    const jaECliente=await dbRpc('cnpj_ja_e_cliente',{p_cnpj:lead.cnpj});
+    if(jaECliente){
+      msgEl('fichaLeadMsg','Este CNPJ já é cliente — não é possível criar uma empresa duplicada. Vincule manualmente se for o caso.','err');
+      return;
+    }
+    leadProspeccaoEmConversao=id;
+    fecharModal('modalFichaLead');
+    abrirModalNovaEmpresa();
+    $('empFantasia').value=lead.nome_fantasia||lead.razao_social||'';
+    $('empRazao').value=lead.razao_social||'';
+    $('empCnpj').value=lead.cnpj||'';
+    if($('empEmail'))$('empEmail').value=lead.email||'';
+    if($('empTel'))$('empTel').value=lead.telefone||'';
+    if($('empCidade'))$('empCidade').value=lead.municipio||'Guarulhos';
+  }catch(e){ msgEl('fichaLeadMsg','Erro: '+esc(e.message),'err'); }
 }
 
 // ═══ MODAIS ═══

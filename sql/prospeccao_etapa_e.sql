@@ -341,3 +341,23 @@ set search_path to 'public', 'pg_temp'
 as $$ select prospeccao.marcar_lead_convertido(p_lead_id, p_empresa_id); $$;
 revoke execute on function public.marcar_lead_convertido(uuid, uuid) from public, anon;
 grant execute on function public.marcar_lead_convertido(uuid, uuid) to authenticated;
+
+-- 12) Buscar um lead por id (precisa pra reabrir a ficha de um lead que já
+-- saiu da fila de aprovação, ex. já contatado/respondeu/demo agendada).
+create or replace function prospeccao.obter_lead(p_lead_id uuid)
+returns prospeccao.leads
+language sql
+stable
+set search_path to 'prospeccao', 'public', 'pg_temp'
+as $$
+  select * from leads where id = p_lead_id;
+$$;
+
+create or replace function public.obter_lead(p_lead_id uuid)
+returns prospeccao.leads
+language sql
+stable
+set search_path to 'public', 'pg_temp'
+as $$ select prospeccao.obter_lead(p_lead_id); $$;
+revoke execute on function public.obter_lead(uuid) from public, anon;
+grant execute on function public.obter_lead(uuid) to authenticated;
