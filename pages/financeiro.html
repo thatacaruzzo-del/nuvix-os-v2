@@ -406,11 +406,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- A RECEBER -->
       <div id="pane-receber" class="fin-pane">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="receberKpis"></div>
+        <div id="receberRenegociarBar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);color:var(--p2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600"></div>
         <div class="card">
           <h2>Contas a receber</h2>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Descrição</th><th>Favorecido</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
+              <thead><tr><th></th><th>Descrição</th><th>Favorecido</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
               <tbody id="receberTable"></tbody>
             </table>
           </div>
@@ -421,11 +422,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- A PAGAR -->
       <div id="pane-pagar" class="fin-pane">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="pagarKpis"></div>
+        <div id="pagarRenegociarBar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);color:var(--p2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600"></div>
         <div class="card">
           <h2>Contas a pagar</h2>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Descrição</th><th>Favorecido</th><th>Pix / Banco</th><th>Categoria</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
+              <thead><tr><th></th><th>Descrição</th><th>Favorecido</th><th>Pix / Banco</th><th>Categoria</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
               <tbody id="pagarTable"></tbody>
             </table>
           </div>
@@ -694,6 +696,35 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 </div>
 </div>
 
+<!-- MODAL RENEGOCIAÇÃO -->
+<div class="modal-overlay" id="modalRenegociacao">
+<div class="modal modal-wide">
+  <h3>Renegociar títulos</h3>
+  <input type="hidden" id="renTipo">
+  <div id="renResumo" style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:13px"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="field"><label>Valor negociado total (R$) *</label><input id="renValorNegociado" type="number" step="0.01" oninput="previewParcelasRenegociacao()"></div>
+    <div class="field"></div>
+    <div class="field"><label>Número de novas parcelas *</label><input id="renParcelas" type="number" min="1" max="60" value="1" oninput="previewParcelasRenegociacao()"></div>
+    <div class="field"><label>Vencimento 1ª parcela *</label><input id="renVenc1" type="date" onchange="previewParcelasRenegociacao()"></div>
+    <div class="field"><label>Intervalo</label>
+      <select id="renIntervalo" onchange="previewParcelasRenegociacao()">
+        <option value="mensal">Mensal</option>
+        <option value="quinzenal">Quinzenal</option>
+        <option value="semanal">Semanal</option>
+      </select>
+    </div>
+    <div class="field" style="grid-column:1/-1"><label>Observação</label><textarea id="renObs" rows="2" style="resize:vertical;width:100%" placeholder="O que foi acordado com o cliente/fornecedor..."></textarea></div>
+  </div>
+  <div id="renPreview" style="margin-top:4px;font-size:12px;color:var(--p);font-weight:600"></div>
+  <div id="renMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalRenegociacao')">Cancelar</button>
+    <button class="btn" onclick="confirmarRenegociacao()">Confirmar renegociação</button>
+  </div>
+</div>
+</div>
+
 <!-- MODAL IMPORTAR PLANILHA -->
 <div class="modal-overlay" id="modalImportar">
 <div class="modal" style="max-width:760px">
@@ -922,7 +953,7 @@ function renderHero(){
   const receita=fin.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const despesa=fin.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const saldo=receita-despesa;
-  const previsto=fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const previsto=fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&f.status!=='Renegociado').reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('finHeroStats',[
     {lbl:'Receita confirmada',val:money(receita)},
     {lbl:'Despesas confirmadas',val:money(despesa)},
@@ -953,9 +984,9 @@ function renderInsightFinanceiro(fin){
 function renderStrip(){
   const hj=hoje(),am=new Date();am.setDate(am.getDate()+1);const amStr=dataLocal(am);
   const entHoje=financeiro.filter(f=>f.tipo==='Receita'&&['Recebido','Pago'].includes(f.status||'')&&String(f.data_pagamento||f.data_lancamento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aRecHoje=financeiro.filter(f=>f.tipo==='Receita'&&String(f.vencimento||'').slice(0,10)===hj&&!['Recebido','Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aPagHoje=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===hj&&!['Pago','Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aPagAm=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===amStr&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aRecHoje=financeiro.filter(f=>f.tipo==='Receita'&&String(f.vencimento||'').slice(0,10)===hj&&!['Recebido','Pago','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPagHoje=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===hj&&!['Pago','Recebido','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPagAm=financeiro.filter(f=>f.tipo==='Despesa'&&String(f.vencimento||'').slice(0,10)===amStr&&!['Pago','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   let finP = filtrarPorPeriodo(financeiro);
   if(finP.length===0) finP = financeiro;
   const recPeriodo=finP.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -1113,9 +1144,10 @@ function verDetalhe(id){
   const f=financeiro.find(x=>x.id===id);if(!f)return;
   $('detId').value=f.id;
   const pago=['Pago','Recebido'].includes(f.status||'');
+  const encerrado=pago||f.status==='Renegociado';
   const venc=String(f.vencimento||'').slice(0,10);
   const hj=hoje();
-  const atrasado=venc&&venc<hj&&!pago;
+  const atrasado=venc&&venc<hj&&!encerrado;
   setHTML('detConteudo',`
     <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -1144,13 +1176,16 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
     <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
+    ${f.renegociacao_id?`<div class="det-section">Renegociação</div>
+      <div class="det-row"><span class="det-lbl">Situação</span><span class="det-val">${f.status==='Renegociado'?'Este título foi substituído por novos títulos renegociados.':'Este título nasceu de uma renegociação.'}</span></div>
+      <div style="padding:6px 0"><button class="btn2" onclick="desfazerRenegociacao('${f.renegociacao_id}')" style="font-size:12px">Desfazer renegociação</button></div>`:''}
     <div class="det-section">Registro</div>
     <div class="det-row"><span class="det-lbl">Criado em</span><span class="det-val">${f.created_at?new Date(f.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</span></div>
     ${f.updated_at?`<div class="det-row"><span class="det-lbl">Última alteração</span><span class="det-val">${new Date(f.updated_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</span></div>`:''}
   `);
   // Botões do modal
   $('detEditBtn').onclick=()=>editarLancamento(f.id);
-  if(!pago){
+  if(!encerrado){
     $('detBaixarBtn').style.display='block';
     $('detBaixarBtn').innerHTML=f.tipo==='Receita'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Recebido':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Pago';
     $('detBaixarBtn').onclick=()=>{fecharModal('modalDetalhe');abrirBaixar(f.id);};
@@ -1668,7 +1703,8 @@ function renderLancamentos(){
   setHTML('lanTable',paginar(lista,'lanTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
-    const atrasado=venc&&venc<hj&&!pago;
+    const encerrado=pago||f.status==='Renegociado';
+    const atrasado=venc&&venc<hj&&!encerrado;
     const numeroPedido=f.referencia_tipo==='venda'?pedidosNumeroPorVenda[f.referencia_id]:null;
     return`<tr style="${atrasado?'color:var(--red)':''}; cursor:pointer" onclick="verDetalhe('${f.id}')">
       <td>${fmtData(f.data_lancamento)}</td>
@@ -1682,7 +1718,7 @@ function renderLancamentos(){
       <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${!pago?`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>`:''}
+          ${!encerrado?`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>`:''}
           <button class="btn2" onclick="verDetalhe('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
           <button class="btn2" onclick="editarLancamento('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
           <button class="danger" onclick="excluirLancamento('${f.id}')" style="font-size:11px;padding:5px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
@@ -1700,8 +1736,8 @@ function renderFluxo(){
   if(finFx.length===0) finFx = financeiro;
   const recPeriodo=finFx.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const despPeriodo=finFx.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('fluxoKpis',[
     {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)'},
     {lbl:'Despesa confirmada (período)',val:money(despPeriodo),cor:'var(--txt)'},
@@ -1711,14 +1747,15 @@ function renderFluxo(){
   let lista=[...financeiro].sort((a,b)=>String(a.vencimento||a.data_lancamento||'').localeCompare(String(b.vencimento||b.data_lancamento||'')));
   if(fluxoFiltro==='hoje')lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,10)===hj);
   if(fluxoFiltro==='semana')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v>=hj&&v<=semStr});
-  if(fluxoFiltro==='atrasados')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v&&v<hj&&!['Pago','Recebido'].includes(f.status||'')});
+  if(fluxoFiltro==='atrasados')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v&&v<hj&&!['Pago','Recebido','Renegociado'].includes(f.status||'')});
   renderPaginacao('fluxoTable',lista.length,'renderFluxo');
   setHTML('fluxoTable',paginar(lista,'fluxoTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
     const dataRef=venc||String(f.data_lancamento||'').slice(0,10);
     const pago=['Pago','Recebido'].includes(f.status||'');
-    const atrasado=dataRef&&dataRef<hj&&!pago;
-    let sit=atrasado?'<span class="badge bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado</span>':pago?'<span class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Quitado</span>':dataRef===hj?'<span class="badge warn">Vence hoje</span>':'<span class="badge">A vencer</span>';
+    const encerrado=pago||f.status==='Renegociado';
+    const atrasado=dataRef&&dataRef<hj&&!encerrado;
+    let sit=atrasado?'<span class="badge bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado</span>':pago?'<span class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Quitado</span>':f.status==='Renegociado'?'<span class="badge">Renegociado</span>':dataRef===hj?'<span class="badge warn">Vence hoje</span>':'<span class="badge">A vencer</span>';
     return`<tr style="${atrasado?'color:var(--red)':''}">
       <td>${fmtData(f.data_lancamento)}</td>
       <td>${venc?fmtData(venc):'—'}</td>
@@ -1732,9 +1769,33 @@ function renderFluxo(){
 }
 
 // ── RECEBER / PAGAR ──
+// Seleção pra renegociação (Etapa 4.3) — por tipo, porque um título Receita e um
+// Despesa nunca se misturam numa mesma renegociação (favorecido de cada lado é
+// sempre distinto na prática: cliente x fornecedor).
+const selecaoRenegociacao={Receita:new Set(),Despesa:new Set()};
+function toggleSelecaoRenegociacao(tipo,id,checked){
+  if(checked)selecaoRenegociacao[tipo].add(id);else selecaoRenegociacao[tipo].delete(id);
+  atualizarBarraRenegociacao(tipo);
+}
+function atualizarBarraRenegociacao(tipo){
+  const barId=tipo==='Receita'?'receberRenegociarBar':'pagarRenegociarBar';
+  const sel=selecaoRenegociacao[tipo];
+  const bar=$(barId);
+  if(!sel.size){bar.style.display='none';return;}
+  const itens=financeiro.filter(f=>sel.has(f.id));
+  const favorecidos=new Set(itens.map(f=>f.favorecido||''));
+  const soma=itens.reduce((a,f)=>a+Number(f.valor||0),0);
+  bar.style.display='flex';
+  if(favorecidos.size>1){
+    setHTML(barId,`<span>${sel.size} selecionados somam ${money(soma)}, mas são de favorecidos diferentes — selecione títulos de um único ${tipo==='Receita'?'cliente':'fornecedor'} pra renegociar juntos.</span>`);
+  } else {
+    setHTML(barId,`<span>${sel.size} título(s) selecionado(s) · ${money(soma)}</span><button class="btn2" onclick="abrirModalRenegociacao('${tipo}')">Renegociar selecionados</button>`);
+  }
+}
+
 function renderReceber(){
   const hj=hoje();
-  const lista=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
+  const lista=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Renegociado'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
   const total=lista.reduce((a,f)=>a+Number(f.valor||0),0);
   const atrasado=lista.filter(f=>{const v=String(f.vencimento||'').slice(0,10);return v&&v<hj}).reduce((a,f)=>a+Number(f.valor||0),0);
   const hjV=lista.filter(f=>String(f.vencimento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -1744,11 +1805,13 @@ function renderReceber(){
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   renderPaginacao('receberTable',lista.length,'renderReceber');
+  atualizarBarraRenegociacao('Receita');
   setHTML('receberTable',paginar(lista,'receberTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
     const numeroPedido=f.referencia_tipo==='venda'?pedidosNumeroPorVenda[f.referencia_id]:null;
     return`<tr style="${at?'color:var(--red)':''}">
+      <td><input type="checkbox" ${selecaoRenegociacao.Receita.has(f.id)?'checked':''} onchange="toggleSelecaoRenegociacao('Receita','${f.id}',this.checked)"></td>
       <td><b>${esc(f.descricao||'')}</b>${f.parcela_total?`<span style="font-size:10px;background:var(--p-light);color:var(--p);border-radius:6px;padding:1px 6px;margin-left:4px;font-weight:700">${f.parcela_numero}/${f.parcela_total}</span>`:''}${numeroPedido?`<div style="font-size:11px;color:var(--muted)">Pedido Nº ${numeroPedido}</div>`:''}</td>
       <td style="font-size:12px">${esc(f.favorecido||'—')}</td>
       <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
@@ -1757,12 +1820,12 @@ function renderReceber(){
       <td>${sit}</td>
       <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Recebido</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a receber no momento.</td></tr>');
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a receber no momento.</td></tr>');
 }
 
 function renderPagar(){
   const hj=hoje();
-  const lista=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
+  const lista=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago','Renegociado'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
   const total=lista.reduce((a,f)=>a+Number(f.valor||0),0);
   const atrasado=lista.filter(f=>{const v=String(f.vencimento||'').slice(0,10);return v&&v<hj}).reduce((a,f)=>a+Number(f.valor||0),0);
   const hjV=lista.filter(f=>String(f.vencimento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);
@@ -1772,10 +1835,12 @@ function renderPagar(){
     {lbl:'Atrasado',val:money(atrasado),cor:atrasado>0?'var(--red)':'var(--txt)'},
   ].map(c=>`<div class="card" style="margin:0;border-left:4px solid ${c.cor==='var(--txt)'?'var(--p)':c.cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="color:${c.cor};font-size:20px">${c.val}</div></div>`).join(''));
   renderPaginacao('pagarTable',lista.length,'renderPagar');
+  atualizarBarraRenegociacao('Despesa');
   setHTML('pagarTable',paginar(lista,'pagarTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10),at=venc&&venc<hj;
     let sit=venc===hj?'<span class="badge warn">Hoje</span>':at?'<span class="badge bad">Atrasado</span>':'<span class="badge">A vencer</span>';
     return`<tr style="${at?'color:var(--red)':''}">
+      <td><input type="checkbox" ${selecaoRenegociacao.Despesa.has(f.id)?'checked':''} onchange="toggleSelecaoRenegociacao('Despesa','${f.id}',this.checked)"></td>
       <td><b>${esc(f.descricao||'')}</b></td>
       <td style="font-size:12px;font-weight:600">${esc(f.favorecido||'—')}</td>
       <td style="font-size:11px">${f.pix_chave?`<span class="badge ok" style="font-size:10px">Pix: ${esc(f.pix_chave)}</span>`:'—'}</td>
@@ -1786,7 +1851,80 @@ function renderPagar(){
       <td>${sit}</td>
       <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Pago</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar no momento.</td></tr>');
+  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar no momento.</td></tr>');
+}
+
+// ── RENEGOCIAÇÃO (Etapa 4.3) ──
+function abrirModalRenegociacao(tipo){
+  const itens=financeiro.filter(f=>selecaoRenegociacao[tipo].has(f.id));
+  if(!itens.length)return;
+  const soma=itens.reduce((a,f)=>a+Number(f.valor||0),0);
+  $('renTipo').value=tipo;
+  setHTML('renResumo',`<b>${itens.length} título(s)</b> de <b>${esc(itens[0].favorecido||'Não informado')}</b>, somando <b>${money(soma)}</b> (valor original).<br>
+    ${itens.map(f=>`${esc(f.descricao||'')} — ${money(f.valor)} — vencia ${f.vencimento?fmtData(f.vencimento):'—'}`).join('<br>')}`);
+  $('renValorNegociado').value=soma;
+  $('renParcelas').value='1';
+  $('renVenc1').value=hoje();
+  $('renIntervalo').value='mensal';
+  $('renObs').value='';
+  $('renMsg').className='msg';
+  previewParcelasRenegociacao();
+  abrirModal('modalRenegociacao');
+}
+function previewParcelasRenegociacao(){
+  const valor=num('renValorNegociado');
+  const n=Math.max(1,parseInt(val('renParcelas'))||1);
+  const venc1=val('renVenc1')||hoje();
+  const intervalo=val('renIntervalo')||'mensal';
+  if(!valor){ setHTML('renPreview',''); return; }
+  const valorParcela=Math.round((valor/n)*100)/100;
+  const datas=[];
+  for(let i=0;i<n;i++){
+    const v=i===n-1?Math.round((valor-valorParcela*(n-1))*100)/100:valorParcela;
+    datas.push(`${money(v)} em ${fmtData(calcProxData(venc1,i,intervalo))}`);
+  }
+  setHTML('renPreview','Novas parcelas: '+datas.join(', '));
+}
+async function confirmarRenegociacao(){
+  const tipo=val('renTipo');
+  const itens=financeiro.filter(f=>selecaoRenegociacao[tipo].has(f.id));
+  const valorNegociado=num('renValorNegociado');
+  const n=Math.max(1,parseInt(val('renParcelas'))||1);
+  const venc1=val('renVenc1');
+  const intervalo=val('renIntervalo')||'mensal';
+  if(!itens.length){ msg('renMsg','Nenhum título selecionado.','err'); return; }
+  if(!valorNegociado){ msg('renMsg','Informe o valor negociado total.','err'); return; }
+  if(!venc1){ msg('renMsg','Informe o vencimento da 1ª parcela.','err'); return; }
+  const valorParcela=Math.round((valorNegociado/n)*100)/100;
+  const parcelas=[];
+  for(let i=0;i<n;i++){
+    parcelas.push({
+      valor:i===n-1?Math.round((valorNegociado-valorParcela*(n-1))*100)/100:valorParcela,
+      vencimento:calcProxData(venc1,i,intervalo),
+    });
+  }
+  try{
+    const resp=await db.rpc('renegociar_titulos',{p:{
+      financeiro_ids:itens.map(f=>f.id),
+      valor_negociado_total:valorNegociado,
+      observacao:val('renObs').trim()||null,
+      parcelas,
+    }});
+    toast(`Renegociação feita: ${resp.titulos_originais} título(s) fechado(s), ${resp.novas_parcelas} parcela(s) nova(s).`,'ok');
+    selecaoRenegociacao[tipo].clear();
+    fecharModal('modalRenegociacao');
+    await loadData();
+  }catch(e){ msg('renMsg','Erro: '+e.message,'err'); }
+}
+async function desfazerRenegociacao(renegociacaoId){
+  const ok=await confirmarAcao('Desfazer esta renegociação? Os títulos originais voltam a ficar pendentes e as novas parcelas ainda não pagas são removidas.',{labelOk:'Desfazer',variante:'perigo'});
+  if(!ok)return;
+  try{
+    const resp=await db.rpc('desfazer_renegociacao',{p_renegociacao_id:renegociacaoId});
+    toast(`Renegociação desfeita (${resp.parcelas_removidas} parcela(s) removida(s)).`,'ok');
+    fecharModal('modalDetalhe');
+    await loadData();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
 // ── TABS ──

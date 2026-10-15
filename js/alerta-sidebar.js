@@ -62,9 +62,9 @@
             var d = new Date(hoje);
             d.setDate(hoje.getDate() + i);
             var ds = dataLocalStr(d);
-            var recD = fin.filter(function (f) { return f.tipo === 'Receita' && !isReceitaConfirmada(f) && String(f.vencimento || '').slice(0, 10) === ds; })
+            var recD = fin.filter(function (f) { return f.tipo === 'Receita' && !isReceitaConfirmada(f) && f.status !== 'Renegociado' && String(f.vencimento || '').slice(0, 10) === ds; })
               .reduce(function (a, f) { return a + Number(f.valor || 0); }, 0);
-            var pagD = fin.filter(function (f) { return f.tipo === 'Despesa' && !isDespesaConfirmada(f) && String(f.vencimento || '').slice(0, 10) === ds; })
+            var pagD = fin.filter(function (f) { return f.tipo === 'Despesa' && !isDespesaConfirmada(f) && f.status !== 'Renegociado' && String(f.vencimento || '').slice(0, 10) === ds; })
               .reduce(function (a, f) { return a + Number(f.valor || 0); }, 0);
             saldo += recD - pagD;
             if (saldo < 0) {

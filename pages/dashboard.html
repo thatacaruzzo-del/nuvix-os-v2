@@ -839,6 +839,12 @@ function getCampoData(f){
 // Mesmo critério de "confirmado" usado no Financeiro.
 function isReceitaConfirmada(f){return['Recebido','Pago'].includes(f.status||'');}
 function isDespesaConfirmada(f){return f.status==='Pago';}
+// "Renegociado" não é confirmado (não é dinheiro recebido/pago) mas também não é mais
+// uma pendência aberta — saiu do jogo, foi substituído pelos novos títulos da
+// renegociação. Usado em todo lugar que hoje calcula "ainda em aberto" a partir de
+// isReceitaConfirmada/isDespesaConfirmada (a_receber, a_pagar, vencido, projeção).
+function isReceitaAberta(f){return !isReceitaConfirmada(f)&&f.status!=='Renegociado';}
+function isDespesaAberta(f){return !isDespesaConfirmada(f)&&f.status!=='Renegociado';}
 
 // LOAD
 async function loadData(){
@@ -1146,8 +1152,8 @@ function renderSetores(){
 //                    estimativa de receita/despesa que ainda não existe.
 function coletarMetricas(de, ate){
   const fin = calcIndicadoresJanela(de, ate);
-  const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const com = calcComercial(de, ate);
   const opr = calcOperacao(de, ate);
   const mat = calcMateriaisSetor(de, ate);
@@ -1852,8 +1858,8 @@ function diasParaFicarNegativo(caixaInicial){
   for(let i=1;i<=60;i++){
     const d=new Date(hj); d.setDate(hj.getDate()+i);
     const ds=dataLocal(d);
-    const rec=dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
-    const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    const rec=dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
+    const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)&&String(f.vencimento||'').slice(0,10)===ds).reduce((a,f)=>a+Number(f.valor||0),0);
     saldo+=rec-pag;
     if(saldo<0) return i;
   }
@@ -1861,7 +1867,7 @@ function diasParaFicarNegativo(caixaInicial){
 }
 function proximoCompromisso(){
   const hj=hoje();
-  const pend=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)>=hj)
+  const pend=dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)&&f.vencimento&&String(f.vencimento).slice(0,10)>=hj)
     .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento)));
   return pend[0]||null;
 }
@@ -2005,10 +2011,10 @@ async function renderIndicadores(){
   const modoAnterior = periodo.dias==='mes' ? 'mes_atual' : undefined;
   const {inicio:antDe,fim:antAte} = DC.periodoAnterior(periodo.de, periodo.ate, modoAnterior);
   const anterior = calcIndicadoresJanela(antDe, antAte);
-  const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const nRec = dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)).length;
-  const nDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)).length;
+  const aReceber = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aPagar = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)).reduce((a,f)=>a+Number(f.valor||0),0);
+  const nRec = dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)).length;
+  const nDesp = dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)).length;
   const rotuloResultado = RESULTADO_LBL[periodo.dias] || 'Resultado do período';
   const confiavel = dadosSuficientesParaTendencia();
 
@@ -2105,7 +2111,7 @@ function renderFluxoChart(){
 
   const recConf=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
   const despConf=buckets.map(b=>finF.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
-  const recPrev=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
+  const recPrev=buckets.map(b=>finF.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)&&bucketOf(f)===b).reduce((a,f)=>a+Number(f.valor||0),0));
 
   if(charts.fluxo)charts.fluxo.destroy();
   const c=$('chartFluxo');
@@ -2137,9 +2143,9 @@ function renderProximosCompromissos(){
     </div>
     <div style="font-size:13px;font-weight:800;color:var(--txt);flex-shrink:0">${money(f.valor)}</div>
   </div>`;
-  const rec=dados.fin.filter(f=>f.tipo==='Receita'&&!isReceitaConfirmada(f)&&f.vencimento)
+  const rec=dados.fin.filter(f=>f.tipo==='Receita'&&isReceitaAberta(f)&&f.vencimento)
     .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,5);
-  const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento)
+  const pag=dados.fin.filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)&&f.vencimento)
     .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,5);
   setHTML('proximosRecebimentos', rec.length?rec.map(f=>row(f)).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nada a receber agendado</div>');
   setHTML('proximosPagamentos', pag.length?pag.map(f=>row(f)).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Nada a pagar agendado</div>');
@@ -2214,7 +2220,7 @@ function renderCentralAtencao(){
     sub:`Notas Fiscais · ${notaErro.mensagem_erro||'erro de processamento'}`,
     href:'notas-fiscais.html'});
 
-  const despesaVencida=(dados.fin||[]).filter(f=>f.tipo==='Despesa'&&!isDespesaConfirmada(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj)
+  const despesaVencida=(dados.fin||[]).filter(f=>f.tipo==='Despesa'&&isDespesaAberta(f)&&f.vencimento&&String(f.vencimento).slice(0,10)<hj)
     .sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento)))[0];
   if(despesaVencida)itens.push({ic:icoClock,cor:'amber',
     titulo:despesaVencida.favorecido||despesaVencida.descricao||'Despesa',

@@ -569,7 +569,7 @@ async function atualizarLimiteCreditoPedido(){
   const info=$('pedLimiteCreditoInfo');
   if(!clienteSelecionado||clienteSelecionado.limite_credito==null){ info.style.display='none'; return; }
   try{
-    const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=neq.Recebido&select=valor`);
+    const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=not.in.(Recebido,Renegociado)&select=valor`);
     const emAberto=abertos.reduce((a,f)=>a+Number(f.valor||0),0);
     const limite=Number(clienteSelecionado.limite_credito);
     const estourado=emAberto>limite;
@@ -781,7 +781,7 @@ async function registrarPedido(){
 
   if(pendente&&clienteSelecionado.limite_credito!=null){
     try{
-      const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=neq.Recebido&select=valor`);
+      const abertos=await dbGet('financeiro',`?cliente_id=eq.${clienteSelecionado.id}&tipo=eq.Receita&status=not.in.(Recebido,Renegociado)&select=valor`);
       const emAberto=abertos.reduce((a,f)=>a+Number(f.valor||0),0);
       const limite=Number(clienteSelecionado.limite_credito);
       if(emAberto+total>limite){
