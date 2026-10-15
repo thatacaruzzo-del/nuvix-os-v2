@@ -269,6 +269,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="fin-tab" onclick="finTab('planoContas',this);carregarPlanoContas()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="13" y2="11"/></svg> Plano de Contas</button>
         <button class="fin-tab" onclick="finTab('relatorios',this);carregarRelatorios()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M3 3v18h18"/><path d="M18.4 8.6 12 15l-3.5-3.5L4 16"/></svg> Relatórios</button>
         <button class="fin-tab" onclick="finTab('orcamento',this);carregarOrcamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/></svg> Orçamento</button>
+        <button class="fin-tab" onclick="finTab('cobranca',this);carregarCobranca()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6 12 13 2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg> Cobrança</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -576,6 +577,41 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div id="orcConteudo"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
           <div id="orcMsg" class="msg" style="margin-top:10px"></div>
           <div style="margin-top:14px"><button class="btn" onclick="salvarOrcamento()">Salvar orçamento</button></div>
+        </div>
+      </div>
+
+      <!-- COBRANÇA -->
+      <div id="pane-cobranca" class="fin-pane">
+        <div class="card">
+          <h2 style="margin:0 0 6px">Régua de cobrança</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">O envio é manual — o sistema calcula quais títulos precisam de lembrete hoje, você manda o e-mail por fora (ou copia a mensagem) e marca aqui se já enviou.</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <input type="checkbox" id="cobAtivo" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
+            <label for="cobAtivo" style="font-size:13px;font-weight:600;cursor:pointer">Ativar régua de cobrança</label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div class="field" style="margin:0">
+              <label>Dias antes do vencimento</label>
+              <input id="cobDiasAntes" type="number" min="0" placeholder="Ex: 3 (deixe vazio pra não avisar)">
+              <textarea id="cobMsgAntes" rows="2" style="resize:vertical;width:100%;margin-top:6px" placeholder="Ex: Olá {cliente}, sua fatura de {valor} vence em {dias} dias, em {vencimento}."></textarea>
+            </div>
+            <div class="field" style="margin:0">
+              <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="cobNoDiaAtivo" style="width:15px;height:15px;accent-color:var(--p);cursor:pointer"><label for="cobNoDiaAtivo" style="font-weight:600;cursor:pointer">No dia do vencimento</label></div>
+              <textarea id="cobMsgNoDia" rows="2" style="resize:vertical;width:100%;margin-top:6px" placeholder="Ex: Olá {cliente}, sua fatura de {valor} vence hoje."></textarea>
+            </div>
+            <div class="field" style="margin:0;grid-column:1/-1;max-width:260px">
+              <label>Dias depois do vencimento (atraso)</label>
+              <input id="cobDiasDepois" type="number" min="0" placeholder="Ex: 5 (deixe vazio pra não avisar)">
+              <textarea id="cobMsgDepois" rows="2" style="resize:vertical;width:100%;margin-top:6px" placeholder="Ex: Olá {cliente}, sua fatura de {valor} está atrasada há {dias} dias."></textarea>
+            </div>
+          </div>
+          <div id="cobMsg" class="msg" style="margin-top:10px"></div>
+          <div style="margin-top:14px"><button class="btn" onclick="salvarConfigRegua()">Salvar configuração</button></div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 6px">Títulos pra cobrar hoje</h2>
+          <div id="cobLista"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
         </div>
       </div>
 
@@ -2344,6 +2380,100 @@ async function salvarConfigAprovacao(){
     await carregarConfigAprovacao();
   }catch(e){ msg('alcMsg','Erro: '+e.message,'err'); }
 }
+// ═══ RÉGUA DE COBRANÇA — manual (Etapa 4.2) ═══
+let configReguaAtual=null, listaCobrancaAtual=[];
+const ESTAGIO_LBL={antes:'Antes do vencimento',no_dia:'No dia',depois:'Atrasado'};
+async function carregarCobranca(){
+  try{
+    const [configs,lista]=await Promise.all([
+      db.get('config_regua_cobranca','?select=*'),
+      db.rpc('titulos_regua_cobranca',{}),
+    ]);
+    configReguaAtual=configs[0]||null;
+    listaCobrancaAtual=lista||[];
+    $('cobAtivo').checked=configReguaAtual?.ativo||false;
+    $('cobDiasAntes').value=configReguaAtual?.dias_antes??'';
+    $('cobNoDiaAtivo').checked=configReguaAtual?.no_dia_ativo??true;
+    $('cobDiasDepois').value=configReguaAtual?.dias_depois??'';
+    $('cobMsgAntes').value=configReguaAtual?.mensagem_antes||'';
+    $('cobMsgNoDia').value=configReguaAtual?.mensagem_no_dia||'';
+    $('cobMsgDepois').value=configReguaAtual?.mensagem_depois||'';
+    renderListaCobranca();
+  }catch(e){
+    setHTML('cobLista',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+async function salvarConfigRegua(){
+  const dados={
+    ativo:$('cobAtivo').checked,
+    dias_antes:val('cobDiasAntes')?Number(val('cobDiasAntes')):null,
+    no_dia_ativo:$('cobNoDiaAtivo').checked,
+    dias_depois:val('cobDiasDepois')?Number(val('cobDiasDepois')):null,
+    mensagem_antes:val('cobMsgAntes').trim()||null,
+    mensagem_no_dia:val('cobMsgNoDia').trim()||null,
+    mensagem_depois:val('cobMsgDepois').trim()||null,
+  };
+  try{
+    if(configReguaAtual?.id){
+      await db.patch('config_regua_cobranca',configReguaAtual.id,{...dados,updated_at:new Date().toISOString()});
+    } else {
+      await db.post('config_regua_cobranca',withEmpresa(dados));
+    }
+    msg('cobMsg','Configuração salva.','ok');
+    await carregarCobranca();
+  }catch(e){ msg('cobMsg','Erro: '+e.message,'err'); }
+}
+function montarMensagemCobranca(item){
+  const tpl=item.estagio==='antes'?configReguaAtual?.mensagem_antes:item.estagio==='no_dia'?configReguaAtual?.mensagem_no_dia:configReguaAtual?.mensagem_depois;
+  if(!tpl)return `Olá ${item.favorecido||''}, sobre a fatura de ${money(item.valor)} com vencimento em ${fmtData(item.vencimento)}.`;
+  const hj=new Date(hoje()+'T12:00:00');
+  const venc=new Date(item.vencimento+'T12:00:00');
+  const dias=Math.abs(Math.round((venc-hj)/86400000));
+  return tpl.replace(/\{cliente\}/g,item.favorecido||'').replace(/\{valor\}/g,money(item.valor)).replace(/\{vencimento\}/g,fmtData(item.vencimento)).replace(/\{dias\}/g,dias);
+}
+function renderListaCobranca(){
+  if(!listaCobrancaAtual.length){ setHTML('cobLista','<p style="color:var(--muted);font-size:13px">Nenhum título precisa de lembrete hoje.</p>'); return; }
+  const porEstagio={};
+  listaCobrancaAtual.forEach(l=>{ (porEstagio[l.estagio]=porEstagio[l.estagio]||[]).push(l); });
+  setHTML('cobLista',['antes','no_dia','depois'].filter(e=>porEstagio[e]).map(estagio=>`
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${esc(ESTAGIO_LBL[estagio])}</div>
+      ${porEstagio[estagio].map(item=>{
+        const msgTxt=montarMensagemCobranca(item);
+        const idx=listaCobrancaAtual.indexOf(item);
+        return `<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:700;font-size:13px">${esc(item.favorecido||'Não informado')} — ${money(item.valor)}</div>
+              <div style="font-size:11px;color:var(--muted)">Vencimento ${fmtData(item.vencimento)}${item.cliente_email?' · '+esc(item.cliente_email):' · sem e-mail cadastrado'}</div>
+            </div>
+            <span class="badge ${item.enviado?'ok':''}">${item.enviado?'Enviado '+fmtData(item.enviado_em):'Não enviado'}</span>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn2" onclick="copiarMensagemCobranca(${idx})" style="font-size:11px;padding:5px 8px">Copiar mensagem</button>
+            ${item.cliente_email?`<a href="mailto:${esc(item.cliente_email)}?subject=${encodeURIComponent('Cobrança: '+(item.favorecido||''))}&body=${encodeURIComponent(msgTxt)}" class="btn2" style="font-size:11px;padding:5px 8px;text-decoration:none">Abrir no e-mail</a>`:''}
+            <button class="btn2" onclick="marcarEnvioCobranca('${item.financeiro_id}','${item.estagio}',${!item.enviado})" style="font-size:11px;padding:5px 8px">${item.enviado?'Desmarcar envio':'Marcar como enviado'}</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join(''));
+}
+async function copiarMensagemCobranca(idx){
+  const item=listaCobrancaAtual[idx];if(!item)return;
+  const texto=montarMensagemCobranca(item);
+  try{
+    await navigator.clipboard.writeText(texto);
+    toast('Mensagem copiada.','ok');
+  }catch(e){ toast('Não deu pra copiar automaticamente. Mensagem: '+texto,'err'); }
+}
+async function marcarEnvioCobranca(financeiroId,estagio,enviado){
+  try{
+    await db.rpc('marcar_envio_cobranca',{p_financeiro_id:financeiroId,p_estagio:estagio,p_enviado:enviado});
+    toast(enviado?'Marcado como enviado.':'Desmarcado.','ok');
+    await carregarCobranca();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
 async function aprovarDespesa(id){
   const ok=await confirmarAcao('Aprovar esta despesa? Ela volta a ficar Pendente e já pode ser paga normalmente.',{labelOk:'Aprovar',variante:'neutro'});
   if(!ok)return;
