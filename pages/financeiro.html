@@ -1027,6 +1027,12 @@ async function loadData(){
   try{
     fornecedoresCache=await db.get('fornecedores',`?select=id,nome,cnpj&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
   }catch(e){fornecedoresCache=[];}
+  try{
+    // Carregado aqui (não só na aba Conciliação) pra o selo "Conciliado" no
+    // detalhe/lista de Lançamentos conseguir mostrar o nome do banco mesmo
+    // que o usuário nunca tenha aberto a aba Conciliação bancária.
+    contasBancarias=await db.get('contas_bancarias',`?select=id,nome&empresa_id=eq.${session.empresa_id}`);
+  }catch(e){contasBancarias=[];}
   await carregarCentrosCustoCache();
   atualizarListaFavorecido();
   try{
@@ -1317,6 +1323,7 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${fmtData(f.data_lancamento)}</span></div>
     <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
     <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
+    <div class="det-row"><span class="det-lbl">Conciliação</span><span class="det-val">${f.conciliado?`<span class="badge ok">Conciliado</span>${f.conta_bancaria_id?' · '+esc(nomeContaBancaria(f.conta_bancaria_id)):''}`:'Não conciliado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
     ${f.renegociacao_id?`<div class="det-section">Renegociação</div>
       <div class="det-row"><span class="det-lbl">Situação</span><span class="det-val">${f.status==='Renegociado'?'Este título foi substituído por novos títulos renegociados.':'Este título nasceu de uma renegociação.'}</span></div>
@@ -1989,7 +1996,7 @@ function renderLancamentos(){
       <td style="font-weight:700;color:var(--txt)">${money(f.valor)}</td>
       <td style="${atrasado?'color:var(--red);font-weight:700':''}">${venc?fmtData(venc):'—'}</td>
       <td style="color:var(--muted);font-size:12px">${f.data_pagamento?fmtData(f.data_pagamento):'—'}</td>
-      <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span></td>
+      <td><span class="badge ${pago?'ok':atrasado?'bad':''}">${f.status||''}</span>${f.conciliado?' <span class="badge ok" title="Conciliado com o extrato bancário" style="font-size:10px">Conciliado</span>':''}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${!encerrado?`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Baixar</button>`:''}
@@ -2240,6 +2247,7 @@ function renderContasBancarias(){
       </div>
     </div>`).join(''));
 }
+function nomeContaBancaria(id){return contasBancarias.find(c=>c.id===id)?.nome||'conta bancária';}
 function preencherSelectContasBancarias(){
   const sel=$('ieContaBancaria');
   if(!sel)return;
