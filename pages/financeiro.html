@@ -2257,9 +2257,15 @@ function irParaClassificarCategorias(){
   finTab('planoContas',document.querySelector('.fin-tab[onclick*="planoContas"]'));
   carregarPlanoContas();
 }
+let relatoriosDataInicializada=false;
 function carregarRelatorios(){
-  if(!$('dreAno').value)$('dreAno').value=new Date().getFullYear();
-  if(!$('dreMes').value)$('dreMes').value=new Date().getMonth()+1;
+  // <select> sempre tem .value truthy (cai na 1ª opção, "Janeiro"), nunca fica vazio
+  // pra esse if funcionar — por isso o controle é por flag, não pelo valor do campo.
+  if(!relatoriosDataInicializada){
+    $('dreAno').value=new Date().getFullYear();
+    $('dreMes').value=new Date().getMonth()+1;
+    relatoriosDataInicializada=true;
+  }
   carregarAgingInadimplencia();
   carregarFluxoProjetado();
 }
@@ -2445,9 +2451,13 @@ ${observacoes?`<h2>Observações</h2><p>${esc(observacoes).replace(/\n/g,'<br>')
 
 // ═══ ORÇAMENTO (Etapa 4.4) ═══
 let orcamentoLinhas=[];
+let orcamentoDataInicializada=false;
 async function carregarOrcamento(){
-  if(!$('orcAno').value)$('orcAno').value=new Date().getFullYear();
-  if(!$('orcMes').value)$('orcMes').value=new Date().getMonth()+1;
+  if(!orcamentoDataInicializada){
+    $('orcAno').value=new Date().getFullYear();
+    $('orcMes').value=new Date().getMonth()+1;
+    orcamentoDataInicializada=true;
+  }
   const ano=Number(val('orcAno'));const mes=Number(val('orcMes'));
   setHTML('orcConteudo','<p style="color:var(--muted);font-size:13px">Carregando...</p>');
   try{
