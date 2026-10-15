@@ -315,6 +315,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div class="field"><label>Chave Pix / Banco</label><input id="lanPix" placeholder="CPF, e-mail, banco..."></div>
             <div class="field"><label>Agência</label><input id="lanAgencia" placeholder="0000"></div>
             <div class="field"><label>Conta</label><input id="lanConta" placeholder="00000-0"></div>
+            <div class="field" style="grid-column:1/-1"><label>Número / linha digitável do boleto</label><input id="lanCodBarras" placeholder="Ex: 00190.00009 03382.123456 70000.063305 1 86900000050000"></div>
             <div class="field" style="grid-column:1/-1"><label>Observações</label><textarea id="lanObs" rows="2" style="resize:vertical;width:100%" placeholder="Observações adicionais..."></textarea></div>
             <!-- JUROS / MULTA / DESCONTO -->
             <div class="field" style="grid-column:1/-1">
@@ -1100,6 +1101,7 @@ async function salvarLancamento(){
     favorecido:val('lanFavorecido').trim()||null,
     agencia:val('lanAgencia').trim()||null,
     conta:val('lanConta').trim()||null,
+    codigo_barras:val('lanCodBarras').trim()||null,
     observacao:val('lanObs').trim()||null,
     juros_mes_percentual:val('lanJuros')?Number(val('lanJuros')):null,
     multa_percentual:val('lanMulta')?Number(val('lanMulta')):null,
@@ -1188,7 +1190,7 @@ function editarLancamento(id){
   if(f.status==='Renegociado'){ toast('Este lançamento foi renegociado. Use "Desfazer renegociação" pra alterá-lo.','err'); return; }
   if(f.status==='Aguardando aprovação'){ toast('Este lançamento está aguardando aprovação. Aprove-o antes de editar.','err'); return; }
   fecharModal('modalDetalhe');
-  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
+  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
   $('lanId').value=f.id;
   if($('lanJuros'))$('lanJuros').value=f.juros_mes_percentual??'';
   if($('lanMulta'))$('lanMulta').value=f.multa_percentual??'';
@@ -1208,6 +1210,7 @@ function editarLancamento(id){
   $('lanFavorecido').value=f.favorecido||'';
   $('lanAgencia').value=f.agencia||'';
   $('lanConta').value=f.conta||'';
+  $('lanCodBarras').value=f.codigo_barras||'';
   $('lanObs').value=f.observacao||'';
   $('lanTitulo').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar lançamento';
   finTab('lancamentos');
@@ -1246,6 +1249,7 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Forma de pagamento</span><span class="det-val">${esc(f.forma_pagamento||'—')}</span></div>
     ${f.pix_chave?`<div class="det-row"><span class="det-lbl">Chave Pix</span><span class="det-val">${esc(f.pix_chave)}</span></div>`:''}
     ${f.agencia||f.conta?`<div class="det-row"><span class="det-lbl">Banco</span><span class="det-val">Ag: ${esc(f.agencia||'—')} · CC: ${esc(f.conta||'—')}</span></div>`:''}
+    ${f.codigo_barras?`<div class="det-row"><span class="det-lbl">Boleto</span><span class="det-val" style="word-break:break-all">${esc(f.codigo_barras)} <a href="#" onclick="copiarCodigoBarras('${f.id}');return false" style="font-size:11px;white-space:nowrap">copiar</a></span></div>`:''}
     <div class="det-section">Valores</div>
     <div class="det-row"><span class="det-lbl">Valor original</span><span class="det-val">${money(f.valor)}</span></div>
     ${f.valor_pago?`<div class="det-row"><span class="det-lbl">Valor pago</span><span class="det-val">${money(f.valor_pago)}</span></div>`:''}
@@ -1737,7 +1741,7 @@ async function excluirLancamento(id){
 
 // ── LIMPAR ──
 function limparLancamento(){
-  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(id=>{if($(id))$(id).value=''});
+  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(id=>{if($(id))$(id).value=''});
   if($('lanData'))$('lanData').value=hoje();
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
@@ -2457,6 +2461,13 @@ function renderListaCobranca(){
         </div>`;
       }).join('')}
     </div>`).join(''));
+}
+async function copiarCodigoBarras(id){
+  const f=financeiro.find(x=>x.id===id);if(!f?.codigo_barras)return;
+  try{
+    await navigator.clipboard.writeText(f.codigo_barras);
+    toast('Código do boleto copiado.','ok');
+  }catch(e){ toast('Não deu pra copiar automaticamente.','err'); }
 }
 async function copiarMensagemCobranca(idx){
   const item=listaCobrancaAtual[idx];if(!item)return;
