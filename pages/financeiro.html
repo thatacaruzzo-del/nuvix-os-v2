@@ -540,6 +540,19 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div class="field"><label>Observações (opcional)</label><textarea id="relatorioObs" rows="3" style="resize:vertical;width:100%" placeholder="Algum comentário pra incluir no relatório..."></textarea></div>
           <div style="margin-top:10px"><button class="btn" onclick="gerarRelatorioMensal()">Gerar relatório mensal (PDF)</button></div>
         </div>
+
+        <div class="card">
+          <h2 style="margin:0 0 6px">Aprovação por alçadas</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Despesas lançadas acima do valor abaixo entram como "Aguardando aprovação" e só podem ser pagas depois que alguém da lista de aprovadores aprovar.</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <input type="checkbox" id="alcAtivo" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
+            <label for="alcAtivo" style="font-size:13px;font-weight:600;cursor:pointer">Ativar aprovação por alçadas</label>
+          </div>
+          <div class="field" style="max-width:220px"><label>Valor mínimo (R$)</label><input id="alcValorMinimo" type="number" step="0.01" min="0" placeholder="Ex: 1000,00"></div>
+          <div class="field"><label>Aprovadores</label><div id="alcAprovadores"><p style="color:var(--muted);font-size:13px">Carregando...</p></div></div>
+          <div id="alcMsg" class="msg"></div>
+          <div style="margin-top:10px"><button class="btn" onclick="salvarConfigAprovacao()">Salvar configuração</button></div>
+        </div>
       </div>
 
       <!-- ORÇAMENTO -->
@@ -1132,6 +1145,12 @@ function previewParcelas(){
 // ── EDITAR ──
 function editarLancamento(id){
   const f=financeiro.find(x=>x.id===id);if(!f)return;
+  // lanStatus só tem as 5 opções manuais (Pendente/Pago/Recebido/Vencido/Cancelado) — um
+  // <select> sem opção que bata com o valor atual cai pra 1ª opção da lista
+  // ("Pendente"), e salvar sem querer reverteria um status gerenciado pelo sistema
+  // (Renegociado/Aguardando aprovação) sem passar pelo fluxo próprio dele.
+  if(f.status==='Renegociado'){ toast('Este lançamento foi renegociado. Use "Desfazer renegociação" pra alterá-lo.','err'); return; }
+  if(f.status==='Aguardando aprovação'){ toast('Este lançamento está aguardando aprovação. Aprove-o antes de editar.','err'); return; }
   fecharModal('modalDetalhe');
   ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
   $('lanId').value=f.id;
@@ -1204,13 +1223,18 @@ function verDetalhe(id){
     ${f.renegociacao_id?`<div class="det-section">Renegociação</div>
       <div class="det-row"><span class="det-lbl">Situação</span><span class="det-val">${f.status==='Renegociado'?'Este título foi substituído por novos títulos renegociados.':'Este título nasceu de uma renegociação.'}</span></div>
       <div style="padding:6px 0"><button class="btn2" onclick="desfazerRenegociacao('${f.renegociacao_id}')" style="font-size:12px">Desfazer renegociação</button></div>`:''}
+    ${f.status==='Aguardando aprovação'?`<div class="det-section">Aprovação por alçada</div>
+      <div class="det-row"><span class="det-lbl">Situação</span><span class="det-val">Valor acima do limite configurado — precisa de aprovação antes de ser paga.</span></div>
+      <div style="padding:6px 0"><button class="btn" onclick="aprovarDespesa('${f.id}')" style="font-size:12px">Aprovar despesa</button></div>`:''}
+    ${f.aprovado_por?`<div class="det-section">Aprovação por alçada</div>
+      <div class="det-row"><span class="det-lbl">Aprovada em</span><span class="det-val">${new Date(f.aprovado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</span></div>`:''}
     <div class="det-section">Registro</div>
     <div class="det-row"><span class="det-lbl">Criado em</span><span class="det-val">${f.created_at?new Date(f.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</span></div>
     ${f.updated_at?`<div class="det-row"><span class="det-lbl">Última alteração</span><span class="det-val">${new Date(f.updated_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</span></div>`:''}
   `);
   // Botões do modal
   $('detEditBtn').onclick=()=>editarLancamento(f.id);
-  if(!encerrado){
+  if(!encerrado&&f.status!=='Aguardando aprovação'){
     $('detBaixarBtn').style.display='block';
     $('detBaixarBtn').innerHTML=f.tipo==='Receita'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Recebido':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Marcar como Pago';
     $('detBaixarBtn').onclick=()=>{fecharModal('modalDetalhe');abrirBaixar(f.id);};
@@ -1487,6 +1511,7 @@ async function consultarNotaFiscal(f){
 // ── BAIXAR MODAL ──
 function abrirBaixar(id){
   const f=financeiro.find(x=>x.id===id);if(!f)return;
+  if(f.status==='Aguardando aprovação'){ toast('Esta despesa precisa ser aprovada antes de poder ser paga.','err'); return; }
   $('baixarId').value=f.id;
   $('baixarTipo').value=f.tipo;
   $('baixarDesc').textContent=f.descricao||'';
@@ -1874,7 +1899,9 @@ function renderPagar(){
       <td>${venc?fmtData(venc):'—'}</td>
       <td><span class="badge">${f.status||''}</span></td>
       <td>${sit}</td>
-      <td><button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Pago</button></td>
+      <td>${f.status==='Aguardando aprovação'
+        ?`<button class="btn2" onclick="aprovarDespesa('${f.id}')" style="font-size:11px;padding:5px 8px;background:var(--p-light);color:var(--p2)">Aprovar</button>`
+        :`<button class="btn2" onclick="abrirBaixar('${f.id}')" style="font-size:11px;padding:5px 8px;background:#F1EFF7;color:var(--txt)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Pago</button>`}</td>
     </tr>`;
   }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhuma conta a pagar no momento.</td></tr>');
 }
@@ -2268,6 +2295,64 @@ function carregarRelatorios(){
   }
   carregarAgingInadimplencia();
   carregarFluxoProjetado();
+  carregarConfigAprovacao();
+}
+
+// ═══ APROVAÇÃO POR ALÇADAS (Etapa 4.5) ═══
+let usuariosEmpresaCache=null;
+async function carregarConfigAprovacao(){
+  try{
+    const [configs,usuarios]=await Promise.all([
+      db.get('config_aprovacao','?select=*,config_aprovacao_aprovadores(usuario_id)'),
+      usuariosEmpresaCache||db.get('usuarios',`?select=id,nome,ativo&empresa_id=eq.${session.empresa_id}&order=nome.asc`),
+    ]);
+    usuariosEmpresaCache=usuarios;
+    const config=configs[0]||null;
+    $('alcAtivo').checked=config?.ativo||false;
+    $('alcValorMinimo').value=config?.valor_minimo||'';
+    const aprovadoresIds=new Set((config?.config_aprovacao_aprovadores||[]).map(a=>a.usuario_id));
+    if(!usuarios.length){ setHTML('alcAprovadores','<p style="color:var(--muted);font-size:13px">Nenhum usuário cadastrado.</p>'); return; }
+    setHTML('alcAprovadores',usuarios.filter(u=>u.ativo).map(u=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+        <input type="checkbox" value="${u.id}" ${aprovadoresIds.has(u.id)?'checked':''} class="alc-aprovador-check">
+        <span style="font-size:13px">${esc(u.nome)}</span>
+      </div>`).join(''));
+  }catch(e){
+    setHTML('alcAprovadores',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+async function salvarConfigAprovacao(){
+  const ativo=$('alcAtivo').checked;
+  const valorMinimo=num('alcValorMinimo');
+  const aprovadorIds=[...document.querySelectorAll('.alc-aprovador-check:checked')].map(c=>c.value);
+  if(ativo&&!valorMinimo){ msg('alcMsg','Informe o valor mínimo pra ativar.','err'); return; }
+  try{
+    const existentes=await db.get('config_aprovacao','?select=id');
+    let configId=existentes[0]?.id;
+    if(configId){
+      await db.patch('config_aprovacao',configId,{ativo,valor_minimo:valorMinimo||0,updated_at:new Date().toISOString()});
+    } else {
+      const criado=await db.post('config_aprovacao',withEmpresa({ativo,valor_minimo:valorMinimo||0}));
+      configId=criado[0].id;
+    }
+    const atuais=await db.get('config_aprovacao_aprovadores',`?select=id,usuario_id&config_id=eq.${configId}`);
+    const atuaisIds=new Set(atuais.map(a=>a.usuario_id));
+    const novosIds=new Set(aprovadorIds);
+    for(const a of atuais){ if(!novosIds.has(a.usuario_id)) await db.delete('config_aprovacao_aprovadores',a.id); }
+    for(const uid of aprovadorIds){ if(!atuaisIds.has(uid)) await db.post('config_aprovacao_aprovadores',{config_id:configId,usuario_id:uid}); }
+    msg('alcMsg','Configuração salva.','ok');
+    await carregarConfigAprovacao();
+  }catch(e){ msg('alcMsg','Erro: '+e.message,'err'); }
+}
+async function aprovarDespesa(id){
+  const ok=await confirmarAcao('Aprovar esta despesa? Ela volta a ficar Pendente e já pode ser paga normalmente.',{labelOk:'Aprovar',variante:'neutro'});
+  if(!ok)return;
+  try{
+    await db.rpc('aprovar_despesa',{p_financeiro_id:id});
+    toast('Despesa aprovada.','ok');
+    fecharModal('modalDetalhe');
+    await loadData();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
 async function carregarAgingInadimplencia(){
