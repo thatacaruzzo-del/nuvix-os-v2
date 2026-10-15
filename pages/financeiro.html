@@ -316,9 +316,10 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
                 <button type="button" class="btn2" onclick="abrirModalCentroCusto(true)" style="padding:0 10px;font-size:16px;line-height:1" title="Novo centro de custo">+</button>
               </div>
             </div>
-            <div class="field"><label id="lanFavorecidoLbl">Favorecido / Cliente</label><input id="lanFavorecido" list="lanFavorecidoList" placeholder="Nome de quem recebe/paga" autocomplete="off">
+            <div class="field"><label id="lanFavorecidoLbl">Favorecido / Cliente</label><input id="lanFavorecido" list="lanFavorecidoList" placeholder="Nome de quem recebe/paga" autocomplete="off" oninput="preencherDocPorNome()">
               <datalist id="lanFavorecidoList"></datalist>
             </div>
+            <div class="field"><label>CPF/CNPJ do favorecido *</label><input id="lanFavorecidoDoc" placeholder="000.000.000-00 ou 00.000.000/0000-00"></div>
             <div class="field"><label>Chave Pix / Banco</label><input id="lanPix" placeholder="CPF, e-mail, banco..."></div>
             <div class="field"><label>Agência</label><input id="lanAgencia" placeholder="0000"></div>
             <div class="field"><label>Conta</label><input id="lanConta" placeholder="00000-0"></div>
@@ -999,10 +1000,10 @@ async function loadData(){
     if($('filtLojaWrap'))$('filtLojaWrap').style.display=lojas.length>1?'':'none';
   }catch(e){lojas=[];}
   try{
-    clientesCache=await db.get('clientes',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
+    clientesCache=await db.get('clientes',`?select=id,nome,documento&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
   }catch(e){clientesCache=[];}
   try{
-    fornecedoresCache=await db.get('fornecedores',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
+    fornecedoresCache=await db.get('fornecedores',`?select=id,nome,cnpj&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
   }catch(e){fornecedoresCache=[];}
   await carregarCentrosCustoCache();
   atualizarListaFavorecido();
@@ -1108,11 +1109,14 @@ async function salvarLancamento(){
   const numParcelas=parcelado?Math.max(2,parseInt(val('lanParcelas'))||2):1;
   const tipo=val('lanTipo');
   const favorecidoNome=val('lanFavorecido').trim();
+  const favorecidoDoc=val('lanFavorecidoDoc').trim();
+  if(!favorecidoNome){msg('lanMsg','Informe o favorecido.','err');return;}
+  if(!favorecidoDoc||!validarCpfCnpj(favorecidoDoc)){msg('lanMsg','Informe um CPF ou CNPJ válido do favorecido.','err');return;}
   const centroCustoId=val('lanCentro')||null;
   const centroCustoSelecionado=centrosCustoCache.find(c=>c.id===centroCustoId);
   let vinculo={cliente_id:null,fornecedor_id:null};
   try{
-    vinculo=await resolverFavorecido(favorecidoNome,tipo);
+    vinculo=await resolverFavorecido(favorecidoNome,tipo,favorecidoDoc);
   }catch(e){ msg('lanMsg','Erro ao vincular '+(tipo==='Receita'?'cliente':'fornecedor')+': '+e.message,'err'); return; }
 
   // Base payload
@@ -1220,7 +1224,7 @@ function editarLancamento(id){
   if(f.status==='Renegociado'){ toast('Este lançamento foi renegociado. Use "Desfazer renegociação" pra alterá-lo.','err'); return; }
   if(f.status==='Aguardando aprovação'){ toast('Este lançamento está aguardando aprovação. Aprove-o antes de editar.','err'); return; }
   fecharModal('modalDetalhe');
-  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
+  ['lanId','lanDesc','lanValor','lanData','lanVenc','lanPagamento','lanCentro','lanPix','lanFavorecido','lanFavorecidoDoc','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(el=>{if($(el))$(el).value='';});
   $('lanId').value=f.id;
   if($('lanJuros'))$('lanJuros').value=f.juros_mes_percentual??'';
   if($('lanMulta'))$('lanMulta').value=f.multa_percentual??'';
@@ -1239,6 +1243,7 @@ function editarLancamento(id){
   preencherSelectCentroCusto(f.centro_custo_id||'');
   $('lanPix').value=f.pix_chave||'';
   $('lanFavorecido').value=f.favorecido||'';
+  $('lanFavorecidoDoc').value=(f.cliente_id&&clientesCache.find(c=>c.id===f.cliente_id)?.documento)||(f.fornecedor_id&&fornecedoresCache.find(c=>c.id===f.fornecedor_id)?.cnpj)||'';
   $('lanAgencia').value=f.agencia||'';
   $('lanConta').value=f.conta||'';
   $('lanCodBarras').value=f.codigo_barras||'';
@@ -1772,7 +1777,7 @@ async function excluirLancamento(id){
 
 // ── LIMPAR ──
 function limparLancamento(){
-  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(id=>{if($(id))$(id).value=''});
+  ['lanId','lanDesc','lanValor','lanVenc','lanVenc1','lanPagamento','lanCentro','lanPix','lanFavorecido','lanFavorecidoDoc','lanAgencia','lanConta','lanCodBarras','lanObs','lanJuros','lanMulta','lanDesconto'].forEach(id=>{if($(id))$(id).value=''});
   if($('lanData'))$('lanData').value=hoje();
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
@@ -1810,23 +1815,40 @@ function atualizarListaFavorecido(){
   if($('lanFavorecidoLbl'))$('lanFavorecidoLbl').textContent=tipo==='Receita'?'Favorecido / Cliente':'Favorecido / Fornecedor';
   if($('lanFavorecidoList'))setHTML('lanFavorecidoList',lista.map(c=>`<option value="${esc(c.nome)}">`).join(''));
 }
-// Acha o cliente/fornecedor pelo nome digitado; se não existir ainda, cria na
-// hora (mesmo padrão já usado na entrada de NF em notas-fiscais.html) — não
-// obriga cadastrar antes de lançar, só garante que o vínculo (cliente_id /
-// fornecedor_id) existe sempre que há um nome digitado.
-async function resolverFavorecido(nome,tipo){
-  if(!nome)return {cliente_id:null,fornecedor_id:null};
+// Mesmo algoritmo de dígito verificador já usado em admin.html — repetido aqui
+// porque cada página carrega só o que usa, sem um arquivo .js compartilhado
+// pra isso no projeto.
+function validarCPF(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==11||/^(\d)\1{10}$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=Number(c[i])*(10-i);let r=(s*10)%11;if(r===10)r=0;if(r!==Number(c[9]))return false;s=0;for(let i=0;i<10;i++)s+=Number(c[i])*(11-i);r=(s*10)%11;if(r===10)r=0;return r===Number(c[10]);}
+function validarCNPJ(v){const c=String(v||'').replace(/\D/g,'');if(c.length!==14||/^(\d)\1{13}$/.test(c))return false;const calc=b=>{const p=b.length===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<b.length;i++)s+=Number(b[i])*p[i];const r=s%11;return r<2?0:11-r;};if(calc(c.slice(0,12))!==Number(c[12]))return false;return calc(c.slice(0,13))===Number(c[13]);}
+function validarCpfCnpj(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11)return validarCPF(d);if(d.length===14)return validarCNPJ(d);return false;}
+// Ao digitar um nome que já bate com alguém do cadastro, preenche o documento
+// sozinho — assim o CPF/CNPJ só precisa ser digitado na mão da primeira vez
+// que aquele cliente/fornecedor aparece.
+function preencherDocPorNome(){
+  const tipo=val('lanTipo')||'Receita';
+  const nome=val('lanFavorecido').trim().toLowerCase();
+  const lista=tipo==='Receita'?clientesCache:fornecedoresCache;
+  const achado=lista.find(c=>c.nome.trim().toLowerCase()===nome);
+  const doc=achado?(tipo==='Receita'?achado.documento:achado.cnpj):null;
+  if(doc)$('lanFavorecidoDoc').value=doc;
+}
+// Vínculo agora é pelo CPF/CNPJ (único de verdade), não pelo nome — evita
+// duplicar cadastro por causa de grafia diferente do mesmo cliente/fornecedor.
+// Cria o cadastro na hora se o documento ainda não existir (mesmo padrão já
+// usado na entrada de NF em notas-fiscais.html).
+async function resolverFavorecido(nome,tipo,documento){
+  const doc=String(documento||'').replace(/\D/g,'');
   if(tipo==='Receita'){
-    const achado=clientesCache.find(c=>c.nome.trim().toLowerCase()===nome.toLowerCase());
+    const achado=clientesCache.find(c=>String(c.documento||'').replace(/\D/g,'')===doc);
     if(achado)return {cliente_id:achado.id,fornecedor_id:null};
-    const [criado]=await db.post('clientes',withEmpresa({nome}));
-    clientesCache.push({id:criado.id,nome});
+    const [criado]=await db.post('clientes',withEmpresa({nome,documento}));
+    clientesCache.push({id:criado.id,nome,documento});
     return {cliente_id:criado.id,fornecedor_id:null};
   } else {
-    const achado=fornecedoresCache.find(f=>f.nome.trim().toLowerCase()===nome.toLowerCase());
+    const achado=fornecedoresCache.find(f=>String(f.cnpj||'').replace(/\D/g,'')===doc);
     if(achado)return {cliente_id:null,fornecedor_id:achado.id};
-    const [criado]=await db.post('fornecedores',withEmpresa({nome}));
-    fornecedoresCache.push({id:criado.id,nome});
+    const [criado]=await db.post('fornecedores',withEmpresa({nome,cnpj:documento}));
+    fornecedoresCache.push({id:criado.id,nome,cnpj:documento});
     return {cliente_id:null,fornecedor_id:criado.id};
   }
 }
