@@ -286,7 +286,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <input type="hidden" id="lanId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Tipo</label>
-              <select id="lanTipo"><option>Receita</option><option>Despesa</option></select>
+              <select id="lanTipo" onchange="atualizarListaFavorecido()"><option>Receita</option><option>Despesa</option></select>
             </div>
             <div class="field"><label>Categoria</label>
               <select id="lanCat">
@@ -310,8 +310,15 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div class="field"><label>Loja</label>
               <select id="lanLoja"><option value="">Geral (sem loja específica)</option></select>
             </div>
-            <div class="field"><label>Centro de custo</label><input id="lanCentro" placeholder="Ex: Operacional, Admin..."></div>
-            <div class="field"><label>Favorecido / Cliente</label><input id="lanFavorecido" placeholder="Nome de quem recebe/paga"></div>
+            <div class="field"><label>Centro de custo</label>
+              <div style="display:flex;gap:6px">
+                <select id="lanCentro" style="flex:1"><option value="">Nenhum</option></select>
+                <button type="button" class="btn2" onclick="abrirModalCentroCusto(true)" style="padding:0 10px;font-size:16px;line-height:1" title="Novo centro de custo">+</button>
+              </div>
+            </div>
+            <div class="field"><label id="lanFavorecidoLbl">Favorecido / Cliente</label><input id="lanFavorecido" list="lanFavorecidoList" placeholder="Nome de quem recebe/paga" autocomplete="off">
+              <datalist id="lanFavorecidoList"></datalist>
+            </div>
             <div class="field"><label>Chave Pix / Banco</label><input id="lanPix" placeholder="CPF, e-mail, banco..."></div>
             <div class="field"><label>Agência</label><input id="lanAgencia" placeholder="0000"></div>
             <div class="field"><label>Conta</label><input id="lanConta" placeholder="00000-0"></div>
@@ -762,6 +769,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 <div class="modal-overlay" id="modalCentroCusto">
 <div class="modal" style="max-width:420px">
   <h3>Novo centro de custo</h3>
+  <div class="field"><label>Código</label><input id="ccCodigo" placeholder="Ex: 001"></div>
   <div class="field"><label>Nome *</label><input id="ccNome" placeholder="Ex: Loja Centro"></div>
   <div id="ccMsg" class="msg"></div>
   <div class="modal-actions">
@@ -840,6 +848,9 @@ let financeiro = [];
 let pedidosNumeroPorVenda = {};
 let lojas = [];
 let servicosCatalogo = [];
+let clientesCache = [];
+let fornecedoresCache = [];
+let centrosCustoCache = [];
 let fluxoFiltro = 'todos';
 let fiscalAtivo = false; // true só depois que a Focus NFe for contratada e ativada em Configurações
 let nfseSimulacao = false; // true só em empresa de teste — simula o resultado em vez de chamar a Focus NFe de verdade
@@ -988,6 +999,14 @@ async function loadData(){
     if($('filtLojaWrap'))$('filtLojaWrap').style.display=lojas.length>1?'':'none';
   }catch(e){lojas=[];}
   try{
+    clientesCache=await db.get('clientes',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
+  }catch(e){clientesCache=[];}
+  try{
+    fornecedoresCache=await db.get('fornecedores',`?select=id,nome&empresa_id=eq.${session.empresa_id}&order=nome.asc`);
+  }catch(e){fornecedoresCache=[];}
+  await carregarCentrosCustoCache();
+  atualizarListaFavorecido();
+  try{
     // Só pra popular o seletor opcional de "serviço do catálogo" na emissão de NFS-e
     // (classificação fiscal por serviço, em vez de um valor fixo pra empresa inteira).
     servicosCatalogo=await db.get('servicos_catalogo',`?select=id,nome,codigo_tributacao_nacional,aliquota_iss,cst_ibs_cbs,cclasstrib&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=nome.asc`);
@@ -1087,18 +1106,29 @@ async function salvarLancamento(){
   const pagamento=val('lanPagamento')||null;
   const parcelado=$('lanParcelado')?.checked&&!id;
   const numParcelas=parcelado?Math.max(2,parseInt(val('lanParcelas'))||2):1;
+  const tipo=val('lanTipo');
+  const favorecidoNome=val('lanFavorecido').trim();
+  const centroCustoId=val('lanCentro')||null;
+  const centroCustoSelecionado=centrosCustoCache.find(c=>c.id===centroCustoId);
+  let vinculo={cliente_id:null,fornecedor_id:null};
+  try{
+    vinculo=await resolverFavorecido(favorecidoNome,tipo);
+  }catch(e){ msg('lanMsg','Erro ao vincular '+(tipo==='Receita'?'cliente':'fornecedor')+': '+e.message,'err'); return; }
 
   // Base payload
   const base=withEmpresa({
-    tipo:val('lanTipo'),categoria:val('lanCat'),
+    tipo,categoria:val('lanCat'),
     loja_id:val('lanLoja')||null,
     data_lancamento:val('lanData')||hoje(),
     data_pagamento:pagamento||((['Pago','Recebido'].includes(status)&&!pagamento)?hoje():null),
     status:parcelado?'Pendente':status,
     forma_pagamento:val('lanForma'),
-    centro_custo:val('lanCentro').trim()||null,
+    centro_custo:centroCustoSelecionado?centroCustoSelecionado.nome:null,
+    centro_custo_id:centroCustoId,
     pix_chave:val('lanPix').trim()||null,
-    favorecido:val('lanFavorecido').trim()||null,
+    favorecido:favorecidoNome||null,
+    cliente_id:vinculo.cliente_id,
+    fornecedor_id:vinculo.fornecedor_id,
     agencia:val('lanAgencia').trim()||null,
     conta:val('lanConta').trim()||null,
     codigo_barras:val('lanCodBarras').trim()||null,
@@ -1196,6 +1226,7 @@ function editarLancamento(id){
   if($('lanMulta'))$('lanMulta').value=f.multa_percentual??'';
   if($('lanDesconto'))$('lanDesconto').value=f.desconto_valor??'';
   $('lanTipo').value=f.tipo||'Receita';
+  atualizarListaFavorecido();
   $('lanCat').value=f.categoria||'Serviços';
   if($('lanLoja'))$('lanLoja').value=f.loja_id||'';
   $('lanDesc').value=f.descricao||'';
@@ -1205,7 +1236,7 @@ function editarLancamento(id){
   $('lanPagamento').value=f.data_pagamento?String(f.data_pagamento).slice(0,10):'';
   $('lanStatus').value=f.status||'Pendente';
   $('lanForma').value=f.forma_pagamento||'Dinheiro';
-  $('lanCentro').value=f.centro_custo||'';
+  preencherSelectCentroCusto(f.centro_custo_id||'');
   $('lanPix').value=f.pix_chave||'';
   $('lanFavorecido').value=f.favorecido||'';
   $('lanAgencia').value=f.agencia||'';
@@ -1753,6 +1784,51 @@ function limparLancamento(){
   if($('parcelaFields'))$('parcelaFields').style.display='none';
   if($('parcelaPreview'))$('parcelaPreview').style.display='none';
   $('lanTitulo').textContent='Novo lançamento';
+  atualizarListaFavorecido();
+}
+
+// ── CENTRO DE CUSTO / FAVORECIDO (cliente ou fornecedor conforme o tipo) ──
+async function carregarCentrosCustoCache(){
+  try{
+    centrosCustoCache=await db.get('centros_custo',`?select=*&empresa_id=eq.${session.empresa_id}&ativo=eq.true&order=codigo.asc.nullslast,nome.asc`);
+  }catch(e){ centrosCustoCache=[]; }
+  preencherSelectCentroCusto();
+}
+function preencherSelectCentroCusto(selecionarId){
+  const sel=$('lanCentro');if(!sel)return;
+  const atual=selecionarId||sel.value;
+  sel.innerHTML='<option value="">Nenhum</option>'+centrosCustoCache.map(c=>`<option value="${c.id}">${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}</option>`).join('');
+  sel.value=atual||'';
+}
+// Favorecido muda de significado com o tipo — Receita é sempre sobre um cliente
+// (de quem a empresa vai receber), Despesa é sobre um fornecedor (pra quem vai
+// pagar). Mesma lista de nomes nos dois casos ia misturar cliente com fornecedor
+// na sugestão, então a datalist troca de fonte conforme o tipo selecionado.
+function atualizarListaFavorecido(){
+  const tipo=val('lanTipo')||'Receita';
+  const lista=tipo==='Receita'?clientesCache:fornecedoresCache;
+  if($('lanFavorecidoLbl'))$('lanFavorecidoLbl').textContent=tipo==='Receita'?'Favorecido / Cliente':'Favorecido / Fornecedor';
+  if($('lanFavorecidoList'))setHTML('lanFavorecidoList',lista.map(c=>`<option value="${esc(c.nome)}">`).join(''));
+}
+// Acha o cliente/fornecedor pelo nome digitado; se não existir ainda, cria na
+// hora (mesmo padrão já usado na entrada de NF em notas-fiscais.html) — não
+// obriga cadastrar antes de lançar, só garante que o vínculo (cliente_id /
+// fornecedor_id) existe sempre que há um nome digitado.
+async function resolverFavorecido(nome,tipo){
+  if(!nome)return {cliente_id:null,fornecedor_id:null};
+  if(tipo==='Receita'){
+    const achado=clientesCache.find(c=>c.nome.trim().toLowerCase()===nome.toLowerCase());
+    if(achado)return {cliente_id:achado.id,fornecedor_id:null};
+    const [criado]=await db.post('clientes',withEmpresa({nome}));
+    clientesCache.push({id:criado.id,nome});
+    return {cliente_id:criado.id,fornecedor_id:null};
+  } else {
+    const achado=fornecedoresCache.find(f=>f.nome.trim().toLowerCase()===nome.toLowerCase());
+    if(achado)return {cliente_id:null,fornecedor_id:achado.id};
+    const [criado]=await db.post('fornecedores',withEmpresa({nome}));
+    fornecedoresCache.push({id:criado.id,nome});
+    return {cliente_id:null,fornecedor_id:criado.id};
+  }
 }
 
 // ── FILTRO POR DIA (vindo de um link externo, ex: alerta "vencendo hoje" do Dashboard) ──
@@ -2250,7 +2326,7 @@ function renderPlanoContas(){
 function renderCentrosCusto(){
   if(!centrosCustoLista.length){ setHTML('listaCentrosCusto','<p style="color:var(--muted);font-size:13px">Nenhum centro de custo cadastrado ainda.</p>'); return; }
   setHTML('listaCentrosCusto',centrosCustoLista.map(c=>`
-    <div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">${esc(c.nome)}${c.ativo?'':' <span style="color:var(--muted)">(inativo)</span>'}</div>`).join(''));
+    <div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}${c.ativo?'':' <span style="color:var(--muted)">(inativo)</span>'}</div>`).join(''));
 }
 function optionsContasHTML(selecionadaId){
   return '<option value="">Não classificar</option>'+GRUPO_DRE_ORDEM.filter(g=>planoContasLista.some(c=>c.grupo_dre===g)).map(g=>
@@ -2303,19 +2379,31 @@ async function salvarPlanoConta(){
     await carregarPlanoContas();
   }catch(e){ msg('pcMsg','Erro: '+e.message,'err'); }
 }
-function abrirModalCentroCusto(){
+// origemLancamento=true quando aberto pelo atalho "+ Novo" dentro do lançamento,
+// pra saber que precisa recarregar e já selecionar o centro de custo recém-criado
+// ali, sem o usuário ter que sair do modal de lançamento pra achar ele.
+let ccOrigemLancamento=false;
+function abrirModalCentroCusto(deLancamento){
+  ccOrigemLancamento=!!deLancamento;
+  $('ccCodigo').value='';
   $('ccNome').value='';
   $('ccMsg').className='msg';
   abrirModal('modalCentroCusto');
 }
 async function salvarCentroCusto(){
+  const codigo=val('ccCodigo').trim();
   const nome=val('ccNome').trim();
   if(!nome){ msg('ccMsg','Informe o nome do centro de custo.','err'); return; }
   try{
-    await db.post('centros_custo',withEmpresa({nome}));
+    const [criado]=await db.post('centros_custo',withEmpresa({codigo:codigo||null,nome}));
     toast('Centro de custo criado.','ok');
     fecharModal('modalCentroCusto');
-    await carregarPlanoContas();
+    if(ccOrigemLancamento){
+      await carregarCentrosCustoCache();
+      preencherSelectCentroCusto(criado.id);
+    } else {
+      await carregarPlanoContas();
+    }
   }catch(e){ msg('ccMsg','Erro: '+e.message,'err'); }
 }
 
