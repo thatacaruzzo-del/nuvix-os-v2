@@ -1074,6 +1074,13 @@ function toggleSenhaAdmin(){
   </div>
 
   <div class="card" style="margin-bottom:16px">
+    <h2>Financeiro completo da Nuvix</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:0">Abre numa aba nova o mesmo financeiro completo que os clientes usam (DRE, aging de inadimplência, fluxo de caixa projetado, conciliação bancária, orçamento, régua de cobrança, notas fiscais etc.), já logado como a empresa interna da Nuvix.</p>
+    <div class="actions"><button class="btn2" id="btnAbrirFinanceiroNuvix" onclick="abrirFinanceiroCompletoNuvix()">Abrir financeiro completo ↗</button></div>
+    <div id="finCompletoMsg" class="msg"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <h2>Dar entrada em pagamento de cliente</h2>
     <p style="color:var(--muted);font-size:12px;margin-bottom:0">Pra boleto emitido manualmente (ex: Nubank) ou qualquer pagamento recebido fora do cartão automático — a nota desse cliente já deveria ter sido emitida ANTES, junto com o boleto, em Notas Fiscais → "Emitir nota fiscal". Isso aqui só registra que o pagamento chegou, pra entrar no MRR e no Financeiro — não emite nota de novo.</p>
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
@@ -3791,6 +3798,38 @@ async function excluirDespesa(id,descricao){
     toast('Despesa excluída.','ok');
     await carregarTudo();
   }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+// Abre o financeiro completo (o mesmo que os clientes usam: DRE, aging, fluxo
+// projetado, conciliação, orçamento, régua de cobrança etc.) numa aba nova, já
+// logado como a empresa interna da Nuvix (empresas.eh_nuvix=true). A função
+// admin-financeiro-nuvix cria o usuário interno na primeira chamada e gera uma
+// sessão de verdade (access_token/refresh_token) pra ele — sem senha nenhuma
+// envolvida, só Admin Nuvix consegue chamar essa função.
+async function abrirFinanceiroCompletoNuvix(){
+  const btn=$('btnAbrirFinanceiroNuvix');
+  if(btn){btn.disabled=true;btn.textContent='Abrindo...';}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/admin-financeiro-nuvix`,{method:'POST',headers:H});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||'Erro ao abrir financeiro.');
+    const claims=parseJwt(data.access_token);
+    if(!claims)throw new Error('Não foi possível ler a sessão gerada.');
+    const [empresaRows,modulosRows]=await Promise.all([
+      dbGet('empresas',`?id=eq.${data.empresa_id}&select=*&limit=1`),
+      dbGet('empresa_modulos',`?empresa_id=eq.${data.empresa_id}&select=modulo,liberado`),
+    ]);
+    const empresa=empresaRows?.[0];
+    if(!empresa)throw new Error('Empresa interna da Nuvix não encontrada.');
+    empresa.modulos_liberados=modulosRows||[];
+    const user={id:claims.sub,nome:claims.nome,email:claims.email,perfil:claims.perfil,is_admin_nuvix:claims.is_admin_nuvix,usuario_permissoes:[],limite_desconto_pct:null};
+    sessionStorage.setItem('nuvix_v2_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,user,empresa,loginAt:Date.now()}));
+    window.open('financeiro.html','_blank');
+  }catch(e){
+    msgEl('finCompletoMsg','Erro: '+e.message,'err');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Abrir financeiro completo ↗';}
+  }
 }
 
 // MRR real: agrupa por mês de vencimento (não soma bruta de tudo junto, como o
