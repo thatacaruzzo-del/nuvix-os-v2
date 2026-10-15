@@ -306,14 +306,34 @@ Deno.serve(async (req) => {
     // tomador do serviço obrigatório quando houver identificação ou razão
     // social". A GISS de Guarulhos exige endereço completo sempre que a
     // nota identifica o tomador (CNPJ/razão social), mesmo sendo opcional
-    // na doc genérica da Focus. notas_fiscais não guarda endereço (nunca
-    // precisou até agora) — busca pela empresa cadastrada com esse CNPJ,
-    // já que o fluxo atual (assinatura NuvixHub) sempre tem o tomador como
-    // uma empresa já cadastrada no próprio NuvixHub.
-    const docTomador = (nota.cliente_documento || '').replace(/\D/g, '');
-    const [empresaTomador] = docTomador
-      ? await sbGet(`empresas?cnpj=eq.${docTomador}&select=endereco_logradouro,endereco_numero,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`)
-      : [undefined];
+    // na doc genérica da Focus.
+    //
+    // Duas origens possíveis pro endereço, nessa ordem:
+    //  1) nota.cliente_id → cadastro de CLIENTE da própria empresa (o caso
+    //     real: uma empresa aqui no Nuvix emitindo nota pro cliente DELA,
+    //     que normalmente não é assinante do NuvixHub). Coluna adicionada
+    //     depois — nota antiga não tem esse vínculo, cai pro passo 2.
+    //  2) fallback original: busca pela EMPRESA cadastrada com esse CNPJ —
+    //     só faz sentido pro caso interno da Nuvix (cobrança de assinatura,
+    //     onde o tomador É, ele mesmo, uma empresa assinante do NuvixHub).
+    //     Mantido exatamente como estava pra não quebrar nenhuma nota que já
+    //     funciona hoje emitindo por esse caminho.
+    let enderecoTomador:
+      | { endereco_logradouro?: string; endereco_numero?: string; endereco_bairro?: string; endereco_cep?: string; endereco_uf?: string; codigo_municipio_ibge?: string }
+      | undefined;
+    if (nota.cliente_id) {
+      const [cliente] = await sbGet(
+        `clientes?id=eq.${nota.cliente_id}&select=endereco_logradouro,endereco_numero,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`
+      );
+      if (cliente?.endereco_logradouro && cliente?.codigo_municipio_ibge) enderecoTomador = cliente;
+    }
+    if (!enderecoTomador) {
+      const docTomador = (nota.cliente_documento || '').replace(/\D/g, '');
+      const [empresaTomador] = docTomador
+        ? await sbGet(`empresas?cnpj=eq.${docTomador}&select=endereco_logradouro,endereco_numero,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`)
+        : [undefined];
+      enderecoTomador = empresaTomador;
+    }
 
     const ref = `nuvix-${nota_fiscal_id}`;
     const payload = {
@@ -338,17 +358,18 @@ Deno.serve(async (req) => {
           // doc.focusnfe.com.br/reference/emitir_nfse) — nenhum campo é
           // obrigatório na doc genérica da Focus, mas a GISS de Guarulhos
           // exige o endereço completo sempre que o tomador é identificado
-          // (erro real E417). Só inclui o objeto se achou a empresa pelo
-          // CNPJ — sem isso, melhor mandar sem endereço (erro específico
-          // de novo) do que inventar dado fiscal que não existe.
-          endereco: empresaTomador
+          // (erro real E417). Só inclui o objeto se achou endereço usável
+          // (cliente da empresa ou, no fallback, a empresa pelo CNPJ) — sem
+          // isso, melhor mandar sem endereço (erro específico de novo) do
+          // que inventar dado fiscal que não existe.
+          endereco: enderecoTomador
             ? {
-                logradouro: empresaTomador.endereco_logradouro || undefined,
-                numero: empresaTomador.endereco_numero || undefined,
-                bairro: empresaTomador.endereco_bairro || undefined,
-                codigo_municipio: empresaTomador.codigo_municipio_ibge || undefined,
-                uf: empresaTomador.endereco_uf || undefined,
-                cep: (empresaTomador.endereco_cep || '').replace(/\D/g, '') || undefined,
+                logradouro: enderecoTomador.endereco_logradouro || undefined,
+                numero: enderecoTomador.endereco_numero || undefined,
+                bairro: enderecoTomador.endereco_bairro || undefined,
+                codigo_municipio: enderecoTomador.codigo_municipio_ibge || undefined,
+                uf: enderecoTomador.endereco_uf || undefined,
+                cep: (enderecoTomador.endereco_cep || '').replace(/\D/g, '') || undefined,
               }
             : undefined,
         };

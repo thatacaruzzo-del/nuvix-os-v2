@@ -809,6 +809,28 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 </div>
 </div>
 
+<!-- MODAL ENDEREÇO DO CLIENTE (pra emitir NF) -->
+<div class="modal-overlay" id="modalEnderecoCliente">
+<div class="modal" style="max-width:480px">
+  <h3>Endereço do cliente</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Alguns municípios exigem o endereço completo do tomador pra autorizar a nota fiscal. Preenche uma vez e fica salvo no cadastro desse cliente.</p>
+  <input type="hidden" id="endClienteId">
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div class="field"><label>Logradouro *</label><input id="endLogradouro" placeholder="Rua, avenida..."></div>
+    <div class="field"><label>Número</label><input id="endNumero"></div>
+    <div class="field"><label>Bairro</label><input id="endBairro"></div>
+    <div class="field"><label>CEP</label><input id="endCep" placeholder="00000-000"></div>
+    <div class="field"><label>UF</label><input id="endUf" maxlength="2" placeholder="Ex: SP" style="text-transform:uppercase"></div>
+    <div class="field" style="grid-column:1/-1"><label>Código do município (IBGE) *</label><input id="endCodMun" placeholder="Ex: 3518800 (Guarulhos-SP)"></div>
+  </div>
+  <div id="endMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="pularEnderecoCliente()">Emitir sem endereço</button>
+    <button class="btn" onclick="salvarEnderecoClienteEEmitir()">Salvar e emitir</button>
+  </div>
+</div>
+</div>
+
 <!-- MODAL IMPORTAR PLANILHA -->
 <div class="modal-overlay" id="modalImportar">
 <div class="modal" style="max-width:760px">
@@ -1420,6 +1442,7 @@ async function excluirAnexo(anexoId){
 const NOTA_STATUS_LABEL={nao_emitida:['Ainda não emitida','off'],processando:['Processando na prefeitura','warn'],autorizada:['Autorizada','ok'],erro:['Erro na emissão','bad'],cancelada:['Cancelada','off']};
 async function carregarStatusNota(f){
   notaAtual=null;
+  pularChecagemEnderecoCliente=false;
   if(!fiscalAtivo){
     setHTML('detNotaStatus','<span class="badge off">Emissão fiscal não configurada</span>');
     $('detNotaBtn').textContent='Nota Fiscal indisponível';
@@ -1469,13 +1492,26 @@ async function buscarIndicadorConsumoFinalCliente(nome){
   }catch(e){return '1';}
 }
 
+let notaEmissaoContexto=null;
+let pularChecagemEnderecoCliente=false;
 async function emitirNotaFiscal(f){
   if(!fiscalAtivo){toast('Emissão de nota fiscal ainda não configurada.','err');return;}
+  notaEmissaoContexto=f;
   $('detNotaBtn').disabled=true;
   try{
     let nota=notaAtual;
     if(!nota){
-      let documento=await buscarDocumentoCliente(f.favorecido);
+      let documento,clienteCompleto=null;
+      if(f.cliente_id){
+        // Lançamento já tem o vínculo por CPF/CNPJ (feito na hora de lançar) —
+        // usa o cadastro do cliente direto, sem perguntar de novo. Lançamento
+        // SEM esse vínculo (feito antes dessa automação existir) continua
+        // exatamente como sempre foi, buscando por nome.
+        try{ const lista=await db.get('clientes',`?id=eq.${f.cliente_id}&select=*`); clienteCompleto=lista[0]||null; }catch(e){}
+        documento=clienteCompleto?.documento||null;
+      } else {
+        documento=await buscarDocumentoCliente(f.favorecido);
+      }
       if(!documento){
         const digitado=await promptAcao(`CPF ou CNPJ de ${f.favorecido||'cliente'} — a maioria das prefeituras exige esse dado pra autorizar a nota:`,{placeholder:'Ex: 000.000.000-00',labelOk:'Continuar'});
         if(digitado===null){$('detNotaBtn').disabled=false;return;}
@@ -1484,6 +1520,19 @@ async function emitirNotaFiscal(f){
           const seguir=await confirmarAcao('Emitir sem CPF/CNPJ do tomador? A prefeitura pode rejeitar a nota sem esse dado.',{labelOk:'Emitir mesmo assim',variante:'aviso'});
           if(!seguir){$('detNotaBtn').disabled=false;return;}
         }
+      }
+      // Endereço do tomador — alguns municípios exigem pra autorizar a nota
+      // (já visto em produção). Só interrompe pra perguntar quando já existe o
+      // vínculo de cliente e o endereço dele ainda está incompleto; lançamento
+      // sem esse vínculo não muda em nada, segue sem pedir endereço nenhum.
+      if(!pularChecagemEnderecoCliente&&clienteCompleto&&!(clienteCompleto.endereco_logradouro&&clienteCompleto.codigo_municipio_ibge)){
+        const completar=await confirmarAcao('Esse cliente ainda não tem endereço completo cadastrado. Alguns municípios exigem isso pra autorizar a nota fiscal. Quer preencher agora?',{labelOk:'Preencher endereço',labelCancelar:'Emitir sem endereço',variante:'aviso'});
+        if(completar){
+          abrirModalEnderecoCliente(clienteCompleto);
+          $('detNotaBtn').disabled=false;
+          return;
+        }
+        pularChecagemEnderecoCliente=true;
       }
       // Serviço do catálogo escolhido (opcional) — snapshot da classificação fiscal
       // dele NA HORA de emitir, mesmo princípio de custo_unitario_snapshot em
@@ -1494,6 +1543,7 @@ async function emitirNotaFiscal(f){
       const servicoEscolhido=servicoId?servicosCatalogo.find(s=>s.id===servicoId):null;
       const criada=await db.post('notas_fiscais',withEmpresa({
         financeiro_id:f.id,
+        cliente_id:f.cliente_id||null,
         cliente_nome:f.favorecido||null,
         cliente_documento:documento||null,
         descricao_servico:f.descricao,
@@ -1535,6 +1585,42 @@ async function emitirNotaFiscal(f){
     toast('Erro ao emitir nota: '+e.message,'err');
   }
   carregarStatusNota(f);
+}
+
+function abrirModalEnderecoCliente(cliente){
+  $('endClienteId').value=cliente.id;
+  $('endLogradouro').value=cliente.endereco_logradouro||'';
+  $('endNumero').value=cliente.endereco_numero||'';
+  $('endBairro').value=cliente.endereco_bairro||'';
+  $('endCep').value=cliente.endereco_cep||'';
+  $('endUf').value=cliente.endereco_uf||'';
+  $('endCodMun').value=cliente.codigo_municipio_ibge||'';
+  $('endMsg').className='msg';
+  abrirModal('modalEnderecoCliente');
+}
+function pularEnderecoCliente(){
+  pularChecagemEnderecoCliente=true;
+  fecharModal('modalEnderecoCliente');
+  if(notaEmissaoContexto)emitirNotaFiscal(notaEmissaoContexto);
+}
+async function salvarEnderecoClienteEEmitir(){
+  const clienteId=val('endClienteId');
+  const logradouro=val('endLogradouro').trim();
+  const codMun=val('endCodMun').trim();
+  if(!logradouro||!codMun){ msg('endMsg','Informe pelo menos logradouro e código do município.','err'); return; }
+  try{
+    await db.patch('clientes',clienteId,{
+      endereco_logradouro:logradouro,
+      endereco_numero:val('endNumero').trim()||null,
+      endereco_bairro:val('endBairro').trim()||null,
+      endereco_cep:val('endCep').trim()||null,
+      endereco_uf:val('endUf').trim().toUpperCase()||null,
+      codigo_municipio_ibge:codMun,
+    });
+    toast('Endereço salvo.','ok');
+    fecharModal('modalEnderecoCliente');
+    if(notaEmissaoContexto)await emitirNotaFiscal(notaEmissaoContexto);
+  }catch(e){ msg('endMsg','Erro: '+e.message,'err'); }
 }
 
 async function simularEmissaoTeste(nota){
