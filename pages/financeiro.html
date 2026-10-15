@@ -268,6 +268,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <button class="fin-tab" onclick="finTab('conciliacao',this);carregarConciliacaoBancaria()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Conciliação bancária</button>
         <button class="fin-tab" onclick="finTab('planoContas',this);carregarPlanoContas()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="13" y2="11"/></svg> Plano de Contas</button>
         <button class="fin-tab" onclick="finTab('relatorios',this);carregarRelatorios()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M3 3v18h18"/><path d="M18.4 8.6 12 15l-3.5-3.5L4 16"/></svg> Relatórios</button>
+        <button class="fin-tab" onclick="finTab('orcamento',this);carregarOrcamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/></svg> Orçamento</button>
       </div>
 
       <!-- LANÇAMENTOS -->
@@ -538,6 +539,30 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Junta resumo do mês, DRE, fluxo de caixa, aging e principais despesas num único documento pra enviar ao cliente. Usa o mês e ano escolhidos acima no DRE.</p>
           <div class="field"><label>Observações (opcional)</label><textarea id="relatorioObs" rows="3" style="resize:vertical;width:100%" placeholder="Algum comentário pra incluir no relatório..."></textarea></div>
           <div style="margin-top:10px"><button class="btn" onclick="gerarRelatorioMensal()">Gerar relatório mensal (PDF)</button></div>
+        </div>
+      </div>
+
+      <!-- ORÇAMENTO -->
+      <div id="pane-orcamento" class="fin-pane">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0">Orçamento x realizado</h2>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+              <div class="field" style="margin:0"><label>Mês</label>
+                <select id="orcMes" onchange="carregarOrcamento()">
+                  <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                  <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                  <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                  <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0"><label>Ano</label><input id="orcAno" type="number" style="max-width:100px" onchange="carregarOrcamento()"></div>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Defina o valor orçado de cada conta pro mês — o realizado é somado automaticamente dos lançamentos já pagos/recebidos nesse período.</p>
+          <div id="orcConteudo"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
+          <div id="orcMsg" class="msg" style="margin-top:10px"></div>
+          <div style="margin-top:14px"><button class="btn" onclick="salvarOrcamento()">Salvar orçamento</button></div>
         </div>
       </div>
 
@@ -2416,6 +2441,73 @@ ${observacoes?`<h2>Observações</h2><p>${esc(observacoes).replace(/\n/g,'<br>')
     const blob=new Blob([html],{type:'text/html'});
     window.open(URL.createObjectURL(blob),'_blank');
   }catch(e){ toast('Erro ao gerar relatório: '+e.message,'err'); }
+}
+
+// ═══ ORÇAMENTO (Etapa 4.4) ═══
+let orcamentoLinhas=[];
+async function carregarOrcamento(){
+  if(!$('orcAno').value)$('orcAno').value=new Date().getFullYear();
+  if(!$('orcMes').value)$('orcMes').value=new Date().getMonth()+1;
+  const ano=Number(val('orcAno'));const mes=Number(val('orcMes'));
+  setHTML('orcConteudo','<p style="color:var(--muted);font-size:13px">Carregando...</p>');
+  try{
+    orcamentoLinhas=await db.rpc('orcamento_x_realizado',{p_ano:ano,p_mes:mes});
+    renderOrcamento();
+  }catch(e){
+    setHTML('orcConteudo',`<p style="color:var(--red);font-size:13px">Erro: ${esc(e.message)}</p>`);
+  }
+}
+function renderOrcamento(){
+  if(!orcamentoLinhas.length){ setHTML('orcConteudo','<p style="color:var(--muted);font-size:13px">Crie o plano de contas primeiro (aba Plano de Contas).</p>'); return; }
+  const porGrupo={};
+  orcamentoLinhas.forEach(l=>{ (porGrupo[l.grupo_dre]=porGrupo[l.grupo_dre]||[]).push(l); });
+  setHTML('orcConteudo',GRUPO_DRE_ORDEM.filter(g=>porGrupo[g]).map(g=>`
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${esc(GRUPO_DRE_LBL[g])}</div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;color:var(--muted);font-size:11px"><th style="padding:4px 8px">Conta</th><th style="padding:4px 8px;text-align:right">Orçado</th><th style="padding:4px 8px;text-align:right">Realizado</th><th style="padding:4px 8px;text-align:right">Variação</th></tr></thead>
+        <tbody>
+        ${porGrupo[g].map(l=>{
+          const ruim=l.tipo==='despesa'?Number(l.variacao_valor)>0:Number(l.variacao_valor)<0;
+          const cor=Number(l.variacao_valor)===0||l.valor_orcado==0?'var(--muted)':ruim?'var(--red)':'var(--green)';
+          return `<tr style="border-top:1px solid var(--line)">
+            <td style="padding:6px 8px">${l.codigo?esc(l.codigo)+' — ':''}${esc(l.nome)}</td>
+            <td style="padding:6px 8px;text-align:right"><input type="number" step="0.01" min="0" data-plano-conta="${l.plano_conta_id}" value="${l.valor_orcado||''}" style="width:110px;text-align:right" oninput="renderOrcamentoVariacaoLinha(this)"></td>
+            <td style="padding:6px 8px;text-align:right">${money(l.valor_realizado)}</td>
+            <td style="padding:6px 8px;text-align:right;color:${cor};font-weight:700" data-variacao-de="${l.plano_conta_id}">${l.valor_orcado?money(l.variacao_valor)+(l.variacao_pct!=null?` (${l.variacao_pct>0?'+':''}${l.variacao_pct}%)`:''):'—'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+      </div>
+    </div>`).join(''));
+}
+function renderOrcamentoVariacaoLinha(input){
+  const planoContaId=input.dataset.planoConta;
+  const linha=orcamentoLinhas.find(l=>l.plano_conta_id===planoContaId);
+  if(!linha)return;
+  const orcado=Number(input.value||0);
+  const variacaoValor=Number(linha.valor_realizado||0)-orcado;
+  const variacaoPct=orcado?Math.round((variacaoValor/orcado)*1000)/10:null;
+  const ruim=linha.tipo==='despesa'?variacaoValor>0:variacaoValor<0;
+  const cor=!orcado||variacaoValor===0?'var(--muted)':ruim?'var(--red)':'var(--green)';
+  const el=document.querySelector(`[data-variacao-de="${planoContaId}"]`);
+  if(el){
+    el.style.color=cor;
+    el.textContent=orcado?money(variacaoValor)+(variacaoPct!=null?` (${variacaoPct>0?'+':''}${variacaoPct}%)`:''):'—';
+  }
+}
+async function salvarOrcamento(){
+  const ano=Number(val('orcAno'));const mes=Number(val('orcMes'));
+  const inputs=[...document.querySelectorAll('#orcConteudo input[data-plano-conta]')];
+  const itens=inputs.filter(i=>i.value!=='').map(i=>({plano_conta_id:i.dataset.planoConta,valor_orcado:Number(i.value)}));
+  if(!itens.length){ msg('orcMsg','Informe ao menos um valor orçado.','err'); return; }
+  try{
+    const resp=await db.rpc('salvar_orcamento',{p:{ano,mes,itens}});
+    msg('orcMsg',`${resp.salvos} conta(s) com orçamento salvo.`,'ok');
+    await carregarOrcamento();
+  }catch(e){ msg('orcMsg','Erro: '+e.message,'err'); }
 }
 
 init();
