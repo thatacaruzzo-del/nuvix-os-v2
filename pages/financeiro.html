@@ -286,7 +286,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <input type="hidden" id="lanId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Tipo</label>
-              <select id="lanTipo" onchange="atualizarListaFavorecido()"><option>Receita</option><option>Despesa</option></select>
+              <select id="lanTipo" onchange="atualizarListaFavorecido();atualizarOpcoesStatus()"><option>Receita</option><option>Despesa</option></select>
             </div>
             <div class="field"><label>Categoria</label>
               <select id="lanCat">
@@ -302,7 +302,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div class="field"><label>Vencimento</label><input id="lanVenc" type="date"></div>
             <div class="field"><label>Data do pagamento</label><input id="lanPagamento" type="date"></div>
             <div class="field"><label>Status</label>
-              <select id="lanStatus"><option>Pendente</option><option>Pago</option><option>Recebido</option><option>Vencido</option><option>Cancelado</option></select>
+              <select id="lanStatus"><option>Pendente</option><option>Recebido</option></select>
             </div>
             <div class="field"><label>Forma de pagamento</label>
               <select id="lanForma"><option>Dinheiro</option><option>Pix</option><option>Boleto</option><option>Cartão débito</option><option>Cartão crédito</option><option>Transferência</option><option>Cheque</option></select>
@@ -377,7 +377,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           </div>
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
             <div><label>Tipo</label><select id="filtTipo" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Receita</option><option>Despesa</option></select></div>
-            <div><label>Status</label><select id="filtStatus" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Pendente</option><option>Pago</option><option>Recebido</option><option>Vencido</option></select></div>
+            <div><label>Status</label><select id="filtStatus" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Pendente</option><option>Recebido</option><option>Pago</option><option>Renegociado</option><option>Aguardando aprovação</option></select></div>
             <div><label>Mês</label><input type="month" id="filtMes" onchange="renderLancamentos()" style="max-width:160px"></div>
             <div><label>Busca</label><input type="text" id="filtBusca" placeholder="Buscar..." oninput="renderLancamentos()" style="max-width:200px"></div>
             <div id="filtLojaWrap" style="display:none"><label>Loja</label><select id="filtLoja" onchange="renderLancamentos()" style="max-width:160px"><option value="">Todas as lojas</option></select></div>
@@ -1008,6 +1008,8 @@ async function init(){
   if(new URLSearchParams(location.search).get('novo')==='despesa'){
     abrirNovoLancamento();
     if($('lanTipo'))$('lanTipo').value='Despesa';
+    atualizarListaFavorecido();
+    atualizarOpcoesStatus('Pendente');
   }
   $('pageLoader')?.classList.add('hide');
 }
@@ -1245,7 +1247,7 @@ function previewParcelas(){
 // ── EDITAR ──
 function editarLancamento(id){
   const f=financeiro.find(x=>x.id===id);if(!f)return;
-  // lanStatus só tem as 5 opções manuais (Pendente/Pago/Recebido/Vencido/Cancelado) — um
+  // lanStatus só tem as 2 opções manuais do tipo (Pendente + Pago ou Recebido) — um
   // <select> sem opção que bata com o valor atual cai pra 1ª opção da lista
   // ("Pendente"), e salvar sem querer reverteria um status gerenciado pelo sistema
   // (Renegociado/Aguardando aprovação) sem passar pelo fluxo próprio dele.
@@ -1266,7 +1268,7 @@ function editarLancamento(id){
   $('lanData').value=f.data_lancamento?String(f.data_lancamento).slice(0,10):'';
   $('lanVenc').value=f.vencimento?String(f.vencimento).slice(0,10):'';
   $('lanPagamento').value=f.data_pagamento?String(f.data_pagamento).slice(0,10):'';
-  $('lanStatus').value=f.status||'Pendente';
+  atualizarOpcoesStatus(f.status||'Pendente');
   $('lanForma').value=f.forma_pagamento||'Dinheiro';
   preencherSelectCentroCusto(f.centro_custo_id||'');
   $('lanPix').value=f.pix_chave||'';
@@ -1728,7 +1730,6 @@ function exportarFinanceiroCSV(){
 // Mesmas listas de opção já usadas no formulário manual (#lanCat, #lanStatus,
 // #lanForma) — reaproveitadas aqui pra validar em vez de duplicar uma lista nova.
 const IMPORT_CATEGORIAS=['Serviços','Vendas de Produtos','Transporte / Frete','Aluguel','Salários','Combustível','Manutenção','Impostos','Marketing','Equipamentos','Materiais','Fornecedores','Outros'];
-const IMPORT_STATUS=['Pendente','Pago','Recebido','Vencido','Cancelado'];
 const IMPORT_FORMAS=['Dinheiro','Pix','Boleto','Cartão débito','Cartão crédito','Transferência','Cheque'];
 const IMPORT_CABECALHO=['tipo','categoria','descricao','valor','data_lancamento','vencimento','forma_pagamento','status','favorecido'];
 let importLinhasValidas=[];
@@ -1794,8 +1795,9 @@ function validarLinhaImportacao(linha){
   const categoriaIn=(linha.categoria||'').trim();
   const categoria=IMPORT_CATEGORIAS.find(c=>c.toLowerCase()===categoriaIn.toLowerCase())||'Outros';
 
-  const statusIn=(linha.status||'').trim();
-  const status=IMPORT_STATUS.find(s=>s.toLowerCase()===statusIn.toLowerCase())||'Pendente';
+  // "Pago" ou "Recebido" na planilha vira o quitado certo do tipo; qualquer outra coisa entra Pendente.
+  const statusIn=(linha.status||'').trim().toLowerCase();
+  const status=['pago','recebido','pago/recebido'].includes(statusIn)?statusQuitado(tipo):'Pendente';
 
   const formaIn=(linha.forma_pagamento||'').trim();
   const forma=IMPORT_FORMAS.find(f=>f.toLowerCase()===formaIn.toLowerCase())||'Dinheiro';
@@ -1875,7 +1877,7 @@ function limparLancamento(){
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
   if($('lanLoja'))$('lanLoja').value='';
-  if($('lanStatus'))$('lanStatus').value='Pendente';
+  atualizarOpcoesStatus('Pendente');
   if($('lanForma'))$('lanForma').value='Dinheiro';
   if($('lanParcelas'))$('lanParcelas').value='2';
   if($('lanParcelado'))$('lanParcelado').checked=false;
@@ -1907,6 +1909,23 @@ function atualizarListaFavorecido(){
   const lista=tipo==='Receita'?clientesCache:fornecedoresCache;
   if($('lanFavorecidoLbl'))$('lanFavorecidoLbl').textContent=tipo==='Receita'?'Favorecido / Cliente':'Favorecido / Fornecedor';
   if($('lanFavorecidoList'))setHTML('lanFavorecidoList',lista.map(c=>`<option value="${esc(c.nome)}">`).join(''));
+}
+// Status manual depende do tipo: despesa só Pendente/Pago, receita só
+// Pendente/Recebido. "Atrasado" não é status — sai da data de vencimento.
+// Status legado de quitado (receita "Pago", "Pago/Recebido") é traduzido
+// pro quitado do tipo, senão o <select> caía em "Pendente" e salvar
+// reabriria um título já recebido.
+function statusQuitado(tipo){return tipo==='Despesa'?'Pago':'Recebido';}
+function normalizarStatusManual(status,tipo){
+  if(['Pago','Recebido','Pago/Recebido'].includes(status||''))return statusQuitado(tipo);
+  return 'Pendente';
+}
+function atualizarOpcoesStatus(statusAtual){
+  const tipo=val('lanTipo')||'Receita';
+  const sel=$('lanStatus');if(!sel)return;
+  const desejado=normalizarStatusManual(statusAtual===undefined?sel.value:statusAtual,tipo);
+  sel.innerHTML=`<option>Pendente</option><option>${statusQuitado(tipo)}</option>`;
+  sel.value=desejado;
 }
 // Mesmo algoritmo de dígito verificador já usado em admin.html — repetido aqui
 // porque cada página carrega só o que usa, sem um arquivo .js compartilhado
@@ -2017,7 +2036,7 @@ function renderFluxo(){
   if(finFx.length===0) finFx = financeiro;
   const recPeriodo=finFx.filter(f=>f.tipo==='Receita'&&isReceitaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
   const despPeriodo=finFx.filter(f=>f.tipo==='Despesa'&&isDespesaConfirmada(f)).reduce((a,f)=>a+Number(f.valor||0),0);
-  const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
+  const aRec=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Pago','Pago/Recebido','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   const aPag=financeiro.filter(f=>f.tipo==='Despesa'&&!['Pago','Renegociado'].includes(f.status||'')).reduce((a,f)=>a+Number(f.valor||0),0);
   setHTML('fluxoKpis',[
     {lbl:'Receita confirmada (período)',val:money(recPeriodo),cor:'var(--txt)'},
@@ -2076,7 +2095,7 @@ function atualizarBarraRenegociacao(tipo){
 
 function renderReceber(){
   const hj=hoje();
-  const lista=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Renegociado'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
+  const lista=financeiro.filter(f=>f.tipo==='Receita'&&!['Recebido','Pago','Pago/Recebido','Renegociado'].includes(f.status||'')).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
   const total=lista.reduce((a,f)=>a+Number(f.valor||0),0);
   const atrasado=lista.filter(f=>{const v=String(f.vencimento||'').slice(0,10);return v&&v<hj}).reduce((a,f)=>a+Number(f.valor||0),0);
   const hjV=lista.filter(f=>String(f.vencimento||'').slice(0,10)===hj).reduce((a,f)=>a+Number(f.valor||0),0);

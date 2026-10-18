@@ -12,10 +12,11 @@
 // não importa qual caminho pagou":
 //   1. supabase/functions/efi-webhook/index.ts — pagamento automático (cartão).
 //   2. pages/admin.html, salvarAssinatura() — registro manual (boleto).
-// As DUAS chamadas são "fire and forget": se isso falhar, o pagamento/
-// registro que já aconteceu NUNCA é desfeito. A nota fica pendente no
-// financeiro da Nuvix, visível pra corrigir manualmente depois, igual
-// qualquer outra falha de emissão nesse sistema.
+// As DUAS chamadas aguardam essa function terminar, mas o erro dela NUNCA
+// propaga pra cima: se isso falhar, o pagamento/registro que já aconteceu
+// NUNCA é desfeito. A nota fica pendente no financeiro da Nuvix, visível
+// pra corrigir manualmente depois, igual qualquer outra falha de emissão
+// nesse sistema.
 //
 // Corpo esperado (POST, JSON): { "assinatura_id": "<uuid>" }
 //
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
       categoria: 'Assinaturas NuvixHub',
       descricao: `Assinatura NuvixHub — ${nomeCliente} — plano ${assinatura.plano || ''}`,
       valor: assinatura.valor,
-      status: 'Pago',
+      status: 'Recebido',
       data_lancamento: assinatura.data_pagamento || hojeISO,
       data_pagamento: assinatura.data_pagamento || hojeISO,
       forma_pagamento: formaPagamento,
@@ -145,8 +146,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     // Nunca deixa subir como 500 "estourado" sem contexto — mas também nunca
     // lança de um jeito que derrube quem chamou (efi-webhook/admin.html
-    // sempre chamam isso em fire-and-forget, então o corpo da resposta nem
-    // chega a ser lido na maioria das vezes — o log é o que importa aqui).
+    // sempre aguardam essa chamada, mas tratam o erro sem desfazer nada).
     console.error('emitir-nfse-assinatura error:', e);
     return json({ ok: false, erro: String((e as Error)?.message || e) }, 500);
   }

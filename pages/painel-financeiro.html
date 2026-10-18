@@ -192,8 +192,11 @@ async function carregarPainelFinanceiro(){
     [receitaMes,despesaMes,aReceberLinhas,aPagarLinhas,dreLinhas,agingLinhas,fluxoResp,orcamentoLinhas,regua,conciliarPendentes,aprovacaoPendentes]=await Promise.all([
       dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor&tipo=eq.Receita&status=in.(Recebido,Pago)&data_pagamento=gte.${mesInicio}&data_pagamento=lte.${mesFim}`),
       dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor&tipo=eq.Despesa&status=eq.Pago&data_pagamento=gte.${mesInicio}&data_pagamento=lte.${mesFim}`),
-      dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor,vencimento&tipo=eq.Receita&status=eq.Pendente`),
-      dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor,vencimento&tipo=eq.Despesa&status=eq.Pendente`),
+      // Em aberto = tudo que não foi quitado nem renegociado — mesma regra das abas
+      // A Receber/A Pagar do financeiro.html (inclui "Aguardando aprovação", que
+      // continua sendo um compromisso a pagar, só travado até aprovarem).
+      dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor,vencimento&tipo=eq.Receita&status=not.in.(Recebido,Pago,${encodeURIComponent('"Pago/Recebido"')},Renegociado)`),
+      dbGet('financeiro',`?empresa_id=eq.${session.empresa_id}&select=valor,vencimento&tipo=eq.Despesa&status=not.in.(Pago,Renegociado)`),
       dbRpc('dre_mensal',{p_ano:ano,p_mes:mes,p_regime:'caixa'}),
       dbRpc('aging_inadimplencia',{}),
       dbRpc('fluxo_caixa_projetado',{p_dias:90}),
