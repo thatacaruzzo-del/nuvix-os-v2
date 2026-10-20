@@ -386,7 +386,7 @@ async function mudarStatus(id,novoStatus){
     // ── Aprovado → Em execução: RESERVAR materiais ──
     if(novoStatus==='Em execução' && statusAnt!=='Em execução'){
       await reservarMateriais(id);
-      toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Status atualizado! Materiais reservados no estoque.');
+      toast('Status atualizado! Materiais reservados no estoque.');
     }
     // ── Recusado/Cancelado: LIBERAR reservas ──
     else if(['Recusado','Cancelado'].includes(novoStatus) && statusAnt==='Em execução'){

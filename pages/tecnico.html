@@ -666,7 +666,7 @@ async function salvarObsTecnica(osId){
     await db.patch('ordens_servico',osId,{obs_tecnica:obs,updated_at:new Date().toISOString()});
     // Update local data
     const o=minhasOS.find(x=>x.id===osId);if(o)o.obs_tecnica=obs;
-    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Observação salva!');
+    toast('Observação salva!');
   }catch(e){toast('Erro ao salvar','err');}
 }
 
@@ -710,7 +710,7 @@ async function salvarStatus(){
       created_at:new Date().toISOString()
     });
     osAtual.status=statusSelecionado;
-    toast('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Status atualizado!');
+    toast('Status atualizado!');
     fecharModalStatus();
     await carregarOS();
     if(statusSelecionado==='Concluída') await concluirOSTecnico();
@@ -746,7 +746,7 @@ async function concluirOSTecnico(){
     // 3. Lançar financeiro
     await db.post('financeiro',{empresa_id:osAtual.empresa_id,tipo:'Receita',categoria:'Serviços',descricao:`OS ${osAtual.numero} — ${osAtual.cliente_nome} — ${osAtual.servico}`,valor:Number(osAtual.valor_total||0),data_lancamento:hoje(),vencimento:hoje(),status:'Pendente',forma_pagamento:'A combinar',favorecido:osAtual.cliente_nome||null});
     // 4. Timeline
-    await db.post('os_timeline',{empresa_id:osAtual.empresa_id,os_id:osAtual.id,evento:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> OS concluída pelo técnico — Estoque e financeiro atualizados',usuario_nome:tSession?.nome||'Técnico',created_at:new Date().toISOString()});
+    await db.post('os_timeline',{empresa_id:osAtual.empresa_id,os_id:osAtual.id,evento:'OS concluída pelo técnico: estoque e financeiro atualizados',usuario_nome:tSession?.nome||'Técnico',created_at:new Date().toISOString()});
     toast('OS concluída com sucesso!');
     fecharModal();
     await carregarOS();
