@@ -1486,7 +1486,7 @@ async function confirmarFolha(){
       }catch(e){ console.warn('Erro ao gravar holerite de', col.nome, ':', e.message); }
     }
 
-    toast(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Folha de ${mesNome}/${ano} lançada no financeiro! ${qtdColaboradores} colaboradores.`);
+    toast(`Folha de ${mesNome}/${ano} lançada no financeiro! ${qtdColaboradores} colaboradores.`);
 
     // Mostrar resumo
     setHTML('folhaTabela', `
