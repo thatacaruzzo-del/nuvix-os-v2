@@ -1350,6 +1350,11 @@ async function confirmarFolha(){
   const totalCusto = folhaData.reduce((a,c)=>a+c.custo,0);
   // Horista e PJ não têm INSS/IRRF/FGTS/adiantamento (pagos de uma vez, PJ é nota
   // fiscal) — só entram na despesa de Salários e no custo total da empresa.
+  // Recalculado aqui a partir de folhaDataHorista/folhaDataPJ (globais) — as
+  // variáveis totalPagarHorista/totalPagarPJ de calcularFolha() são locais daquela
+  // função, não existem neste escopo.
+  const totalPagarHorista = folhaDataHorista.reduce((a,c)=>a+c.valorPagar,0);
+  const totalPagarPJ = folhaDataPJ.reduce((a,c)=>a+c.totalPagar,0);
   const totalHoristaPJ = totalPagarHorista+totalPagarPJ;
   const totalBrutoGeral = totalBruto+totalHoristaPJ;
   const totalCustoGeral = totalCusto+totalHoristaPJ;
