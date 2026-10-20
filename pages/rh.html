@@ -1318,7 +1318,10 @@ function exportarFolha(){if(!temPermissao('rh','exportar')){toast('Sem permissã
 function calcularRescisao(){const colId=val('rescCol');const c=dados.colaboradores.find(x=>x.id===colId);if(!c){setHTML('rescResultado','');return;}const tipo=val('rescTipo'),demissao=val('rescData')||hoje(),admissao=c.data_admissao?String(c.data_admissao).slice(0,10):null,salario=Number(c.salario||0);if(!admissao){setHTML('rescResultado','<div class="notice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Sem data de admissão.</div>');return;}const meses=Math.floor((new Date(demissao)-new Date(admissao))/2592e6),anos=Math.floor(meses/12),diasAv=Math.min(30+anos*3,90),temJC=tipo==='Com justa causa',pedido=tipo==='Pedido de demissão',acordo=tipo==='Acordo (§6º CLT)',feriasProp=salario*(meses%12)/12,terecoFerias=feriasProp/3,decimoTerProp=salario*(meses%12)/12,saldoSalario=salario*(new Date(demissao).getDate()/30),saldoFGTS=salario*meses*(P.fgts/100),pctMulta=acordo?20:40,multaFGTS=(temJC||pedido)?0:saldoFGTS*(pctMulta/100),avisoPrevio=(temJC||pedido)?0:salario*(diasAv/30),total=saldoSalario+(temJC?0:feriasProp+terecoFerias+decimoTerProp)+(temJC||pedido?0:avisoPrevio)+multaFGTS;setHTML('rescResultado',`<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px"><div><div style="font-size:16px;font-weight:800">${esc(c.nome||'')} — Rescisão</div><div class="muted" style="font-size:12px">${tipo} · ${meses} meses · Aviso: ${diasAv} dias</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--p)">${money(total)}</div><div class="muted" style="font-size:11px">total estimado</div></div></div><div class="holerite-linha"><span>Saldo de salário</span><b>${money(saldoSalario)}</b></div>${!temJC?`<div class="holerite-linha"><span>Férias proporcionais</span><b>${money(feriasProp)}</b></div><div class="holerite-linha"><span>1/3 sobre férias</span><b>${money(terecoFerias)}</b></div><div class="holerite-linha"><span>13º proporcional</span><b>${money(decimoTerProp)}</b></div>`:''}<div class="holerite-linha"><span>Multa FGTS (${pctMulta}%)</span><b>${money(multaFGTS)}</b></div><div class="holerite-total"><span>Total</span><b style="color:var(--p)">${money(total)}</b></div><div style="font-size:11px;color:var(--muted);margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Valores estimados. Consulte um contador.</div></div>`);}
 // ── INTEGRAÇÃO RH → FINANCEIRO ──
 async function confirmarFolha(){
-  if(!folhaData.length){
+  // folhaData é só CLT — Horista e PJ calculam certinho mas não entravam aqui
+  // (nem na checagem, nem nos lançamentos), então quem só tinha Horista/PJ
+  // selecionado via "calcule a folha primeiro" mesmo já tendo calculado.
+  if(!folhaData.length&&!folhaDataHorista.length&&!folhaDataPJ.length){
     toast('Calcule a folha primeiro!','err');
     calcularFolha();
     return;
@@ -1345,6 +1348,12 @@ async function confirmarFolha(){
   const totalFGTS = folhaData.reduce((a,c)=>a+c.fgts,0);
   const totalAdiant = folhaData.reduce((a,c)=>a+c.adiant,0);
   const totalCusto = folhaData.reduce((a,c)=>a+c.custo,0);
+  // Horista e PJ não têm INSS/IRRF/FGTS/adiantamento (pagos de uma vez, PJ é nota
+  // fiscal) — só entram na despesa de Salários e no custo total da empresa.
+  const totalHoristaPJ = totalPagarHorista+totalPagarPJ;
+  const totalBrutoGeral = totalBruto+totalHoristaPJ;
+  const totalCustoGeral = totalCusto+totalHoristaPJ;
+  const qtdColaboradores = folhaData.length+folhaDataHorista.length+folhaDataPJ.length;
   const diaAdiant = Number(val('folhaDiaAdiant')||15);
 
   try{
@@ -1352,14 +1361,14 @@ async function confirmarFolha(){
     await db.post('financeiro', withEmpresa({
       tipo: 'Despesa',
       categoria: 'Salários',
-      descricao: `Folha de pagamento — ${mesNome}/${ano} (${folhaData.length} colaboradores)`,
-      valor: totalBruto,
+      descricao: `Folha de pagamento — ${mesNome}/${ano} (${qtdColaboradores} colaboradores)`,
+      valor: totalBrutoGeral,
       data_lancamento: `${ano}-${mesNum}-01`,
       vencimento: vencimento,
       status: 'Pendente',
       forma_pagamento: 'Transferência',
       centro_custo: 'RH / Pessoal',
-      observacao: `Bruto: ${money(totalBruto)} | Líquido: ${money(totalLiquido)} | INSS: ${money(totalINSS)} | IRRF: ${money(totalIRRF)} | FGTS: ${money(totalFGTS)}`,
+      observacao: `CLT bruto: ${money(totalBruto)} | Líquido: ${money(totalLiquido)} | INSS: ${money(totalINSS)} | IRRF: ${money(totalIRRF)} | FGTS: ${money(totalFGTS)}${totalPagarHorista>0?` | Horista: ${money(totalPagarHorista)}`:''}${totalPagarPJ>0?` | PJ comissionado: ${money(totalPagarPJ)}`:''}`,
     }));
 
     // 2. Lançar adiantamento separado
@@ -1437,19 +1446,53 @@ async function confirmarFolha(){
         }));
       }catch(e){ console.warn('Erro ao gravar holerite de', col.nome, ':', e.message); }
     }
+    // Horista e PJ não têm colaborador_id disponível no retorno de calcularFolha
+    // (só nome/cargo/pix) — gravados do mesmo jeito, sem encargos/adiantamento,
+    // pagos integralmente como "saldo".
+    for(const col of folhaDataHorista){
+      try{
+        await db.post('folha_pagamentos', withEmpresa({
+          competencia: mes,
+          colaborador_nome: col.nome,
+          cargo: col.cargo,
+          horas_extras: 0,
+          liquido: col.valorPagar,
+          saldo: col.valorPagar,
+          custo_empresa: col.valorPagar,
+          pix_chave: col.pix||null,
+          status: 'Lançado',
+        }));
+      }catch(e){ console.warn('Erro ao gravar holerite de', col.nome, ':', e.message); }
+    }
+    for(const col of folhaDataPJ){
+      try{
+        await db.post('folha_pagamentos', withEmpresa({
+          competencia: mes,
+          colaborador_nome: col.nome,
+          cargo: col.cargo,
+          salario_base: col.salarioFixo,
+          comissoes: col.valorComissao||0,
+          liquido: col.totalPagar,
+          saldo: col.totalPagar,
+          custo_empresa: col.totalPagar,
+          pix_chave: col.pix||null,
+          status: 'Lançado',
+        }));
+      }catch(e){ console.warn('Erro ao gravar holerite de', col.nome, ':', e.message); }
+    }
 
-    toast(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Folha de ${mesNome}/${ano} lançada no financeiro! ${folhaData.length} colaboradores.`);
+    toast(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Folha de ${mesNome}/${ano} lançada no financeiro! ${qtdColaboradores} colaboradores.`);
 
     // Mostrar resumo
     setHTML('folhaTabela', `
       <div style="background:var(--green-bg);border:2px solid var(--green);border-radius:16px;padding:24px;text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg></div>
         <div style="font-size:18px;font-weight:800;color:var(--txt)">Folha lançada no Financeiro!</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:6px">${mesNome}/${ano} · ${folhaData.length} colaboradores</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px">${mesNome}/${ano} · ${qtdColaboradores} colaboradores</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px">
           <div style="background:#fff;border-radius:10px;padding:12px">
             <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Folha bruta</div>
-            <div style="font-size:18px;font-weight:800;color:var(--txt)">${money(totalBruto)}</div>
+            <div style="font-size:18px;font-weight:800;color:var(--txt)">${money(totalBrutoGeral)}</div>
           </div>
           <div style="background:#fff;border-radius:10px;padding:12px">
             <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">FGTS</div>
@@ -1457,7 +1500,7 @@ async function confirmarFolha(){
           </div>
           <div style="background:#fff;border-radius:10px;padding:12px">
             <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Custo total</div>
-            <div style="font-size:18px;font-weight:800;color:var(--txt)">${money(totalCusto)}</div>
+            <div style="font-size:18px;font-weight:800;color:var(--txt)">${money(totalCustoGeral)}</div>
           </div>
         </div>
         <div style="margin-top:12px;font-size:12px;color:var(--muted)">Lançamentos criados no Financeiro: Salários · Adiantamento · FGTS · Benefícios</div>
