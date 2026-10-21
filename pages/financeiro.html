@@ -289,12 +289,15 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
               <select id="lanTipo" onchange="atualizarListaFavorecido();atualizarOpcoesStatus()"><option>Receita</option><option>Despesa</option></select>
             </div>
             <div class="field"><label>Categoria</label>
-              <select id="lanCat">
+              <select id="lanCat" onchange="sugerirPlanoContaPorCategoria()">
                 <option>Serviços</option><option>Vendas de Produtos</option><option>Transporte / Frete</option><option>Aluguel</option>
                 <option>Salários</option><option>Combustível</option><option>Manutenção</option>
                 <option>Impostos</option><option>Marketing</option><option>Equipamentos</option>
                 <option>Materiais</option><option>Fornecedores</option><option>Outros</option>
               </select>
+            </div>
+            <div class="field"><label>Plano de contas</label>
+              <select id="lanPlanoConta"><option value="">Não classificar</option></select>
             </div>
             <div class="field"><label>Descrição *</label><input id="lanDesc" placeholder="Descrição do lançamento"></div>
             <div class="field"><label>Valor (R$) *</label><input id="lanValor" type="number" step="0.01" placeholder="0,00"></div>
@@ -1035,6 +1038,15 @@ async function loadData(){
     // que o usuário nunca tenha aberto a aba Conciliação bancária.
     contasBancarias=await db.get('contas_bancarias',`?select=id,nome&empresa_id=eq.${session.empresa_id}`);
   }catch(e){contasBancarias=[];}
+  try{
+    // Carregado aqui (não só na aba Plano de Contas) pra o campo "Plano de
+    // contas" do lançamento conseguir sugerir e mostrar a conta certa mesmo
+    // que o usuário nunca tenha aberto aquela aba.
+    [planoContasLista,mapeamentoCategoriaAtual]=await Promise.all([
+      db.get('plano_contas',`?select=*&empresa_id=eq.${session.empresa_id}&order=codigo.asc.nullslast,nome.asc`),
+      db.get('categoria_plano_conta_map',`?select=*&empresa_id=eq.${session.empresa_id}`),
+    ]);
+  }catch(e){planoContasLista=[];mapeamentoCategoriaAtual=[];}
   await carregarCentrosCustoCache();
   atualizarListaFavorecido();
   try{
@@ -1159,6 +1171,12 @@ async function salvarLancamento(){
     forma_pagamento:val('lanForma'),
     centro_custo:centroCustoSelecionado?centroCustoSelecionado.nome:null,
     centro_custo_id:centroCustoId,
+    // Antes só era preenchida nos bastidores por um gatilho (olhando a
+    // categoria) — agora vem sugerida igual, mas o usuário pode trocar na
+    // tela. Manda null quando "Não classificar" estiver selecionado, pra o
+    // gatilho continuar preenchendo sozinho nesse caso (mesmo comportamento
+    // de antes, só que agora visível e ajustável).
+    plano_conta_id:val('lanPlanoConta')||null,
     pix_chave:val('lanPix').trim()||null,
     favorecido:favorecidoNome||null,
     cliente_id:vinculo.cliente_id,
@@ -1271,6 +1289,7 @@ function editarLancamento(id){
   atualizarOpcoesStatus(f.status||'Pendente');
   $('lanForma').value=f.forma_pagamento||'Dinheiro';
   preencherSelectCentroCusto(f.centro_custo_id||'');
+  preencherSelectPlanoConta(f.plano_conta_id||'');
   $('lanPix').value=f.pix_chave||'';
   $('lanFavorecido').value=f.favorecido||'';
   $('lanFavorecidoDoc').value=(f.cliente_id&&clientesCache.find(c=>c.id===f.cliente_id)?.documento)||(f.fornecedor_id&&fornecedoresCache.find(c=>c.id===f.fornecedor_id)?.cnpj)||'';
@@ -1312,6 +1331,7 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(f.descricao||'—')}</span></div>
     <div class="det-row"><span class="det-lbl">Favorecido</span><span class="det-val">${esc(f.favorecido||'—')}</span></div>
     <div class="det-row"><span class="det-lbl">Centro de custo</span><span class="det-val">${esc(f.centro_custo||'—')}</span></div>
+    <div class="det-row"><span class="det-lbl">Plano de contas</span><span class="det-val">${(()=>{const pc=planoContasLista.find(c=>c.id===f.plano_conta_id);return pc?esc((pc.codigo?pc.codigo+' — ':'')+pc.nome):'Não classificado';})()}</span></div>
     <div class="det-row"><span class="det-lbl">Forma de pagamento</span><span class="det-val">${esc(f.forma_pagamento||'—')}</span></div>
     ${f.pix_chave?`<div class="det-row"><span class="det-lbl">Chave Pix</span><span class="det-val">${esc(f.pix_chave)}</span></div>`:''}
     ${f.agencia||f.conta?`<div class="det-row"><span class="det-lbl">Banco</span><span class="det-val">Ag: ${esc(f.agencia||'—')} · CC: ${esc(f.conta||'—')}</span></div>`:''}
@@ -1876,6 +1896,7 @@ function limparLancamento(){
   if($('lanData'))$('lanData').value=hoje();
   if($('lanTipo'))$('lanTipo').value='Receita';
   if($('lanCat'))$('lanCat').value='Serviços';
+  sugerirPlanoContaPorCategoria();
   if($('lanLoja'))$('lanLoja').value='';
   atualizarOpcoesStatus('Pendente');
   if($('lanForma'))$('lanForma').value='Dinheiro';
@@ -1899,6 +1920,19 @@ function preencherSelectCentroCusto(selecionarId){
   const atual=selecionarId||sel.value;
   sel.innerHTML='<option value="">Nenhum</option>'+centrosCustoCache.map(c=>`<option value="${c.id}">${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}</option>`).join('');
   sel.value=atual||'';
+}
+// Mostra e deixa escolher a conta do plano no lançamento (antes só era
+// preenchida nos bastidores por um gatilho no banco, sem aparecer nem poder
+// ser ajustada aqui). Sugere pela categoria ao trocar, igual já era feito nos
+// bastidores, mas o usuário pode trocar manualmente depois.
+function preencherSelectPlanoConta(selecionarId){
+  const sel=$('lanPlanoConta');if(!sel)return;
+  sel.innerHTML=optionsContasHTML(selecionarId||'');
+}
+function sugerirPlanoContaPorCategoria(){
+  const catNorm=normalizarCategoriaJS(val('lanCat'));
+  const mapeado=mapeamentoCategoriaAtual.find(m=>m.categoria_normalizada===catNorm);
+  preencherSelectPlanoConta(mapeado?.plano_conta_id||'');
 }
 // Favorecido muda de significado com o tipo — Receita é sempre sobre um cliente
 // (de quem a empresa vai receber), Despesa é sobre um fornecedor (pra quem vai

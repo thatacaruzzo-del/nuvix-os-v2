@@ -1270,7 +1270,7 @@ async function calcularFolha(){
       const adiant=c.recebe_adiantamento===false?0:Math.round(salario*adiantPct*100)/100,liquido=salarioBruto-inss-irrf-vtDesc,saldo=liquido-adiant;
       const patronal=salarioBruto*(P.patronal_inss/100),custoTotal=salarioBruto+fgts+patronal;
       totalBruto+=salarioBruto;totalLiquido+=liquido;totalAdiant+=adiant;totalCusto+=custoTotal;totalHE+=he.total;
-      return{id:c.id,nome:c.nome,cargo:c.cargo,salario,horasExtras:he.total,horas50:he.horas50,horas100:he.horas100,percentual50:he.percentual50,percentual100:he.percentual100,pagamentoHE50,pagamentoHE100,pagamentoHE,comissaoInfo,valorComissao,baseComissao,horasAtraso,descontoAtraso,salarioBruto,inss,irrf,vt_desc:vtDesc,fgts,adiant,liquido,saldo,custo:custoTotal,pix:c.pix_chave,vr,va};
+      return{id:c.id,nome:c.nome,cargo:c.cargo,salario,horasExtras:he.total,horas50:he.horas50,horas100:he.horas100,percentual50:he.percentual50,percentual100:he.percentual100,pagamentoHE50,pagamentoHE100,pagamentoHE,comissaoInfo,valorComissao,baseComissao,horasAtraso,descontoAtraso,salarioBruto,inss,irrf,vt_desc:vtDesc,fgts,patronal,adiant,liquido,saldo,custo:custoTotal,pix:c.pix_chave,vr,va};
     });
     // Horista não entra no bloco CLT acima (sem INSS/IRRF/FGTS/HE — pago só pelas horas
     // batidas × valor/hora, sem encargos calculados aqui). Mostrado à parte na Folha.
@@ -1346,6 +1346,11 @@ async function confirmarFolha(){
   const totalINSS = folhaData.reduce((a,c)=>a+c.inss,0);
   const totalIRRF = folhaData.reduce((a,c)=>a+c.irrf,0);
   const totalFGTS = folhaData.reduce((a,c)=>a+c.fgts,0);
+  // INSS Patronal (parte que a empresa paga, não o colaborador) era calculado só
+  // pra compor o "Custo total" exibido na tela — nunca virava um lançamento de
+  // verdade no Financeiro, então não tinha conta a pagar acompanhando esse
+  // valor que a empresa realmente precisa recolher todo mês.
+  const totalPatronal = folhaData.reduce((a,c)=>a+c.patronal,0);
   const totalAdiant = folhaData.reduce((a,c)=>a+c.adiant,0);
   const totalCusto = folhaData.reduce((a,c)=>a+c.custo,0);
   // Horista e PJ não têm INSS/IRRF/FGTS/adiantamento (pagos de uma vez, PJ é nota
@@ -1398,6 +1403,21 @@ async function confirmarFolha(){
         categoria: 'Impostos',
         descricao: `FGTS — ${mesNome}/${ano}`,
         valor: totalFGTS,
+        data_lancamento: `${ano}-${mesNum}-01`,
+        vencimento: `${ano}-${mesNum}-07`,
+        status: 'Pendente',
+        forma_pagamento: 'Transferência',
+        centro_custo: 'RH / Pessoal',
+      }));
+    }
+
+    // 3b. Lançar INSS Patronal
+    if(totalPatronal > 0){
+      await db.post('financeiro', withEmpresa({
+        tipo: 'Despesa',
+        categoria: 'Impostos',
+        descricao: `INSS Patronal — ${mesNome}/${ano}`,
+        valor: totalPatronal,
         data_lancamento: `${ano}-${mesNum}-01`,
         vencimento: `${ano}-${mesNum}-07`,
         status: 'Pendente',
@@ -1508,7 +1528,7 @@ async function confirmarFolha(){
             <div style="font-size:18px;font-weight:800;color:var(--txt)">${money(totalCustoGeral)}</div>
           </div>
         </div>
-        <div style="margin-top:12px;font-size:12px;color:var(--muted)">Lançamentos criados no Financeiro: Salários · Adiantamento · FGTS · Benefícios</div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">Lançamentos criados no Financeiro: Salários · Adiantamento · FGTS · INSS Patronal · Benefícios</div>
         <a href="financeiro.html" style="display:inline-block;margin-top:12px;background:var(--p);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:13px;text-decoration:none">Ver no Financeiro →</a>
       </div>
     `);
