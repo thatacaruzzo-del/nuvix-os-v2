@@ -54,6 +54,38 @@
 @keyframes dpcShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 .dpc-vazio{text-align:center;padding:28px 16px;color:#827B95;font-size:13px}
 @media(max-width:480px){.dpc-card-val{font-size:19px}.dpc-item-nome{max-width:130px}}
+
+/* ── Aging de inadimplência (cartão premium) ── */
+.aging-top{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+@media(max-width:700px){.aging-top{grid-template-columns:1fr}}
+.aging-card{border-radius:18px;padding:16px 18px;background:#F8F7FC}
+.aging-card-lbl{font-size:11px;font-weight:700;color:#827B95;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.aging-card-val{font-size:21px;font-weight:800;color:#211B37;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aging-card-val.red{color:#D9534F}
+.aging-lista{display:flex;flex-direction:column;gap:14px}
+.aging-item-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px}
+.aging-item-nome{font-size:13px;font-weight:600;color:#211B37;display:flex;align-items:center;gap:7px}
+.aging-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.aging-item-valor{font-size:13px;font-weight:700;color:#211B37;font-variant-numeric:tabular-nums;white-space:nowrap}
+.aging-bar-row{display:flex;align-items:center;gap:10px}
+.aging-bar-track{flex:1;height:9px;background:#F3F1FA;border-radius:99px;overflow:hidden}
+.aging-bar-fill{display:block;height:100%;border-radius:99px;width:0;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:4px}
+.aging-pct{font-size:11.5px;font-weight:700;color:#827B95;width:38px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.aging-vazio{text-align:center;padding:30px 16px}
+.aging-vazio svg{width:34px;height:34px;color:#7058E8;margin-bottom:10px}
+.aging-vazio-titulo{font-size:14px;font-weight:700;color:#211B37;margin-bottom:4px}
+.aging-vazio-sub{font-size:12.5px;color:#827B95}
+.aging-vazio-avencer{margin-top:14px;display:inline-block;font-size:12px;color:#7058E8;background:#F0ECFB;padding:6px 14px;border-radius:99px;font-weight:600}
+
+/* ── Fluxo de caixa projetado (cartão premium) ── */
+.fluxo-top{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+@media(max-width:700px){.fluxo-top{grid-template-columns:1fr}}
+.fluxo-card{border-radius:18px;padding:16px 18px;background:#F8F7FC}
+.fluxo-card-lbl{font-size:11px;font-weight:700;color:#827B95;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.fluxo-card-val{font-size:20px;font-weight:800;color:#211B37;line-height:1.15}
+.fluxo-card-val.green{color:#1F9254}
+.fluxo-card-val.red{color:#D9534F}
+.fluxo-card-sub{font-size:11.5px;color:#827B95;margin-top:3px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../js/nuvix-logs.js"></script>
@@ -169,13 +201,16 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <h2 style="margin-bottom:14px">Aging de inadimplência</h2>
-        <canvas id="chartAging" height="80"></canvas>
+        <h2 style="margin-bottom:4px">Aging de inadimplência</h2>
+        <p class="field-hint" style="color:var(--muted);font-size:12px;margin-bottom:18px">Contas a receber em aberto, por tempo de atraso.</p>
+        <div class="aging-top" id="agingTop"></div>
+        <div class="aging-lista" id="agingLista"></div>
       </div>
 
       <div class="card">
         <h2 style="margin-bottom:4px">Fluxo de caixa projetado (90 dias)</h2>
-        <p class="field-hint" style="color:var(--muted);font-size:12px;margin-bottom:14px" id="pfFluxoAviso"></p>
+        <p class="field-hint" style="color:var(--muted);font-size:12px;margin-bottom:18px" id="pfFluxoAviso">Saldo projetado dia a dia, somando o que já está confirmado e o que vence no período.</p>
+        <div class="fluxo-top" id="fluxoTop"></div>
         <canvas id="chartFluxo" height="80"></canvas>
       </div>
 
@@ -254,7 +289,7 @@ async function carregarPainelFinanceiro(){
   renderDreResumida(dreLinhas||[]);
   renderDespesasPorConta(dreLinhas||[]);
   renderOrcamentoResumido(orcamentoLinhas||[]);
-  renderChartAging(agingLinhas||[]);
+  renderChartAging(agingLinhas||[],aReceberLinhas||[]);
   renderChartFluxo(fluxoResp);
 }
 
@@ -384,30 +419,116 @@ function renderDespesasPorConta(linhas){
   });
 }
 
-let chartAgingInstance=null;
-function renderChartAging(linhas){
-  const cols=[['a_vencer','A vencer'],['dias_1_30','1 a 30 dias'],['dias_31_60','31 a 60 dias'],['dias_61_90','61 a 90 dias'],['acima_90','Acima de 90 dias']];
-  const totais=cols.map(([k])=>linhas.reduce((a,l)=>a+Number(l[k]||0),0));
-  const ctx=$('chartAging');
-  if(chartAgingInstance)chartAgingInstance.destroy();
-  if(!ctx)return;
-  chartAgingInstance=new Chart(ctx,{type:'bar',data:{
-    labels:cols.map(([,lbl])=>lbl),
-    datasets:[{label:'A receber',data:totais,backgroundColor:['#6D5EF5','#F59E0B','#F59E0B','#EF4444','#EF4444']}],
-  },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
+// Faixas vencidas (não inclui "a vencer", que ainda não é inadimplência) —
+// cor por nível de risco, mais forte quanto mais velho o atraso.
+const AGING_FAIXAS=[
+  ['a_vencer','A vencer','#B8A9F5'],
+  ['dias_1_30','1 a 30 dias','#E8B84B'],
+  ['dias_31_60','31 a 60 dias','#E8954B'],
+  ['dias_61_90','61 a 90 dias','#E87556'],
+  ['acima_90','Acima de 90 dias','#D9534F'],
+];
+function renderChartAging(linhas,aReceberLinhas){
+  const totais={};AGING_FAIXAS.forEach(([k])=>{totais[k]=linhas.reduce((a,l)=>a+Number(l[k]||0),0);});
+  const totalVencido=totais.dias_1_30+totais.dias_31_60+totais.dias_61_90+totais.acima_90;
+  const hj=hoje();
+  const qtdVencidos=(aReceberLinhas||[]).filter(l=>String(l.vencimento||'').slice(0,10)<hj).length;
+
+  // Sem nada vencido não é a mesma coisa que sem nenhum dado — se tiver valor
+  // a vencer, ele continua aparecendo, só que fora da lista de faixas vencidas.
+  if(totalVencido<=0){
+    setHTML('agingTop','');
+    setHTML('agingLista',`
+      <div class="aging-vazio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+        <div class="aging-vazio-titulo">Nenhuma inadimplência registrada</div>
+        <div class="aging-vazio-sub">Não há títulos vencidos no período selecionado.</div>
+        ${totais.a_vencer>0?`<div class="aging-vazio-avencer">${money(totais.a_vencer)} a vencer, em dia</div>`:''}
+      </div>`);
+    return;
+  }
+
+  const faixaMaior=AGING_FAIXAS.slice(1).reduce((a,b)=>totais[b[0]]>totais[a[0]]?b:a);
+  setHTML('agingTop',`
+    <div class="aging-card">
+      <div class="aging-card-lbl">Total vencido</div>
+      <div class="aging-card-val red">${money(totalVencido)}</div>
+    </div>
+    <div class="aging-card">
+      <div class="aging-card-lbl">Títulos vencidos</div>
+      <div class="aging-card-val">${qtdVencidos}</div>
+    </div>
+    <div class="aging-card">
+      <div class="aging-card-lbl">Maior faixa de atraso</div>
+      <div class="aging-card-val" style="font-size:16px">${faixaMaior[1]}</div>
+    </div>
+  `);
+
+  const totalGeral=totais.a_vencer+totalVencido;
+  setHTML('agingLista',AGING_FAIXAS.filter(([k])=>totais[k]>0).map(([k,lbl,cor])=>{
+    const pct=totalGeral?Math.round(totais[k]/totalGeral*1000)/10:0;
+    return `<div class="aging-item">
+      <div class="aging-item-head"><span class="aging-item-nome"><span class="aging-dot" style="background:${cor}"></span>${lbl}</span><span class="aging-item-valor">${money(totais[k])}</span></div>
+      <div class="aging-bar-row">
+        <div class="aging-bar-track"><span class="aging-bar-fill" data-w="${pct}" style="background:${cor}"></span></div>
+        <span class="aging-pct">${pct}%</span>
+      </div>
+    </div>`;
+  }).join(''));
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#agingLista .aging-bar-fill').forEach(el=>{ el.style.width=el.dataset.w+'%'; });
+  });
 }
 
 let chartFluxoInstance=null;
 function renderChartFluxo(resp){
-  $('pfFluxoAviso').textContent=resp.fonte==='estimada'?'Saldo estimado a partir dos lançamentos confirmados — cadastre uma conta bancária em Financeiro → Conciliação bancária pra um saldo real.':'';
+  $('pfFluxoAviso').textContent=resp.fonte==='estimada'?'Saldo estimado a partir dos lançamentos confirmados. Cadastre uma conta bancária em Financeiro → Conciliação bancária pra um saldo real.':'Saldo projetado dia a dia, somando o que já está confirmado e o que vence no período.';
   const serie=resp.serie||[];
+  const saldoInicial=Number(resp.saldo_atual||0);
+  const saldoFinal=serie.length?Number(serie[serie.length-1].saldo_projetado):saldoInicial;
+  const variacao=saldoFinal-saldoInicial;
+  const variacaoPct=saldoInicial?Math.round(variacao/Math.abs(saldoInicial)*1000)/10:null;
+  const corVar=variacao>=0?'green':'red';
+  setHTML('fluxoTop',`
+    <div class="fluxo-card">
+      <div class="fluxo-card-lbl">Saldo inicial</div>
+      <div class="fluxo-card-val">${money(saldoInicial)}</div>
+    </div>
+    <div class="fluxo-card">
+      <div class="fluxo-card-lbl">Saldo projetado (dia 90)</div>
+      <div class="fluxo-card-val">${money(saldoFinal)}</div>
+    </div>
+    <div class="fluxo-card">
+      <div class="fluxo-card-lbl">Variação projetada</div>
+      <div class="fluxo-card-val ${corVar}">${variacao>=0?'+':''}${money(variacao)}</div>
+      ${variacaoPct!=null?`<div class="fluxo-card-sub">${variacaoPct>=0?'+':''}${variacaoPct}% sobre o saldo inicial</div>`:''}
+    </div>
+  `);
+
   const ctx=$('chartFluxo');
   if(chartFluxoInstance)chartFluxoInstance.destroy();
   if(!ctx)return;
+  const ctx2d=ctx.getContext('2d');
+  const gradiente=ctx2d.createLinearGradient(0,0,0,ctx.height||220);
+  gradiente.addColorStop(0,'rgba(112,88,232,.16)');
+  gradiente.addColorStop(1,'rgba(112,88,232,0)');
+  // Só algumas datas no eixo (não as 90) — senão o rótulo vira uma faixa
+  // ilegível de texto espremido. Sempre mostra o primeiro e o último dia.
+  const passo=Math.max(1,Math.round(serie.length/6));
   chartFluxoInstance=new Chart(ctx,{type:'line',data:{
     labels:serie.map(d=>fmtData(d.dia)),
-    datasets:[{label:'Saldo projetado',data:serie.map(d=>Number(d.saldo_projetado)),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3,pointRadius:0}],
-  },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
+    datasets:[{label:'Saldo projetado',data:serie.map(d=>Number(d.saldo_projetado)),borderColor:'#7058E8',borderWidth:3,backgroundColor:gradiente,fill:true,tension:.25,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#7058E8',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}],
+  },options:{
+    interaction:{intersect:false,mode:'index'},
+    plugins:{
+      legend:{display:false},
+      tooltip:{backgroundColor:'#211B37',titleColor:'#fff',bodyColor:'#fff',padding:12,cornerRadius:10,displayColors:false,titleFont:{weight:700},callbacks:{label:(ctx)=>money(ctx.parsed.y)}},
+    },
+    scales:{
+      x:{grid:{display:false},ticks:{color:'#827B95',font:{size:11},maxTicksLimit:7,callback:function(val,idx){return idx%passo===0||idx===serie.length-1?this.getLabelForValue(val):'';}}},
+      y:{grid:{color:'#F0ECFB'},border:{display:false},ticks:{color:'#827B95',font:{size:11},callback:v=>money(v)}},
+    },
+  }});
 }
 
 function abrirSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open');document.body.style.overflow='hidden'}
