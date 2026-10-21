@@ -134,6 +134,12 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       </div>
 
       <div class="card" style="margin-bottom:16px">
+        <h2 style="margin-bottom:4px">Despesas por conta do plano</h2>
+        <p class="field-hint" style="color:var(--muted);font-size:12px;margin-bottom:14px" id="pfContasAviso">Quanto foi gasto em cada conta do plano de contas, no mês selecionado.</p>
+        <canvas id="chartContas" height="100"></canvas>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
         <h2 style="margin-bottom:14px">Aging de inadimplência</h2>
         <canvas id="chartAging" height="80"></canvas>
       </div>
@@ -216,6 +222,7 @@ async function carregarPainelFinanceiro(){
   renderKpis({receita,despesa,lucro,aReceber,aPagar,aReceberAtrasado,aPagarAtrasado,fluxoResp});
   renderAvisos({conciliar:conciliarPendentes.length,cobrar:(regua||[]).length,aprovacao:aprovacaoPendentes.length});
   renderDreResumida(dreLinhas||[]);
+  renderChartContas(dreLinhas||[]);
   renderOrcamentoResumido(orcamentoLinhas||[]);
   renderChartAging(agingLinhas||[]);
   renderChartFluxo(fluxoResp);
@@ -281,6 +288,29 @@ function renderOrcamentoResumido(linhas){
     return `<div class="orc-item"><span>${esc(l.nome)}</span><span style="color:${cor};font-weight:700">${money(l.variacao_valor)}${l.variacao_pct!=null?` (${l.variacao_pct>0?'+':''}${l.variacao_pct}%)`:''}</span></div>`;
   }).join('');
   setHTML('pfOrcamento',resumo+lista+`<a href="financeiro.html" style="display:inline-block;margin-top:10px;font-size:12px">Ver orçamento completo →</a>`);
+}
+
+let chartContasInstance=null;
+// Mesma linha por conta que já vem na DRE (dre_mensal já agrupa por
+// plano_conta, não só por grupo) — só reaproveita o que já foi buscado, sem
+// pedir mais nada ao banco. total vem com sinal (despesa negativa), por isso
+// Math.abs antes de desenhar a barra.
+function renderChartContas(linhas){
+  const gruposDespesa=['custos','despesas_operacionais','despesas_financeiras','impostos_lucro'];
+  const despesas=linhas.filter(l=>gruposDespesa.includes(l.grupo_dre)).map(l=>({nome:l.plano_conta_nome,valor:Math.abs(Number(l.total||0))})).filter(l=>l.valor>0).sort((a,b)=>b.valor-a.valor).slice(0,10);
+  const ctx=$('chartContas');
+  if(chartContasInstance)chartContasInstance.destroy();
+  if(!ctx)return;
+  if(!despesas.length){
+    if($('pfContasAviso'))$('pfContasAviso').textContent='Nenhuma despesa classificada no mês selecionado.';
+    chartContasInstance=new Chart(ctx,{type:'bar',data:{labels:[],datasets:[{data:[]}]},options:{plugins:{legend:{display:false}}}});
+    return;
+  }
+  if($('pfContasAviso'))$('pfContasAviso').textContent='Quanto foi gasto em cada conta do plano de contas, no mês selecionado.';
+  chartContasInstance=new Chart(ctx,{type:'bar',data:{
+    labels:despesas.map(d=>d.nome),
+    datasets:[{label:'Despesa',data:despesas.map(d=>d.valor),backgroundColor:'#6D5EF5'}],
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});
 }
 
 let chartAgingInstance=null;
