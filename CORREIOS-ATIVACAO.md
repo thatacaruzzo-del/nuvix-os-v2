@@ -68,8 +68,15 @@ b) Cadastrar o contrato por SQL direto (nunca por UI, mesmo motivo de
      (empresa_id, numero_contrato, cartao_postagem, usuario_meu_correios, codigo_acesso_api, ambiente, codigo_servico)
    values
      ('<uuid-da-empresa>', '<numero-contrato>', '<cartao-postagem>', '<usuario>', '<codigo-acesso>', 'homologacao', '03298');
-   -- codigo_servico default é 03298 (PAC) — trocar se o contrato for outro produto (ex: SEDEX)
+   -- codigo_servico default é 03298 (PAC) — usado só quando quem gera a etiqueta
+   -- não escolher outro serviço na hora (ver próximo parágrafo)
    ```
+
+   Desde a etiqueta poder ser PAC ou SEDEX por pedido, `pages/pedidos.html` tem
+   um seletor de serviço na confirmação da etiqueta, que manda `codigo_servico`
+   pra `gerar-etiqueta-correios` e tem prioridade sobre esse valor default —
+   `correios_credenciais.codigo_servico` vira só o fallback de quando a chamada
+   não especificar nenhum.
 c) Em `produtos.html`, preencher peso/dimensões dos produtos que essa
    empresa vai despachar — sem isso, gerar etiqueta falha com erro claro
    apontando qual produto falta.

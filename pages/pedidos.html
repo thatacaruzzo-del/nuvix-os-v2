@@ -1211,8 +1211,15 @@ function renderEnvioPedido(){
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">Postou numa agência? Digite o código do recibo acima.${!editandoEnvioPedido&&empresaFiscal.correios_ativo?' Ou gere a etiqueta direto por aqui.':''}</div>
         <div id="fpEtiquetaConfirmar" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Confirme as medidas da caixa</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Confirme o serviço e as medidas da caixa</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Sugestão calculada a partir do cadastro dos produtos — confira e ajuste pro tamanho real da caixa que vai ser postada antes de gerar.</div>
+          <div class="field" style="max-width:200px;margin-bottom:10px">
+            <label>Serviço</label>
+            <select id="fpEtiquetaServico">
+              <option value="03298">PAC</option>
+              <option value="03220">SEDEX</option>
+            </select>
+          </div>
           <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
             <div class="field" style="margin-bottom:0"><label>Peso (kg)</label><input type="text" inputmode="decimal" id="fpEtiquetaPeso" placeholder="0,00" oninput="sanitizarDecimal(this)"></div>
             <div class="field" style="margin-bottom:0"><label>Altura (cm)</label><input type="text" inputmode="decimal" id="fpEtiquetaAltura" placeholder="0" oninput="sanitizarDecimal(this)"></div>
@@ -1474,7 +1481,8 @@ async function confirmarGerarEtiquetaPedido(){
   }
   if(!await confirmarAcao('Gerar etiqueta dos Correios pra esse pedido? Vai calcular o frete e o código de rastreio usando o contrato dessa empresa.',{labelOk:'Gerar etiqueta'}))return;
   try{
-    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId,peso_kg:peso,altura_cm:altura,largura_cm:largura,comprimento_cm:comprimento})});
+    const servico=val('fpEtiquetaServico')||undefined;
+    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId,peso_kg:peso,altura_cm:altura,largura_cm:largura,comprimento_cm:comprimento,codigo_servico:servico})});
     const resp=await r.json();
     if(!resp.ok){
       const MSGS={correios_nao_configurado:'Correios ainda não configurado pra essa empresa.',pedido_sem_cliente_vinculado:'Esse pedido não tem cliente vinculado.',cliente_sem_endereco_completo:'O cliente não tem endereço completo cadastrado.',empresa_sem_endereco_completo:'Sua empresa não tem endereço completo cadastrado.',dados_envio_invalidos:'Preencha peso e medidas válidos (maiores que zero).'};

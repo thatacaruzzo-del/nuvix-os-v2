@@ -7,7 +7,13 @@
 // gerar etiqueta/calcular preço de verdade exige ser quem está postando.
 //
 // Corpo esperado (POST, JSON):
-//   { "venda_id": "<uuid>", "peso_kg": number, "altura_cm": number, "largura_cm": number, "comprimento_cm": number }
+//   { "venda_id": "<uuid>", "peso_kg": number, "altura_cm": number, "largura_cm": number, "comprimento_cm": number, "codigo_servico"?: string }
+//
+// codigo_servico é opcional — escolhido por quem está empacotando (ex: PAC
+// 03298 ou SEDEX 03220) na telinha de pages/pedidos.html, pra não depender de
+// um único serviço fixo configurado em correios_credenciais.codigo_servico.
+// Quando não vier (chamada antiga ou cliente só usa um serviço mesmo), cai
+// no fallback de cred.codigo_servico, mantendo o comportamento de antes.
 //
 // peso_kg/altura_cm/largura_cm/comprimento_cm são da CAIXA DE VERDADE que vai
 // ser postada, confirmados por quem empacotou o pedido numa telinha em
@@ -212,7 +218,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm } = await req.json();
+    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico } = await req.json();
     if (!venda_id) throw new Error('venda_id é obrigatório.');
 
     const pesoTotalKg = Number(peso_kg), maiorAltura = Number(altura_cm), maiorLargura = Number(largura_cm), maiorComprimento = Number(comprimento_cm);
@@ -256,14 +262,17 @@ Deno.serve(async (req) => {
       const base = correiosBaseUrl(cred.ambiente);
       const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api);
       const pesoGramas = Math.round(pesoTotalKg * 1000);
+      // Serviço escolhido na hora de gerar a etiqueta (PAC/SEDEX) tem prioridade
+      // sobre o padrão cadastrado — ver comentário no topo do arquivo.
+      const coProduto = codigo_servico || cred.codigo_servico;
 
       const valor = await calcularPreco(base, token, {
-        coProduto: cred.codigo_servico, cepOrigem: empresa.endereco_cep, cepDestino: cliente.endereco_cep,
+        coProduto, cepOrigem: empresa.endereco_cep, cepDestino: cliente.endereco_cep,
         pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
       });
 
       const prepostagem = await criarPrepostagem(base, token, {
-        cartaoPostagem: cred.cartao_postagem, coProduto: cred.codigo_servico,
+        cartaoPostagem: cred.cartao_postagem, coProduto,
         remetente: {
           nome: empresa.fantasia || empresa.razao, cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
           numero: empresa.endereco_numero || 'S/N', bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf,
