@@ -307,6 +307,32 @@ async function deleteRow(table,id,area){
         <div id="empMsg" class="msg"></div>
       </div>
 
+      <!-- Dados fiscais — usados pra emitir NF-e/NFC-e/NFS-e. Preencher só o
+           que se aplica ao tipo de nota que a empresa emite (ex: Inscrição
+           Municipal e os campos de ISS são só pra quem emite NFS-e). Salvar
+           aqui NÃO ativa a emissão sozinho, a Nuvix confirma isso à parte. -->
+      <div class="card">
+        <h2>Dados fiscais</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:18px">Informações usadas pra emitir suas notas fiscais (NF-e, NFC-e e NFS-e).</p>
+        <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div class="field"><label>Inscrição Estadual (IE)</label><input id="empInscEst"></div>
+          <div class="field"><label>Inscrição Municipal</label><input id="empInscMun"></div>
+          <div class="field"><label>CNAE principal</label><input id="empCnae" placeholder="Ex: 4711-3/02"></div>
+          <div class="field"><label>Código IBGE do município</label><input id="empCodMun"></div>
+          <div class="field"><label>Código de tributação do ISS</label><input id="empCodIss"></div>
+          <div class="field"><label>Alíquota ISS (%)</label><input type="number" step="0.01" id="empAliqIss"></div>
+        </div>
+        <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px">
+          <div class="field"><label>CEP</label><input id="empCep"></div>
+          <div class="field"><label>Logradouro</label><input id="empLogradouro"></div>
+          <div class="field"><label>Número</label><input id="empNumero"></div>
+          <div class="field"><label>Bairro</label><input id="empBairro"></div>
+          <div class="field"><label>UF</label><input id="empUf" maxlength="2" style="text-transform:uppercase" placeholder="Ex: SP"></div>
+        </div>
+        <div class="actions"><button class="btn" onclick="salvarDadosFiscaisEmpresa()">Salvar dados fiscais</button></div>
+        <div id="empFiscalMsg" class="msg"></div>
+      </div>
+
       <!-- Assinatura — só Administrador/SuperAdmin vê e mexe (mesma regra de
            quem pode editar os dados da empresa acima). Duas telas: resumo de
            quem já tem cartão cadastrado, ou o formulário pra cadastrar. -->
@@ -502,6 +528,7 @@ async function init() {
     if($('empTel'))$('empTel').value=emp.telefone||'';
     if($('empEmail'))$('empEmail').value=emp.email||'';
     if($('empSegmento'))$('empSegmento').value=seg||'Prestação de Serviço';
+    carregarDadosFiscaisEmpresa();
   }
   if(session.perfil!=='Administrador'&&session.perfil!=='SuperAdmin'){
     $('tabUsuarios')?.remove();
@@ -659,6 +686,47 @@ async function salvarEmpresa(){
   if(cnpjEmp&&!validarCNPJ(cnpjEmp)){msg('empMsg','CNPJ inválido, confira os números digitados.','err');return;}
   const seg=val('empSegmento');
   try{await db.patch('empresas',session.empresa_id,{fantasia:val('empFantasia').trim(),razao:val('empRazao').trim(),cnpj:val('empCnpj').trim(),cidade:val('empCidade').trim(),telefone:val('empTel').trim(),email:val('empEmail').trim(),regime:val('empRegime'),segmento:seg,tipo:seg});msg('empMsg','Empresa salva! Faça logout e login novamente para aplicar.','ok');}catch(e){msg('empMsg','Erro: '+e.message,'err');}
+}
+
+// session.empresa (cache do login) não traz essas colunas — busca fresca
+// direto do banco só pra preencher esse bloco.
+async function carregarDadosFiscaisEmpresa(){
+  if(!session?.empresa_id)return;
+  try{
+    const [emp]=await db.get('empresas',`?id=eq.${session.empresa_id}&select=inscricao_estadual,inscricao_municipal,cnae_principal,codigo_municipio_ibge,codigo_tributacao_nacional_iss,aliquota_iss,endereco_cep,endereco_logradouro,endereco_numero,endereco_bairro,endereco_uf&limit=1`);
+    if(!emp)return;
+    if($('empInscEst'))$('empInscEst').value=emp.inscricao_estadual||'';
+    if($('empInscMun'))$('empInscMun').value=emp.inscricao_municipal||'';
+    if($('empCnae'))$('empCnae').value=emp.cnae_principal||'';
+    if($('empCodMun'))$('empCodMun').value=emp.codigo_municipio_ibge||'';
+    if($('empCodIss'))$('empCodIss').value=emp.codigo_tributacao_nacional_iss||'';
+    if($('empAliqIss'))$('empAliqIss').value=emp.aliquota_iss??'';
+    if($('empCep'))$('empCep').value=emp.endereco_cep||'';
+    if($('empLogradouro'))$('empLogradouro').value=emp.endereco_logradouro||'';
+    if($('empNumero'))$('empNumero').value=emp.endereco_numero||'';
+    if($('empBairro'))$('empBairro').value=emp.endereco_bairro||'';
+    if($('empUf'))$('empUf').value=emp.endereco_uf||'';
+  }catch(e){}
+}
+async function salvarDadosFiscaisEmpresa(){
+  if(!can('admin')){toast('Sem permissão.','err');return;}
+  if(!session?.empresa_id){msg('empFiscalMsg','Empresa não encontrada.','err');return;}
+  try{
+    await db.patch('empresas',session.empresa_id,{
+      inscricao_estadual:val('empInscEst').trim()||null,
+      inscricao_municipal:val('empInscMun').trim()||null,
+      cnae_principal:val('empCnae').trim()||null,
+      codigo_municipio_ibge:val('empCodMun').trim()||null,
+      codigo_tributacao_nacional_iss:val('empCodIss').trim()||null,
+      aliquota_iss:val('empAliqIss')?Number(val('empAliqIss')):null,
+      endereco_cep:val('empCep').trim()||null,
+      endereco_logradouro:val('empLogradouro').trim()||null,
+      endereco_numero:val('empNumero').trim()||null,
+      endereco_bairro:val('empBairro').trim()||null,
+      endereco_uf:val('empUf').trim().toUpperCase()||null,
+    });
+    msg('empFiscalMsg','Dados fiscais salvos!','ok');
+  }catch(e){msg('empFiscalMsg','Erro: '+e.message,'err');}
 }
 
 // ═══ ASSINATURA (cobrança automática via Efí) ═══
