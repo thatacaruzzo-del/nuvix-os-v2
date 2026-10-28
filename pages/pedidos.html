@@ -256,6 +256,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
               <b id="pedRepresentanteSelecionadoNome"></b>
               <button class="btn2" style="font-size:11px;padding:5px 9px" onclick="limparRepresentanteSelecionado()">Trocar</button>
             </div>
+            <div class="field-hint">Não achou? <a href="#" onclick="abrirModalNovoRepresentantePed();return false">Cadastrar representante novo</a></div>
           </div>
         </div>
       </div>
@@ -454,6 +455,24 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalNovoClientePed')">Cancelar</button>
     <button class="btn" onclick="salvarNovoClientePedido()">Cadastrar e selecionar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: novo representante comercial -->
+<div class="modal-overlay" id="modalNovoRepresentantePed">
+<div class="modal">
+  <h3>Cadastrar representante comercial</h3>
+  <div class="form-grid">
+    <div class="field" style="grid-column:1/-1"><label>Nome *</label><input id="pnrNome" placeholder="Nome do representante"></div>
+    <div class="field"><label>Telefone</label><input id="pnrTelefone"></div>
+    <div class="field"><label>E-mail</label><input type="email" id="pnrEmail"></div>
+  </div>
+  <div class="field-hint" style="margin-top:4px">Depois de cadastrado, ele já fica disponível pra buscar nos próximos pedidos.</div>
+  <div id="pnrMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalNovoRepresentantePed')">Cancelar</button>
+    <button class="btn" onclick="salvarNovoRepresentantePed()">Cadastrar e selecionar</button>
   </div>
 </div>
 </div>
@@ -700,6 +719,25 @@ function limparRepresentanteSelecionado(){
   representanteSelecionado=null;
   $('pedRepresentanteSelecionadoWrap').style.display='none';
   $('pedRepresentanteBusca').style.display='block';
+}
+function abrirModalNovoRepresentantePed(){
+  ['pnrNome','pnrTelefone','pnrEmail'].forEach(id=>$(id).value='');
+  setHTML('pnrMsg','');$('pnrMsg').className='msg';
+  abrirModal('modalNovoRepresentantePed');
+}
+async function salvarNovoRepresentantePed(){
+  const nome=val('pnrNome').trim();
+  if(!nome){msgEl('pnrMsg','Informe o nome do representante.');return;}
+  try{
+    const novo=await dbPost('representantes_comerciais',withEmpresa({
+      nome, telefone:val('pnrTelefone').trim()||null, email:val('pnrEmail').trim()||null, ativo:true,
+    }));
+    const r=Array.isArray(novo)?novo[0]:novo;
+    dados.representantes.push({id:r.id,nome:r.nome});
+    selecionarRepresentantePedido(r.id);
+    fecharModal('modalNovoRepresentantePed');
+    toast('Representante cadastrado.','ok');
+  }catch(e){ msgEl('pnrMsg','Erro ao cadastrar: '+e.message); }
 }
 
 function abrirModalNovoCliente(){
