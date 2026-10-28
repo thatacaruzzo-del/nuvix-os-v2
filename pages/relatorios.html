@@ -635,8 +635,8 @@ let paginaProdutoRel = 1;
 let paginaConsignadoItensRel = 1;
 const VENDAS_REL_POR_PAGINA = 20;
 let relVendasSecoes = { resumo:true, forma:true, produto:true, consignado:true, detalhe:true };
-let relVendasColunas = { data:true, loja:true, vendedor:true, cliente:true, canal:true, forma:true, subtotal:true, desconto:true, total:true, freteCobrado:true, freteCusto:true, comissao:true, liquido:true, retroativa:true };
-const COLUNAS_VENDAS_LABEL = { data:'Data', loja:'Loja', vendedor:'Vendedor', cliente:'Cliente', canal:'Canal', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total (bruto)', freteCobrado:'Frete cobrado do cliente', freteCusto:'Frete pago pela empresa', comissao:'Comissão do canal', liquido:'Valor líquido', retroativa:'Retroativa' };
+let relVendasColunas = { numero:true, data:true, loja:true, vendedor:true, representante:false, cliente:true, canal:true, forma:true, subtotal:true, desconto:true, total:true, freteCobrado:true, freteCusto:true, comissao:true, liquido:true, retroativa:true, observacao:false };
+const COLUNAS_VENDAS_LABEL = { numero:'Nº', data:'Data', loja:'Loja', vendedor:'Vendedor', representante:'Representante', cliente:'Cliente', canal:'Canal', forma:'Forma de pagamento', subtotal:'Subtotal', desconto:'Desconto', total:'Total (bruto)', freteCobrado:'Frete cobrado do cliente', freteCusto:'Frete pago pela empresa', comissao:'Comissão do canal', liquido:'Valor líquido', retroativa:'Retroativa', observacao:'Observação' };
 
 async function gerarRelatorioVendas(){
   const de=val('relDe'), ate=val('relAte');
@@ -812,7 +812,8 @@ function renderRelatorioVendas(){
 
   const colunasAtivas=Object.keys(relVendasColunas).filter(c=>relVendasColunas[c]);
   const valorLinha={
-    data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', vendedor:v=>v.vendedor_nome||'—', cliente:v=>v.cliente_nome||'—',
+    numero:v=>v.numero??'—',
+    data:v=>fmtData(v.data_venda), loja:v=>nomeLoja[v.loja_id]||'—', vendedor:v=>v.vendedor_nome||'—', representante:v=>v.representante_nome||'—', cliente:v=>v.cliente_nome||'—',
     canal:v=>v.canal||'Loja',
     forma:v=>(formasPorVenda[v.id]||[]).join(' + ')||'—', subtotal:v=>v.subtotal, desconto:v=>v.desconto_total,
     total:v=>v.total,
@@ -821,6 +822,7 @@ function renderRelatorioVendas(){
     comissao:v=>freteComissaoPorVenda[v.id]?.comissao||0,
     liquido:v=>liquidoVenda(v),
     retroativa:v=>v.retroativa?'Sim':'Não',
+    observacao:v=>v.observacao||'—',
   };
   // Exporta exatamente as colunas marcadas — é o que "o cliente selecionou que quer no relatório".
   _relDados = vendas.map(v=>{
@@ -976,7 +978,8 @@ function renderRelatorioVendas(){
     if(paginaVendasRel>totalPaginas) paginaVendasRel=totalPaginas;
     const inicio=(paginaVendasRel-1)*VENDAS_REL_POR_PAGINA;
     const paginaVendas=vendas.slice(inicio,inicio+VENDAS_REL_POR_PAGINA);
-    const FMT_COL={ data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), vendedor:v=>esc(v.vendedor_nome||'—'), cliente:v=>esc(v.cliente_nome||'—'),
+    const FMT_COL={ numero:v=>esc(String(v.numero??'—')),
+      data:v=>fmtData(v.data_venda), loja:v=>esc(nomeLoja[v.loja_id]||'—'), vendedor:v=>esc(v.vendedor_nome||'—'), representante:v=>esc(v.representante_nome||'—'), cliente:v=>esc(v.cliente_nome||'—'),
       canal:v=>esc(v.canal||'Loja'),
       forma:v=>esc((formasPorVenda[v.id]||[]).join(' + ')||'—'), subtotal:v=>money(v.subtotal), desconto:v=>money(v.desconto_total),
       total:v=>money(v.total),
@@ -984,7 +987,8 @@ function renderRelatorioVendas(){
       freteCusto:v=>freteComissaoPorVenda[v.id]?.freteCusto?money(freteComissaoPorVenda[v.id].freteCusto):'—',
       comissao:v=>freteComissaoPorVenda[v.id]?.comissao?money(freteComissaoPorVenda[v.id].comissao):'—',
       liquido:v=>`<b>${money(liquidoVenda(v))}</b>`,
-      retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—' };
+      retroativa:v=>v.retroativa?'<span class="badge badge-blue">Sim</span>':'—',
+      observacao:v=>esc(v.observacao||'—') };
     const paginacaoHTML = totalPaginas>1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">${
       Array.from({length:totalPaginas},(_,i)=>i+1).map(p=>`<button class="btn2" style="padding:6px 12px;min-width:36px${p===paginaVendasRel?';background:var(--p);color:#fff;border-color:var(--p)':''}" onclick="irParaPaginaVendasRel(${p})">${p}</button>`).join('')
     }</div>` : '';

@@ -30,6 +30,13 @@
 .modal-actions{display:flex;gap:10px;margin-top:24px}
 .modal-actions button{flex:1}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.ped-steps{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:0 2px}
+.ped-step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--muted)}
+.ped-step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--line);color:var(--muted)}
+.ped-step.active{color:var(--p)}
+.ped-step.active .ped-step-num{background:var(--p);color:#fff}
+.ped-step-line{flex:1;max-width:60px;height:1.5px;background:var(--line)}
+.ped-card-desc{color:var(--muted);font-size:12px;margin-bottom:18px}
 </style>
 </head>
 <body>
@@ -193,11 +200,21 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
     <div class="main-scroll">
 
       <!-- NOVO PEDIDO -->
-      <div class="card" style="margin-bottom:20px">
+      <div style="max-width:720px;margin:0 auto 24px">
         <h2 style="margin-bottom:4px">Novo pedido</h2>
-        <p style="color:var(--muted);font-size:12px;margin-bottom:18px">Pra venda que não passa pelo Caixa nem por marketplace — WhatsApp, vendedor de rua, encomenda combinada direto com o cliente. Registra do mesmo jeito: baixa estoque, lança no Financeiro, e você escolhe se emite nota.</p>
+        <p class="ped-card-desc" style="margin-bottom:14px">Registre uma venda recebida pelo WhatsApp ou pela equipe comercial. Baixa estoque, lança no Financeiro, e você escolhe se emite nota — tudo igual ao de sempre.</p>
+        <div class="ped-steps">
+          <div class="ped-step active"><span class="ped-step-num">1</span> Dados do pedido</div>
+          <div class="ped-step-line"></div>
+          <div class="ped-step"><span class="ped-step-num">2</span> Finalização</div>
+        </div>
+      </div>
 
-        <!-- Cliente -->
+      <div style="max-width:720px;margin:0 auto">
+
+      <!-- Cliente -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:14px">Cliente</h2>
         <div class="field">
           <label>Cliente</label>
           <div class="ped-busca-field">
@@ -213,16 +230,49 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
           </div>
           <div class="field-hint">Não achou? <a href="#" onclick="abrirModalNovoCliente();return false">Cadastrar cliente novo</a></div>
         </div>
+      </div>
 
-        <!-- Loja -->
-        <div class="field" id="pedLojaWrap" style="display:none">
+      <!-- Responsáveis pela venda -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:14px">Responsáveis pela venda</h2>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr">
+          <div class="field" style="margin-bottom:0">
+            <label>Vendedor responsável</label>
+            <div class="ped-busca-field">
+              <input type="text" id="pedVendedorBusca" placeholder="Buscar vendedor..." oninput="buscarVendedorPedido()" onfocus="buscarVendedorPedido()" autocomplete="off">
+              <div class="ped-busca-resultados" id="pedVendedorResultados"></div>
+            </div>
+            <div id="pedVendedorSelecionadoWrap" style="display:none" class="ped-selecionado">
+              <b id="pedVendedorSelecionadoNome"></b>
+              <button class="btn2" style="font-size:11px;padding:5px 9px" onclick="limparVendedorSelecionado()">Trocar</button>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Representante comercial</label>
+            <div class="ped-busca-field">
+              <input type="text" id="pedRepresentanteBusca" placeholder="Buscar representante (opcional)..." oninput="buscarRepresentantePedido()" onfocus="buscarRepresentantePedido()" autocomplete="off">
+              <div class="ped-busca-resultados" id="pedRepresentanteResultados"></div>
+            </div>
+            <div id="pedRepresentanteSelecionadoWrap" style="display:none" class="ped-selecionado">
+              <b id="pedRepresentanteSelecionadoNome"></b>
+              <button class="btn2" style="font-size:11px;padding:5px 9px" onclick="limparRepresentanteSelecionado()">Trocar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loja -->
+      <div class="card" id="pedLojaWrap" style="display:none;margin-bottom:20px">
+        <div class="field" style="margin-bottom:0">
           <label>Loja (de onde sai o estoque)</label>
           <select id="pedLoja" onchange="trocarLojaPedido()"></select>
         </div>
+      </div>
 
-        <!-- Produtos -->
+      <!-- Produtos -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:14px">Produtos</h2>
         <div class="field">
-          <label>Produtos</label>
           <div class="ped-busca-field">
             <input type="text" id="pedProdutoBusca" placeholder="Buscar produto por nome, SKU ou código de barras..." oninput="buscarProdutoPedido()" autocomplete="off">
             <div class="ped-busca-resultados" id="pedProdutoResultados"></div>
@@ -236,10 +286,15 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <tbody id="pedCarrinhoTable"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Informações adicionais -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:14px">Informações adicionais</h2>
         <!-- Frete (opcional) — se já souber o meio/valor nesse momento, entra
              direto no total antes de confirmar; senão, configura depois na
              Ficha do Pedido (fluxo que já existia). -->
-        <div class="field" style="margin-top:6px">
+        <div class="field">
           <div class="field-hint"><a href="#" onclick="toggleFreteNovoPedido();return false" id="btnToggleFreteNovo">+ Adicionar frete (se já souber)</a></div>
           <div id="pedFreteWrap" style="display:none;margin-top:10px;padding:14px;border:1px dashed var(--line);border-radius:12px">
             <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
@@ -263,7 +318,15 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <div style="font-size:12px;color:var(--muted);margin-top:6px">Vai pelos Correios? Registre na Ficha do Pedido depois de confirmar — lá dá pra digitar o código de rastreio ou gerar a etiqueta.</div>
           </div>
         </div>
+        <div class="field" style="margin-bottom:0;margin-top:14px">
+          <label>Observações do pedido</label>
+          <textarea id="pedObservacao" rows="3" placeholder="Informações importantes combinadas com o cliente pelo WhatsApp..."></textarea>
+        </div>
+      </div>
 
+      <!-- Resumo do pedido -->
+      <div class="card" style="margin-bottom:20px">
+        <h2 style="margin-bottom:4px">Resumo do pedido</h2>
         <div class="ped-total-row"><span>Total dos produtos</span><span id="pedTotalValor">R$ 0,00</span></div>
         <div class="ped-total-row" id="pedTotalFreteLinha" style="display:none;font-size:13px;color:var(--muted)">
           <span>+ Frete (cliente paga)</span><span id="pedTotalFreteValor">R$ 0,00</span>
@@ -313,7 +376,9 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
         </div>
 
         <div id="pedMsg" class="msg"></div>
-        <button class="btn" style="margin-top:18px;width:100%" onclick="registrarPedido()">Registrar pedido</button>
+        <button class="btn" id="pedSalvarBtn" style="margin-top:18px;width:100%" onclick="registrarPedido()">Salvar pedido e continuar →</button>
+      </div>
+
       </div>
 
       <!-- BUSCAR POR NÚMERO -->
@@ -459,9 +524,11 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
 <script>
 const session = requireAuth();
-let dados = {lojas:[],produtos:[],estoque:[]};
+let dados = {lojas:[],produtos:[],estoque:[],vendedores:[],representantes:[]};
 let carrinho = [];
 let clienteSelecionado = null; // {id, nome, documento}
+let vendedorSelecionado = null; // {id, nome}
+let representanteSelecionado = null; // {id, nome} | {id:null, nome:'Sem representante'}
 let statusPagamentoAtual = 'agora';
 let empresaFiscal={nfce_ativo:false,nfce_simulacao:false,nfe_ativo:false,nfe_simulacao:false,correios_ativo:false};
 let historicoPedidos = [];
@@ -486,6 +553,7 @@ async function init(){
     if(e)empresaFiscal=e;
   }catch(e){ /* segue sem nota ativa — Pedidos nunca trava por causa disso */ }
   await carregarLojas();
+  await Promise.all([carregarVendedoresPedido(), carregarRepresentantesPedido()]);
   await carregarHistoricoPedidos();
   // Vindo de um link do Painel de Vendas (?abrir=<numero>) — abre a ficha
   // sozinho, mesma busca que o campo "Buscar por número" já faz.
@@ -579,6 +647,61 @@ async function atualizarLimiteCreditoPedido(){
   }catch(e){ info.style.display='none'; }
 }
 document.addEventListener('click',e=>{ if(!e.target.closest('.ped-busca-field'))document.querySelectorAll('.ped-busca-resultados').forEach(b=>b.classList.remove('open')); });
+
+// ══ VENDEDOR — mesma fonte que pages/caixa.html já usa (view vendedores_ativos,
+// baseada em colaboradores ativos), só que com busca em vez de <select> simples. ══
+async function carregarVendedoresPedido(){
+  try{ dados.vendedores=await dbGet('vendedores_ativos',`?select=id,nome&order=nome.asc`); }
+  catch(e){ dados.vendedores=[]; }
+}
+function buscarVendedorPedido(){
+  const q=val('pedVendedorBusca').trim().toLowerCase();
+  const box=$('pedVendedorResultados');
+  const achados=dados.vendedores.filter(v=>!q||(v.nome||'').toLowerCase().includes(q)).slice(0,10);
+  box.innerHTML=achados.map(v=>`<div class="ped-busca-item" onclick='selecionarVendedorPedido(${JSON.stringify(v.id)})'><span>${esc(v.nome)}</span></div>`).join('')||'<div class="ped-busca-item">Nenhum vendedor ativo cadastrado.</div>';
+  box.classList.add('open');
+}
+function selecionarVendedorPedido(id){
+  const v=dados.vendedores.find(x=>x.id===id); if(!v)return;
+  vendedorSelecionado=v;
+  $('pedVendedorSelecionadoNome').textContent=v.nome;
+  $('pedVendedorSelecionadoWrap').style.display='flex';
+  $('pedVendedorBusca').value=''; $('pedVendedorBusca').style.display='none';
+  $('pedVendedorResultados').classList.remove('open');
+}
+function limparVendedorSelecionado(){
+  vendedorSelecionado=null;
+  $('pedVendedorSelecionadoWrap').style.display='none';
+  $('pedVendedorBusca').style.display='block';
+}
+
+// ══ REPRESENTANTE COMERCIAL — agente externo, independente do vendedor interno.
+// Opcional: "Sem representante" sempre aparece como primeira opção da lista. ══
+async function carregarRepresentantesPedido(){
+  try{ dados.representantes=await dbGet('representantes_ativos',`?select=id,nome&order=nome.asc`); }
+  catch(e){ dados.representantes=[]; }
+}
+function buscarRepresentantePedido(){
+  const q=val('pedRepresentanteBusca').trim().toLowerCase();
+  const box=$('pedRepresentanteResultados');
+  const achados=dados.representantes.filter(v=>!q||(v.nome||'').toLowerCase().includes(q)).slice(0,10);
+  const semRep='<div class="ped-busca-item" onclick="selecionarRepresentantePedido(null)"><span>Sem representante</span></div>';
+  box.innerHTML=semRep+achados.map(v=>`<div class="ped-busca-item" onclick='selecionarRepresentantePedido(${JSON.stringify(v.id)})'><span>${esc(v.nome)}</span></div>`).join('');
+  box.classList.add('open');
+}
+function selecionarRepresentantePedido(id){
+  if(id===null){ representanteSelecionado={id:null,nome:'Sem representante'}; }
+  else{ const v=dados.representantes.find(x=>x.id===id); if(!v)return; representanteSelecionado=v; }
+  $('pedRepresentanteSelecionadoNome').textContent=representanteSelecionado.nome;
+  $('pedRepresentanteSelecionadoWrap').style.display='flex';
+  $('pedRepresentanteBusca').value=''; $('pedRepresentanteBusca').style.display='none';
+  $('pedRepresentanteResultados').classList.remove('open');
+}
+function limparRepresentanteSelecionado(){
+  representanteSelecionado=null;
+  $('pedRepresentanteSelecionadoWrap').style.display='none';
+  $('pedRepresentanteBusca').style.display='block';
+}
 
 function abrirModalNovoCliente(){
   ['pncNome','pncDocumento','pncTelefone','pncEmail','pncCep','pncUf','pncLogradouro','pncNumero','pncComplemento','pncBairro','pncCidade','pncIe'].forEach(id=>$(id).value='');
@@ -791,7 +914,7 @@ async function registrarPedido(){
     }catch(e){ /* checagem de limite não pode travar o registro do pedido por conta própria */ }
   }
 
-  const btn=document.querySelector('.main-scroll .btn');
+  const btn=$('pedSalvarBtn');
   if(btn){btn.disabled=true;btn.textContent='Registrando...';}
   try{
     const formaEscolhida=val('pedFormaPagamento')||'Combinado';
@@ -804,7 +927,10 @@ async function registrarPedido(){
     const resultado=await dbRpc('finalizar_venda',{p:{
       empresa_id:session.empresa_id, loja_id:lojaId, caixa_sessao_id:null,
       cliente_id:clienteSelecionado.id, cliente_nome:clienteSelecionado.nome,
-      vendedor_id:null, vendedor_nome:null,
+      vendedor_id:vendedorSelecionado?.id||null, vendedor_nome:vendedorSelecionado?.nome||null,
+      representante_id:representanteSelecionado?.id||null,
+      representante_nome:representanteSelecionado?.id?representanteSelecionado.nome:null,
+      observacao:val('pedObservacao').trim()||null,
       subtotal:total, desconto_total:0, total, data_venda:hoje(),
       retroativa:false, motivo_retroativo:null,
       forma_pagamento_txt:formaEscolhida,
@@ -889,9 +1015,13 @@ async function registrarPedido(){
       }
     }
 
-    // Limpa o formulário pro próximo pedido
+    // Limpa o formulário pro próximo pedido — vendedor fica selecionado entre
+    // pedidos seguidos de propósito (normalmente é a mesma pessoa lançando
+    // vários pedidos seguidos); representante e observação são por pedido.
     carrinho=[]; renderCarrinhoPedido();
     limparClienteSelecionado();
+    limparRepresentanteSelecionado();
+    $('pedObservacao').value='';
     statusPagamentoAtual='agora'; escolherStatusPagamentoPedido('agora');
     $('pedVencimento').value=hoje();
     if($('pedFreteWrap').style.display==='block') toggleFreteNovoPedido();
@@ -910,7 +1040,7 @@ async function registrarPedido(){
   }catch(e){
     msg('pedMsg','Erro ao registrar pedido: '+e.message,'err');
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='Registrar pedido';}
+    if(btn){btn.disabled=false;btn.textContent='Salvar pedido e continuar →';}
   }
 }
 
