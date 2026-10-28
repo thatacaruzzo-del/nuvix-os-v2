@@ -109,15 +109,16 @@ async function sbUpload(path: string, bytes: Uint8Array, contentType: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/${ARQUIVOS_BUCKET}/${path}`;
 }
 
-// Mesmo motivo que em emitir-nfce: o link que a Focus NFe devolve é hospedado
-// por ELES — arquivamos uma cópia (DANFE em PDF + XML) assim que a nota é
-// autorizada, pra não depender da retenção deles. NF-e modelo 55 devolve o
-// DANFE como PDF direto (campo "url"), diferente da NFC-e que devolve HTML
-// (caminho_danfe) — confirmar isso no primeiro teste real em homologação.
+// CONFIRMADO em teste real (Natufonts, 28/10/2026): a NF-e modelo 55 TAMBÉM
+// devolve o DANFE em caminho_danfe (caminho relativo), não em "url" como a
+// hipótese original dizia — campo "url" veio sempre ausente/null. Mesmo
+// achado já resolvido antes pra NFC-e (ver arquivarDanfce em emitir-nfce),
+// aplicado aqui do mesmo jeito: tenta caminho_danfe primeiro, url como
+// fallback pra não quebrar se a Focus mudar o formato de novo.
 async function arquivarDocumentos(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
   try {
     const [pdfBytes, xmlBytes] = await Promise.all([
-      focusData?.url ? baixarBytes(focusData.url) : Promise.resolve(null),
+      focusData?.caminho_danfe ? baixarBytes(`${base}${focusData.caminho_danfe}`) : focusData?.url ? baixarBytes(focusData.url) : Promise.resolve(null),
       focusData?.caminho_xml_nota_fiscal ? baixarBytes(`${base}${focusData.caminho_xml_nota_fiscal}`, auth) : Promise.resolve(null),
     ]);
     const updates: Record<string, unknown> = {};
@@ -135,13 +136,23 @@ async function arquivarDocumentos(notaId: string, empresaId: string, focusData: 
 }
 
 async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
+  // CONFIRMADO em teste real (Natufonts, 28/10/2026): consultar uma nota já
+  // arquivada chamava este patch de novo e sobrescrevia link_pdf/link_xml —
+  // que já apontavam pro nosso próprio Storage — com o link bruto (e mais
+  // frágil) da Focus NFe outra vez. Preserva os links já arquivados.
+  const jaArquivada = (await sbGet(`notas_fiscais_nfe?id=eq.${notaId}&select=arquivos_arquivados`))?.[0]?.arquivos_arquivados;
+  const camposLink = jaArquivada
+    ? {}
+    : {
+        link_pdf: focusData?.caminho_danfe ? `${base}${focusData.caminho_danfe}` : focusData?.url || null,
+        link_xml: focusData?.caminho_xml_nota_fiscal ? `${base}${focusData.caminho_xml_nota_fiscal}` : null,
+      };
   const atualizado = await sbPatch('notas_fiscais_nfe', notaId, {
     status: FOCUS_STATUS_MAP[focusData?.status] || 'processando',
     numero: focusData?.numero || null,
     serie: focusData?.serie || null,
     chave_acesso: focusData?.chave_nfe || focusData?.chave_acesso || null,
-    link_pdf: focusData?.url || null,
-    link_xml: focusData?.caminho_xml_nota_fiscal ? `${base}${focusData.caminho_xml_nota_fiscal}` : null,
+    ...camposLink,
     qrcode_url: focusData?.qrcode_url || null,
     protocolo: focusData?.protocolo || null,
     mensagem_erro:
@@ -200,6 +211,11 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
   return {
     natureza_operacao: 'VENDA DE MERCADORIA',
     data_emissao: dataEmissaoBrasilia(),
+    tipo_documento: 1, // tpNF do SEFAZ: 0=entrada, 1=saída — venda é sempre saída.
+    finalidade_emissao: 1, // finNFe do SEFAZ: 1=normal, 2=complementar, 3=ajuste, 4=devolução.
+    // CONFIRMADO em teste real de homologação (Natufonts, 28/10/2026): a Focus
+    // rejeita o payload sem tipo_documento/finalidade_emissao, mesmo sendo
+    // campos obrigatórios padrão do schema nacional da NF-e (tpNF/finNFe).
     presenca_comprador: 9, // ATENÇÃO — ver aviso no topo do arquivo, não confirmado.
     modalidade_frete: 9,
     local_destino: ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente ? 2 : 1, // 1=interna, 2=interestadual
@@ -242,7 +258,16 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
         icms_origem: it.origem_mercadoria ?? '0',
         icms_situacao_tributaria: it.csosn_cst || undefined,
         icms_aliquota: it.aliquota_icms ?? undefined,
+        // CONFIRMADO em teste real (Natufonts, 28/10/2026): a SEFAZ rejeita a
+        // nota com "NF-e sem grupo do PIS" quando só manda a alíquota sem a
+        // situação tributária (CST) — o grupo inteiro fica de fora do XML
+        // sem isso. '99' (Outras Operações) é o CST padrão quando a empresa
+        // (Simples Nacional, que não segrega PIS/COFINS por item) não
+        // registra outro valor. Mesmo gap existe em emitir-nfce/index.ts,
+        // mas não foi testado lá ainda — não mexido por enquanto.
+        pis_situacao_tributaria: it.pis_situacao_tributaria || '99',
         pis_aliquota: it.aliquota_pis ?? undefined,
+        cofins_situacao_tributaria: it.cofins_situacao_tributaria || '99',
         cofins_aliquota: it.aliquota_cofins ?? undefined,
         ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
         ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
@@ -461,6 +486,11 @@ Deno.serve(async (req) => {
     const atualizado = await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, {
       status: FOCUS_STATUS_MAP[focusData?.status] || 'processando',
       focus_nfe_ref: ref,
+      // Limpa o erro de uma tentativa anterior — sem isso, uma nota que falhou
+      // e depois foi reenviada com sucesso (status processando/autorizado)
+      // continuava mostrando a mensagem_erro antiga, como se ainda estivesse
+      // com problema. CONFIRMADO em teste real (Natufonts, 28/10/2026).
+      mensagem_erro: null,
       updated_at: new Date().toISOString(),
     });
 
