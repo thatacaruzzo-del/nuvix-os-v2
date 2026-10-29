@@ -1920,19 +1920,19 @@ async function confirmarDevolucao(){
     }});
     toast('Devolução registrada — estoque e financeiro atualizados.','ok');
     fecharModal('modalDevolucao');
-    // Nota fiscal de devolução dispara sozinha depois da devolução ter dado certo,
-    // mesmo padrão de "dispara depois que a operação principal deu certo" já usado
-    // nos webhooks de marketplace. Só tenta se a empresa tiver NF-e ativo — se a
-    // venda original não tiver nota autorizada (MEI, venda sem NF), a função de
-    // emissão mesmo detecta isso e a devolução fica só operacional, sem travar nada
-    // aqui. Falha na emissão nunca desfaz a devolução, que já está gravada.
+    // Mesma escolha que já existe na emissão de nota na venda — nem todo cliente
+    // emite nota de toda devolução, então pergunta em vez de disparar sozinho.
+    // Falha na emissão nunca desfaz a devolução, que já está gravada.
     if(empresaFiscal.nfe_ativo&&resultado?.devolucao_id){
-      try{
-        await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
-          method:'POST', headers:H,
-          body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
-        });
-      }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+      const querEmitirDevolucao=await confirmarAcao('Emitir nota fiscal de devolução?',{labelOk:'Emitir nota',labelCancelar:'Não emitir',variante:'neutro'});
+      if(querEmitirDevolucao){
+        try{
+          await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
+            method:'POST', headers:H,
+            body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
+          });
+        }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+      }
     }
     await carregarProdutosLoja();
     await carregarHistoricoVendas();

@@ -1811,15 +1811,18 @@ async function confirmarDevolucao(){
     }});
     toast('Devolução registrada — estoque e financeiro atualizados.','ok');
     fecharModal('modalDevolucao');
-    // Nota de devolução dispara sozinha depois de dar certo (mesmo padrão do Caixa) —
-    // só tenta se a empresa tiver NF-e ativo; falha na emissão nunca desfaz a devolução.
+    // Mesma escolha que já existe na emissão do pedido — nem todo cliente emite nota
+    // de toda devolução, então pergunta em vez de disparar sozinho.
     if(empresaFiscal.nfe_ativo&&resultado?.devolucao_id){
-      try{
-        await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
-          method:'POST', headers:H,
-          body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
-        });
-      }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+      const querEmitirDevolucao=await confirmarAcao('Emitir nota fiscal de devolução?',{labelOk:'Emitir nota',labelCancelar:'Não emitir',variante:'neutro'});
+      if(querEmitirDevolucao){
+        try{
+          await fetch(`${SB_URL}/functions/v1/emitir-devolucao-nfe`,{
+            method:'POST', headers:H,
+            body:JSON.stringify({acao:'emitir',devolucao_id:resultado.devolucao_id}),
+          });
+        }catch(e){ console.warn('Falha ao tentar emitir nota de devolução (devolução em si já está registrada):',e); }
+      }
     }
     await carregarProdutosLoja(lojaAtualId());
     await carregarHistoricoPedidos();
