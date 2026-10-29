@@ -292,10 +292,21 @@ Deno.serve(async (req) => {
       // sobre o padrão cadastrado — ver comentário no topo do arquivo.
       const coProduto = codigo_servico || cred.codigo_servico;
 
-      const valor = await calcularPreco(base, token, {
-        coProduto, cepOrigem: empresa.endereco_cep, cepDestino: cliente.endereco_cep,
-        pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
-      });
+      // CONFIRMADO em uso real (Natufonts, 29/10/2026): a API de preço pode
+      // estar restrita pro contrato (permissão separada da de postagem), e
+      // nesse caso não deve travar a geração da etiqueta — o valor do frete
+      // é só informativo pro relatório, quem empacota sabe o valor real pelo
+      // comprovante dos Correios e pode preencher depois. A pré-postagem em
+      // si não depende desse valor.
+      let valor = 0;
+      try {
+        valor = await calcularPreco(base, token, {
+          coProduto, cepOrigem: empresa.endereco_cep, cepDestino: cliente.endereco_cep,
+          pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
+        });
+      } catch (e) {
+        console.warn('Falha ao calcular preço (etiqueta segue sem o valor do frete):', e);
+      }
 
       const prepostagem = await criarPrepostagem(base, token, {
         cartaoPostagem: cred.cartao_postagem, coProduto,
