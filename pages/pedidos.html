@@ -1430,9 +1430,30 @@ function renderEnvioPedido(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${r.meio_envio==='Correios'||!r.meio_envio?`<button class="btn2" onclick="atualizarRastreioPedido()">Atualizar status</button>`:''}
       ${r.codigo_rastreio?`<button class="btn2" onclick="copiarMensagemRastreioPedido()">Copiar mensagem pro cliente</button>`:''}
+      ${r.codigo_rastreio&&!r.link_pdf&&(r.meio_envio==='Correios'||!r.meio_envio)?`<button class="btn2" id="btnReimprimirRotuloPed" onclick="reimprimirRotuloPedido()">Buscar PDF da etiqueta</button>`:''}
       <button class="btn2" onclick="editarEnvioPedido()">Editar envio</button>
     </div>
   `;
+}
+// Busca só o PDF de uma etiqueta que já foi gerada (não cria envio novo nos
+// Correios) — usado quando o código de rastreio já saiu mas o PDF não ficou
+// anexado na hora (geração do rótulo é assíncrona do lado dos Correios).
+async function reimprimirRotuloPedido(){
+  const btn=$('btnReimprimirRotuloPed');
+  if(btn){btn.disabled=true;btn.textContent='Buscando...';}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'reimprimir',venda_id:fichaAbertaId})});
+    const resp=await r.json();
+    if(!resp.ok){
+      const MSGS={etiqueta_nao_gerada_ainda:'Essa etiqueta ainda não foi gerada.',rotulo_ainda_nao_disponivel:'O rótulo ainda não ficou pronto nos Correios. Tenta de novo em alguns segundos.'};
+      toast(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)),'err');
+      return;
+    }
+    rastreioAtual=resp.rastreio;
+    setHTML('fpEnvioConteudo',renderEnvioPedido());
+    toast('PDF da etiqueta encontrado.','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+  finally{ if(btn){btn.disabled=false;btn.textContent='Buscar PDF da etiqueta';} }
 }
 function toggleMeioEnvioPedido(){
   const correios=val('fpMeioEnvio')==='Correios';

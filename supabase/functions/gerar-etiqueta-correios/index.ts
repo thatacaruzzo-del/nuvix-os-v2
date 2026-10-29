@@ -249,19 +249,14 @@ async function criarPrepostagem(base: string, token: string, params: {
   return r.json();
 }
 
-// CONFIRMADO contra o OpenAPI oficial (apihom.correios.com.br/prepostagem/
-// v3/api-docs, 29/10/2026): tipoRotulo é "P" (padrão) ou "R" (reduzido) —
-// não "E" — e formatoRotulo é "ET" (etiqueta) ou "EV" (envelope) — não
-// "PDF". Esse endpoint é assíncrono de verdade: o POST devolve um JSON (não
-// o PDF em si) com um identificador de recibo, que precisa ser consultado
-// depois em GET .../rotulo/download/assincrono/{idRecibo} pra pegar o
-// arquivo. O formato exato da resposta de cada etapa não está documentado
-// no schema (aparece só como "object" genérico), então aqui se tenta achar
-// o id do recibo e o conteúdo do PDF por nomes de campo prováveis, com
-// tolerância total a falha — se não achar, simplesmente não anexa o PDF
-// automático (não é crítico: o código de rastreio já foi gerado na
-// pré-postagem, e o rótulo sempre pode ser baixado depois direto no painel
-// dos Correios).
+// CONFIRMADO em teste real (Natufonts, pedido real AE085092084BR, 29/10/2026):
+// esse endpoint é assíncrono mesmo — o POST devolve {"idRecibo":"..."} (não
+// o PDF em si), e o GET .../rotulo/download/assincrono/{idRecibo} devolve
+// {"dados":"<PDF em base64>"} assim que fica pronto (ficou pronto já na
+// primeira consulta no teste real, mas mantém algumas tentativas por
+// segurança). Usa codigosObjeto (o código de rastreio, que sempre temos)
+// em vez de idsPrePostagem, pra não depender de um campo de id incerto na
+// resposta da criação da pré-postagem.
 function extrairCampoProvavel(obj: unknown, nomes: string[]): string | null {
   if (!obj || typeof obj !== 'object') return null;
   for (const nome of nomes) {
@@ -271,11 +266,11 @@ function extrairCampoProvavel(obj: unknown, nomes: string[]): string | null {
   return null;
 }
 
-async function gerarRotuloPdf(base: string, token: string, idPrepostagem: string): Promise<Uint8Array | null> {
+async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string): Promise<Uint8Array | null> {
   const r = await fetch(`${base}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idsPrePostagem: [idPrepostagem], tipoRotulo: 'P', formatoRotulo: 'ET', imprimeRemetente: 'S' }),
+    body: JSON.stringify({ codigosObjeto: [codigoObjeto], tipoRotulo: 'P', formatoRotulo: 'ET', imprimeRemetente: 'S' }),
   });
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const solicitacao = await r.json().catch(() => null);
@@ -294,7 +289,7 @@ async function gerarRotuloPdf(base: string, token: string, idPrepostagem: string
       return buf.byteLength ? new Uint8Array(buf) : null;
     }
     const corpo = await rr.json().catch(() => null);
-    const base64 = extrairCampoProvavel(corpo, ['arquivo', 'conteudo', 'pdf', 'base64']);
+    const base64 = extrairCampoProvavel(corpo, ['dados', 'arquivo', 'conteudo', 'pdf', 'base64']);
     if (base64) {
       const bin = atob(base64);
       const bytes = new Uint8Array(bin.length);
@@ -338,13 +333,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico } = await req.json();
+    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico, acao } = await req.json();
     if (!venda_id) throw new Error('venda_id é obrigatório.');
-
-    const pesoTotalKg = Number(peso_kg), maiorAltura = Number(altura_cm), maiorLargura = Number(largura_cm), maiorComprimento = Number(comprimento_cm);
-    if (!(pesoTotalKg > 0) || !(maiorAltura > 0) || !(maiorLargura > 0) || !(maiorComprimento > 0)) {
-      return json({ ok: false, erro: 'dados_envio_invalidos' }, 422);
-    }
 
     const [venda] = await sbGet(`vendas?id=eq.${venda_id}&select=*`);
     if (!venda) return json({ ok: false, erro: 'venda_nao_encontrada' }, 404);
@@ -361,6 +351,28 @@ Deno.serve(async (req) => {
 
     if (!empresa?.correios_ativo || !cred) {
       return json({ ok: false, erro: 'correios_nao_configurado' }, 422);
+    }
+
+    // "reimprimir" busca só o PDF de uma etiqueta JÁ gerada (não cria uma nova
+    // pré-postagem de novo — isso seria um envio real duplicado no contrato).
+    // Usado quando o rótulo não ficou anexado na primeira tentativa.
+    if (acao === 'reimprimir') {
+      const [rastreioExistente] = await sbGet(`rastreios_correios?venda_id=eq.${venda_id}&select=*`);
+      if (!rastreioExistente?.codigo_rastreio) {
+        return json({ ok: false, erro: 'etiqueta_nao_gerada_ainda' }, 422);
+      }
+      const base = correiosBaseUrl(cred.ambiente);
+      const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api, cred.cartao_postagem);
+      const pdfBytes = await gerarRotuloPdf(base, token, rastreioExistente.codigo_rastreio);
+      if (!pdfBytes) return json({ ok: false, erro: 'rotulo_ainda_nao_disponivel' }, 422);
+      const linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfBytes, 'application/pdf');
+      const rastreio = await sbPatch('rastreios_correios', rastreioExistente.id, { link_pdf: linkPdf, atualizado_em: new Date().toISOString() });
+      return json({ ok: true, rastreio, simulado: false });
+    }
+
+    const pesoTotalKg = Number(peso_kg), maiorAltura = Number(altura_cm), maiorLargura = Number(largura_cm), maiorComprimento = Number(comprimento_cm);
+    if (!(pesoTotalKg > 0) || !(maiorAltura > 0) || !(maiorLargura > 0) || !(maiorComprimento > 0)) {
+      return json({ ok: false, erro: 'dados_envio_invalidos' }, 422);
     }
     if (!venda.cliente_id) {
       return json({ ok: false, erro: 'pedido_sem_cliente_vinculado' }, 422);
@@ -427,7 +439,7 @@ Deno.serve(async (req) => {
       const codigoObjeto = prepostagem?.codigoObjeto || prepostagem?.codigoRastreio || '';
       let linkPdf: string | null = null;
       try {
-        const pdfBytes = await gerarRotuloPdf(base, token, prepostagem?.id || prepostagem?.idPrePostagem);
+        const pdfBytes = await gerarRotuloPdf(base, token, codigoObjeto);
         if (pdfBytes) linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfBytes, 'application/pdf');
       } catch (e) {
         // Não derruba a postagem por causa do rótulo — o código de rastreio já foi gerado,
