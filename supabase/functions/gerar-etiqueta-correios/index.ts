@@ -382,7 +382,12 @@ Deno.serve(async (req) => {
     if (!cliente?.endereco_logradouro || !cliente?.endereco_cep || !cliente?.endereco_uf) {
       return json({ ok: false, erro: 'cliente_sem_endereco_completo' }, 422);
     }
-    if (!empresa.endereco_logradouro || !empresa.endereco_cep || !empresa.endereco_uf) {
+    // Remetente pode vir do endereço de despacho próprio (cred.remetente_*,
+    // ex: galpão) ou do endereço fiscal da empresa — só bloqueia se nenhum dos
+    // dois estiver completo.
+    const temEnderecoDespacho = cred.remetente_cep && cred.remetente_logradouro && cred.remetente_uf;
+    const temEnderecoEmpresa = empresa.endereco_logradouro && empresa.endereco_cep && empresa.endereco_uf;
+    if (!temEnderecoDespacho && !temEnderecoEmpresa) {
       return json({ ok: false, erro: 'empresa_sem_endereco_completo' }, 422);
     }
 
@@ -404,10 +409,29 @@ Deno.serve(async (req) => {
       // é só informativo pro relatório, quem empacota sabe o valor real pelo
       // comprovante dos Correios e pode preencher depois. A pré-postagem em
       // si não depende desse valor.
+      // O endereço de onde o pacote sai de verdade (galpão/depósito) pode ser
+      // diferente do endereço fiscal da empresa — se correios_credenciais tiver
+      // um endereço de remetente próprio preenchido, usa ele; senão cai no
+      // endereço da empresa (comportamento de antes, continua funcionando pra
+      // quem nunca preencheu isso).
+      const remetenteEndereco = cred.remetente_cep
+        ? {
+            nome: cred.remetente_nome || empresa.fantasia || empresa.razao,
+            cep: cred.remetente_cep, logradouro: cred.remetente_logradouro,
+            numero: cred.remetente_numero || 'S/N', complemento: cred.remetente_complemento,
+            bairro: cred.remetente_bairro || '', cidade: cred.remetente_cidade || '', uf: cred.remetente_uf,
+          }
+        : {
+            nome: empresa.fantasia || empresa.razao,
+            cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
+            numero: empresa.endereco_numero || 'S/N', complemento: undefined,
+            bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf,
+          };
+
       let valor = 0;
       try {
         valor = await calcularPreco(base, token, {
-          coProduto, cepOrigem: empresa.endereco_cep, cepDestino: cliente.endereco_cep,
+          coProduto, cepOrigem: remetenteEndereco.cep, cepDestino: cliente.endereco_cep,
           pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
         });
       } catch (e) {
@@ -421,10 +445,7 @@ Deno.serve(async (req) => {
 
       const prepostagem = await criarPrepostagem(base, token, {
         coProduto,
-        remetente: {
-          nome: empresa.fantasia || empresa.razao, cpfCnpj: empresa.cnpj, cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
-          numero: empresa.endereco_numero || 'S/N', bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf,
-        },
+        remetente: { ...remetenteEndereco, cpfCnpj: empresa.cnpj },
         destinatario: {
           nome: cliente.nome, documento: cliente.documento, cep: cliente.endereco_cep, logradouro: cliente.endereco_logradouro,
           numero: cliente.endereco_numero || 'S/N', complemento: cliente.endereco_complemento, bairro: cliente.endereco_bairro || '',

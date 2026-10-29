@@ -84,6 +84,21 @@
           </div>
         </div>
 
+        <div class="cert-section">
+          <h3>Endereço de envio (de onde o pacote sai)</h3>
+          <p>Deixe em branco pra usar o endereço cadastrado da empresa. Preencha só se os pacotes saem de um galpão/depósito diferente do endereço fiscal.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <div class="field"><label>Nome do remetente (opcional)</label><input id="corrRemNome" placeholder="Padrão: nome da empresa"></div>
+            <div class="field"><label>CEP</label><input id="corrRemCep"></div>
+            <div class="field" style="grid-column:1/-1"><label>Logradouro</label><input id="corrRemLogradouro"></div>
+            <div class="field"><label>Número</label><input id="corrRemNumero"></div>
+            <div class="field"><label>Complemento</label><input id="corrRemComplemento"></div>
+            <div class="field"><label>Bairro</label><input id="corrRemBairro"></div>
+            <div class="field"><label>Cidade</label><input id="corrRemCidade"></div>
+            <div class="field"><label>UF</label><input id="corrRemUf" maxlength="2" style="text-transform:uppercase"></div>
+          </div>
+        </div>
+
         <button class="btn" id="corrBtnEnviar" style="min-width:200px" onclick="salvarContratoCorreios()">Salvar e ativar</button>
         <div id="corrMsg" class="msg"></div>
       </div>
@@ -133,6 +148,14 @@ async function salvarContratoCorreios(){
       codigo_acesso_api:codigoAcesso,
       codigo_servico:servico,
       ambiente:val('corrAmbiente')||'producao',
+      remetente_nome:val('corrRemNome').trim()||null,
+      remetente_cep:val('corrRemCep').trim()||null,
+      remetente_logradouro:val('corrRemLogradouro').trim()||null,
+      remetente_numero:val('corrRemNumero').trim()||null,
+      remetente_complemento:val('corrRemComplemento').trim()||null,
+      remetente_bairro:val('corrRemBairro').trim()||null,
+      remetente_cidade:val('corrRemCidade').trim()||null,
+      remetente_uf:val('corrRemUf').trim().toUpperCase()||null,
       updated_at:new Date().toISOString(),
     }),'empresa_id');
     // Já liga a postagem automática e garante que não fica em modo simulação
@@ -156,6 +179,14 @@ async function carregarContratoAtual(){
     $('corrCodigoAcesso').value=cred.codigo_acesso_api||'';
     $('corrServico').value=cred.codigo_servico||'';
     $('corrAmbiente').value=cred.ambiente||'producao';
+    $('corrRemNome').value=cred.remetente_nome||'';
+    $('corrRemCep').value=cred.remetente_cep||'';
+    $('corrRemLogradouro').value=cred.remetente_logradouro||'';
+    $('corrRemNumero').value=cred.remetente_numero||'';
+    $('corrRemComplemento').value=cred.remetente_complemento||'';
+    $('corrRemBairro').value=cred.remetente_bairro||'';
+    $('corrRemCidade').value=cred.remetente_cidade||'';
+    $('corrRemUf').value=cred.remetente_uf||'';
   }catch(e){}
 }
 
