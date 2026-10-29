@@ -91,12 +91,38 @@ function correiosBaseUrl(ambiente: string) {
   return ambiente === 'producao' ? 'https://api.correios.com.br' : 'https://apihom.correios.com.br';
 }
 
+// CONFIRMADO em uso real (Natufonts, 29/10/2026): toda falha dos Correios
+// jogava a resposta crua (JSON técnico, às vezes grande) direto na tela via
+// toast — aparecia como "código" pra quem não é técnico. Tenta extrair uma
+// frase legível de qualquer formato de erro que a API devolva; nunca repassa
+// o texto cru pra fora desta função.
+function mensagemErroCorreios(textoBruto: string): string {
+  const texto = String(textoBruto || '').trim();
+  if (!texto) return 'Os Correios não responderam. Tente de novo em instantes.';
+  try {
+    const obj = JSON.parse(texto);
+    const msg =
+      obj?.msgs?.[0] ||
+      obj?.mensagem ||
+      obj?.message ||
+      obj?.erro?.mensagem ||
+      obj?.erros?.[0]?.mensagem ||
+      obj?.erros?.[0] ||
+      obj?.error_description ||
+      obj?.error;
+    if (msg && typeof msg === 'string') return msg;
+  } catch {
+    // não era JSON — segue pro fallback genérico abaixo, nunca devolve o texto cru.
+  }
+  return 'Os Correios recusaram a solicitação. Confira os dados do contrato e tente de novo. Se continuar, fale com o suporte.';
+}
+
 async function autenticarCorreios(base: string, usuario: string, codigoAcesso: string) {
   const r = await fetch(`${base}/token/v1/autentica`, {
     method: 'POST',
     headers: { Authorization: 'Basic ' + btoa(`${usuario}:${codigoAcesso}`), 'Content-Type': 'application/json' },
   });
-  if (!r.ok) throw new Error(`Autenticação Correios falhou: ${await r.text()}`);
+  if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const data = await r.json();
   return data.token as string;
 }
@@ -119,7 +145,7 @@ async function calcularPreco(base: string, token: string, params: {
   const r = await fetch(`${base}/preco/v1/nacional/${params.coProduto}?${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!r.ok) throw new Error(`Cálculo de preço falhou: ${await r.text()}`);
+  if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const data = await r.json();
   // CONFIRMAR: campo de valor pode vir como pcFinal/valor/precoFinal — ajustar no teste real.
   return Number(data?.pcFinal ?? data?.valor ?? data?.precoFinal ?? 0);
@@ -167,7 +193,7 @@ async function criarPrepostagem(base: string, token: string, params: {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`Criação de pré-postagem falhou: ${await r.text()}`);
+  if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   return r.json(); // CONFIRMAR: espera-se {id, codigoObjeto, ...}
 }
 
@@ -180,7 +206,7 @@ async function gerarRotuloPdf(base: string, token: string, idPrepostagem: string
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ idsPrePostagem: [idPrepostagem], tipoRotulo: 'E', formatoRotulo: 'PDF' }),
   });
-  if (!r.ok) throw new Error(`Geração de rótulo falhou: ${await r.text()}`);
+  if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const buf = await r.arrayBuffer();
   return buf.byteLength ? new Uint8Array(buf) : null;
 }
