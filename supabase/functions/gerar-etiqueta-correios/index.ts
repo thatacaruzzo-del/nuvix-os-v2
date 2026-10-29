@@ -166,8 +166,10 @@ async function calcularPreco(base: string, token: string, params: {
 // endereço do destinatário obrigatório":
 //   1. Endereço vai ANINHADO em remetente.endereco/destinatario.endereco,
 //      não como campos soltos direto em remetente/destinatario.
-//   2. Campos de dimensão são alturaInformada/larguraInformada/
-//      comprimentoInformada (terminação feminina), não "...Informado".
+//   2. Campos de dimensão são alturaInformada/larguraInformada
+//      (terminação feminina) mas comprimentoInformado (masculino, já que
+//      "comprimento" é substantivo masculino em português) — não
+//      "comprimentoInformada".
 //   3. pesoInformado, as dimensões e codigoFormatoObjetoInformado são STRING,
 //      não number.
 //   4. itensDeclaracaoConteudo (array com conteudo/quantidade/valor) e
@@ -228,7 +230,7 @@ async function criarPrepostagem(base: string, token: string, params: {
     codigoFormatoObjetoInformado: '2', // 1=envelope, 2=pacote/caixa, 3=rolo
     alturaInformada: String(params.altura),
     larguraInformada: String(params.largura),
-    comprimentoInformada: String(params.comprimento),
+    comprimentoInformado: String(params.comprimento),
     cienteObjetoNaoProibido: '1',
     itensDeclaracaoConteudo: params.itens.length
       ? params.itens.map((it) => ({
