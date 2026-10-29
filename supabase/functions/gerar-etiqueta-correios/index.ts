@@ -39,6 +39,8 @@
 // seção "Resolvido em teste real"). Pontos marcados "CONFIRMAR" abaixo.
 // ============================================================
 
+import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ARQUIVOS_BUCKET = 'notas-fiscais-arquivos'; // mesmo bucket do DANFE/DANFCE — já guarda endereço completo, mesmo risco
@@ -300,6 +302,113 @@ async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string)
   return null;
 }
 
+type EnderecoPessoa = {
+  nome: string; documento?: string | null;
+  cep: string; logradouro: string; numero: string; complemento?: string | null;
+  bairro: string; cidade: string; uf: string;
+};
+type ItemDeclarado = { produto_nome: string; quantidade: number; valor_unitario: number };
+
+function fmtEndereco(e: EnderecoPessoa): string {
+  const complemento = e.complemento ? `, ${e.complemento}` : '';
+  return `${e.logradouro}, ${e.numero}${complemento} — ${e.bairro}, ${e.cidade}/${e.uf} — CEP ${e.cep}`;
+}
+
+function fmtMoeda(v: number): string {
+  return 'R$ ' + v.toFixed(2).replace('.', ',');
+}
+
+// O endereço de onde o pacote sai de verdade (galpão/depósito) pode ser
+// diferente do endereço fiscal da empresa — se correios_credenciais tiver um
+// endereço de remetente próprio preenchido, usa ele; senão cai no endereço
+// da empresa (comportamento de antes, continua funcionando pra quem nunca
+// preencheu isso). Usado tanto na geração normal quanto na reimpressão.
+function resolverRemetente(empresa: Record<string, string | null>, cred: Record<string, string | null>): EnderecoPessoa {
+  return cred.remetente_cep
+    ? {
+        nome: cred.remetente_nome || empresa.fantasia || empresa.razao || '',
+        cep: cred.remetente_cep!, logradouro: cred.remetente_logradouro || '',
+        numero: cred.remetente_numero || 'S/N', complemento: cred.remetente_complemento,
+        bairro: cred.remetente_bairro || '', cidade: cred.remetente_cidade || '', uf: cred.remetente_uf || '',
+      }
+    : {
+        nome: empresa.fantasia || empresa.razao || '',
+        cep: empresa.endereco_cep || '', logradouro: empresa.endereco_logradouro || '',
+        numero: empresa.endereco_numero || 'S/N', complemento: undefined,
+        bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf || '',
+      };
+}
+
+// Pedido explícito da Thata (29/10/2026): além da etiqueta, imprimir junto
+// (num PDF só) a declaração de conteúdo, pro operador logístico (Trat Log)
+// ter o que precisa pra postar sem precisar abrir mais nada — enquanto a
+// gente não liga a emissão oficial da DCe pelos Correios (emiteDCe), essa é
+// uma declaração nossa mesmo, simples e clara, com os itens reais da venda.
+async function gerarDeclaracaoConteudoPdf(info: {
+  codigoRastreio: string; remetente: EnderecoPessoa; destinatario: EnderecoPessoa; itens: ItemDeclarado[];
+}): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595.28, 841.89]); // A4
+  const fonteNormal = await doc.embedFont(StandardFonts.Helvetica);
+  const fonteNegrito = await doc.embedFont(StandardFonts.HelveticaBold);
+  const margemEsquerda = 50;
+  let y = 800;
+
+  const linha = (texto: string, opts: { negrito?: boolean; tamanho?: number; espacoDepois?: number } = {}) => {
+    const fonte = opts.negrito ? fonteNegrito : fonteNormal;
+    const tamanho = opts.tamanho || 10;
+    page.drawText(texto, { x: margemEsquerda, y, size: tamanho, font: fonte, color: rgb(0, 0, 0) });
+    y -= tamanho + (opts.espacoDepois ?? 6);
+  };
+
+  linha('DECLARAÇÃO DE CONTEÚDO', { negrito: true, tamanho: 16, espacoDepois: 16 });
+  linha(`Código de rastreio: ${info.codigoRastreio || '(aguardando geração)'}`, { negrito: true });
+  linha(`Data de emissão: ${new Date().toLocaleDateString('pt-BR')}`, { espacoDepois: 16 });
+
+  linha('REMETENTE', { negrito: true });
+  linha(info.remetente.nome);
+  linha(fmtEndereco(info.remetente), { espacoDepois: 16 });
+
+  linha('DESTINATÁRIO', { negrito: true });
+  linha(info.destinatario.nome + (info.destinatario.documento ? ` — ${info.destinatario.documento}` : ''));
+  linha(fmtEndereco(info.destinatario), { espacoDepois: 16 });
+
+  linha('ITENS DECLARADOS', { negrito: true, espacoDepois: 10 });
+  const colX = { produto: margemEsquerda, qtd: 340, unit: 400, subtotal: 480 };
+  page.drawText('Produto', { x: colX.produto, y, size: 10, font: fonteNegrito });
+  page.drawText('Qtd.', { x: colX.qtd, y, size: 10, font: fonteNegrito });
+  page.drawText('Unit.', { x: colX.unit, y, size: 10, font: fonteNegrito });
+  page.drawText('Subtotal', { x: colX.subtotal, y, size: 10, font: fonteNegrito });
+  y -= 16;
+
+  let total = 0;
+  for (const it of info.itens) {
+    const subtotal = it.quantidade * it.valor_unitario;
+    total += subtotal;
+    page.drawText(it.produto_nome.slice(0, 48), { x: colX.produto, y, size: 10, font: fonteNormal });
+    page.drawText(String(it.quantidade), { x: colX.qtd, y, size: 10, font: fonteNormal });
+    page.drawText(fmtMoeda(it.valor_unitario), { x: colX.unit, y, size: 10, font: fonteNormal });
+    page.drawText(fmtMoeda(subtotal), { x: colX.subtotal, y, size: 10, font: fonteNormal });
+    y -= 16;
+  }
+
+  y -= 10;
+  linha(`Valor total declarado: ${fmtMoeda(total)}`, { negrito: true, tamanho: 12 });
+
+  return doc.save();
+}
+
+async function combinarComEtiqueta(etiquetaPdfBytes: Uint8Array, declaracaoPdfBytes: Uint8Array): Promise<Uint8Array> {
+  const combinado = await PDFDocument.create();
+  const docEtiqueta = await PDFDocument.load(etiquetaPdfBytes);
+  const docDeclaracao = await PDFDocument.load(declaracaoPdfBytes);
+  const paginasEtiqueta = await combinado.copyPages(docEtiqueta, docEtiqueta.getPageIndices());
+  paginasEtiqueta.forEach((p) => combinado.addPage(p));
+  const paginasDeclaracao = await combinado.copyPages(docDeclaracao, docDeclaracao.getPageIndices());
+  paginasDeclaracao.forEach((p) => combinado.addPage(p));
+  return combinado.save();
+}
+
 function simularEtiqueta() {
   const codigo = 'SM' + Math.floor(Math.random() * 1e9).toString().padStart(9, '0') + 'BR';
   return { simulado: true, codigo_rastreio: codigo, valor_frete: 24.9, link_pdf: null };
@@ -365,7 +474,32 @@ Deno.serve(async (req) => {
       const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api, cred.cartao_postagem);
       const pdfBytes = await gerarRotuloPdf(base, token, rastreioExistente.codigo_rastreio);
       if (!pdfBytes) return json({ ok: false, erro: 'rotulo_ainda_nao_disponivel' }, 422);
-      const linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfBytes, 'application/pdf');
+
+      let pdfFinal: Uint8Array = pdfBytes;
+      try {
+        const [cliente] = venda.cliente_id ? await sbGet(`clientes?id=eq.${venda.cliente_id}&select=*`) : [null];
+        const itensVenda = await sbGet(`itens_venda?venda_id=eq.${venda_id}&select=produto_nome,quantidade,valor_unitario`);
+        if (cliente?.endereco_logradouro) {
+          const remetenteEndereco = resolverRemetente(empresa, cred);
+          const declaracao = await gerarDeclaracaoConteudoPdf({
+            codigoRastreio: rastreioExistente.codigo_rastreio,
+            remetente: { ...remetenteEndereco, documento: empresa.cnpj },
+            destinatario: {
+              nome: cliente.nome, documento: cliente.documento, cep: cliente.endereco_cep, logradouro: cliente.endereco_logradouro,
+              numero: cliente.endereco_numero || 'S/N', complemento: cliente.endereco_complemento, bairro: cliente.endereco_bairro || '',
+              cidade: cliente.cidade || '', uf: cliente.endereco_uf,
+            },
+            itens: itensVenda || [],
+          });
+          pdfFinal = await combinarComEtiqueta(pdfBytes, declaracao);
+        }
+      } catch (e) {
+        // Sem declaração junto não impede de ter pelo menos a etiqueta — mesma
+        // filosofia de tolerância a falha já usada no resto desta function.
+        console.warn('Falha ao montar declaração de conteúdo (segue só com a etiqueta):', e);
+      }
+
+      const linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfFinal, 'application/pdf');
       const rastreio = await sbPatch('rastreios_correios', rastreioExistente.id, { link_pdf: linkPdf, atualizado_em: new Date().toISOString() });
       return json({ ok: true, rastreio, simulado: false });
     }
@@ -409,24 +543,7 @@ Deno.serve(async (req) => {
       // é só informativo pro relatório, quem empacota sabe o valor real pelo
       // comprovante dos Correios e pode preencher depois. A pré-postagem em
       // si não depende desse valor.
-      // O endereço de onde o pacote sai de verdade (galpão/depósito) pode ser
-      // diferente do endereço fiscal da empresa — se correios_credenciais tiver
-      // um endereço de remetente próprio preenchido, usa ele; senão cai no
-      // endereço da empresa (comportamento de antes, continua funcionando pra
-      // quem nunca preencheu isso).
-      const remetenteEndereco = cred.remetente_cep
-        ? {
-            nome: cred.remetente_nome || empresa.fantasia || empresa.razao,
-            cep: cred.remetente_cep, logradouro: cred.remetente_logradouro,
-            numero: cred.remetente_numero || 'S/N', complemento: cred.remetente_complemento,
-            bairro: cred.remetente_bairro || '', cidade: cred.remetente_cidade || '', uf: cred.remetente_uf,
-          }
-        : {
-            nome: empresa.fantasia || empresa.razao,
-            cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
-            numero: empresa.endereco_numero || 'S/N', complemento: undefined,
-            bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf,
-          };
+      const remetenteEndereco = resolverRemetente(empresa, cred);
 
       let valor = 0;
       try {
@@ -443,25 +560,44 @@ Deno.serve(async (req) => {
       // nome/quantidade/valor no momento da venda, mesmo padrão das notas fiscais).
       const itensVenda = await sbGet(`itens_venda?venda_id=eq.${venda_id}&select=produto_nome,quantidade,valor_unitario`);
 
+      const destinatarioEndereco: EnderecoPessoa = {
+        nome: cliente.nome, documento: cliente.documento, cep: cliente.endereco_cep, logradouro: cliente.endereco_logradouro,
+        numero: cliente.endereco_numero || 'S/N', complemento: cliente.endereco_complemento, bairro: cliente.endereco_bairro || '',
+        cidade: cliente.cidade || '', uf: cliente.endereco_uf,
+      };
+      const itensDeclarados: ItemDeclarado[] = (itensVenda || []).map((it: { produto_nome: string; quantidade: number; valor_unitario: number }) => ({
+        produto_nome: it.produto_nome, quantidade: Number(it.quantidade), valor_unitario: Number(it.valor_unitario),
+      }));
+
       const prepostagem = await criarPrepostagem(base, token, {
         coProduto,
         remetente: { ...remetenteEndereco, cpfCnpj: empresa.cnpj },
-        destinatario: {
-          nome: cliente.nome, documento: cliente.documento, cep: cliente.endereco_cep, logradouro: cliente.endereco_logradouro,
-          numero: cliente.endereco_numero || 'S/N', complemento: cliente.endereco_complemento, bairro: cliente.endereco_bairro || '',
-          cidade: cliente.cidade || '', uf: cliente.endereco_uf,
-        },
+        destinatario: destinatarioEndereco,
         pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
-        itens: (itensVenda || []).map((it: { produto_nome: string; quantidade: number; valor_unitario: number }) => ({
-          conteudo: it.produto_nome, quantidade: Number(it.quantidade), valor: Number(it.valor_unitario),
-        })),
+        itens: itensDeclarados.map((it) => ({ conteudo: it.produto_nome, quantidade: it.quantidade, valor: it.valor_unitario })),
       });
 
       const codigoObjeto = prepostagem?.codigoObjeto || prepostagem?.codigoRastreio || '';
       let linkPdf: string | null = null;
       try {
         const pdfBytes = await gerarRotuloPdf(base, token, codigoObjeto);
-        if (pdfBytes) linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfBytes, 'application/pdf');
+        if (pdfBytes) {
+          // Pedido explícito da Thata: gerar a declaração de conteúdo junto, num
+          // PDF só, pro operador logístico imprimir e enviar com o pacote.
+          let pdfFinal: Uint8Array = pdfBytes;
+          try {
+            const declaracao = await gerarDeclaracaoConteudoPdf({
+              codigoRastreio: codigoObjeto,
+              remetente: { ...remetenteEndereco, documento: empresa.cnpj },
+              destinatario: destinatarioEndereco,
+              itens: itensDeclarados,
+            });
+            pdfFinal = await combinarComEtiqueta(pdfBytes, declaracao);
+          } catch (e) {
+            console.warn('Falha ao montar declaração de conteúdo (segue só com a etiqueta):', e);
+          }
+          linkPdf = await sbUpload(`${venda.empresa_id}/etiqueta-correios-${venda_id}.pdf`, pdfFinal, 'application/pdf');
+        }
       } catch (e) {
         // Não derruba a postagem por causa do rótulo — o código de rastreio já foi gerado,
         // o PDF pode ser baixado depois direto no painel dos Correios se isso falhar.
