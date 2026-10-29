@@ -117,10 +117,19 @@ function mensagemErroCorreios(textoBruto: string): string {
   return 'Os Correios recusaram a solicitação. Confira os dados do contrato e tente de novo. Se continuar, fale com o suporte.';
 }
 
-async function autenticarCorreios(base: string, usuario: string, codigoAcesso: string) {
-  const r = await fetch(`${base}/token/v1/autentica`, {
+// CONFIRMADO em uso real (Natufonts, 29/10/2026): autenticar em /token/v1/autentica
+// (genérico) gera um token que NÃO carrega a lista de APIs liberadas pro cartão
+// de postagem — toda chamada de preço/pré-postagem voltava "Acesso não
+// autorizado. API restrita.", mesmo com as APIs de verdade liberadas no
+// contrato. O endpoint certo pra postagem/preço é o escopado por cartão de
+// postagem (/token/v1/autentica/cartaopostagem), confirmado por teste real:
+// o token resultante inclui cartaoPostagem.api com as APIs realmente
+// liberadas (preço, pré-postagem, etc.) pra esse cartão específico.
+async function autenticarCorreios(base: string, usuario: string, codigoAcesso: string, cartaoPostagem: string) {
+  const r = await fetch(`${base}/token/v1/autentica/cartaopostagem`, {
     method: 'POST',
     headers: { Authorization: 'Basic ' + btoa(`${usuario}:${codigoAcesso}`), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ numero: cartaoPostagem }),
   });
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const data = await r.json();
@@ -286,7 +295,7 @@ Deno.serve(async (req) => {
       resultado = simularEtiqueta();
     } else {
       const base = correiosBaseUrl(cred.ambiente);
-      const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api);
+      const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api, cred.cartao_postagem);
       const pesoGramas = Math.round(pesoTotalKg * 1000);
       // Serviço escolhido na hora de gerar a etiqueta (PAC/SEDEX) tem prioridade
       // sobre o padrão cadastrado — ver comentário no topo do arquivo.
