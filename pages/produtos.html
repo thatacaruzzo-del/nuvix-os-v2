@@ -959,6 +959,21 @@ async function salvarProduto(){
   if(precoFinal<0){msg('produtoMsg','O preço de venda não pode ser negativo.','err');return;}
   if(numBR('prodCusto')<0){msg('produtoMsg','O custo não pode ser negativo.','err');return;}
   if($('prodConsignado').checked&&!val('prodConsignador')){msg('produtoMsg','Selecione o consignador desse produto.','err');return;}
+  // CONFIRMADO em uso real (Natufonts, 29/10/2026): um CSOSN digitado errado
+  // (ex: "0102" em vez de "102") só aparecia como erro na hora de emitir a
+  // nota fiscal, bem depois do produto já estar cadastrado e vendido —
+  // valida aqui, na hora de salvar, pra pegar o erro na origem. O mesmo
+  // campo serve pra CSOSN (Simples Nacional, 3 dígitos) ou CST do ICMS
+  // (Regime Normal, 2 dígitos), por isso aceita os dois formatos.
+  const csosnCstDigitado=val('prodCstCsosn').trim();
+  if(csosnCstDigitado){
+    const CSOSN_VALIDOS=['101','102','103','201','202','203','300','400','500','900'];
+    const CST_ICMS_VALIDOS=['00','10','20','30','40','41','50','51','60','61','70','90'];
+    if(!CSOSN_VALIDOS.includes(csosnCstDigitado)&&!CST_ICMS_VALIDOS.includes(csosnCstDigitado)){
+      msg('produtoMsg',`"${csosnCstDigitado}" não é um CSOSN nem CST do ICMS válido. CSOSN tem 3 dígitos (ex: 102, 500), CST tem 2 dígitos (ex: 00, 60). Confira no cadastro do produto no seu contador.`,'err');
+      return;
+    }
+  }
   const id=val('prodId');
   const sugeridoTxt=$('prodSugerido').value.replace(/[^\d,.-]/g,'').replace(',','.');
   const sugerido=Number(sugeridoTxt||0);

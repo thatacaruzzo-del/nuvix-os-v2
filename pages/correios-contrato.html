@@ -102,6 +102,13 @@
 
         <button class="btn" id="corrBtnEnviar" style="min-width:200px" onclick="salvarContratoCorreios()">Salvar e ativar</button>
         <div id="corrMsg" class="msg"></div>
+
+        <div class="cert-section">
+          <h3>Testar conexão</h3>
+          <p>Depois de salvar, use isso pra conferir sozinho se os dados estão certos e se os Correios já liberaram tudo que o contrato precisa — sem precisar abrir chamado com a gente.</p>
+          <button class="btn2" id="corrBtnTestar" onclick="testarConexaoCorreios()">Testar conexão</button>
+          <div id="corrTesteResultado" style="margin-top:12px"></div>
+        </div>
       </div>
 
     </div><!-- /main-scroll -->
@@ -167,6 +174,37 @@ async function salvarContratoCorreios(){
     msg('corrMsg',e.message,'err');
   }finally{
     btn.disabled=false;btn.textContent='Salvar e ativar';
+  }
+}
+
+async function testarConexaoCorreios(){
+  const btn=$('corrBtnTestar');
+  const out=$('corrTesteResultado');
+  btn.disabled=true;btn.textContent='Testando...';
+  out.innerHTML='';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/gerar-etiqueta-correios`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+(tokenAtual()||SUPABASE_KEY)},
+      body:JSON.stringify({acao:'testar_conexao'}),
+    });
+    const resp=await r.json();
+    if(!resp.ok){
+      const MSGS={nao_autenticado:'Sessão expirada, atualize a página e tente de novo.',contrato_nao_cadastrado:'Salve os dados do contrato antes de testar.',autenticacao_falhou:resp.mensagem||'Não conseguimos autenticar com os dados informados. Confira usuário, código de acesso e cartão de postagem.'};
+      out.innerHTML=`<div class="msg show err">${MSGS[resp.erro]||'Não foi possível testar agora.'}</div>`;
+      return;
+    }
+    const linhaOk=(ok,label)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:4px"><span style="color:${ok?'var(--green,#16A34A)':'var(--red,#DC2626)'}">${ok?'✓':'✗'}</span> ${label}</div>`;
+    out.innerHTML=`
+      <div class="msg show ok" style="margin-bottom:10px">Autenticação com os Correios funcionou! (ambiente: ${resp.ambiente==='producao'?'Produção':'Homologação'})</div>
+      ${linhaOk(resp.api_preco_liberada,'API de cálculo de preço liberada')}
+      ${linhaOk(resp.api_postagem_liberada,'API de postagem/etiqueta liberada')}
+      ${(!resp.api_preco_liberada||!resp.api_postagem_liberada)?'<div style="font-size:12px;color:var(--muted);margin-top:8px">O que estiver com ✗ precisa ser liberado direto com o suporte dos Correios (não é algo que a gente ativa por aqui) — peça pra vincularem os serviços de API ao seu cartão de postagem.</div>':''}
+    `;
+  }catch(e){
+    out.innerHTML=`<div class="msg show err">Erro ao testar: ${e.message}</div>`;
+  }finally{
+    btn.disabled=false;btn.textContent='Testar conexão';
   }
 }
 

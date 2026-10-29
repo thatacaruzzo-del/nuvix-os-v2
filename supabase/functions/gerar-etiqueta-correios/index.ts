@@ -443,6 +443,39 @@ Deno.serve(async (req) => {
 
   try {
     const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico, acao } = await req.json();
+
+    // "testar_conexao" não depende de nenhum pedido — serve pra quem acabou
+    // de preencher o contrato em correios-contrato.html conferir sozinho se
+    // deu certo, sem precisar abrir chamado com a gente pra cada empresa
+    // nova. Mostra exatamente quais APIs o cartão de postagem tem liberadas
+    // (mesma informação que o token escopado já traz, ver autenticarCorreios).
+    if (acao === 'testar_conexao') {
+      const empresaId = empresaIdDoChamador(req);
+      if (!empresaId) return json({ ok: false, erro: 'nao_autenticado' }, 401);
+      const [cred] = await sbGet(`correios_credenciais?empresa_id=eq.${empresaId}&select=*`);
+      if (!cred) return json({ ok: false, erro: 'contrato_nao_cadastrado' }, 422);
+      try {
+        const base = correiosBaseUrl(cred.ambiente);
+        const r = await fetch(`${base}/token/v1/autentica/cartaopostagem`, {
+          method: 'POST',
+          headers: { Authorization: 'Basic ' + btoa(`${cred.usuario_meu_correios}:${cred.codigo_acesso_api}`), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero: cred.cartao_postagem }),
+        });
+        if (!r.ok) return json({ ok: false, erro: 'autenticacao_falhou', mensagem: mensagemErroCorreios(await r.text()) }, 200);
+        const data = await r.json();
+        const apis: number[] = data?.cartaoPostagem?.api || [];
+        return json({
+          ok: true,
+          autenticado: true,
+          api_preco_liberada: apis.includes(34),
+          api_postagem_liberada: apis.includes(36),
+          ambiente: cred.ambiente,
+        });
+      } catch (e) {
+        return json({ ok: false, erro: 'autenticacao_falhou', mensagem: String((e as Error)?.message || e) }, 200);
+      }
+    }
+
     if (!venda_id) throw new Error('venda_id é obrigatório.');
 
     const [venda] = await sbGet(`vendas?id=eq.${venda_id}&select=*`);
