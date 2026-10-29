@@ -160,42 +160,83 @@ async function calcularPreco(base: string, token: string, params: {
   return Number(data?.pcFinal ?? data?.valor ?? data?.precoFinal ?? 0);
 }
 
-// CONFIRMAR: payload exato de POST /prepostagem/v1/prepostagens (remetente/
-// destinatario/objeto) — estrutura abaixo é a melhor aproximação pela doc
-// pública, não validada contra resposta real ainda.
+// CONFIRMADO em teste real (Natufonts, 29/10/2026) contra o OpenAPI oficial
+// (apihom.correios.com.br/prepostagem/v3/api-docs): o payload anterior deste
+// arquivo estava errado em vários pontos — causa real do erro "dados do
+// endereço do destinatário obrigatório":
+//   1. Endereço vai ANINHADO em remetente.endereco/destinatario.endereco,
+//      não como campos soltos direto em remetente/destinatario.
+//   2. Campos de dimensão são alturaInformada/larguraInformada/
+//      comprimentoInformada (terminação feminina), não "...Informado".
+//   3. pesoInformado, as dimensões e codigoFormatoObjetoInformado são STRING,
+//      não number.
+//   4. itensDeclaracaoConteudo (array com conteudo/quantidade/valor) e
+//      cienteObjetoNaoProibido ("1") são obrigatórios e não existiam aqui.
+//   5. Não existe campo "cartaoPostagem" no corpo — o cartão já vem do token
+//      (autenticado via /token/v1/autentica/cartaopostagem), então foi
+//      removido.
+//   6. destinatario.endereco.regiao está marcado obrigatório no schema —
+//      preenchido pela região geográfica da UF (ver regiaoPorUf).
+function regiaoPorUf(uf: string): string {
+  const mapa: Record<string, string> = {
+    AC: 'Norte', AP: 'Norte', AM: 'Norte', PA: 'Norte', RO: 'Norte', RR: 'Norte', TO: 'Norte',
+    AL: 'Nordeste', BA: 'Nordeste', CE: 'Nordeste', MA: 'Nordeste', PB: 'Nordeste', PE: 'Nordeste', PI: 'Nordeste', RN: 'Nordeste', SE: 'Nordeste',
+    DF: 'Centro-Oeste', GO: 'Centro-Oeste', MT: 'Centro-Oeste', MS: 'Centro-Oeste',
+    ES: 'Sudeste', MG: 'Sudeste', RJ: 'Sudeste', SP: 'Sudeste',
+    PR: 'Sul', RS: 'Sul', SC: 'Sul',
+  };
+  return mapa[String(uf || '').toUpperCase()] || 'Sudeste';
+}
+
 async function criarPrepostagem(base: string, token: string, params: {
-  cartaoPostagem: string; coProduto: string;
-  remetente: { nome: string; cep: string; logradouro: string; numero: string; bairro: string; cidade: string; uf: string };
+  coProduto: string;
+  remetente: { nome: string; cpfCnpj: string; cep: string; logradouro: string; numero: string; complemento?: string; bairro: string; cidade: string; uf: string };
   destinatario: { nome: string; documento: string; cep: string; logradouro: string; numero: string; complemento?: string; bairro: string; cidade: string; uf: string };
   pesoGramas: number; altura: number; largura: number; comprimento: number;
+  itens: { conteudo: string; quantidade: number; valor: number }[];
 }) {
   const body = {
     remetente: {
-      nome: params.remetente.nome,
-      cep: params.remetente.cep.replace(/\D/g, ''),
-      logradouro: params.remetente.logradouro,
-      numero: params.remetente.numero,
-      bairro: params.remetente.bairro,
-      cidade: params.remetente.cidade,
-      uf: params.remetente.uf,
+      nome: params.remetente.nome.slice(0, 50),
+      cpfCnpj: (params.remetente.cpfCnpj || '').replace(/\D/g, ''),
+      endereco: {
+        cep: params.remetente.cep.replace(/\D/g, ''),
+        logradouro: params.remetente.logradouro,
+        numero: params.remetente.numero,
+        complemento: params.remetente.complemento || undefined,
+        bairro: params.remetente.bairro,
+        cidade: params.remetente.cidade,
+        uf: params.remetente.uf,
+      },
     },
     destinatario: {
-      nome: params.destinatario.nome,
-      cep: params.destinatario.cep.replace(/\D/g, ''),
-      logradouro: params.destinatario.logradouro,
-      numero: params.destinatario.numero,
-      complemento: params.destinatario.complemento || undefined,
-      bairro: params.destinatario.bairro,
-      cidade: params.destinatario.cidade,
-      uf: params.destinatario.uf,
+      nome: params.destinatario.nome.slice(0, 50),
+      cpfCnpj: (params.destinatario.documento || '').replace(/\D/g, ''),
+      endereco: {
+        cep: params.destinatario.cep.replace(/\D/g, ''),
+        logradouro: params.destinatario.logradouro,
+        numero: params.destinatario.numero,
+        complemento: params.destinatario.complemento || undefined,
+        bairro: params.destinatario.bairro,
+        cidade: params.destinatario.cidade,
+        uf: params.destinatario.uf,
+        regiao: regiaoPorUf(params.destinatario.uf),
+      },
     },
     codigoServico: params.coProduto,
-    cartaoPostagem: params.cartaoPostagem,
-    pesoInformado: params.pesoGramas,
-    alturaInformado: params.altura,
-    larguraInformado: params.largura,
-    comprimentoInformado: params.comprimento,
-    codigoFormatoObjetoInformado: 2, // CONFIRMAR: 1=envelope, 2=pacote/caixa, 3=rolo — assumindo pacote
+    pesoInformado: String(params.pesoGramas),
+    codigoFormatoObjetoInformado: '2', // 1=envelope, 2=pacote/caixa, 3=rolo
+    alturaInformada: String(params.altura),
+    larguraInformada: String(params.largura),
+    comprimentoInformada: String(params.comprimento),
+    cienteObjetoNaoProibido: '1',
+    itensDeclaracaoConteudo: params.itens.length
+      ? params.itens.map((it) => ({
+          conteudo: (it.conteudo || 'Produto').slice(0, 60),
+          quantidade: String(Math.max(1, Math.round(it.quantidade))),
+          valor: Math.max(0.01, it.valor).toFixed(2),
+        }))
+      : [{ conteudo: 'Produto', quantidade: '1', valor: '0.01' }],
   };
   const r = await fetch(`${base}/prepostagem/v1/prepostagens`, {
     method: 'POST',
@@ -203,21 +244,63 @@ async function criarPrepostagem(base: string, token: string, params: {
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
-  return r.json(); // CONFIRMAR: espera-se {id, codigoObjeto, ...}
+  return r.json();
 }
 
-// Geração de rótulo é assíncrona na API real — tenta algumas vezes com
-// espera curta entre elas antes de desistir (ver "Fora do escopo" no plano:
-// contrato exato de polling não confirmado contra API real ainda).
+// CONFIRMADO contra o OpenAPI oficial (apihom.correios.com.br/prepostagem/
+// v3/api-docs, 29/10/2026): tipoRotulo é "P" (padrão) ou "R" (reduzido) —
+// não "E" — e formatoRotulo é "ET" (etiqueta) ou "EV" (envelope) — não
+// "PDF". Esse endpoint é assíncrono de verdade: o POST devolve um JSON (não
+// o PDF em si) com um identificador de recibo, que precisa ser consultado
+// depois em GET .../rotulo/download/assincrono/{idRecibo} pra pegar o
+// arquivo. O formato exato da resposta de cada etapa não está documentado
+// no schema (aparece só como "object" genérico), então aqui se tenta achar
+// o id do recibo e o conteúdo do PDF por nomes de campo prováveis, com
+// tolerância total a falha — se não achar, simplesmente não anexa o PDF
+// automático (não é crítico: o código de rastreio já foi gerado na
+// pré-postagem, e o rótulo sempre pode ser baixado depois direto no painel
+// dos Correios).
+function extrairCampoProvavel(obj: unknown, nomes: string[]): string | null {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const nome of nomes) {
+    const v = (obj as Record<string, unknown>)[nome];
+    if (typeof v === 'string' && v) return v;
+  }
+  return null;
+}
+
 async function gerarRotuloPdf(base: string, token: string, idPrepostagem: string): Promise<Uint8Array | null> {
   const r = await fetch(`${base}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idsPrePostagem: [idPrepostagem], tipoRotulo: 'E', formatoRotulo: 'PDF' }),
+    body: JSON.stringify({ idsPrePostagem: [idPrepostagem], tipoRotulo: 'P', formatoRotulo: 'ET', imprimeRemetente: 'S' }),
   });
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
-  const buf = await r.arrayBuffer();
-  return buf.byteLength ? new Uint8Array(buf) : null;
+  const solicitacao = await r.json().catch(() => null);
+  const idRecibo = extrairCampoProvavel(solicitacao, ['idRecibo', 'numeroRecibo', 'recibo', 'id', 'protocolo']);
+  if (!idRecibo) return null;
+
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const rr = await fetch(`${base}/prepostagem/v1/prepostagens/rotulo/download/assincrono/${idRecibo}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!rr.ok) continue;
+    const contentType = rr.headers.get('content-type') || '';
+    if (contentType.includes('application/pdf')) {
+      const buf = await rr.arrayBuffer();
+      return buf.byteLength ? new Uint8Array(buf) : null;
+    }
+    const corpo = await rr.json().catch(() => null);
+    const base64 = extrairCampoProvavel(corpo, ['arquivo', 'conteudo', 'pdf', 'base64']);
+    if (base64) {
+      const bin = atob(base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+  }
+  return null;
 }
 
 function simularEtiqueta() {
@@ -317,10 +400,15 @@ Deno.serve(async (req) => {
         console.warn('Falha ao calcular preço (etiqueta segue sem o valor do frete):', e);
       }
 
+      // itensDeclaracaoConteudo é obrigatório na API real (ver comentário em
+      // criarPrepostagem) — vem dos itens já gravados na venda (snapshot de
+      // nome/quantidade/valor no momento da venda, mesmo padrão das notas fiscais).
+      const itensVenda = await sbGet(`itens_venda?venda_id=eq.${venda_id}&select=produto_nome,quantidade,valor_unitario`);
+
       const prepostagem = await criarPrepostagem(base, token, {
-        cartaoPostagem: cred.cartao_postagem, coProduto,
+        coProduto,
         remetente: {
-          nome: empresa.fantasia || empresa.razao, cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
+          nome: empresa.fantasia || empresa.razao, cpfCnpj: empresa.cnpj, cep: empresa.endereco_cep, logradouro: empresa.endereco_logradouro,
           numero: empresa.endereco_numero || 'S/N', bairro: empresa.endereco_bairro || '', cidade: empresa.cidade || '', uf: empresa.endereco_uf,
         },
         destinatario: {
@@ -329,6 +417,9 @@ Deno.serve(async (req) => {
           cidade: cliente.cidade || '', uf: cliente.endereco_uf,
         },
         pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
+        itens: (itensVenda || []).map((it: { produto_nome: string; quantidade: number; valor_unitario: number }) => ({
+          conteudo: it.produto_nome, quantidade: Number(it.quantidade), valor: Number(it.valor_unitario),
+        })),
       });
 
       const codigoObjeto = prepostagem?.codigoObjeto || prepostagem?.codigoRastreio || '';
