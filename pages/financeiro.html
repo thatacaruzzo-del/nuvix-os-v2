@@ -2875,9 +2875,19 @@ async function gerarRelatorioMensal(){
     despesasMes.forEach(d=>{const cat=d.categoria||'Outros';porCategoria[cat]=(porCategoria[cat]||0)+Number(d.valor||0);});
     const topDespesas=Object.entries(porCategoria).sort((a,b)=>b[1]-a[1]).slice(0,8);
 
+    // CONFIRMADO em auditoria real (Yup, outubro/2026): "despesasTotais" era
+    // resultado-receitaBruta, um resíduo que misturava não classificados,
+    // deduções e receitas financeiras junto — podia mostrar um valor bem menor
+    // que a despesa paga de verdade, ou até positivo. Agora é a soma de
+    // verdade dos grupos que são despesa/custo (custos + despesas
+    // operacionais + despesas financeiras), e "não classificado" aparece como
+    // linha própria — igual ao resultado_de_caixa, nunca chamado de lucro
+    // líquido (esse relatório não sabe de CMV/estoque pra calcular isso).
+    const somaGrupo=(g)=>dreLinhas.filter(l=>l.grupo_dre===g).reduce((a,l)=>a+Number(l.total||0),0);
     const resultado=dreLinhas.reduce((a,l)=>a+Number(l.total||0),0);
-    const receitaBruta=dreLinhas.filter(l=>l.grupo_dre==='receita_bruta').reduce((a,l)=>a+Number(l.total||0),0);
-    const despesasTotais=resultado-receitaBruta;
+    const receitaBruta=somaGrupo('receita_bruta');
+    const despesasTotais=-(somaGrupo('custos')+somaGrupo('despesas_operacionais')+somaGrupo('despesas_financeiras'));
+    const naoClassificado=somaGrupo('nao_classificado');
     const nomeMes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes-1];
     const observacoes=val('relatorioObs');
 
@@ -2901,8 +2911,9 @@ async function gerarRelatorioMensal(){
 <h2>Resumo do mês</h2>
 <table>
   <tr><td>Receita bruta</td><td class="r">${money(receitaBruta)}</td></tr>
-  <tr><td>Despesas e custos</td><td class="r neg">${money(despesasTotais)}</td></tr>
-  <tr class="tot"><td>Resultado do mês</td><td class="r ${resultado>=0?'pos':'neg'}">${money(resultado)}</td></tr>
+  <tr><td>Despesas e custos</td><td class="r neg">${money(-despesasTotais)}</td></tr>
+  ${naoClassificado?`<tr><td>Lançamentos não classificados <a href="#" onclick="irParaClassificarCategorias();return false" style="font-size:11px">classificar →</a></td><td class="r">${money(naoClassificado)}</td></tr>`:''}
+  <tr class="tot"><td>Resultado de caixa do mês</td><td class="r ${resultado>=0?'pos':'neg'}">${money(resultado)}</td></tr>
 </table>
 
 <h2>DRE do mês (regime de caixa)</h2>
