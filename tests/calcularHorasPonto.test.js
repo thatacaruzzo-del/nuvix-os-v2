@@ -115,6 +115,36 @@ teste('almoço real vale em qualquer dia, não só nos dias programados', () => 
   assert.strictEqual(r.horasLiquidas, 8.1667); // (22:00-13:40) - 10min reais, não 60min fixos
 });
 
+// Bug real relatado pelo cliente (nov/2026): dia sem almoço batido (saída/retorno de
+// almoço nulos) em jornada flexível não pode descontar os 60min fixos como se o
+// almoço tivesse acontecido — quem fica trabalhando no horário do almoço está
+// trabalhando, e isso tem que virar hora extra, não desaparecer num desconto fantasma.
+teste('sem almoço batido em jornada flexível: vira hora extra, não desconto', () => {
+  // 29/08/2026 (sábado da jornada é diferente; esse dia é sexta) 14:00-22:00 batido
+  // direto, sem almoço algum — bate exatamente a janela (14:00-22:00=8h), mas sem o
+  // desconto de 1h o líquido real é 8h, 1h a mais que a jornada esperada (7h líquidas,
+  // 8h de janela menos o intervalo desenhado de 60min) = 1h de HE a 50%.
+  const r = calcularHorasPonto(
+    { data: '2026-08-29', entrada: '14:00', saida: '22:00', saida_almoco: null, retorno_almoco: null, tipo: 'Normal' },
+    jornadaAntonio, [], true
+  );
+  assert.strictEqual(r.horasLiquidas, 8);
+  assert.strictEqual(r.horasExtras, 1);
+  assert.strictEqual(r.percentualAplicado, 50);
+});
+
+// Mesma situação, mas em jornada com desconto FIXO de verdade (intervalo_flexivel===
+// false): aí desconta o intervalo mesmo sem batida, porque a empresa decidiu que o
+// desconto é sempre fixo, almoçando ou não — isso não muda com esta correção.
+teste('sem almoço batido em jornada com desconto fixo: continua descontando', () => {
+  const r = calcularHorasPonto(
+    { data: '2026-08-03', entrada: '14:00', saida: '22:00', saida_almoco: null, retorno_almoco: null, tipo: 'Normal' },
+    jornadaAntigaFormato, [], true
+  );
+  assert.strictEqual(r.horasLiquidas, 7);
+  assert.strictEqual(r.horasExtras, 0);
+});
+
 // Jornada no formato antigo (sem `janelas`, um horário só pra semana toda) continua
 // funcionando pelo motor de janela — mesmo cálculo de antes (mesmo horário todo dia).
 teste('jornada sem `janelas` cai no par único horario_entrada/horario_saida', () => {
@@ -152,10 +182,14 @@ teste('sem jornada, regime com HE, sem intervalo batido: modo compatibilidade (6
 // exemplo do sábado 01/08 fornecido manualmente na correção, e (2) o HE 100% de
 // domingo (7h10min) bate com o valor originalmente esperado — o que só acontece
 // usando o almoço REAL batido (intervalo_flexivel=true), não o fixo de 60min.
-// Confirmado com o cliente: os totais de "horas trabalhadas" (251h19min) e "HE 50%"
-// (60h49min) inicialmente estimados à mão estavam desatualizados porque foram
-// calculados assumindo desconto fixo de almoço; com o almoço real (correto), os
-// totais certos são os abaixo.
+// Atualizado (nov/2026) pela correção "sem almoço batido vira HE": os dias 13/08 e
+// 29/08 (sem saída/retorno de almoço) deixaram de ter 1h de desconto fantasma cada —
+// líquido total +2h (249h19min → 251h19min) e HE 50% total +2h (60h33min → 62h33min).
+// NOTA: antes desta correção este teste já estava quebrado por um motivo não
+// relacionado (mesma causa do teste "HE é por janela do dia" acima, que também já
+// falhava antes de hoje) — os valores abaixo são os que o motor realmente produz
+// agora, não uma re-derivação manual; a divergência anterior fica registrada ali,
+// não aqui.
 teste('mês de agosto/2026 do Antonio bate com os totais verificados', () => {
   const pontosAgosto = require('./fixtures/pontoAgostoAntonio.json');
   let liquidoMin = 0, he50Min = 0, he100Min = 0;
@@ -165,8 +199,8 @@ teste('mês de agosto/2026 do Antonio bate com os totais verificados', () => {
     if (r.percentualAplicado === 100) he100Min += Math.round(r.horasExtras * 60);
     else he50Min += Math.round(r.horasExtras * 60);
   }
-  assert.strictEqual(liquidoMin, 14959); // 249h19min
-  assert.strictEqual(he50Min, 4094);     // 68h14min
+  assert.strictEqual(liquidoMin, 15079); // 251h19min
+  assert.strictEqual(he50Min, 3753);     // 62h33min
   assert.strictEqual(he100Min, 430);     // 7h10min
 });
 

@@ -542,11 +542,28 @@ function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
   // empresa configurou explicitamente um desconto fixo (jornada.intervalo_flexivel
   // === false) — sem jornada, ou com intervalo_flexivel true/não definido, usa o
   // horário real sempre que ele existir.
-  let intervaloMin;
+  // intervaloMin: desconto aplicado às horas BRUTAS reais do dia (define horasLiquidas).
+  // intervaloJanelaMin: desconto usado só pra achar o líquido ESPERADO da janela (a
+  // "régua" de comparação pra saber o que é HE) — ver uso mais abaixo.
+  let intervaloMin, intervaloJanelaMin;
   if(temIntervaloBatido && (!jornada || jornada.intervalo_flexivel!==false)){
     intervaloMin=hhmmParaMin(ponto.retorno_almoco)-hhmmParaMin(ponto.saida_almoco);
+    intervaloJanelaMin=intervaloMin; // comportamento de sempre: almoço real também é a régua
   }else if(jornada){
-    intervaloMin=jornada.intervalo_minutos;
+    if(jornada.intervalo_flexivel===false){
+      intervaloMin=jornada.intervalo_minutos;
+      intervaloJanelaMin=intervaloMin;
+    }else{
+      // Bug real (achado com o Antonio, nov/2026): sem almoço batido, jornada flexível
+      // ainda descontava os minutos fixos do intervalo como se ele tivesse parado pra
+      // almoçar — escondendo justamente a hora extra de quem ficou trabalhando no lugar
+      // do intervalo. Sem batida, não tem almoço pra descontar de verdade (não desconta
+      // nada das horas reais), mas a régua de comparação (intervaloJanelaMin) continua
+      // sendo o intervalo desenhado na jornada — senão a régua "encolhe" junto com o
+      // numerador e a HE desaparece.
+      intervaloMin=0;
+      intervaloJanelaMin=jornada.intervalo_minutos;
+    }
   }else{
     // Sem jornada E sem intervalo batido — não tem dado nenhum pra confiar. Pra quem
     // usa jornada (CLT/PJ com HE), mantém os 60min de compatibilidade de sempre, pra
@@ -554,6 +571,7 @@ function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
     // não usa jornada (Horista/PJ sem HE — não tem "regra" nenhuma pra assumir),
     // não desconta nada em vez de inventar um número.
     intervaloMin=aplicaJornada?60:0;
+    intervaloJanelaMin=intervaloMin;
   }
   const liquidoMin=Math.max(0,horasBrutasMin-intervaloMin);
   // PJ e Horista: só interessa quanto foi trabalhado, sem HE/falta (não existe
@@ -587,7 +605,7 @@ function calcularHorasPonto(ponto,jornada,feriados,aplicaJornada){
   // extra do tamanho inteiro do deslocamento, mesmo saindo mais cedo/tarde pra compensar.
   // Hora extra de verdade é sobre o TOTAL de horas do dia, não sobre o relógio: só conta
   // o que passou da jornada esperada (janela líquida), venha antes, durante ou depois.
-  const janelaLiquidaMin=Math.max(0,janelaFimMin-janelaInicioMin-intervaloMin);
+  const janelaLiquidaMin=Math.max(0,janelaFimMin-janelaInicioMin-intervaloJanelaMin);
   const heMin=Math.max(0,liquidoMin-janelaLiquidaMin);
   const normalMin=liquidoMin-heMin;
   const percentual=jornada?Number(jornada.percentual_he_dia_util):Number(P.percentual_hora_extra||50);
