@@ -442,7 +442,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <thead><tr><th style="width:34px"><input type="checkbox" id="pedSelTodos" title="Selecionar todos os pedidos do filtro" onchange="selecionarTodosPedidos(this.checked)" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"></th><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Entrega</th><th>Data</th></tr></thead>
             <tbody id="pedHistoricoTable"></tbody>
           </table>
-          <div id="pedHistoricoPaginacao"></div>
+          <div id="pedHistoricoTablePaginacao"></div>
         </div>
       </div>
 
@@ -1291,10 +1291,35 @@ async function carregarHistoricoPedidos(){
   try{
     historicoPedidos=temFiltro ? await dbGetTodas('vendas',q) : await dbGet('vendas',q+'&limit=200');
   }catch(e){ historicoPedidos=[]; toast('Erro ao carregar: '+e.message,'err'); }
+  await carregarNotasHistoricoPedidos();
   setHTML('pedHistInfo', temFiltro
     ? `<b>${historicoPedidos.length}</b> pedido${historicoPedidos.length===1?'':'s'} encontrado${historicoPedidos.length===1?'':'s'} com esse filtro.`
     : `Mostrando os últimos ${historicoPedidos.length} pedidos. Use os filtros acima pra buscar por período ou status.`);
   renderHistoricoPedidos();
+}
+// Coluna "Nota fiscal" do histórico (antes ficava sempre "—"): busca a nota
+// mais recente de cada pedido carregado, NF-e ou NFC-e, em lotes de 80 ids.
+let pedNotaPorVenda={};
+async function carregarNotasHistoricoPedidos(){
+  pedNotaPorVenda={};
+  const ids=historicoPedidos.map(v=>v.id);
+  for(let i=0;i<ids.length;i+=80){
+    const lista=ids.slice(i,i+80).join(',');
+    const [nfe,nfce]=await Promise.all([
+      dbGet('notas_fiscais_nfe',`?venda_id=in.(${lista})&select=venda_id,status,numero,created_at&order=created_at.asc`).catch(()=>[]),
+      dbGet('notas_fiscais_nfce',`?venda_id=in.(${lista})&select=venda_id,status,numero,created_at&order=created_at.asc`).catch(()=>[]),
+    ]);
+    [...nfce,...nfe].forEach(n=>{ pedNotaPorVenda[n.venda_id]=n; }); // asc: fica a mais recente
+  }
+}
+function badgeNotaHistorico(vendaId){
+  const n=pedNotaPorVenda[vendaId];
+  if(!n)return '<span style="color:var(--muted)">—</span>';
+  if(n.status==='autorizada')return `<span class="badge ok">${n.numero&&n.numero!=='SIMULADO'?'Nº '+esc(String(n.numero)):'Autorizada'}</span>`;
+  if(n.status==='processando')return '<span class="badge warn">Processando</span>';
+  if(n.status==='erro')return '<span class="badge badge-red">Rejeitada</span>';
+  if(n.status==='cancelada')return '<span class="badge badge-red">Cancelada</span>';
+  return `<span class="badge">${esc(n.status||'—')}</span>`;
 }
 function limparFiltroHistoricoPedidos(){
   $('pedHistDe').value=''; $('pedHistAte').value=''; $('pedHistStatus').value=''; $('pedHistStatusEntrega').value='';
@@ -1357,7 +1382,7 @@ function renderHistoricoPedidos(){
       <td>${esc(v.cliente_nome||'—')}</td>
       <td>${money(v.total)}</td>
       <td>${v.status==='Cancelada'?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Registrado</span>'}</td>
-      <td>—</td>
+      <td>${badgeNotaHistorico(v.id)}</td>
       <td>${v.status==='Cancelada'?'—':badgeStatusEntrega(v.status_entrega)}</td>
       <td style="font-size:11px;color:var(--muted)">${fmtDataHora(v.created_at)}</td>
     </tr>`).join('')||'<tr><td colspan="8" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
