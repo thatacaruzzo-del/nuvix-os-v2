@@ -234,12 +234,17 @@ function montarSidebarDinamica(opcoes) {
       const ids = Array.isArray(modId) ? modId : [modId];
       return ids.some(id => { const p = permsUser.find(x => x.modulo === id); return p ? !!p.pode_ver : true; });
     }
+    // Pedidos também abre pra quem tem "Expedição → Ver" marcado DE PROPÓSITO
+    // (modelo Expedição), mesmo sem Caixa — sem linha salva não conta, senão
+    // todo funcionário com permissões antigas (RH, Financeiro...) passaria a ver.
+    const expedicaoVerExplicito = permsUser.some(x => x.modulo === 'expedicao' && x.pode_ver);
     nav.querySelectorAll('.sb-btn').forEach(btn => {
-      const modId = HREF_MODULO[btn.getAttribute('href')];
+      const href = btn.getAttribute('href');
+      const modId = HREF_MODULO[href];
       if (!modId) return;
       if (!podeVerModuloEmpresa(modId)) {
         marcarBotaoTrancado(btn, modId, d.empresa?.plano || 'Start');
-      } else if (!podeVerModulo(modId)) {
+      } else if (!podeVerModulo(modId) && !(href === 'pedidos.html' && expedicaoVerExplicito)) {
         btn.remove();
       }
     });

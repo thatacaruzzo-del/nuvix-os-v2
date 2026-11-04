@@ -963,7 +963,7 @@ const MODULOS_TODOS=[
   {id:'produtos',nome:'Produtos'},
   {id:'vendas',nome:'Vendas'},
   // Sub-permissão de Vendas (não é módulo do plano): segue o que a empresa tem de "vendas".
-  {id:'expedicao',nome:'Expedição',segue:'vendas',tipos:{criar:'Gerar etiqueta',editar:'Mudar status de entrega'}},
+  {id:'expedicao',nome:'Expedição',segue:'vendas',verExplicito:true,tipos:{ver:'Ver pedidos (sem acesso ao Caixa)',criar:'Gerar etiqueta',editar:'Mudar status de entrega'}},
   {id:'estoque',nome:'Estoque'},
   {id:'financeiro',nome:'Financeiro'},
   {id:'contas_pagar',nome:'Contas a Pagar'},
@@ -1022,7 +1022,7 @@ const PRESETS_PAPEL={
     resumo:'Separa e despacha pedidos: vê os pedidos, gera e imprime etiqueta e nota, muda o status de entrega. Não cria, não edita pagamento e não cancela pedido.',
     modulos:{
       vendas:{ver:1},
-      expedicao:{criar:1,editar:1},
+      expedicao:{ver:1,criar:1,editar:1},
       notas_fiscais:{ver:1},
       folha_ponto:{ver:1,criar:1},
     },
@@ -1124,10 +1124,10 @@ async function abrirPermissoesFuncionario(usuId){
     // Sem linha salva em usuario_permissoes, o acesso real já vem liberado (mesmo
     // fail-open do temPermissao() no resto do sistema) — o checkbox tem que mostrar
     // isso marcado, senão a tela mente que a pessoa não tem acesso quando ela tem.
-    const marcado=tipo=>disabled?false:(ehAdmin?true:(temLinha?!!p[`pode_${tipo}`]:true));
+    const marcado=tipo=>disabled?false:(ehAdmin?true:(temLinha?!!p[`pode_${tipo}`]:!(m.verExplicito&&tipo==='ver')));
     const chk=tipo=>m.tipos&&!m.tipos[tipo]?'<span style="color:var(--muted)">—</span>':`<input type="checkbox" class="perm-check" data-mod="${m.id}" data-type="${tipo}" ${marcado(tipo)?'checked':''} ${disabled?'disabled':''}>`;
     return`<tr style="${disabled?'opacity:.4':''}">
-      <td>${esc(m.nome)}${m.tipos?`<div class="field-hint" style="margin-top:2px">Criar = ${esc(m.tipos.criar)} · Editar = ${esc(m.tipos.editar)}</div>`:''}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}${!disabled&&!ehAdmin&&!temLinha?' <span class="badge" style="font-size:9.5px;padding:2px 7px;margin-left:4px;background:var(--amber-bg);color:var(--amber)">padrão: liberado</span>':''}</td>
+      <td>${esc(m.nome)}${m.tipos?`<div class="field-hint" style="margin-top:2px">${Object.entries(m.tipos).map(([t,d])=>`${t[0].toUpperCase()+t.slice(1)} = ${esc(d)}`).join(' · ')}</div>`:''}${disabled?' <small style="color:var(--red)">(bloqueado)</small>':''}${!disabled&&!ehAdmin&&!temLinha?' <span class="badge" style="font-size:9.5px;padding:2px 7px;margin-left:4px;background:var(--amber-bg);color:var(--amber)">padrão: liberado</span>':''}</td>
       <td>${chk('ver')}</td>
       <td>${chk('criar')}</td>
       <td>${chk('editar')}</td>

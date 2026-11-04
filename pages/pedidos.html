@@ -573,7 +573,10 @@ function fecharSidebar(){document.getElementById('sidebar').classList.remove('op
 
 async function init(){
   if(!session)return;
-  if(!guardModulo('caixa'))return; // Pedidos reaproveita a mesma trava de plano do Caixa/Painel de Vendas
+  // Pedidos reaproveita a trava do Caixa — ou "Expedição → Ver" marcado de propósito
+  // (modelo Expedição: despacha pedido sem ter acesso à frente de caixa).
+  const expedicaoVer=session.perfil!=='Administrador'&&(session.usuario_permissoes||[]).some(x=>x.modulo==='expedicao'&&x.pode_ver);
+  if(!expedicaoVer&&!guardModulo('caixa'))return;
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
