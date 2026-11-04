@@ -1777,11 +1777,11 @@ async function atualizarRastreioPedido(){
     const resp=await r.json();
     if(!resp.ok){toast('Erro ao atualizar: '+(resp.mensagem||resp.erro),'err');return;}
     rastreioAtual=resp.rastreio;
-    // Heurística simples, não garantida: o texto que os Correios devolvem é
-    // livre, não um código fixo — se tiver "entregue" no status, assume que
-    // chegou. Se marcar errado, dá pra corrigir manualmente a qualquer hora.
-    if(/entregue/i.test(rastreioAtual.status||'')){
-      await avancarStatusEntregaPedido('Entregue');
+    // O servidor (rastrear-correios) já avança o status de entrega pelo evento
+    // dos Correios (postado → Enviado, entregue → Entregue) — aqui só reflete.
+    if(resp.status_entrega){
+      const v=pedFichaCache[fichaAbertaId]; if(v)v.status_entrega=resp.status_entrega;
+      const h=historicoPedidos.find(x=>x.id===fichaAbertaId); if(h)h.status_entrega=resp.status_entrega;
     }
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast('Status atualizado.','ok');
