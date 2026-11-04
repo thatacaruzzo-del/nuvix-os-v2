@@ -1526,8 +1526,14 @@ async function reimprimirRotuloPedido(){
     const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'reimprimir',venda_id:fichaAbertaId})});
     const resp=await r.json();
     if(!resp.ok){
-      const MSGS={etiqueta_nao_gerada_ainda:'Essa etiqueta ainda não foi gerada.',rotulo_ainda_nao_disponivel:'O rótulo ainda não ficou pronto nos Correios. Tenta de novo em alguns segundos.'};
+      const MSGS={etiqueta_nao_gerada_ainda:'Essa etiqueta ainda não foi gerada.',rotulo_ainda_nao_disponivel:'O rótulo ainda não ficou pronto nos Correios. Tenta de novo em alguns segundos.',etiqueta_cancelada_correios:'Essa etiqueta foi cancelada do lado dos Correios — gere uma etiqueta nova abaixo.'};
       toast(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)),'err');
+      // etiqueta_cancelada_correios já atualiza o status no banco — reflete na tela
+      // na hora, sem precisar fechar e reabrir a ficha pra ver a opção de gerar nova.
+      if(resp.erro==='etiqueta_cancelada_correios'&&resp.rastreio){
+        rastreioAtual=resp.rastreio;
+        setHTML('fpEnvioConteudo',renderEnvioPedido());
+      }
       return;
     }
     rastreioAtual=resp.rastreio;

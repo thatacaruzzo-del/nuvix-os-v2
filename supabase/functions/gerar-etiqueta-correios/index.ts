@@ -550,11 +550,14 @@ Deno.serve(async (req) => {
         // na tela que precisa gerar uma etiqueta NOVA, em vez de ficar tentando
         // buscar o PDF de uma que nunca vai existir.
         if (/cancelad/i.test(msg)) {
-          await sbPatch('rastreios_correios', rastreioExistente.id, {
+          const rastreioCancelado = await sbPatch('rastreios_correios', rastreioExistente.id, {
             status: 'Cancelada nos Correios',
             atualizado_em: new Date().toISOString(),
           });
-          return json({ ok: false, erro: 'etiqueta_cancelada_correios', mensagem: msg }, 422);
+          // Devolve o rastreio atualizado junto do erro — o front usa isso pra já
+          // mostrar a tela de "gerar etiqueta nova" na hora, sem precisar fechar e
+          // reabrir a ficha do pedido pra buscar o status mais recente.
+          return json({ ok: false, erro: 'etiqueta_cancelada_correios', mensagem: msg, rastreio: rastreioCancelado }, 422);
         }
         throw e;
       }
