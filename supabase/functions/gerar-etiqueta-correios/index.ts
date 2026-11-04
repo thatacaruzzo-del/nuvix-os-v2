@@ -846,6 +846,43 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: 'empresa_sem_endereco_completo' }, 422);
     }
 
+    // TRAVA (pedido da Thata, 04/11/2026): empresa que emite nota fiscal só
+    // gera etiqueta com a nota JÁ AUTORIZADA. Caso real (Natufonts, pedido nº 8):
+    // etiqueta gerada com a NF-e ainda "processando" saiu sem chaveNFe e os
+    // Correios cancelaram a pré-postagem em segundos ("Etiqueta cancelada pelo
+    // sistema de captação"). Antes de recusar, se houver NF-e "processando",
+    // consulta a Focus (a autorização é assíncrona e o status no banco só muda
+    // quando alguém consulta) — se já saiu, segue normalmente.
+    if (empresa.nfe_ativo || empresa.nfce_ativo) {
+      const buscarAutorizada = async () => {
+        const [[a], [b]] = await Promise.all([
+          sbGet(`notas_fiscais_nfe?venda_id=eq.${venda_id}&status=eq.autorizada&select=id&limit=1`),
+          sbGet(`notas_fiscais_nfce?venda_id=eq.${venda_id}&status=eq.autorizada&select=id&limit=1`),
+        ]);
+        return a || b || null;
+      };
+      let autorizada = await buscarAutorizada();
+      if (!autorizada) {
+        const [emProcesso] = await sbGet(`notas_fiscais_nfe?venda_id=eq.${venda_id}&status=eq.processando&select=id&order=created_at.desc&limit=1`);
+        if (emProcesso) {
+          await fetch(`${SUPABASE_URL}/functions/v1/emitir-nfe`, {
+            method: 'POST',
+            headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acao: 'consultar', nota_fiscal_nfe_id: emProcesso.id }),
+          }).catch(() => null);
+          autorizada = await buscarAutorizada();
+        }
+      }
+      if (!autorizada) {
+        const [[ultNfe], [ultNfce]] = await Promise.all([
+          sbGet(`notas_fiscais_nfe?venda_id=eq.${venda_id}&select=status,mensagem_erro&order=created_at.desc&limit=1`),
+          sbGet(`notas_fiscais_nfce?venda_id=eq.${venda_id}&select=status&order=created_at.desc&limit=1`),
+        ]);
+        const ult = ultNfe || ultNfce;
+        return json({ ok: false, erro: 'nota_fiscal_nao_autorizada', situacao_nota: ult?.status || 'nao_emitida' }, 422);
+      }
+    }
+
     let resultado: { simulado: boolean; codigo_rastreio: string; valor_frete: number; link_pdf: string | null };
 
     if (empresa.correios_simulacao) {

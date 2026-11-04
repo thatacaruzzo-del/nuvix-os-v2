@@ -1459,7 +1459,7 @@ async function abrirFichaPedido(venda){
       // E categoria ≠ B), sem precisar da sintaxe de lista in.() com espaço.
       dbGet('financeiro',`?referencia_tipo=eq.venda&referencia_id=eq.${venda.id}&categoria=neq.${encodeURIComponent('Frete cobrado do cliente')}&categoria=neq.${encodeURIComponent('Frete/Envio')}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total&order=parcela_numero.asc`),
       dbGet('notas_fiscais_nfce',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
-      dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=status,numero,link_pdf&limit=1`).catch(()=>[]),
+      dbGet('notas_fiscais_nfe',`?venda_id=eq.${venda.id}&select=id,status,numero,link_pdf&order=created_at.desc&limit=1`).catch(()=>[]),
       dbGet('rastreios_correios',`?venda_id=eq.${venda.id}&select=*&limit=1`).catch(()=>[]),
     ]);
     rastreioAtual=rastreiosA[0]||null;
@@ -1475,7 +1475,7 @@ async function abrirFichaPedido(venda){
       <div style="margin-top:10px"><b>Status do pedido:</b> ${badgeStatusEntrega(venda.status_entrega)}</div>
       ${CANAIS_ENVIO_PROPRIO[venda.canal]?`<div style="font-size:12px;color:var(--muted);margin-top:4px">Esse status não atualiza sozinho pra pedidos do ${esc(venda.canal)} — o Nuvix só recebe aviso de pedido pago, não de separação/envio/entrega. Acompanhe isso direto em ${esc(CANAIS_ENVIO_PROPRIO[venda.canal])}, ou marque manualmente aqui se quiser espelhar.</div>`:''}
       ${venda.status!=='Cancelada'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${renderBotoesStatusEntrega(venda.status_entrega)}</div>`:''}
-      <div style="margin-top:10px"><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}`:'Não emitida'}</div>
+      <div style="margin-top:10px"><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}${!notaNfce[0]&&nota.status==='processando'&&nota.id?` <button class="btn2" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="consultarNotaPedido('${nota.id}',this)">Atualizar nota</button>`:''}`:'Não emitida'}</div>
       <div style="margin-top:14px;font-weight:700">Envio</div>
       <div id="fpEnvioConteudo" style="margin-top:6px">${renderEnvioPedido()}</div>
       <div style="margin-top:14px;font-weight:700">Itens</div>
@@ -1601,6 +1601,18 @@ function renderEnvioPedido(){
       <button class="btn2" onclick="editarEnvioPedido()">Editar envio</button>
     </div>
   `;
+}
+// NF-e é autorizada de forma assíncrona: o status só sai de "processando"
+// quando alguém consulta a Focus de novo. Botão na ficha do pedido.
+async function consultarNotaPedido(notaId,btn){
+  if(btn){btn.disabled=true;btn.textContent='Consultando...';}
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/emitir-nfe`,{method:'POST',headers:H,body:JSON.stringify({acao:'consultar',nota_fiscal_nfe_id:notaId})});
+    const resp=await r.json().catch(()=>({}));
+    const st=resp?.nota?.status;
+    toast(st==='autorizada'?'Nota autorizada! Já pode gerar a etiqueta.':st==='processando'?'A nota ainda está sendo processada. Tente de novo em instantes.':st==='erro'?'A nota foi rejeitada: '+(resp.nota.mensagem_erro||'veja em Notas Fiscais'):'Status da nota: '+(st||resp.erro||'desconhecido'),st==='autorizada'?'ok':'err');
+    const v=pedFichaCache[fichaAbertaId]; if(v) abrirFichaPedido(v);
+  }catch(e){ toast('Erro ao consultar a nota: '+e.message,'err'); if(btn){btn.disabled=false;btn.textContent='Atualizar nota';} }
 }
 // Busca só o PDF de uma etiqueta que já foi gerada (não cria envio novo nos
 // Correios) — usado quando o código de rastreio já saiu mas o PDF não ficou
@@ -1851,6 +1863,13 @@ async function confirmarGerarEtiquetaPedido(){
     const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({venda_id:fichaAbertaId,peso_kg:peso,altura_cm:altura,largura_cm:largura,comprimento_cm:comprimento,codigo_servico:servico})});
     const resp=await r.json();
     if(!resp.ok){
+      const SITUACAO_NOTA={processando:'ainda está sendo processada pela SEFAZ — clique em "Atualizar nota" daqui a pouco',erro:'foi rejeitada — corrija e emita de novo em Notas Fiscais',nao_emitida:'ainda não foi emitida'};
+      if(resp.erro==='nota_fiscal_nao_autorizada'){
+        const s=SITUACAO_NOTA[resp.situacao_nota]||('está com status "'+resp.situacao_nota+'"');
+        setHTML('fpEtiquetaMsg',`<div class="msg show err" style="margin:0">A etiqueta só pode ser gerada com a nota fiscal autorizada (sem ela os Correios cancelam a etiqueta). A nota deste pedido ${esc(s)}.</div>`);
+        toast('Aguardando a nota fiscal ser autorizada.','err');
+        return;
+      }
       const MSGS={correios_nao_configurado:'Correios ainda não configurado pra essa empresa.',pedido_sem_cliente_vinculado:'Esse pedido não tem cliente vinculado.',cliente_sem_endereco_completo:'O cliente não tem endereço completo cadastrado.',empresa_sem_endereco_completo:'Sua empresa não tem endereço completo cadastrado.',dados_envio_invalidos:'Preencha peso e medidas válidos (maiores que zero).'};
       toast(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)),'err');
       return;
