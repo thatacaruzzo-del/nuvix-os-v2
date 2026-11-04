@@ -201,7 +201,6 @@ async function deleteRow(table,id,area){
           <div class="field"><label>E-mail</label><input id="cliEmail" type="email"></div>
           <div class="field"><label>Telefone / WhatsApp</label><input id="cliTel" placeholder="(11) 99999-9999"></div>
           <div class="field"><label>CNPJ / CPF <span style="color:var(--p)">*</span></label><input id="cliDoc" placeholder="Obrigatório"></div>
-          <div class="field"><label>Cidade / UF</label><input id="cliCidade"></div>
           <div class="field"><label>Segmento</label><input id="cliSeg" placeholder="Ex: Varejo, Logística..."></div>
           <div class="field"><label>Observação</label><input id="cliObs"></div>
           <div class="field"><label>Consumidor final? (NFS-e/reforma)</label><select id="cliIndConsumoFinal"><option value="1">Sim — consumidor final</option><option value="0">Não — insumo de outra atividade</option><option value="2">Não informar</option></select></div>
@@ -213,6 +212,7 @@ async function deleteRow(table,id,area){
           <div class="field"><label>Número</label><input id="cliNumero"></div>
           <div class="field"><label>Complemento</label><input id="cliComplemento"></div>
           <div class="field"><label>Bairro</label><input id="cliBairro"></div>
+          <div class="field"><label>Cidade</label><input id="cliCidade" placeholder="Preenchida pelo CEP"></div>
           <div class="field-hint" style="grid-column:1/-1;margin-top:6px;font-weight:700;color:var(--txt)">Venda a prazo (opcional)</div>
           <div class="field"><label>Limite de crédito (R$)</label><input id="cliLimiteCredito" type="number" min="0" step="0.01" placeholder="Deixe em branco pra não controlar"></div>
           <div class="field"><label>Prazo padrão (dias)</label><input id="cliPrazoPadrao" type="number" min="0" step="1" placeholder="Ex: 30"></div>
@@ -610,7 +610,7 @@ async function salvarCliente() {
     const existente=await db.get('clientes',q).catch(()=>[]);
     if(Array.isArray(existente)&&existente.length>0){msg('cliMsg',`Já existe um cliente cadastrado com esse CPF/CNPJ: ${existente[0].nome||'sem nome'}.`,'err');return;}
   }
-  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:val('cliCidade').trim(),segmento:val('cliSeg').trim(),indicador_consumo_final:val('cliIndConsumoFinal')||'1',endereco_cep:val('cliCep').trim()||null,endereco_uf:val('cliUf').trim().toUpperCase()||null,inscricao_estadual:val('cliIe').trim()||null,endereco_logradouro:val('cliLogradouro').trim()||null,endereco_numero:val('cliNumero').trim()||null,endereco_complemento:val('cliComplemento').trim()||null,endereco_bairro:val('cliBairro').trim()||null,limite_credito:val('cliLimiteCredito')?Number(val('cliLimiteCredito')):null,prazo_padrao_dias:val('cliPrazoPadrao')?Number(val('cliPrazoPadrao')):null});
+  const payload=withEmpresa({nome,email:val('cliEmail').trim(),telefone:val('cliTel').trim(),documento:doc,cidade:nuvixLimparCidade(val('cliCidade'),val('cliUf')),segmento:val('cliSeg').trim(),indicador_consumo_final:val('cliIndConsumoFinal')||'1',endereco_cep:val('cliCep').trim()||null,endereco_uf:val('cliUf').trim().toUpperCase()||null,inscricao_estadual:val('cliIe').trim()||null,endereco_logradouro:val('cliLogradouro').trim()||null,endereco_numero:val('cliNumero').trim()||null,endereco_complemento:val('cliComplemento').trim()||null,endereco_bairro:val('cliBairro').trim()||null,limite_credito:val('cliLimiteCredito')?Number(val('cliLimiteCredito')):null,prazo_padrao_dias:val('cliPrazoPadrao')?Number(val('cliPrazoPadrao')):null});
   try{if(id)await db.patch('clientes',id,payload);else await db.post('clientes',payload);msg('cliMsg',id?'Cliente atualizado!':'Cliente salvo!','ok');limparCliente();fecharModal('modalCliente');await loadData();}catch(e){msg('cliMsg','Erro: '+e.message,'err');}
 }
 function editarCliente(id){const c=dados.clientes.find(x=>x.id===id);if(!c)return;$('cliId').value=c.id;$('cliNome').value=c.nome||'';$('cliEmail').value=c.email||'';$('cliTel').value=c.telefone||'';$('cliDoc').value=c.documento||'';$('cliCidade').value=c.cidade||'';$('cliSeg').value=c.segmento||'';$('cliObs').value=c.observacao||'';$('cliIndConsumoFinal').value=c.indicador_consumo_final||'1';$('cliCep').value=c.endereco_cep||'';$('cliUf').value=c.endereco_uf||'';$('cliIe').value=c.inscricao_estadual||'';$('cliLogradouro').value=c.endereco_logradouro||'';$('cliNumero').value=c.endereco_numero||'';$('cliComplemento').value=c.endereco_complemento||'';$('cliBairro').value=c.endereco_bairro||'';$('cliLimiteCredito').value=c.limite_credito??'';$('cliPrazoPadrao').value=c.prazo_padrao_dias??'';$('cliTitulo').textContent='Editar cliente';abrirModal('modalCliente');}
@@ -1165,5 +1165,9 @@ montarSidebarDinamica();
 </script>
 <script src="../js/alerta-sidebar.js"></script>
 <script src="../js/alerta-integracoes.js"></script>
+<script src="../js/nuvix-cep.js"></script>
+<script>
+nuvixLigarCep({cep:'cliCep',uf:'cliUf',cidade:'cliCidade',bairro:'cliBairro',logradouro:'cliLogradouro',numero:'cliNumero'});
+</script>
 </body>
 </html>

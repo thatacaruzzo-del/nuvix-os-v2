@@ -772,7 +772,7 @@ async function salvarNovoClientePedido(){
       endereco_cep:val('pncCep').trim()||null, endereco_uf:val('pncUf').trim().toUpperCase()||null,
       endereco_logradouro:val('pncLogradouro').trim()||null, endereco_numero:val('pncNumero').trim()||null,
       endereco_complemento:val('pncComplemento').trim()||null, endereco_bairro:val('pncBairro').trim()||null,
-      cidade:val('pncCidade').trim()||null, inscricao_estadual:val('pncIe').trim()||null,
+      cidade:nuvixLimparCidade(val('pncCidade'),val('pncUf'))||null, inscricao_estadual:val('pncIe').trim()||null,
     }));
     const c=Array.isArray(novo)?novo[0]:novo;
     pedClientesCache.push(c);
@@ -2013,6 +2013,10 @@ async function confirmarAprovacaoEdicaoPagamento(){
 }
 
 init();
+</script>
+<script src="../js/nuvix-cep.js"></script>
+<script>
+nuvixLigarCep({cep:'pncCep',uf:'pncUf',cidade:'pncCidade',bairro:'pncBairro',logradouro:'pncLogradouro',numero:'pncNumero'});
 </script>
 <script src="../js/nuvix-sidebar.js"></script>
 <script src="../js/nuvix-logs.js"></script>
