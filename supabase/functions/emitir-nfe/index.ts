@@ -499,7 +499,17 @@ Deno.serve(async (req) => {
     ]);
     const payload = montarPayload(empresa, nota, itens, formasPagamento);
 
-    const ref = `nuvix-nfe-${nota_fiscal_nfe_id}`;
+    // BUG REAL encontrado em 04/11/2026 (Natufonts, nota da Carina Santana Santos):
+    // o `ref` era sempre o mesmo UUID da nota, em toda tentativa de emissão. A Focus
+    // NFe usa o ref como idempotência e reaproveita o MESMO número/série de NF-e nas
+    // tentativas seguintes — mas como o conteúdo mudava a cada correção (CFOP,
+    // município), a chave de acesso calculada mudava junto, e a SEFAZ rejeitava com
+    // "Duplicidade de NF-e com diferença na Chave de Acesso" (mesmo número, chave
+    // diferente da vez anterior). Reemissão depois de um erro (status já 'erro')
+    // usa um ref novo, pra Focus NFe gerar um número de NF-e novo em vez de reciclar
+    // o que já tinha sido rejeitado com outro conteúdo. Primeira tentativa continua
+    // com ref estável (protege contra clique duplo acidental na mesma nota nova).
+    const ref = nota.status === 'erro' ? `nuvix-nfe-${nota_fiscal_nfe_id}-r${Date.now()}` : `nuvix-nfe-${nota_fiscal_nfe_id}`;
     const r = await fetch(`${base}/v2/nfe?ref=${ref}`, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },

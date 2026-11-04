@@ -581,7 +581,10 @@ Deno.serve(async (req) => {
     ]);
     const payload = montarPayload(empresa, nota, itens, formasPagamento);
 
-    const ref = `nuvix-nfce-${nota_fiscal_nfce_id}`;
+    // Mesmo fix de emitir-nfe: reemissão depois de um erro usa ref novo, pra Focus
+    // NFe gerar número de nota novo em vez de reciclar um que já mudou de conteúdo
+    // entre tentativas (ver comentário completo em emitir-nfe/index.ts).
+    const ref = nota.status === 'erro' ? `nuvix-nfce-${nota_fiscal_nfce_id}-r${Date.now()}` : `nuvix-nfce-${nota_fiscal_nfce_id}`;
     const r = await fetch(`${base}/v2/nfce?ref=${ref}`, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
