@@ -198,6 +198,8 @@ async function criarPrepostagem(base: string, token: string, params: {
   destinatario: { nome: string; documento: string; cep: string; logradouro: string; numero: string; complemento?: string; bairro: string; cidade: string; uf: string };
   pesoGramas: number; altura: number; largura: number; comprimento: number;
   itens: { conteudo: string; quantidade: number; valor: number }[];
+  chaveNFe?: string | null;
+  numeroNotaFiscal?: string | null;
 }) {
   const body = {
     remetente: {
@@ -241,6 +243,16 @@ async function criarPrepostagem(base: string, token: string, params: {
           valor: Math.max(0.01, it.valor).toFixed(2),
         }))
       : [{ conteudo: 'Produto', quantidade: '1', valor: '0.01' }],
+    // CONFIRMADO no OpenAPI oficial (apihom.correios.com.br/prepostagem/v3/api-docs,
+    // 04/11/2026): chaveNFe (44 dígitos) e numeroNotaFiscal existem no schema, mas
+    // nosso sistema nunca mandava nenhum dos dois — toda pré-postagem saía sem
+    // vínculo de nota. BUG REAL confirmado pela cliente: pré-postagens sem NF
+    // vinculada foram canceladas automaticamente pelos Correios (ex: pedido nº5 da
+    // Carina — etiqueta gerada antes da NF-e ficar autorizada, cancelada depois).
+    // Envia os dois campos sempre que já existir uma nota autorizada pra essa
+    // venda no momento de gerar a etiqueta.
+    chaveNFe: params.chaveNFe || undefined,
+    numeroNotaFiscal: params.numeroNotaFiscal || undefined,
   };
   const r = await fetch(`${base}/prepostagem/v1/prepostagens`, {
     method: 'POST',
@@ -642,12 +654,25 @@ Deno.serve(async (req) => {
         produto_nome: it.produto_nome, quantidade: Number(it.quantidade), valor_unitario: Number(it.valor_unitario),
       }));
 
+      // Vínculo com a nota fiscal (ver comentário em criarPrepostagem) — pega a NF-e
+      // ou NFC-e já autorizada dessa venda, se existir nesse momento. Se a nota for
+      // emitida DEPOIS da etiqueta, não tem como vincular aqui (ela ainda não
+      // existe) — por isso emitir a nota ANTES de gerar a etiqueta é o fluxo mais
+      // seguro pra evitar cancelamento automático dos Correios por falta de NF.
+      const [[nfe], [nfce]] = await Promise.all([
+        sbGet(`notas_fiscais_nfe?venda_id=eq.${venda_id}&status=eq.autorizada&select=chave_acesso,numero&limit=1`),
+        sbGet(`notas_fiscais_nfce?venda_id=eq.${venda_id}&status=eq.autorizada&select=chave_acesso,numero&limit=1`),
+      ]);
+      const notaVinculada = nfe || nfce;
+
       const prepostagem = await criarPrepostagem(base, token, {
         coProduto,
         remetente: { ...remetenteEndereco, cpfCnpj: empresa.cnpj },
         destinatario: destinatarioEndereco,
         pesoGramas, altura: maiorAltura, largura: maiorLargura, comprimento: maiorComprimento,
         itens: itensDeclarados.map((it) => ({ conteudo: it.produto_nome, quantidade: it.quantidade, valor: it.valor_unitario })),
+        chaveNFe: notaVinculada?.chave_acesso?.replace(/\D/g, '') || null,
+        numeroNotaFiscal: notaVinculada?.numero || null,
       });
 
       const codigoObjeto = prepostagem?.codigoObjeto || prepostagem?.codigoRastreio || '';
