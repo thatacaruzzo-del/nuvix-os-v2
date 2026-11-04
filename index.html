@@ -324,6 +324,17 @@ h1 .grad{color:var(--c4)}
 </div>
 
 <script>
+// Dias que faltam do teste grátis. A data do trial (como o painel Super Admin
+// grava, "AAAA-MM-DD" = meia-noite UTC) é o ÚLTIMO dia válido; "hoje" é o dia
+// no horário de Brasília. 0 = último dia, negativo = vencido. Mesma regra em
+// js/nuvix-sidebar.js, pages/admin.html e index.html (login).
+function nuvixDiasTrial(trialFim) {
+  if (!trialFim) return null;
+  const fim = new Date(trialFim);
+  if (isNaN(fim)) return null;
+  const hojeBrasilia = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return Math.round((Date.parse(fim.toISOString().slice(0, 10)) - Date.parse(hojeBrasilia)) / 864e5);
+}
 const SUPABASE_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SUPABASE_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
 const SESSION_KEY='nuvix_v2_session';
@@ -386,7 +397,7 @@ async function entrar(){
     // (bloqueio_trial_automatico=true, hoje só o cadastro público novo liga isso) —
     // empresas antigas ficam de fora até alguém revisar o status de cada uma, senão
     // uma trial_fim vencida e nunca corrigida tranca cliente real fora do sistema.
-    if(empresa.status_conta==='trial'&&empresa.bloqueio_trial_automatico===true&&empresa.trial_fim&&new Date(empresa.trial_fim)<new Date()){
+    if(empresa.status_conta==='trial'&&empresa.bloqueio_trial_automatico===true&&empresa.trial_fim&&nuvixDiasTrial(empresa.trial_fim)<0){
       document.getElementById('trialFimEmpresa').textContent=empresa.fantasia||empresa.razao||'sua empresa';
       document.getElementById('loginFields').style.display='none';
       document.getElementById('trialFimScreen').style.display='block';

@@ -204,6 +204,17 @@ tr:hover td{background:#FAFAFF}
 <div id="pageLoader" class="page-loader"><div class="page-loader-spinner"></div></div>
 
 <script>
+// Dias que faltam do teste grátis. A data do trial (como o painel Super Admin
+// grava, "AAAA-MM-DD" = meia-noite UTC) é o ÚLTIMO dia válido; "hoje" é o dia
+// no horário de Brasília. 0 = último dia, negativo = vencido. Mesma regra em
+// js/nuvix-sidebar.js, pages/admin.html e index.html (login).
+function nuvixDiasTrial(trialFim) {
+  if (!trialFim) return null;
+  const fim = new Date(trialFim);
+  if (isNaN(fim)) return null;
+  const hojeBrasilia = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return Math.round((Date.parse(fim.toISOString().slice(0, 10)) - Date.parse(hojeBrasilia)) / 864e5);
+}
 // ═══ UTILS ═══
 const SB_URL='https://quullcxptbiqycyakzlc.supabase.co';
 const SB_KEY='sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6';
@@ -2228,7 +2239,7 @@ function coletarMetricasPortfolio(){
     const evs=(porEmpresa[e.id]||[]).slice().sort((a,b)=>a.created_at<b.created_at?1:-1);
     const diasDesdeCriacao=e.created_at?Math.floor((hoje-new Date(e.created_at))/864e5):null;
     const diasDesdeUltimoEvento=evs.length?Math.floor((hoje-new Date(evs[0].created_at))/864e5):null;
-    const diasRestantesTrial=e.trial_fim?Math.ceil((new Date(e.trial_fim)-hoje)/864e5):null;
+    const diasRestantesTrial=nuvixDiasTrial(e.trial_fim);
     return{empresa_id:e.id,eventos:evs,total_eventos_historico:evs.length,dias_desde_criacao:diasDesdeCriacao,dias_desde_ultimo_evento:diasDesdeUltimoEvento,dias_restantes_trial:diasRestantesTrial};
   });
 }
@@ -2564,8 +2575,8 @@ function renderEmpresas(){
     const nUsu=usuPorEmp[e.id]||0;
     const ult=ultimoAcesso[e.id];
     const plano=e.plano||'Start';
-    const dias=e.trial_fim?Math.ceil((new Date(e.trial_fim)-new Date())/864e5):null;
-    const trialStr=dias!==null?(dias>0?`Trial: ${dias}d`:'Expirado'):((e.vencimento_mensalidade||e.vencimento)?`Venc: ${fmtData(e.vencimento_mensalidade||e.vencimento)}`:'—');
+    const dias=nuvixDiasTrial(e.trial_fim);
+    const trialStr=dias!==null?(dias>0?`Trial: ${dias}d`:dias===0?'Trial: último dia':'Expirado'):((e.vencimento_mensalidade||e.vencimento)?`Venc: ${fmtData(e.vencimento_mensalidade||e.vencimento)}`:'—');
     const trialCor=dias!==null&&dias<=3?'color:var(--red)':'color:var(--muted)';
     return`<tr onclick="abrirFichaCliente('${e.id}')" style="cursor:pointer" title="Ver ficha completa do cliente">
       <td><b>${esc(e.fantasia||e.razao||'—')}</b><div style="font-size:11px;color:var(--muted)">${esc(e.segmento||e.tipo||'')}</div></td>

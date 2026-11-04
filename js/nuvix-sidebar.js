@@ -262,3 +262,62 @@ function montarSidebarDinamica(opcoes) {
     return null;
   }
 }
+
+// ============================================================
+// Dados da empresa sempre atuais (04/11/2026)
+//
+// A sessão guarda a linha de `empresas` do momento do LOGIN e nunca mais
+// atualizava — mudança feita pelo painel Super Admin (prazo do teste grátis,
+// plano) só aparecia pro cliente depois de sair e entrar de novo (caso real:
+// Natufonts com trial ajustado pra 11/11 continuava vendo "22 dias"). Aqui,
+// a cada página aberta, busca a empresa de novo, regrava na sessão e corrige
+// o selo do teste grátis. Silencioso: se falhar, fica o que já estava.
+// ============================================================
+// Dias que faltam do teste grátis. A data do trial (como o painel Super Admin
+// grava, "AAAA-MM-DD" = meia-noite UTC) é o ÚLTIMO dia válido; "hoje" é o dia
+// no horário de Brasília. 0 = último dia, negativo = vencido. Mesma regra em
+// js/nuvix-sidebar.js, pages/admin.html e index.html (login).
+function nuvixDiasTrial(trialFim) {
+  if (!trialFim) return null;
+  const fim = new Date(trialFim);
+  if (isNaN(fim)) return null;
+  const hojeBrasilia = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return Math.round((Date.parse(fim.toISOString().slice(0, 10)) - Date.parse(hojeBrasilia)) / 864e5);
+}
+
+function nuvixAtualizarTrialBadge(emp) {
+  const badge = document.getElementById('trialBadge');
+  if (!badge || !emp) return;
+  const dias = nuvixDiasTrial(emp.trial_fim);
+  if (dias !== null && dias >= 0) {
+    badge.textContent = dias === 0 ? 'Teste grátis: último dia' : `Teste grátis: ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+(async function nuvixRecarregarEmpresa() {
+  try {
+    const raw = sessionStorage.getItem('nuvix_v2_session');
+    if (!raw) return;
+    const sess = JSON.parse(raw);
+    const id = sess?.empresa?.id;
+    if (!id || !sess.access_token) return;
+    const r = await fetch(`https://quullcxptbiqycyakzlc.supabase.co/rest/v1/empresas?id=eq.${id}&select=*&limit=1`, {
+      headers: { apikey: 'sb_publishable_hHub8WOjVFPavMPjmfGIBA_kDyvO1s6', Authorization: 'Bearer ' + sess.access_token },
+    });
+    if (!r.ok) return;
+    const [emp] = await r.json();
+    if (!emp) return;
+    // Relê a sessão antes de gravar: o token-refresh.js pode ter trocado o
+    // access_token enquanto esta busca estava em andamento.
+    const atual = JSON.parse(sessionStorage.getItem('nuvix_v2_session') || 'null');
+    if (!atual) return;
+    atual.empresa = { ...atual.empresa, ...emp };
+    sessionStorage.setItem('nuvix_v2_session', JSON.stringify(atual));
+    nuvixAtualizarTrialBadge(atual.empresa);
+    const sub = document.getElementById('topbarSub');
+    if (sub && sub.textContent.includes(' · ')) sub.textContent = (emp.fantasia || emp.razao || '') + ' · ' + (emp.plano || '');
+  } catch (e) { /* silencioso */ }
+})();
