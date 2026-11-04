@@ -424,7 +424,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <select id="pedHistStatus"><option value="">Todos</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select>
           </div>
           <div style="min-width:170px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status de entrega</label>
-            <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Enviado">Enviado</option><option value="Entregue">Entregue</option><option value="Retirado">Retirado</option></select>
+            <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Etiqueta emitida">Etiqueta emitida</option><option value="Postado">Postado</option><option value="Em trânsito">Em trânsito</option><option value="Saiu para entrega">Saiu para entrega</option><option value="Aguardando retirada">Aguardando retirada</option><option value="Não entregue">Não entregue</option><option value="Devolvido">Devolvido</option><option value="Entregue">Entregue</option><option value="Enviado">Enviado (sem Correios)</option><option value="Retirado">Retirado</option></select>
           </div>
           <button class="btn2" onclick="carregarHistoricoPedidos()">Filtrar</button>
           <button class="btn2" onclick="limparFiltroHistoricoPedidos()">Limpar filtro</button>
@@ -1312,7 +1312,10 @@ function abrirFichaPedidoPorId(id){ const v=pedFichaCache[id]; if(v) abrirFichaP
 // Badge do status de ENTREGA — separado do status financeiro/estoque
 // (vendas.status, que já tem seu próprio badge "Registrado"/"Cancelada"
 // acima). Reaproveitado na Ficha do Pedido e no histórico.
-const BADGE_STATUS_ENTREGA={'Registrado':'','Em separação':'warn','Enviado':'warn','Entregue':'ok','Retirado':'ok'};
+// 04/11/2026: além dos status internos, os mesmos status dos Correios
+// (preenchidos sozinhos pela rotina de rastreio — ver rastrear-correios).
+const BADGE_STATUS_ENTREGA={'Registrado':'','Em separação':'warn','Etiqueta emitida':'warn','Postado':'warn','Em trânsito':'warn','Saiu para entrega':'warn','Aguardando retirada':'badge-red','Não entregue':'badge-red','Devolvido':'badge-red','Enviado':'warn','Entregue':'ok','Retirado':'ok'};
+const STATUS_DOS_CORREIOS=['Etiqueta emitida','Postado','Em trânsito','Saiu para entrega','Aguardando retirada','Não entregue','Devolvido','Entregue'];
 function badgeStatusEntrega(status){
   const s=status||'Registrado';
   const cor=BADGE_STATUS_ENTREGA[s]||'';
@@ -1321,9 +1324,14 @@ function badgeStatusEntrega(status){
 // Cada estágio só mostra os próximos passos que fazem sentido a partir dele —
 // "Em separação" pode virar "Enviado" OU "Retirado" (retirada no local não
 // passa por "Enviado"). "Entregue"/"Retirado" são estágios finais, sem botão.
-const PROXIMOS_STATUS_ENTREGA={'Registrado':['Em separação'],'Em separação':['Enviado','Retirado'],'Enviado':['Entregue']};
+const PROXIMOS_STATUS_ENTREGA={'Registrado':['Em separação'],'Etiqueta emitida':['Em separação'],'Em separação':['Enviado','Retirado'],'Enviado':['Entregue']};
 function renderBotoesStatusEntrega(atual){
-  const proximos=PROXIMOS_STATUS_ENTREGA[atual||'Registrado']||[];
+  // Envio pelos Correios com código: daqui pra frente quem manda é o rastreio
+  // (a cada 2h) — botão manual de Enviado/Entregue só confundiria.
+  const pelosCorreios=!!(rastreioAtual&&rastreioAtual.codigo_rastreio&&(!rastreioAtual.meio_envio||rastreioAtual.meio_envio==='Correios'));
+  let proximos=PROXIMOS_STATUS_ENTREGA[atual||'Registrado']||[];
+  if(pelosCorreios) proximos=proximos.filter(s=>s==='Em separação');
+  if(pelosCorreios&&!proximos.length) return '<span style="font-size:12px;color:var(--muted)">Atualiza sozinho pelo rastreio dos Correios (a cada 2 horas).</span>';
   if(!proximos.length)return '';
   return proximos.map(s=>`<button class="btn2" style="font-size:12px;padding:6px 12px" onclick="avancarStatusEntregaPedido('${s}')">Marcar como ${s}</button>`).join('');
 }
@@ -1405,7 +1413,7 @@ async function imprimirLotePedidos(){
       for(const id of impressos){
         const v=historicoPedidos.find(x=>x.id===id);
         // Só avança quem ainda está em "Registrado" — nunca volta um "Enviado" pra trás.
-        if(v&&(v.status_entrega||'Registrado')==='Registrado'){
+        if(v&&['Registrado','Etiqueta emitida'].includes(v.status_entrega||'Registrado')){
           try{ await dbPatch('vendas',id,{status_entrega:'Em separação'}); v.status_entrega='Em separação'; marcados++; }catch(e){}
         }
       }

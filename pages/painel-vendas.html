@@ -616,7 +616,7 @@ function renderPedidosIndividuais(vendas){
 }
 function badgeStatusEntregaPainel(status){
   const s=status||'Registrado';
-  const cor=({'Em separação':'warn','Enviado':'warn','Entregue':'ok','Retirado':'ok'})[s]||'';
+  const cor=({'Em separação':'warn','Etiqueta emitida':'warn','Postado':'warn','Em trânsito':'warn','Saiu para entrega':'warn','Aguardando retirada':'badge-red','Não entregue':'badge-red','Devolvido':'badge-red','Enviado':'warn','Entregue':'ok','Retirado':'ok'})[s]||'';
   return `<span class="badge ${cor}">${esc(s)}</span>`;
 }
 // Curva ABC agora vem pronta da RPC dashboard_curva_abc (qtd/faturamento/%/%

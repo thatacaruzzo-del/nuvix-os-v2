@@ -17,10 +17,8 @@
 //
 // Atualização automática: o pg_cron chama "atualizar_todos" a cada 2 horas
 // (job rastrear-correios-automatico). Percorre os envios dos Correios ainda
-// não entregues dos últimos 60 dias e, além do status do objeto, avança o
-// status de entrega do pedido (vendas.status_entrega) — nunca pra trás:
-//   evento de postagem/trânsito → "Enviado"
-//   evento de entrega ao destinatário → "Entregue"
+// não entregues dos últimos 60 dias e deixa o status de entrega do pedido
+// (vendas.status_entrega) IGUAL ao dos Correios — ver classificarEvento().
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -151,31 +149,38 @@ function simularRastreio() {
   };
 }
 
-// Qual status de entrega do pedido esse rastreio indica (ou null = não mexe).
-// Usa o código do evento SRO quando vier (BDE/BDI/BDR tipo 01 = entregue ao
-// destinatário) e o texto como reforço — nunca a partir de simulação.
-function statusEntregaPeloRastreio(eventos: any[]): 'Enviado' | 'Entregue' | null {
-  if (!eventos?.length) return null;
-  const entregue = eventos.some((e) =>
-    (['BDE', 'BDI', 'BDR'].includes(e?.codigo) && String(e?.tipo) === '01') ||
-    /entregue ao destinat/i.test(e?.descricao || ''));
-  if (entregue) return 'Entregue';
-  // CONFIRMADO em teste real (04/11/2026): o primeiro evento de uma etiqueta
-  // de contrato é "Etiqueta emitida" — o pacote ainda NÃO foi postado. Só
-  // conta como enviado se houver algum evento além da emissão/pré-postagem.
-  const postado = eventos.some((e) => !/etiqueta emitida|pr[ée]-?postagem|aguardando postagem/i.test(e?.descricao || ''));
-  return postado ? 'Enviado' : null;
+// Classificação do pedido IGUAL à dos Correios (pedido da Thata, 04/11/2026):
+// o status de entrega do pedido espelha o evento MAIS RECENTE do objeto.
+// Pelo texto do evento (a descrição é o que os Correios mostram ao público;
+// os códigos SRO variam por tipo de evento) + código BDE/BDI/BDR tipo 01
+// pra entrega. Ordem dos testes importa (ex: "devolvido" antes de "entregue").
+type StatusCorreios = 'Etiqueta emitida' | 'Postado' | 'Em trânsito' | 'Saiu para entrega' |
+  'Aguardando retirada' | 'Não entregue' | 'Devolvido' | 'Entregue';
+function classificarEvento(e: any): StatusCorreios {
+  const d = String(e?.descricao || '') + ' ' + String(e?.detalhe || '');
+  if (/devolvid|devolu[çc][ãa]o ao remetente|em devolu/i.test(d)) return 'Devolvido';
+  const naoEntregue = /n[ãa]o (foi )?entregue/i.test(d);
+  if (!naoEntregue && ((['BDE', 'BDI', 'BDR'].includes(e?.codigo) && String(e?.tipo) === '01') || /entregue ao destinat|objeto entregue/i.test(d))) return 'Entregue';
+  if (/aguardando retirada|dispon[íi]vel para retirada/i.test(d)) return 'Aguardando retirada';
+  if (/saiu para entrega/i.test(d)) return 'Saiu para entrega';
+  if (/n[ãa]o entregue|n[ãa]o atendid|ausente|endere[çc]o (incorreto|insuficiente|n[ãa]o localizado)|recusad|n[ãa]o procurado|tentativa/i.test(d)) return 'Não entregue';
+  if (/etiqueta emitida|pr[ée]-?postagem|aguardando postagem/i.test(d)) return 'Etiqueta emitida';
+  if (/postad/i.test(d)) return 'Postado';
+  return 'Em trânsito'; // transferência, encaminhado, recebido na unidade, fiscalização...
 }
 
-const ORDEM_ENTREGA = ['Registrado', 'Em separação', 'Enviado', 'Entregue'];
-async function avancarStatusEntregaVenda(vendaId: string, alvo: 'Enviado' | 'Entregue' | null) {
-  if (!alvo) return;
+// Status internos (antes dos Correios) e de retirada no local nunca são
+// sobrescritos por "Etiqueta emitida" — senão a rotina de 2 em 2 horas
+// desfaria o "Em separação" marcado pela Trat Log.
+async function sincronizarStatusEntregaVenda(vendaId: string, eventos: any[]) {
+  if (!eventos?.length) return; // Correios não conhece o objeto: não afirma nada
+  const alvo = classificarEvento(eventos[0]);
   const [venda] = await sbGet(`vendas?id=eq.${vendaId}&select=id,status,status_entrega`);
   if (!venda || venda.status === 'Cancelada') return;
   const atual = venda.status_entrega || 'Registrado';
-  if (atual === 'Retirado') return; // retirada no local: não é envio pelos Correios
-  const iAtual = ORDEM_ENTREGA.indexOf(atual), iAlvo = ORDEM_ENTREGA.indexOf(alvo);
-  if (iAtual >= 0 && iAlvo > iAtual) await sbPatch('vendas', vendaId, { status_entrega: alvo });
+  if (atual === 'Retirado') return;
+  if (alvo === 'Etiqueta emitida' && atual === 'Em separação') return;
+  if (atual !== alvo) await sbPatch('vendas', vendaId, { status_entrega: alvo });
 }
 
 async function atualizarUm(rastreio: any) {
@@ -188,7 +193,7 @@ async function atualizarUm(rastreio: any) {
     ...(manterStatus ? {} : { status: resultado.status, eventos: resultado.eventos }),
     atualizado_em: new Date().toISOString(),
   });
-  if (!resultado.simulado) await avancarStatusEntregaVenda(rastreio.venda_id, statusEntregaPeloRastreio(resultado.eventos));
+  if (!resultado.simulado) await sincronizarStatusEntregaVenda(rastreio.venda_id, resultado.eventos);
   return { atualizado, simulado: resultado.simulado };
 }
 

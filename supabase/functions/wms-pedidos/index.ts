@@ -16,7 +16,8 @@
 // empresa_id resolvida a partir da chave, nunca confiando em mais nada
 // do request.
 //
-// Só pedidos do Pedido Manual (vendas.canal = 'Loja') aparecem aqui —
+// Só pedidos do Pedido Manual (vendas.canal = 'Pedido Manual' — CORRIGIDO em
+// 04/11/2026: antes filtrava 'Loja', que é o canal do Caixa) aparecem aqui —
 // pedidos de Mercado Livre/Nuvemshop/PedidoOK/Shopee já têm fulfillment
 // próprio nessas plataformas e não passam por aqui.
 //
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
     const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
     const offset = Number(url.searchParams.get('offset')) || 0;
 
-    let query = `vendas?empresa_id=eq.${empresa.id}&canal=eq.Loja&status=neq.Cancelada&select=id,numero,created_at,status_entrega,cliente_id,observacao&order=created_at.desc&limit=${limit}&offset=${offset}`;
+    let query = `vendas?empresa_id=eq.${empresa.id}&canal=eq.Pedido%20Manual&status=neq.Cancelada&select=id,numero,created_at,status_entrega,cliente_id,observacao&order=created_at.desc&limit=${limit}&offset=${offset}`;
     if (desde) query += `&created_at=gte.${encodeURIComponent(desde)}`;
     if (statusEntrega) query += `&status_entrega=eq.${encodeURIComponent(statusEntrega)}`;
 
