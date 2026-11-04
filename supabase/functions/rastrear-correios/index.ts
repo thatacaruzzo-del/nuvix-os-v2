@@ -123,7 +123,9 @@ function acessoDaEmpresa(empresaId: string): Promise<Acesso> {
 // (T = todos os eventos, do mais recente pro mais antigo).
 async function consultarRastreio(base: string, token: string, codigo: string) {
   const r = await fetch(`${base}/srorastro/v1/objetos/${encodeURIComponent(codigo)}?resultado=T`, {
-    headers: { Authorization: `Bearer ${token}` },
+    // CONFIRMADO em teste real (Natufonts, 04/11/2026): sem o idioma a API
+    // responde "SRO-018: Permitido apenas os valores pt-BR, en e es-ES".
+    headers: { Authorization: `Bearer ${token}`, 'Accept-Language': 'pt-BR', Accept: 'application/json' },
   });
   if (!r.ok) throw new Error(`Consulta de rastreio falhou: ${mensagemErroCorreios(await r.text())}`);
   const data = await r.json();
@@ -135,7 +137,8 @@ async function consultarRastreio(base: string, token: string, codigo: string) {
     return { simulado: false, status: 'Aguardando postagem', eventos: [], mensagem: objeto?.mensagem || null };
   }
   const e0 = eventos[0];
-  const local = e0?.unidade?.endereco ? ` — ${[e0.unidade.endereco.cidade, e0.unidade.endereco.uf].filter(Boolean).join('/')}` : '';
+  const end = e0?.unidade?.endereco;
+  const local = end?.cidade ? ` — ${[end.cidade, end.uf].filter(Boolean).join('/')}` : '';
   return { simulado: false, status: `${e0?.descricao || 'Status indisponível'}${local}`, eventos };
 }
 
@@ -157,7 +160,11 @@ function statusEntregaPeloRastreio(eventos: any[]): 'Enviado' | 'Entregue' | nul
     (['BDE', 'BDI', 'BDR'].includes(e?.codigo) && String(e?.tipo) === '01') ||
     /entregue ao destinat/i.test(e?.descricao || ''));
   if (entregue) return 'Entregue';
-  return 'Enviado'; // tem evento real nos Correios = já foi postado
+  // CONFIRMADO em teste real (04/11/2026): o primeiro evento de uma etiqueta
+  // de contrato é "Etiqueta emitida" — o pacote ainda NÃO foi postado. Só
+  // conta como enviado se houver algum evento além da emissão/pré-postagem.
+  const postado = eventos.some((e) => !/etiqueta emitida|pr[ée]-?postagem|aguardando postagem/i.test(e?.descricao || ''));
+  return postado ? 'Enviado' : null;
 }
 
 const ORDEM_ENTREGA = ['Registrado', 'Em separação', 'Enviado', 'Entregue'];
@@ -217,9 +224,19 @@ Deno.serve(async (req) => {
 
     // ── Rotina automática (pg_cron) ──
     if (acao === 'atualizar_todos') {
-      if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
-        return json({ ok: false, erro: 'nao_autorizado' }, 401);
+      // A senha do cron fica só no Vault do banco (rastreio_cron_secret, gerada
+      // lá dentro); o job lê de lá e a função confere pela RPC
+      // rastreio_cron_secret_ok (só service_role executa). RASTREIO_CRON_SECRET
+      // (env) continua aceito como alternativa.
+      const enviado = req.headers.get('x-cron-secret') || '';
+      let autorizado = !!CRON_SECRET && enviado === CRON_SECRET;
+      if (!autorizado && enviado) {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/rastreio_cron_secret_ok`, {
+          method: 'POST', headers: sbHeaders, body: JSON.stringify({ p: enviado }),
+        });
+        autorizado = r.ok && (await r.json()) === true;
       }
+      if (!autorizado) return json({ ok: false, erro: 'nao_autorizado' }, 401);
       const desde = new Date(Date.now() - 60 * 864e5).toISOString();
       const pendentes = await sbGet(
         `rastreios_correios?created_at=gte.${desde}&codigo_rastreio=not.is.null` +
