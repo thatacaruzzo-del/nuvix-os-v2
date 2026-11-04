@@ -32,11 +32,10 @@
 // que já consumiu cota quando foi emitida, não um documento novo gerando
 // receita. Ver checarCotaNF em emitir-nfce pra entender a cota em si.
 //
-// ATENÇÃO — não confirmado: nome exato do campo que referencia a chave de
-// acesso da nota original na API da Focus NFe (o layout nacional da NF-e tem
-// o grupo <NFref><refNFe>, mas não confirmei o nome JSON exato que a Focus
-// espera pra isso). Testar em homologação antes de usar com cliente real,
-// mesmo padrão de honestidade do rascunho emitir-cte.ts.
+// 04/11/2026: nomes de campo conferidos na referência da Focus NFe
+// (notas_referenciadas[].chave_nfe, tipo_documento, endereço do destinatário
+// obrigatório) — ver comentário em montarPayload. Ainda não houve nenhuma
+// devolução real autorizada por aqui; a primeira deve ser acompanhada.
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -121,31 +120,95 @@ async function buscarNotaOriginal(vendaId: string) {
   return nfe || null;
 }
 
+// Mesmo tipo de bug da NF-e de venda (Natufonts, 04/11/2026): o CFOP do item
+// vinha de produtos.cfop_padrao, que é o CFOP de VENDA (5102) — numa nota de
+// devolução a SEFAZ exige CFOP de ENTRADA por devolução (1xxx interna /
+// 2xxx interestadual). O fallback '1202' de antes nunca era usado, porque
+// todo produto com dado fiscal já tem cfop_padrao preenchido.
+// Mapeia a natureza da venda pra devolução correspondente (tabela CFOP):
+//   x101 venda produção própria        -> x201
+//   x102 venda mercadoria de terceiros -> x202
+//   x401/x403/x405 venda com ST        -> x410/x411/x411
+// Qualquer outro caso cai em x202 (devolução de venda de mercadoria de
+// terceiros), o caso de quase todo cliente da plataforma (comércio/revenda).
+const NATUREZA_DEVOLUCAO: Record<string, string> = { '101': '201', '102': '202', '401': '410', '403': '411', '405': '411' };
+function cfopDevolucao(cfopVenda: string | null | undefined, interestadual: boolean): string {
+  const d = (cfopVenda || '').replace(/\D/g, '');
+  const sufixo = d.length === 4 ? d.slice(1) : '';
+  const natureza = ['1', '2'].includes(d[0]) && sufixo ? sufixo : (NATUREZA_DEVOLUCAO[sufixo] || '202');
+  return (interestadual ? '2' : '1') + natureza;
+}
+
+// Mesma limpeza de emitir-nfe (cidade cadastrada com a UF colada, ex:
+// "Lauro de freitas BA") — a Focus resolve o código IBGE pelo nome.
+function limparMunicipio(municipio: string | null | undefined, uf: string | null | undefined): string | undefined {
+  if (!municipio) return undefined;
+  let m = municipio.trim();
+  const ufUpper = (uf || '').toUpperCase().trim();
+  if (ufUpper.length === 2) m = m.replace(new RegExp(`\\s*[\\/,-]?\\s*${ufUpper}$`, 'i'), '').trim();
+  return m || undefined;
+}
+
+// Campos confirmados na referência da Focus (campos.focusnfe.com.br/nfe/
+// NotaFiscalXML.html, 04/11/2026): tipo_documento (tpNF) e o endereço do
+// destinatário (logradouro/numero/bairro/municipio/uf) são OBRIGATÓRIOS na
+// NF-e modelo 55, e a nota original vai em notas_referenciadas[].chave_nfe
+// (antes ia num campo "nfe_referenciada" que não existe — nenhuma devolução
+// teria passado). Destinatário: o cliente quando tem documento E endereço
+// completo; senão o próprio emitente (com o endereço da empresa), que é o
+// padrão de nota de entrada por devolução de consumidor final.
 function montarPayload(empresa: any, devolucao: any, notaOriginal: any, cliente: any, itens: any[]) {
   const cnpjEmitente = (empresa.cnpj || '').replace(/\D/g, '');
+  const ufEmitente = (empresa.endereco_uf || '').toUpperCase().trim();
   const documentoCliente = (cliente?.documento || '').replace(/\D/g, '');
-  const temClienteDocumento = documentoCliente.length === 11 || documentoCliente.length === 14;
+  const ufCliente = (cliente?.endereco_uf || '').toUpperCase().trim();
+  const clienteComEndereco = !!(cliente?.endereco_logradouro && cliente?.cidade && ufCliente.length === 2);
+  const usaCliente = (documentoCliente.length === 11 || documentoCliente.length === 14) && clienteComEndereco;
   const ehCnpjCliente = documentoCliente.length === 14;
+  const interestadual = usaCliente && !!ufEmitente && ufCliente !== ufEmitente;
+
+  const destinatario = usaCliente
+    ? {
+        nome_destinatario: cliente.nome || undefined,
+        cnpj_destinatario: ehCnpjCliente ? documentoCliente : undefined,
+        cpf_destinatario: ehCnpjCliente ? undefined : documentoCliente,
+        inscricao_estadual_destinatario: cliente.inscricao_estadual || undefined,
+        indicador_inscricao_estadual_destinatario: cliente.inscricao_estadual ? 1 : 9,
+        logradouro_destinatario: cliente.endereco_logradouro,
+        numero_destinatario: cliente.endereco_numero || 'S/N',
+        complemento_destinatario: cliente.endereco_complemento || undefined,
+        bairro_destinatario: cliente.endereco_bairro || undefined,
+        municipio_destinatario: limparMunicipio(cliente.cidade, ufCliente),
+        uf_destinatario: ufCliente,
+        cep_destinatario: (cliente.endereco_cep || '').replace(/\D/g, '') || undefined,
+      }
+    : {
+        nome_destinatario: empresa.razao || empresa.fantasia || undefined,
+        cnpj_destinatario: cnpjEmitente,
+        inscricao_estadual_destinatario: empresa.inscricao_estadual || undefined,
+        indicador_inscricao_estadual_destinatario: empresa.inscricao_estadual ? 1 : 9,
+        logradouro_destinatario: empresa.endereco_logradouro || undefined,
+        numero_destinatario: empresa.endereco_numero || 'S/N',
+        bairro_destinatario: empresa.endereco_bairro || undefined,
+        municipio_destinatario: limparMunicipio(empresa.cidade, ufEmitente),
+        uf_destinatario: ufEmitente || undefined,
+        cep_destinatario: (empresa.endereco_cep || '').replace(/\D/g, '') || undefined,
+      };
 
   return {
     natureza_operacao: 'DEVOLUCAO DE VENDA',
     data_emissao: dataEmissaoBrasilia(),
-    finalidade_emissao: '4', // 4 = Devolução/Retorno de mercadoria
+    tipo_documento: 0, // 0 = entrada — a mercadoria está voltando pra empresa
+    finalidade_emissao: 4, // 4 = Devolução de mercadoria
+    consumidor_final: 1,
     presenca_comprador: 9,
     modalidade_frete: 9,
-    local_destino: 1, // emitente = destinatário (ou cliente sem endereço) — sempre operação interna
+    local_destino: interestadual ? 2 : 1,
 
     cnpj_emitente: cnpjEmitente,
+    ...destinatario,
 
-    // Destinatário: cliente da venda original quando existe documento dele
-    // (sem endereço — ver aviso no topo do arquivo), senão o próprio emitente.
-    cnpj_destinatario: temClienteDocumento && ehCnpjCliente ? documentoCliente : (!temClienteDocumento ? cnpjEmitente : undefined),
-    cpf_destinatario: temClienteDocumento && !ehCnpjCliente ? documentoCliente : undefined,
-    nome_destinatario: temClienteDocumento ? (cliente?.nome || undefined) : (empresa.fantasia || empresa.razao || undefined),
-    indicador_inscricao_estadual_destinatario: 9,
-
-    // ATENÇÃO — nome de campo não confirmado, ver aviso no topo do arquivo.
-    nfe_referenciada: notaOriginal?.chave_acesso || undefined,
+    notas_referenciadas: notaOriginal?.chave_acesso ? [{ chave_nfe: notaOriginal.chave_acesso }] : undefined,
 
     items: itens.map((it, idx) => {
       const baseIbsCbs = it.cst_ibs_cbs ? Number(it.valor_total) : 0;
@@ -157,7 +220,7 @@ function montarPayload(empresa: any, devolucao: any, notaOriginal: any, cliente:
         codigo_produto: it.produto_id || 'AVULSO',
         descricao: it.descricao,
         codigo_ncm: limparNCM(it.ncm),
-        cfop: it.cfop || '1202', // devolução de venda, operação interna
+        cfop: cfopDevolucao(it.cfop, interestadual),
         quantidade_comercial: it.quantidade,
         quantidade_tributavel: it.quantidade,
         unidade_comercial: it.unidade_medida || 'UN',
@@ -168,7 +231,11 @@ function montarPayload(empresa: any, devolucao: any, notaOriginal: any, cliente:
         icms_origem: it.origem_mercadoria ?? '0',
         icms_situacao_tributaria: it.csosn_cst || undefined,
         icms_aliquota: it.aliquota_icms ?? undefined,
+        // Mesmo erro já confirmado na NF-e de venda ("NF-e sem grupo do PIS"
+        // quando vai só a alíquota sem o CST) — '99' igual emitir-nfe.
+        pis_situacao_tributaria: '99',
         pis_aliquota: it.aliquota_pis ?? undefined,
+        cofins_situacao_tributaria: '99',
         cofins_aliquota: it.aliquota_cofins ?? undefined,
         ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
         ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
@@ -245,7 +312,7 @@ Deno.serve(async (req) => {
 
     const [venda] = await sbGet(`vendas?id=eq.${devolucao.venda_id}&select=cliente_id`);
     const cliente = venda?.cliente_id
-      ? (await sbGet(`clientes?id=eq.${venda.cliente_id}&select=nome,documento`))[0]
+      ? (await sbGet(`clientes?id=eq.${venda.cliente_id}&select=nome,documento,inscricao_estadual,endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,cidade,endereco_uf`))[0]
       : null;
 
     const itensDevolvidos = await sbGet(`itens_devolvidos?devolucao_id=eq.${devolucao_id}&select=*`);
@@ -289,7 +356,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, nota: atualizado, simulacao: true });
     }
 
-    const ref = `nuvix-devolucao-${devolucao_id}`;
+    // Mesmo ajuste de emitir-nfe (4d0cb76): reemissão depois de erro usa um
+    // ref novo, senão a Focus devolve a tentativa rejeitada de antes.
+    const ref = devolucao.status === 'erro' ? `nuvix-devolucao-${devolucao_id}-r${Date.now()}` : `nuvix-devolucao-${devolucao_id}`;
     const r = await fetch(`${base}/v2/nfe?ref=${ref}`, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
