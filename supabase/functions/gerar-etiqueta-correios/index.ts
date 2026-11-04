@@ -522,7 +522,30 @@ Deno.serve(async (req) => {
       }
       const base = correiosBaseUrl(cred.ambiente);
       const token = await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api, cred.cartao_postagem);
-      const pdfBytes = await gerarRotuloPdf(base, token, rastreioExistente.codigo_rastreio);
+      let pdfBytes: Uint8Array | null;
+      try {
+        pdfBytes = await gerarRotuloPdf(base, token, rastreioExistente.codigo_rastreio);
+      } catch (e) {
+        const msg = String((e as Error)?.message || e);
+        // BUG REAL encontrado em 04/11/2026 (Natufonts, pedido nº5, cód.
+        // AE105295579BR): a pré-postagem foi cancelada do lado dos Correios
+        // (não por nós — nunca mandamos comando de cancelamento) depois de criada,
+        // provavelmente por quem tem acesso à conta de lá. Status ficava preso em
+        // "Etiqueta gerada" pra sempre, parecendo que só faltava buscar o PDF,
+        // quando na verdade esse código nunca mais vai gerar rótulo nenhum — SEFAZ/
+        // Correios não deixa imprimir rótulo de pré-postagem cancelada (erro
+        // "PPN-288"). Marca o rastreio como cancelado de verdade, pra ficar claro
+        // na tela que precisa gerar uma etiqueta NOVA, em vez de ficar tentando
+        // buscar o PDF de uma que nunca vai existir.
+        if (/cancelad/i.test(msg)) {
+          await sbPatch('rastreios_correios', rastreioExistente.id, {
+            status: 'Cancelada nos Correios',
+            atualizado_em: new Date().toISOString(),
+          });
+          return json({ ok: false, erro: 'etiqueta_cancelada_correios', mensagem: msg }, 422);
+        }
+        throw e;
+      }
       if (!pdfBytes) return json({ ok: false, erro: 'rotulo_ainda_nao_disponivel' }, 422);
 
       let pdfFinal: Uint8Array = pdfBytes;
