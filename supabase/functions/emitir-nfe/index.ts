@@ -201,6 +201,23 @@ function limparNCM(ncm: string | null | undefined): string | undefined {
 //   - modalidade_frete: 9 (sem frete) por padrão — true pra maioria das
 //     vendas atacado/B2B que ainda não calculam frete separado no sistema;
 //     revisar se/quando Transporte/frete entrar nesse fluxo.
+// BUG REAL encontrado em 04/11/2026 (YUP, cliente Carina Santana Santos): cadastro
+// de cliente às vezes tem a UF colada no nome da cidade ("Lauro de freitas BA",
+// "Araras / SP") — provavelmente digitado assim na hora do cadastro. A Focus NFe/
+// SEFAZ rejeita com "Município do destinatário inválido" porque esse nome não bate
+// com nenhum município do IBGE. Tira o sufixo " UF"/" / UF"/" - UF" do final do
+// nome antes de mandar, usando a UF que já está em cliente_endereco_uf.
+function limparMunicipioDestinatario(municipio: string | null | undefined, uf: string | null | undefined): string | undefined {
+  if (!municipio) return undefined;
+  let m = municipio.trim();
+  const ufUpper = (uf || '').toUpperCase().trim();
+  if (ufUpper.length === 2) {
+    const re = new RegExp(`\\s*[\\/,-]?\\s*${ufUpper}$`, 'i');
+    m = m.replace(re, '').trim();
+  }
+  return m || undefined;
+}
+
 function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: any[]) {
   const ufEmitente = (empresa.endereco_uf || '').toUpperCase();
   const ufDestinatario = (nota.cliente_endereco_uf || '').toUpperCase();
@@ -231,7 +248,7 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
     numero_destinatario: nota.cliente_endereco_numero || undefined,
     complemento_destinatario: nota.cliente_endereco_complemento || undefined,
     bairro_destinatario: nota.cliente_endereco_bairro || undefined,
-    municipio_destinatario: nota.cliente_endereco_municipio || undefined,
+    municipio_destinatario: limparMunicipioDestinatario(nota.cliente_endereco_municipio, nota.cliente_endereco_uf),
     uf_destinatario: ufDestinatario || undefined,
     cep_destinatario: (nota.cliente_endereco_cep || '').replace(/\D/g, '') || undefined,
 
