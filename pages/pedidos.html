@@ -1318,6 +1318,8 @@ function renderBotoesStatusEntrega(atual){
   return proximos.map(s=>`<button class="btn2" style="font-size:12px;padding:6px 12px" onclick="avancarStatusEntregaPedido('${s}')">Marcar como ${s}</button>`).join('');
 }
 async function avancarStatusEntregaPedido(novoStatus){
+  // Permissão "Expedição → Editar" (mudar status de entrega).
+  if(!temPermissao('expedicao','editar')){toast('Sem permissão para mudar o status de entrega. Peça ao administrador para liberar "Expedição".','err');return;}
   try{
     await dbPatch('vendas',fichaAbertaId,{status_entrega:novoStatus});
     const v=pedFichaCache[fichaAbertaId]; if(v)v.status_entrega=novoStatus;
@@ -1733,6 +1735,9 @@ async function calcularSugestaoEtiquetaPedido(){
   }catch(e){ return {peso:0,altura:0,largura:0,comprimento:0}; }
 }
 async function abrirConfirmacaoEtiquetaPedido(){
+  // Permissão "Expedição → Criar" (gerar etiqueta). Sem regra salva = liberado,
+  // mesmo padrão do resto do sistema, então ninguém que já usava perde acesso.
+  if(!temPermissao('expedicao','criar')){toast('Sem permissão para gerar etiqueta. Peça ao administrador para liberar "Expedição".','err');return;}
   $('fpEtiquetaConfirmar').style.display='block';
   setHTML('fpEtiquetaMsg','Calculando sugestão a partir dos produtos...');
   const sug=await calcularSugestaoEtiquetaPedido();
@@ -1749,6 +1754,7 @@ function cancelarConfirmacaoEtiquetaPedido(){
   $('fpEtiquetaConfirmar').style.display='none';
 }
 async function confirmarGerarEtiquetaPedido(){
+  if(!temPermissao('expedicao','criar')){toast('Sem permissão para gerar etiqueta.','err');return;}
   const peso=numBR('fpEtiquetaPeso'), altura=numBR('fpEtiquetaAltura'), largura=numBR('fpEtiquetaLargura'), comprimento=numBR('fpEtiquetaComprimento');
   if(!(peso>0)||!(altura>0)||!(largura>0)||!(comprimento>0)){
     setHTML('fpEtiquetaMsg','Preencha peso e as três medidas (todos maiores que zero) antes de gerar.');
