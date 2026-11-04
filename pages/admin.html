@@ -956,7 +956,7 @@ function toggleSenhaAdmin(){
     </p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
       <div class="field" style="flex:1;min-width:200px;margin:0"><label>Usuário Meu Correios</label><input id="correiosNuvixUsuario" placeholder="E-mail ou usuário"></div>
-      <div class="field" style="flex:1;min-width:200px;margin:0"><label>Código de acesso API</label><input id="correiosNuvixCodigo" type="password" placeholder="Gerado no portal"></div>
+      <div class="field" style="flex:1;min-width:200px;margin:0"><label>Código de acesso API</label><input id="correiosNuvixCodigo" type="password" autocomplete="new-password" placeholder="Gerado no portal"></div>
       <div class="field" style="margin:0"><label>Ambiente</label>
         <select id="correiosNuvixAmbiente"><option value="homologacao">Homologação</option><option value="producao">Produção</option></select>
       </div>
@@ -1396,8 +1396,8 @@ function toggleSenhaAdmin(){
     <div style="font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Login do administrador da empresa</div>
     <div class="form-grid">
       <div class="field"><label>Nome do admin</label><input id="empAdminNome" placeholder="Nome completo"></div>
-      <div class="field"><label>E-mail do admin *</label><input type="email" id="empAdminEmail"></div>
-      <div class="field"><label>Senha inicial *</label><input type="text" id="empAdminSenha" placeholder="mínimo 8 caracteres"></div>
+      <div class="field"><label>E-mail do admin *</label><input type="email" id="empAdminEmail" autocomplete="off"></div>
+      <div class="field"><label>Senha inicial *</label><input type="text" id="empAdminSenha" autocomplete="off" placeholder="mínimo 8 caracteres"></div>
     </div>
   </div>
 
@@ -1519,7 +1519,7 @@ function toggleSenhaAdmin(){
       <div class="field"><label>Número do contrato</label><input id="editEmpCorreiosContrato"></div>
       <div class="field"><label>Cartão de postagem</label><input id="editEmpCorreiosCartao"></div>
       <div class="field"><label>Usuário Meu Correios</label><input id="editEmpCorreiosUsuario" placeholder="E-mail ou usuário"></div>
-      <div class="field"><label>Código de acesso à API</label><input id="editEmpCorreiosCodigoAcesso" type="password"></div>
+      <div class="field"><label>Código de acesso à API</label><input id="editEmpCorreiosCodigoAcesso" type="password" autocomplete="new-password"></div>
       <div class="field"><label>Código do serviço</label><input id="editEmpCorreiosServico" placeholder="Ex: 03298 (PAC), 03220 (SEDEX)"></div>
       <div class="field"><label>Ambiente</label>
         <select id="editEmpCorreiosAmbiente">

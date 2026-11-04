@@ -417,9 +417,9 @@ async function deleteRow(table,id,area){
       <div class="card">
         <h2>Novo usuário</h2>
         <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-          <div class="field"><label>Nome completo</label><input id="usrNome"></div>
-          <div class="field"><label>E-mail</label><input id="usrEmail" type="email"></div>
-          <div class="field"><label>Senha inicial</label><input id="usrSenha" type="password"></div>
+          <div class="field"><label>Nome completo</label><input id="usrNome" autocomplete="off"></div>
+          <div class="field"><label>E-mail</label><input id="usrEmail" type="email" autocomplete="off"></div>
+          <div class="field"><label>Senha inicial</label><input id="usrSenha" type="password" autocomplete="new-password" placeholder="Senha do novo usuário (mín. 8)"></div>
           <div class="field"><label>Perfil</label>
             <select id="usrPerfil"><option>Administrador</option><option>Gestor</option><option>Financeiro</option><option>Comercial</option><option>Vendedor</option><option>Operacional</option><option>RH</option><option>Técnico</option><option>Colaborador</option></select>
           </div>

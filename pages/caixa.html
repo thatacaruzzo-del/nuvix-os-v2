@@ -400,8 +400,8 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <div class="modal" style="max-width:420px">
   <h3>Desconto acima do limite</h3>
   <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Esse desconto passa do seu limite sem aprovação. Peça pra um Administrador confirmar com a senha dele.</p>
-  <div class="field"><label>E-mail do aprovador</label><input id="aprovEmail" placeholder="admin@empresa.com"></div>
-  <div class="field"><label>Senha</label><input id="aprovSenha" type="password"></div>
+  <div class="field"><label>E-mail do aprovador</label><input id="aprovEmail" placeholder="admin@empresa.com" autocomplete="off"></div>
+  <div class="field"><label>Senha</label><input id="aprovSenha" type="password" autocomplete="new-password"></div>
   <div id="aprovacaoMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalAprovacao')">Cancelar</button>
@@ -428,8 +428,8 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 <div class="modal" style="max-width:420px">
   <h3>Confirmar edição de pagamento</h3>
   <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Editar o pagamento de uma venda já concluída precisa da senha de um Administrador.</p>
-  <div class="field"><label>E-mail do administrador</label><input id="editPgtoAprovEmail" placeholder="admin@empresa.com"></div>
-  <div class="field"><label>Senha</label><input id="editPgtoAprovSenha" type="password"></div>
+  <div class="field"><label>E-mail do administrador</label><input id="editPgtoAprovEmail" placeholder="admin@empresa.com" autocomplete="off"></div>
+  <div class="field"><label>Senha</label><input id="editPgtoAprovSenha" type="password" autocomplete="new-password"></div>
   <div id="editPgtoAprovMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalAprovacaoEdicaoPagto')">Cancelar</button>
