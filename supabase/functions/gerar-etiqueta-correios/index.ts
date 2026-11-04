@@ -987,12 +987,23 @@ Deno.serve(async (req) => {
       tipo: 'etiqueta',
       valor_frete: resultado.valor_frete,
       link_pdf: resultado.link_pdf,
-      status: resultado.simulado ? 'Etiqueta gerada (SIMULAÇÃO)' : 'Etiqueta gerada',
+      status: resultado.simulado ? 'Etiqueta gerada (SIMULAÇÃO)' : 'Etiqueta emitida',
+      eventos: [], // etiqueta nova: descarta eventos da anterior (ex: cancelada)
       atualizado_em: new Date().toISOString(),
     };
     const rastreio = existente ? await sbPatch('rastreios_correios', existente.id, payload) : await sbPost('rastreios_correios', payload);
 
-    return json({ ok: true, rastreio, simulado: resultado.simulado });
+    // Status do pedido igual ao dos Correios (04/11/2026): etiqueta gerada =
+    // "Etiqueta emitida" — antes a tela marcava "Enviado" aqui, sem o pacote
+    // ter sido postado. Daqui pra frente quem avança é o rastreio (a cada 2h).
+    // Não mexe em "Em separação" (etapa da Trat Log) nem em retirada no local.
+    let statusEntrega: string | null = venda.status_entrega || 'Registrado';
+    if (!['Em separação', 'Retirado'].includes(statusEntrega!)) {
+      await sbPatch('vendas', venda_id, { status_entrega: 'Etiqueta emitida' });
+      statusEntrega = 'Etiqueta emitida';
+    }
+
+    return json({ ok: true, rastreio, simulado: resultado.simulado, status_entrega: statusEntrega });
   } catch (e) {
     return json({ ok: false, erro: 'erro_inesperado', mensagem: String((e as Error)?.message || e) }, 500);
   }

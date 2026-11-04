@@ -1775,7 +1775,7 @@ async function registrarRastreioPedido(){
       const atualizado=await dbPatch('rastreios_correios',rastreioAtual.id,{meio_envio:'Correios',codigo_rastreio:codigo,entregador_nome:null,status:'Aguardando primeira consulta',atualizado_em:new Date().toISOString()});
       rastreioAtual=Array.isArray(atualizado)?atualizado[0]:atualizado;
       editandoEnvioPedido=false;
-      await avancarStatusEntregaPedido('Enviado');
+      await avancarStatusEntregaPedido('Postado'); // código digitado à mão = pacote já postado; o rastreio corrige se não for
       setHTML('fpEnvioConteudo',renderEnvioPedido());
       toast('Envio atualizado!','ok');
     }catch(e){ toast('Erro: '+e.message,'err'); }
@@ -1786,7 +1786,7 @@ async function registrarRastreioPedido(){
     const resp=await r.json();
     if(!resp.ok){toast(resp.erro==='ja_existe_rastreio_pra_esse_pedido'?'Esse pedido já tem rastreio registrado.':'Erro ao registrar: '+(resp.mensagem||resp.erro),'err');return;}
     rastreioAtual=resp.rastreio;
-    await avancarStatusEntregaPedido('Enviado');
+    await avancarStatusEntregaPedido('Postado'); // código digitado à mão = pacote já postado; o rastreio corrige se não for
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast(resp.simulado?'Registrado (modo simulação — sem conta real dos Correios ainda).':'Rastreio registrado!','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
@@ -1882,7 +1882,11 @@ async function confirmarGerarEtiquetaPedido(){
       const numeroPedido=pedFichaCache[fichaAbertaId]?.numero||'';
       try{ await dbPost('financeiro',withEmpresa({tipo:'Despesa',categoria:'Frete/Envio',descricao:`Custo de envio (Correios) do Pedido Nº ${numeroPedido}`,valor:arred2(rastreioAtual.valor_frete),data_lancamento:hoje(),status:'Pago',data_pagamento:hoje(),referencia_tipo:'venda',referencia_id:fichaAbertaId})); }catch(e){}
     }
-    await avancarStatusEntregaPedido('Enviado');
+    // O servidor já gravou "Etiqueta emitida" no pedido (status igual ao dos Correios).
+    if(resp.status_entrega){
+      const v=pedFichaCache[fichaAbertaId]; if(v)v.status_entrega=resp.status_entrega;
+      const h=historicoPedidos.find(x=>x.id===fichaAbertaId); if(h)h.status_entrega=resp.status_entrega;
+    }
     setHTML('fpEnvioConteudo',renderEnvioPedido());
     toast(resp.simulado?'Etiqueta gerada (modo simulação).':'Etiqueta gerada!','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
