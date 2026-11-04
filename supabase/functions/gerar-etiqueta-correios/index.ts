@@ -277,20 +277,36 @@ async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string)
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const solicitacao = await r.json().catch(() => null);
   const idRecibo = extrairCampoProvavel(solicitacao, ['idRecibo', 'numeroRecibo', 'recibo', 'id', 'protocolo']);
-  if (!idRecibo) return null;
+  // BUG REAL encontrado em 04/11/2026 (Natufonts, pedido nº5): quando isso falhava
+  // (idRecibo ausente, ou nenhuma tentativa de download trazia PDF), a function só
+  // devolvia null silenciosamente — "rotulo_ainda_nao_disponivel" genérico, sem
+  // nenhuma pista do motivo real. Agora guarda a última resposta bruta dos Correios
+  // em cada tentativa e, se esgotar sem PDF, lança um erro com essa resposta —
+  // assim dá pra ver o motivo de verdade (ex: erro de permissão, rótulo expirado,
+  // etc.) em vez de só "ainda não disponível" pra sempre.
+  if (!idRecibo) {
+    throw new Error(`Correios não devolveu um identificador de recibo pra gerar o rótulo de ${codigoObjeto}. Resposta: ${JSON.stringify(solicitacao)}`);
+  }
 
+  let ultimaResposta = '';
   for (let tentativa = 0; tentativa < 4; tentativa++) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     const rr = await fetch(`${base}/prepostagem/v1/prepostagens/rotulo/download/assincrono/${idRecibo}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!rr.ok) continue;
+    if (!rr.ok) {
+      ultimaResposta = `HTTP ${rr.status}: ${await rr.text().catch(() => '(sem corpo)')}`;
+      continue;
+    }
     const contentType = rr.headers.get('content-type') || '';
     if (contentType.includes('application/pdf')) {
       const buf = await rr.arrayBuffer();
-      return buf.byteLength ? new Uint8Array(buf) : null;
+      if (buf.byteLength) return new Uint8Array(buf);
+      ultimaResposta = 'PDF retornado vazio (0 bytes).';
+      continue;
     }
-    const corpo = await rr.json().catch(() => null);
+    const corpoTexto = await rr.text();
+    const corpo = (() => { try { return JSON.parse(corpoTexto); } catch { return null; } })();
     const base64 = extrairCampoProvavel(corpo, ['dados', 'arquivo', 'conteudo', 'pdf', 'base64']);
     if (base64) {
       const bin = atob(base64);
@@ -298,8 +314,9 @@ async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string)
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       return bytes;
     }
+    ultimaResposta = `Resposta sem PDF nem base64 reconhecível: ${corpoTexto.slice(0, 500)}`;
   }
-  return null;
+  throw new Error(`Rótulo de ${codigoObjeto} não ficou disponível pra download depois de 4 tentativas (8s). Última resposta dos Correios: ${ultimaResposta || '(nenhuma tentativa respondeu)'}`);
 }
 
 type EnderecoPessoa = {
