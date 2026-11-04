@@ -1425,12 +1425,22 @@ let rastreioAtual=null;
 let editandoEnvioPedido=false; // true = o formulário abaixo está corrigindo um envio já registrado, não criando um novo
 const MEIOS_ENVIO=['Correios','Motoboy','Transportadora','Retirada no local'];
 function renderEnvioPedido(){
-  if(!rastreioAtual||editandoEnvioPedido){
+  // Etiqueta cancelada do lado dos Correios (ver gerar-etiqueta-correios) não tem
+  // mais conserto — nenhum botão da tela de resumo serve pra isso (Buscar PDF só
+  // ia bater na mesma pré-postagem morta de novo). Cai no mesmo formulário de
+  // "gerar etiqueta" de quando ainda não existia nenhuma, pra poder criar uma nova
+  // pré-postagem pra esse pedido (o backend substitui o rastreio antigo, não cria
+  // duplicado — ver UPSERT por venda_id em gerar-etiqueta-correios).
+  const etiquetaCancelada=/cancelad/i.test(rastreioAtual?.status||'');
+  if(!rastreioAtual||editandoEnvioPedido||etiquetaCancelada){
     const avisoCanalProprio=(!rastreioAtual&&!editandoEnvioPedido&&CANAIS_ENVIO_PROPRIO[fichaCanalAtual])
       ?`<div class="notice" style="margin-bottom:10px">📦 Esse pedido veio do ${esc(fichaCanalAtual)} — o envio normalmente já é feito por eles, direto em ${esc(CANAIS_ENVIO_PROPRIO[fichaCanalAtual])}. Só preencha abaixo se a empresa estiver enviando por fora disso.</div>`
       :'';
+    const avisoCancelada=etiquetaCancelada
+      ?`<div class="notice" style="margin-bottom:10px;border-color:var(--red)">⚠️ A etiqueta anterior (${esc(rastreioAtual.codigo_rastreio||'')}) foi cancelada do lado dos Correios e não tem mais como recuperar o PDF dela. Gere uma etiqueta nova abaixo.</div>`
+      :'';
     return `
-      ${avisoCanalProprio}
+      ${avisoCanalProprio}${avisoCancelada}
       <div class="field" style="max-width:260px;margin-bottom:10px">
         <label>Meio de envio</label>
         <select id="fpMeioEnvio" onchange="toggleMeioEnvioPedido()">
