@@ -280,11 +280,17 @@ function extrairCampoProvavel(obj: unknown, nomes: string[]): string | null {
   return null;
 }
 
-async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string): Promise<Uint8Array | null> {
+// layoutImpressao (OpenAPI oficial da Pré-postagem v2.0.32, 04/11/2026):
+// PADRAO (default, folha A4), LINEAR_100_150 (térmica 10x15), LINEAR_100_80,
+// LINEAR_A4, LINEAR_A. A etiqueta individual continua no PADRAO; a impressão
+// em lote (térmica) pede LINEAR_100_150.
+async function gerarRotuloPdf(base: string, token: string, codigoObjeto: string, layoutImpressao = 'PADRAO'): Promise<Uint8Array | null> {
+  const corpoRotulo: Record<string, unknown> = { codigosObjeto: [codigoObjeto], tipoRotulo: 'P', formatoRotulo: 'ET', imprimeRemetente: 'S' };
+  if (layoutImpressao !== 'PADRAO') corpoRotulo.layoutImpressao = layoutImpressao;
   const r = await fetch(`${base}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ codigosObjeto: [codigoObjeto], tipoRotulo: 'P', formatoRotulo: 'ET', imprimeRemetente: 'S' }),
+    body: JSON.stringify(corpoRotulo),
   });
   if (!r.ok) throw new Error(mensagemErroCorreios(await r.text()));
   const solicitacao = await r.json().catch(() => null);
@@ -388,81 +394,143 @@ function resolverRemetente(empresa: Record<string, string | null>, cred: Record<
 // ter o que precisa pra postar sem precisar abrir mais nada — enquanto a
 // gente não liga a emissão oficial da DCe pelos Correios (emiteDCe), essa é
 // uma declaração nossa mesmo, simples e clara, com os itens reais da venda.
+// Formato '100x150' (04/11/2026): mesma declaração, pra impressão em lote na
+// térmica 10x15 da Trat Log. Quebra de linha pela largura real do texto e
+// página nova automática quando não cabe (pedido com muitos itens).
+const MM = 72 / 25.4;
+const FORMATOS_DECLARACAO = {
+  A4: { largura: 595.28, altura: 841.89, margem: 50, corpo: 10, titulo: 16, secao: 16, compacto: false },
+  '100x150': { largura: 100 * MM, altura: 150 * MM, margem: 4 * MM, corpo: 7.5, titulo: 11, secao: 7, compacto: true },
+} as const;
+type FormatoDeclaracao = keyof typeof FORMATOS_DECLARACAO;
+
 async function gerarDeclaracaoConteudoPdf(info: {
   codigoRastreio: string; remetente: EnderecoPessoa; destinatario: EnderecoPessoa; itens: ItemDeclarado[];
-  observacao?: string | null;
-}): Promise<Uint8Array> {
+  observacao?: string | null; numeroPedido?: string | number | null;
+}, formato: FormatoDeclaracao = 'A4'): Promise<Uint8Array> {
+  const F = FORMATOS_DECLARACAO[formato];
   const doc = await PDFDocument.create();
-  const page = doc.addPage([595.28, 841.89]); // A4
   const fonteNormal = await doc.embedFont(StandardFonts.Helvetica);
   const fonteNegrito = await doc.embedFont(StandardFonts.HelveticaBold);
-  const margemEsquerda = 50;
-  let y = 800;
+  const larguraUtil = F.largura - 2 * F.margem;
+  let page = doc.addPage([F.largura, F.altura]);
+  let y = F.altura - F.margem - F.titulo;
 
+  const novaPaginaSePreciso = (alturaLinha: number) => {
+    if (y - alturaLinha < F.margem) {
+      page = doc.addPage([F.largura, F.altura]);
+      y = F.altura - F.margem - F.corpo;
+      page.drawText(`DECLARAÇÃO DE CONTEÚDO (cont.) - ${info.codigoRastreio || ''}`, { x: F.margem, y, size: F.corpo, font: fonteNegrito });
+      y -= F.corpo + 6;
+    }
+  };
+  // Quebra o texto em linhas que cabem em `largura` com a fonte/tamanho dados.
+  const quebrar = (texto: string, fonte: typeof fonteNormal, tamanho: number, largura: number): string[] => {
+    const linhas: string[] = [];
+    for (const paragrafo of String(texto || '').split(/\n/)) {
+      let atual = '';
+      for (const palavra of paragrafo.split(/\s+/).filter(Boolean)) {
+        const cand = atual ? `${atual} ${palavra}` : palavra;
+        if (fonte.widthOfTextAtSize(cand, tamanho) <= largura) { atual = cand; continue; }
+        if (atual) linhas.push(atual);
+        // palavra sozinha maior que a linha: corta no caractere
+        let resto = palavra;
+        while (fonte.widthOfTextAtSize(resto, tamanho) > largura && resto.length > 1) {
+          let n = resto.length;
+          while (n > 1 && fonte.widthOfTextAtSize(resto.slice(0, n), tamanho) > largura) n--;
+          linhas.push(resto.slice(0, n));
+          resto = resto.slice(n);
+        }
+        atual = resto;
+      }
+      linhas.push(atual);
+    }
+    return linhas;
+  };
   const linha = (texto: string, opts: { negrito?: boolean; tamanho?: number; espacoDepois?: number } = {}) => {
     const fonte = opts.negrito ? fonteNegrito : fonteNormal;
-    const tamanho = opts.tamanho || 10;
-    page.drawText(texto, { x: margemEsquerda, y, size: tamanho, font: fonte, color: rgb(0, 0, 0) });
-    y -= tamanho + (opts.espacoDepois ?? 6);
+    const tamanho = opts.tamanho || F.corpo;
+    const partes = quebrar(texto, fonte, tamanho, larguraUtil);
+    partes.forEach((p, i) => {
+      novaPaginaSePreciso(tamanho);
+      page.drawText(p, { x: F.margem, y, size: tamanho, font: fonte, color: rgb(0, 0, 0) });
+      y -= tamanho + (i === partes.length - 1 ? (opts.espacoDepois ?? (F.compacto ? 3 : 6)) : 2);
+    });
   };
 
-  linha('DECLARAÇÃO DE CONTEÚDO', { negrito: true, tamanho: 16, espacoDepois: 16 });
+  linha('DECLARAÇÃO DE CONTEÚDO', { negrito: true, tamanho: F.titulo, espacoDepois: F.secao });
   linha(`Código de rastreio: ${info.codigoRastreio || '(aguardando geração)'}`, { negrito: true });
-  linha(`Data de emissão: ${new Date().toLocaleDateString('pt-BR')}`, { espacoDepois: 16 });
+  if (info.numeroPedido) linha(`Pedido nº ${info.numeroPedido}`, { negrito: true });
+  linha(`Data de emissão: ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, { espacoDepois: F.secao });
 
   linha('REMETENTE', { negrito: true });
   linha(info.remetente.nome);
-  linha(fmtEndereco(info.remetente), { espacoDepois: 16 });
+  linha(fmtEndereco(info.remetente), { espacoDepois: F.secao });
 
   linha('DESTINATÁRIO', { negrito: true });
   linha(info.destinatario.nome + (info.destinatario.documento ? ` — ${fmtDocumento(info.destinatario.documento)}` : ''));
-  linha(fmtEndereco(info.destinatario), { espacoDepois: 16 });
+  linha(fmtEndereco(info.destinatario), { espacoDepois: F.secao });
 
-  linha('ITENS DECLARADOS', { negrito: true, espacoDepois: 10 });
-  const colX = { produto: margemEsquerda, qtd: 340, unit: 400, subtotal: 480 };
-  page.drawText('Produto', { x: colX.produto, y, size: 10, font: fonteNegrito });
-  page.drawText('Qtd.', { x: colX.qtd, y, size: 10, font: fonteNegrito });
-  page.drawText('Unit.', { x: colX.unit, y, size: 10, font: fonteNegrito });
-  page.drawText('Subtotal', { x: colX.subtotal, y, size: 10, font: fonteNegrito });
-  y -= 16;
+  linha('ITENS DECLARADOS', { negrito: true, espacoDepois: F.compacto ? 4 : 10 });
+  // Colunas proporcionais à largura útil (no 10x15 a coluna "Unit." sai, não cabe).
+  const col = F.compacto
+    ? { produto: F.margem, qtd: F.margem + larguraUtil * 0.64, unit: -1, subtotal: F.margem + larguraUtil * 0.76 }
+    : { produto: F.margem, qtd: 340, unit: 400, subtotal: 480 };
+  const larguraProduto = col.qtd - col.produto - 6;
+  novaPaginaSePreciso(F.corpo);
+  page.drawText('Produto', { x: col.produto, y, size: F.corpo, font: fonteNegrito });
+  page.drawText('Qtd.', { x: col.qtd, y, size: F.corpo, font: fonteNegrito });
+  if (col.unit > 0) page.drawText('Unit.', { x: col.unit, y, size: F.corpo, font: fonteNegrito });
+  page.drawText('Subtotal', { x: col.subtotal, y, size: F.corpo, font: fonteNegrito });
+  y -= F.corpo + (F.compacto ? 4 : 6);
 
   let total = 0;
   for (const it of info.itens) {
     const subtotal = it.quantidade * it.valor_unitario;
     total += subtotal;
-    page.drawText(it.produto_nome.slice(0, 48), { x: colX.produto, y, size: 10, font: fonteNormal });
-    page.drawText(String(it.quantidade), { x: colX.qtd, y, size: 10, font: fonteNormal });
-    page.drawText(fmtMoeda(it.valor_unitario), { x: colX.unit, y, size: 10, font: fonteNormal });
-    page.drawText(fmtMoeda(subtotal), { x: colX.subtotal, y, size: 10, font: fonteNormal });
-    y -= 16;
+    const nomes = quebrar(it.produto_nome, fonteNormal, F.corpo, larguraProduto);
+    nomes.forEach((n, i) => {
+      novaPaginaSePreciso(F.corpo);
+      page.drawText(n, { x: col.produto, y, size: F.corpo, font: fonteNormal });
+      if (i === 0) {
+        page.drawText(String(it.quantidade), { x: col.qtd, y, size: F.corpo, font: fonteNormal });
+        if (col.unit > 0) page.drawText(fmtMoeda(it.valor_unitario), { x: col.unit, y, size: F.corpo, font: fonteNormal });
+        page.drawText(fmtMoeda(subtotal), { x: col.subtotal, y, size: F.corpo, font: fonteNormal });
+      }
+      y -= F.corpo + 2;
+    });
+    y -= F.compacto ? 2 : 4;
   }
 
-  y -= 10;
-  linha(`Valor total declarado: ${fmtMoeda(total)}`, { negrito: true, tamanho: 12 });
+  y -= F.compacto ? 4 : 10;
+  linha(`Valor total declarado: ${fmtMoeda(total)}`, { negrito: true, tamanho: F.compacto ? F.corpo + 1 : 12 });
 
   // Pedido explícito da Thata (04/11/2026): a observação anotada na hora de criar
-  // o pedido (ex: "Cliente ganhou Brinde 3") precisa ir junto na declaração de
-  // conteúdo, pra quem embala/despacha ver sem precisar abrir o sistema. Quebra
-  // manual de linha (pdf-lib não quebra sozinho) — ~95 caracteres cabem na largura
-  // útil da página com Helvetica 10pt.
+  // o pedido (ex: "Cliente ganhou Brinde 3") vai junto, pra quem embala ver sem
+  // abrir o sistema.
   if (info.observacao && info.observacao.trim()) {
-    y -= 10;
-    linha('OBSERVAÇÃO DO PEDIDO', { negrito: true, espacoDepois: 8 });
-    const palavras = info.observacao.trim().split(/\s+/);
-    let linhaAtual = '';
-    for (const palavra of palavras) {
-      const candidata = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
-      if (candidata.length > 95) {
-        linha(linhaAtual);
-        linhaAtual = palavra;
-      } else {
-        linhaAtual = candidata;
-      }
-    }
-    if (linhaAtual) linha(linhaAtual);
+    y -= F.compacto ? 4 : 10;
+    linha('OBSERVAÇÃO DO PEDIDO', { negrito: true, espacoDepois: F.compacto ? 3 : 8 });
+    linha(info.observacao.trim());
   }
 
   return doc.save();
+}
+
+// Coloca cada página do PDF numa página 10x15, escalada pra caber inteira
+// (mantendo a proporção). Se os Correios já devolverem o rótulo em 10x15
+// (LINEAR_100_150), a escala fica ~1 e nada muda; se vier em outro tamanho,
+// pelo menos sai inteiro na térmica em vez de cortado.
+async function paginasEm100x150(destino: PDFDocument, origemBytes: Uint8Array) {
+  const W = 100 * MM, Hh = 150 * MM;
+  const origem = await PDFDocument.load(origemBytes);
+  const embutidas = await destino.embedPdf(origem, origem.getPageIndices());
+  for (const e of embutidas) {
+    const escala = Math.min(W / e.width, Hh / e.height);
+    const w = e.width * escala, h = e.height * escala;
+    const p = destino.addPage([W, Hh]);
+    p.drawPage(e, { x: (W - w) / 2, y: Hh - h, width: w, height: h });
+  }
 }
 
 async function combinarComEtiqueta(etiquetaPdfBytes: Uint8Array, declaracaoPdfBytes: Uint8Array): Promise<Uint8Array> {
@@ -509,7 +577,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico, acao } = await req.json();
+    const { venda_id, peso_kg, altura_cm, largura_cm, comprimento_cm, codigo_servico, acao, venda_ids } = await req.json();
 
     // "testar_conexao" não depende de nenhum pedido — serve pra quem acabou
     // de preencher o contrato em correios-contrato.html conferir sozinho se
@@ -541,6 +609,132 @@ Deno.serve(async (req) => {
       } catch (e) {
         return json({ ok: false, erro: 'autenticacao_falhou', mensagem: String((e as Error)?.message || e) }, 200);
       }
+    }
+
+    // ========================================================================
+    // "imprimir_lote" (04/11/2026, pedido da Thata pra Trat Log): vários pedidos
+    // de uma vez, num PDF só em 10x15 pra impressora térmica — etiqueta do
+    // pedido 1, declaração do pedido 1, etiqueta do pedido 2... Só busca o
+    // rótulo de etiquetas JÁ geradas (nunca cria pré-postagem nova aqui, isso
+    // seria envio real no contrato). O PDF volta direto na resposta (base64),
+    // não fica salvo no Storage.
+    // ========================================================================
+    if (acao === 'imprimir_lote') {
+      const empresaId = empresaIdDoChamador(req);
+      if (!empresaId) return json({ ok: false, erro: 'nao_autenticado' }, 401);
+      const ids: string[] = Array.isArray(venda_ids) ? [...new Set(venda_ids.filter((x: unknown) => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x as string)))] as string[] : [];
+      if (!ids.length) return json({ ok: false, erro: 'nenhum_pedido_selecionado' }, 422);
+      if (ids.length > 40) return json({ ok: false, erro: 'lote_grande_demais', mensagem: 'Selecione no máximo 40 pedidos por vez.' }, 422);
+
+      const lista = ids.join(',');
+      // Filtra por empresa_id do CHAMADOR: id de pedido de outra empresa
+      // simplesmente não volta (service role ignora RLS, a trava é esta).
+      const [vendas, [empresa], [cred], rastreios, itensTodos] = await Promise.all([
+        sbGet(`vendas?id=in.(${lista})&empresa_id=eq.${empresaId}&select=id,numero,cliente_id,observacao,status,empresa_id`),
+        sbGet(`empresas?id=eq.${empresaId}&select=*`),
+        sbGet(`correios_credenciais?empresa_id=eq.${empresaId}&select=*`),
+        sbGet(`rastreios_correios?venda_id=in.(${lista})&select=*`),
+        sbGet(`itens_venda?venda_id=in.(${lista})&select=venda_id,produto_nome,quantidade,valor_unitario`),
+      ]);
+      if (!empresa?.correios_ativo || !cred) return json({ ok: false, erro: 'correios_nao_configurado' }, 422);
+
+      const clienteIds = [...new Set(vendas.map((v: any) => v.cliente_id).filter(Boolean))];
+      const clientes = clienteIds.length ? await sbGet(`clientes?id=in.(${clienteIds.join(',')})&select=*`) : [];
+      const clientePorId = new Map(clientes.map((c: any) => [c.id, c]));
+      const rastreioPorVenda = new Map(rastreios.map((r: any) => [r.venda_id, r]));
+      const vendaPorId = new Map(vendas.map((v: any) => [v.id, v]));
+      const remetenteEndereco = resolverRemetente(empresa, cred);
+
+      // Mantém a ordem em que os pedidos foram selecionados na tela.
+      const pulados: { numero: string | number | null; motivo: string }[] = [];
+      const aptos: { venda: any; rastreio: any }[] = [];
+      for (const id of ids) {
+        const venda = vendaPorId.get(id);
+        if (!venda) { pulados.push({ numero: null, motivo: 'Pedido não encontrado nesta empresa.' }); continue; }
+        if (venda.status === 'Cancelada') { pulados.push({ numero: venda.numero, motivo: 'Pedido cancelado.' }); continue; }
+        const rastreio = rastreioPorVenda.get(id);
+        if (!rastreio?.codigo_rastreio) { pulados.push({ numero: venda.numero, motivo: 'Etiqueta ainda não foi gerada.' }); continue; }
+        if (/cancelad/i.test(rastreio.status || '')) { pulados.push({ numero: venda.numero, motivo: 'Etiqueta cancelada nos Correios, gere uma nova.' }); continue; }
+        aptos.push({ venda, rastreio });
+      }
+      if (!aptos.length) return json({ ok: false, erro: 'nenhum_pedido_apto', pulados }, 422);
+
+      const base = correiosBaseUrl(cred.ambiente);
+      const precisaCorreios = aptos.some((a) => !/^SM/.test(a.rastreio.codigo_rastreio));
+      const token = precisaCorreios ? await autenticarCorreios(base, cred.usuario_meu_correios, cred.codigo_acesso_api, cred.cartao_postagem) : '';
+
+      // Rótulo de cada pedido em paralelo (4 por vez), um pedido por chamada —
+      // assim a etiqueta nunca troca de lugar com a declaração de outro pedido.
+      const rotulos = new Map<string, Uint8Array>();
+      let cursor = 0;
+      const trabalhar = async () => {
+        while (cursor < aptos.length) {
+          const a = aptos[cursor++];
+          const codigo = a.rastreio.codigo_rastreio;
+          try {
+            if (/^SM/.test(codigo)) {
+              // Etiqueta de SIMULAÇÃO (correios_simulacao): não existe nos Correios.
+              const d = await PDFDocument.create();
+              const p = d.addPage([100 * MM, 150 * MM]);
+              const fb = await d.embedFont(StandardFonts.HelveticaBold);
+              p.drawText('ETIQUETA DE SIMULAÇÃO', { x: 12, y: 380, size: 12, font: fb });
+              p.drawText(codigo, { x: 12, y: 360, size: 11, font: fb });
+              p.drawText('Não vale para postagem.', { x: 12, y: 342, size: 9, font: fb });
+              rotulos.set(a.venda.id, await d.save());
+            } else {
+              const pdf = await gerarRotuloPdf(base, token, codigo, 'LINEAR_100_150');
+              if (pdf) rotulos.set(a.venda.id, pdf);
+            }
+          } catch (e) {
+            const msg = String((e as Error)?.message || e);
+            if (/cancelad/i.test(msg)) {
+              await sbPatch('rastreios_correios', a.rastreio.id, { status: 'Cancelada nos Correios', atualizado_em: new Date().toISOString() }).catch(() => {});
+              pulados.push({ numero: a.venda.numero, motivo: 'Etiqueta cancelada nos Correios, gere uma nova.' });
+            } else {
+              pulados.push({ numero: a.venda.numero, motivo: 'Correios não devolveu o rótulo: ' + msg.slice(0, 200) });
+            }
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, aptos.length) }, trabalhar));
+
+      const final = await PDFDocument.create();
+      const impressos: string[] = [];
+      for (const { venda, rastreio } of aptos) {
+        const rotulo = rotulos.get(venda.id);
+        if (!rotulo) continue;
+        await paginasEm100x150(final, rotulo);
+        const cliente: any = clientePorId.get(venda.cliente_id);
+        if (cliente?.endereco_logradouro) {
+          try {
+            const declaracao = await gerarDeclaracaoConteudoPdf({
+              codigoRastreio: rastreio.codigo_rastreio,
+              numeroPedido: venda.numero,
+              remetente: { ...remetenteEndereco, documento: empresa.cnpj },
+              destinatario: {
+                nome: cliente.nome, documento: cliente.documento, cep: cliente.endereco_cep, logradouro: cliente.endereco_logradouro,
+                numero: cliente.endereco_numero || 'S/N', complemento: cliente.endereco_complemento, bairro: cliente.endereco_bairro || '',
+                cidade: cliente.cidade || '', uf: cliente.endereco_uf,
+              },
+              itens: itensTodos.filter((i: any) => i.venda_id === venda.id),
+              observacao: venda.observacao,
+            }, '100x150');
+            await paginasEm100x150(final, declaracao);
+          } catch (e) {
+            console.warn('Falha na declaração do pedido', venda.numero, e);
+            pulados.push({ numero: venda.numero, motivo: 'Etiqueta impressa, mas a declaração falhou.' });
+          }
+        } else {
+          pulados.push({ numero: venda.numero, motivo: 'Etiqueta impressa, mas sem declaração (cliente sem endereço no cadastro).' });
+        }
+        impressos.push(venda.id);
+      }
+      if (!impressos.length) return json({ ok: false, erro: 'nenhum_pedido_apto', pulados }, 422);
+
+      const bytes = await final.save();
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return json({ ok: true, pdf_base64: btoa(bin), impressos, pulados });
     }
 
     if (!venda_id) throw new Error('venda_id é obrigatório.');

@@ -430,9 +430,16 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
           <button class="btn2" onclick="limparFiltroHistoricoPedidos()">Limpar filtro</button>
         </div>
         <div id="pedHistInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+        <div id="pedLoteBar" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--bg);align-items:center;gap:12px;flex-wrap:wrap">
+          <b id="pedLoteQtd" style="font-size:13px"></b>
+          <button class="btn" id="btnImprimirLote" onclick="imprimirLotePedidos()">Imprimir etiquetas + declarações (10x15)</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="pedLoteMarcarSeparacao" style="width:16px;height:16px;accent-color:var(--p)"> Marcar como "Em separação" depois de imprimir</label>
+          <button class="btn2" onclick="limparSelecaoPedidos()">Limpar seleção</button>
+          <div id="pedLoteMsg" style="flex-basis:100%"></div>
+        </div>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Entrega</th><th>Data</th></tr></thead>
+            <thead><tr><th style="width:34px"><input type="checkbox" id="pedSelTodos" title="Selecionar todos os pedidos do filtro" onchange="selecionarTodosPedidos(this.checked)" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer"></th><th>Nº</th><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Nota fiscal</th><th>Entrega</th><th>Data</th></tr></thead>
             <tbody id="pedHistoricoTable"></tbody>
           </table>
           <div id="pedHistoricoPaginacao"></div>
@@ -1337,6 +1344,7 @@ function renderHistoricoPedidos(){
   pagina.forEach(v=>{ pedFichaCache[v.id]=v; });
   setHTML('pedHistoricoTable',pagina.map(v=>`
     <tr style="cursor:pointer" onclick="abrirFichaPedidoPorId('${v.id}')">
+      <td onclick="event.stopPropagation()">${v.status==='Cancelada'?'':`<input type="checkbox" class="ped-sel" ${pedSelecionados.has(v.id)?'checked':''} onchange="alternarSelecaoPedido('${v.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">`}</td>
       <td><b>${v.numero}</b></td>
       <td>${esc(v.cliente_nome||'—')}</td>
       <td>${money(v.total)}</td>
@@ -1344,7 +1352,73 @@ function renderHistoricoPedidos(){
       <td>—</td>
       <td>${v.status==='Cancelada'?'—':badgeStatusEntrega(v.status_entrega)}</td>
       <td style="font-size:11px;color:var(--muted)">${fmtDataHora(v.created_at)}</td>
-    </tr>`).join('')||'<tr><td colspan="7" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
+    </tr>`).join('')||'<tr><td colspan="8" class="table-empty">Nenhum pedido manual ainda.</td></tr>');
+  atualizarBarraLotePedidos();
+}
+
+// ══ IMPRESSÃO EM LOTE (térmica 10x15) — pedido da Thata, 04/11/2026 ══
+// A seleção vale entre páginas da tabela e sobrevive ao "Atualizar"; "selecionar
+// todos" pega TODOS os pedidos do filtro atual (não só a página visível).
+const pedSelecionados=new Set();
+function alternarSelecaoPedido(id,marcado){ if(marcado)pedSelecionados.add(id); else pedSelecionados.delete(id); atualizarBarraLotePedidos(); }
+function selecionarTodosPedidos(marcado){
+  historicoPedidos.filter(v=>v.status!=='Cancelada').forEach(v=>{ if(marcado)pedSelecionados.add(v.id); else pedSelecionados.delete(v.id); });
+  renderHistoricoPedidos();
+}
+function limparSelecaoPedidos(){ pedSelecionados.clear(); renderHistoricoPedidos(); }
+function atualizarBarraLotePedidos(){
+  const n=pedSelecionados.size, bar=$('pedLoteBar');
+  if(bar) bar.style.display=n?'flex':'none';
+  if($('pedLoteQtd')) $('pedLoteQtd').textContent=`${n} pedido${n===1?'':'s'} selecionado${n===1?'':'s'}`;
+  const todos=$('pedSelTodos');
+  if(todos){ const aptos=historicoPedidos.filter(v=>v.status!=='Cancelada'); todos.checked=aptos.length>0&&aptos.every(v=>pedSelecionados.has(v.id)); }
+}
+async function imprimirLotePedidos(){
+  const ids=[...pedSelecionados];
+  if(!ids.length)return;
+  if(ids.length>40){ msgEl('pedLoteMsg','Selecione no máximo 40 pedidos por vez.'); return; }
+  const marcar=$('pedLoteMarcarSeparacao')?.checked;
+  if(marcar&&!temPermissao('expedicao','editar')){ msgEl('pedLoteMsg','Sem permissão para mudar o status de entrega — desmarque "Marcar como Em separação" ou peça ao administrador.'); return; }
+  const btn=$('btnImprimirLote'), txt=btn.textContent;
+  btn.disabled=true; btn.textContent=`Gerando PDF de ${ids.length} pedido${ids.length===1?'':'s'}...`;
+  setHTML('pedLoteMsg','');
+  // Abre a aba antes do await (senão o navegador bloqueia como pop-up).
+  const janela=window.open('','_blank');
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/gerar-etiqueta-correios`,{method:'POST',headers:H,body:JSON.stringify({acao:'imprimir_lote',venda_ids:ids})});
+    const resp=await r.json().catch(()=>({ok:false,erro:'resposta_invalida'}));
+    const pulados=(resp.pulados||[]);
+    const listaPulados=pulados.length?'<div style="margin-top:6px"><b>Ficaram de fora ou incompletos:</b><ul style="margin:4px 0 0 18px">'+pulados.map(p=>`<li>${p.numero?'Pedido nº '+esc(String(p.numero))+': ':''}${esc(p.motivo)}</li>`).join('')+'</ul></div>':'';
+    if(!resp.ok||!resp.pdf_base64){
+      if(janela)janela.close();
+      const MSGS={nenhum_pedido_apto:'Nenhum dos pedidos selecionados tem etiqueta pronta para imprimir.',correios_nao_configurado:'Contrato dos Correios não configurado para esta empresa.',lote_grande_demais:'Selecione no máximo 40 pedidos por vez.'};
+      setHTML('pedLoteMsg',`<div class="msg show err" style="margin:0">${esc(MSGS[resp.erro]||('Erro: '+(resp.mensagem||resp.erro)))}${listaPulados}</div>`);
+      return;
+    }
+    const bin=atob(resp.pdf_base64), bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    if(janela)janela.location.href=url; else window.open(url,'_blank');
+    const impressos=resp.impressos||[];
+    let marcados=0;
+    if(marcar){
+      for(const id of impressos){
+        const v=historicoPedidos.find(x=>x.id===id);
+        // Só avança quem ainda está em "Registrado" — nunca volta um "Enviado" pra trás.
+        if(v&&(v.status_entrega||'Registrado')==='Registrado'){
+          try{ await dbPatch('vendas',id,{status_entrega:'Em separação'}); v.status_entrega='Em separação'; marcados++; }catch(e){}
+        }
+      }
+    }
+    const resumo=`${impressos.length} pedido${impressos.length===1?'':'s'} no PDF${marcar?` · ${marcados} marcado${marcados===1?'':'s'} como "Em separação"`:''}.`;
+    setHTML('pedLoteMsg',`<div class="msg show ${pulados.length?'':'ok'}" style="margin:0;${pulados.length?'background:var(--amber-bg);color:var(--amber)':''}">${resumo}${listaPulados}</div>`);
+    renderHistoricoPedidos();
+  }catch(e){
+    if(janela)janela.close();
+    msgEl('pedLoteMsg','Erro ao gerar o PDF: '+e.message);
+  }finally{
+    btn.disabled=false; btn.textContent=txt;
+  }
 }
 
 // ══ FICHA DO PEDIDO — leitura, abre tanto da busca por número quanto do histórico ══
