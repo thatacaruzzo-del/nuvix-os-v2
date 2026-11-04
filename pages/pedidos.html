@@ -424,7 +424,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
             <select id="pedHistStatus"><option value="">Todos</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select>
           </div>
           <div style="min-width:170px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status de entrega</label>
-            <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Etiqueta emitida">Etiqueta emitida</option><option value="Postado">Postado</option><option value="Em trânsito">Em trânsito</option><option value="Saiu para entrega">Saiu para entrega</option><option value="Aguardando retirada">Aguardando retirada</option><option value="Não entregue">Não entregue</option><option value="Devolvido">Devolvido</option><option value="Entregue">Entregue</option><option value="Enviado">Enviado (sem Correios)</option><option value="Retirado">Retirado</option></select>
+            <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Etiqueta emitida">Etiqueta emitida</option><option value="Etiqueta cancelada">Etiqueta cancelada</option><option value="Postado">Postado</option><option value="Em trânsito">Em trânsito</option><option value="Saiu para entrega">Saiu para entrega</option><option value="Aguardando retirada">Aguardando retirada</option><option value="Não entregue">Não entregue</option><option value="Devolvido">Devolvido</option><option value="Entregue">Entregue</option><option value="Enviado">Enviado (sem Correios)</option><option value="Retirado">Retirado</option></select>
           </div>
           <button class="btn2" onclick="carregarHistoricoPedidos()">Filtrar</button>
           <button class="btn2" onclick="limparFiltroHistoricoPedidos()">Limpar filtro</button>
@@ -1314,8 +1314,8 @@ function abrirFichaPedidoPorId(id){ const v=pedFichaCache[id]; if(v) abrirFichaP
 // acima). Reaproveitado na Ficha do Pedido e no histórico.
 // 04/11/2026: além dos status internos, os mesmos status dos Correios
 // (preenchidos sozinhos pela rotina de rastreio — ver rastrear-correios).
-const BADGE_STATUS_ENTREGA={'Registrado':'','Em separação':'warn','Etiqueta emitida':'warn','Postado':'warn','Em trânsito':'warn','Saiu para entrega':'warn','Aguardando retirada':'badge-red','Não entregue':'badge-red','Devolvido':'badge-red','Enviado':'warn','Entregue':'ok','Retirado':'ok'};
-const STATUS_DOS_CORREIOS=['Etiqueta emitida','Postado','Em trânsito','Saiu para entrega','Aguardando retirada','Não entregue','Devolvido','Entregue'];
+const BADGE_STATUS_ENTREGA={'Registrado':'','Em separação':'warn','Etiqueta cancelada':'badge-red','Etiqueta emitida':'warn','Postado':'warn','Em trânsito':'warn','Saiu para entrega':'warn','Aguardando retirada':'badge-red','Não entregue':'badge-red','Devolvido':'badge-red','Enviado':'warn','Entregue':'ok','Retirado':'ok'};
+const STATUS_DOS_CORREIOS=['Etiqueta cancelada','Etiqueta emitida','Postado','Em trânsito','Saiu para entrega','Aguardando retirada','Não entregue','Devolvido','Entregue'];
 function badgeStatusEntrega(status){
   const s=status||'Registrado';
   const cor=BADGE_STATUS_ENTREGA[s]||'';
@@ -1324,7 +1324,7 @@ function badgeStatusEntrega(status){
 // Cada estágio só mostra os próximos passos que fazem sentido a partir dele —
 // "Em separação" pode virar "Enviado" OU "Retirado" (retirada no local não
 // passa por "Enviado"). "Entregue"/"Retirado" são estágios finais, sem botão.
-const PROXIMOS_STATUS_ENTREGA={'Registrado':['Em separação'],'Etiqueta emitida':['Em separação'],'Em separação':['Enviado','Retirado'],'Enviado':['Entregue']};
+const PROXIMOS_STATUS_ENTREGA={'Registrado':['Em separação'],'Etiqueta emitida':['Em separação'],'Etiqueta cancelada':['Em separação'],'Em separação':['Enviado','Retirado'],'Enviado':['Entregue']};
 function renderBotoesStatusEntrega(atual){
   // Envio pelos Correios com código: daqui pra frente quem manda é o rastreio
   // (a cada 2h) — botão manual de Enviado/Entregue só confundiria.

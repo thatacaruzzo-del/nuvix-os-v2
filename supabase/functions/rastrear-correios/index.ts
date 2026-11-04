@@ -154,10 +154,13 @@ function simularRastreio() {
 // Pelo texto do evento (a descrição é o que os Correios mostram ao público;
 // os códigos SRO variam por tipo de evento) + código BDE/BDI/BDR tipo 01
 // pra entrega. Ordem dos testes importa (ex: "devolvido" antes de "entregue").
-type StatusCorreios = 'Etiqueta emitida' | 'Postado' | 'Em trânsito' | 'Saiu para entrega' |
+type StatusCorreios = 'Etiqueta cancelada' | 'Etiqueta emitida' | 'Postado' | 'Em trânsito' | 'Saiu para entrega' |
   'Aguardando retirada' | 'Não entregue' | 'Devolvido' | 'Entregue';
 function classificarEvento(e: any): StatusCorreios {
   const d = String(e?.descricao || '') + ' ' + String(e?.detalhe || '');
+  // CONFIRMADO em teste real (Natufonts, pedido nº 8, 04/11/2026):
+  // "Etiqueta cancelada pelo sistema de captação".
+  if (/cancelad/i.test(d)) return 'Etiqueta cancelada';
   if (/devolvid|devolu[çc][ãa]o ao remetente|em devolu/i.test(d)) return 'Devolvido';
   const naoEntregue = /n[ãa]o (foi )?entregue/i.test(d);
   if (!naoEntregue && ((['BDE', 'BDI', 'BDR'].includes(e?.codigo) && String(e?.tipo) === '01') || /entregue ao destinat|objeto entregue/i.test(d))) return 'Entregue';
