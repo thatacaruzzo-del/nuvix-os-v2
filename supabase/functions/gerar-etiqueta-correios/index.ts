@@ -375,6 +375,7 @@ function resolverRemetente(empresa: Record<string, string | null>, cred: Record<
 // uma declaração nossa mesmo, simples e clara, com os itens reais da venda.
 async function gerarDeclaracaoConteudoPdf(info: {
   codigoRastreio: string; remetente: EnderecoPessoa; destinatario: EnderecoPessoa; itens: ItemDeclarado[];
+  observacao?: string | null;
 }): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([595.28, 841.89]); // A4
@@ -423,6 +424,28 @@ async function gerarDeclaracaoConteudoPdf(info: {
 
   y -= 10;
   linha(`Valor total declarado: ${fmtMoeda(total)}`, { negrito: true, tamanho: 12 });
+
+  // Pedido explícito da Thata (04/11/2026): a observação anotada na hora de criar
+  // o pedido (ex: "Cliente ganhou Brinde 3") precisa ir junto na declaração de
+  // conteúdo, pra quem embala/despacha ver sem precisar abrir o sistema. Quebra
+  // manual de linha (pdf-lib não quebra sozinho) — ~95 caracteres cabem na largura
+  // útil da página com Helvetica 10pt.
+  if (info.observacao && info.observacao.trim()) {
+    y -= 10;
+    linha('OBSERVAÇÃO DO PEDIDO', { negrito: true, espacoDepois: 8 });
+    const palavras = info.observacao.trim().split(/\s+/);
+    let linhaAtual = '';
+    for (const palavra of palavras) {
+      const candidata = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
+      if (candidata.length > 95) {
+        linha(linhaAtual);
+        linhaAtual = palavra;
+      } else {
+        linhaAtual = candidata;
+      }
+    }
+    if (linhaAtual) linha(linhaAtual);
+  }
 
   return doc.save();
 }
@@ -578,6 +601,7 @@ Deno.serve(async (req) => {
               cidade: cliente.cidade || '', uf: cliente.endereco_uf,
             },
             itens: itensVenda || [],
+            observacao: venda.observacao,
           });
           pdfFinal = await combinarComEtiqueta(pdfBytes, declaracao);
         }
@@ -692,6 +716,7 @@ Deno.serve(async (req) => {
               remetente: { ...remetenteEndereco, documento: empresa.cnpj },
               destinatario: destinatarioEndereco,
               itens: itensDeclarados,
+              observacao: venda.observacao,
             });
             pdfFinal = await combinarComEtiqueta(pdfBytes, declaracao);
           } catch (e) {
