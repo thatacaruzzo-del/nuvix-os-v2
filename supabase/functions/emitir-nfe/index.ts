@@ -218,10 +218,26 @@ function limparMunicipioDestinatario(municipio: string | null | undefined, uf: s
   return m || undefined;
 }
 
+// BUG REAL encontrado em 04/11/2026 (Natufonts, cliente Carina Santana Santos, SP→BA):
+// o CFOP do item vem de produtos.cfop_padrao, um valor FIXO cadastrado no produto
+// (normalmente "5102" = operação interna) — não muda sozinho conforme o estado de
+// quem compra. Numa venda interestadual (UF do cliente != UF da empresa), o CFOP
+// certo é a família 6xxx (6102, não 5102), senão a SEFAZ rejeita com "CFOP de
+// operação interna e idDest <> 1" (o local_destino abaixo já ia corretamente como
+// 2/interestadual, só o CFOP do item que ficava desatualizado). Mantém os 3 últimos
+// dígitos do CFOP cadastrado (a "natureza" da operação, ex: venda de mercadoria de
+// terceiros) e só troca o primeiro dígito pra refletir a UF de destino real da venda.
+function ajustarCfopParaDestino(cfop: string | null | undefined, cfopPadrao: string, interestadual: boolean): string {
+  const base = (cfop || cfopPadrao).replace(/\D/g, '');
+  if (base.length !== 4 || base[0] === '7') return base || cfopPadrao; // exterior (7xxx) não é ajustado aqui
+  return (interestadual ? '6' : '5') + base.slice(1);
+}
+
 function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: any[]) {
   const ufEmitente = (empresa.endereco_uf || '').toUpperCase();
   const ufDestinatario = (nota.cliente_endereco_uf || '').toUpperCase();
-  const cfopPadrao = ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente ? '6102' : '5102';
+  const interestadual = !!(ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente);
+  const cfopPadrao = interestadual ? '6102' : '5102';
   const documentoLimpo = (nota.cliente_documento || '').replace(/\D/g, '');
   const ehCnpj = documentoLimpo.length === 14;
 
@@ -235,7 +251,7 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
     // campos obrigatórios padrão do schema nacional da NF-e (tpNF/finNFe).
     presenca_comprador: 9, // ATENÇÃO — ver aviso no topo do arquivo, não confirmado.
     modalidade_frete: 9,
-    local_destino: ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente ? 2 : 1, // 1=interna, 2=interestadual
+    local_destino: interestadual ? 2 : 1, // 1=interna, 2=interestadual
 
     cnpj_emitente: (empresa.cnpj || '').replace(/\D/g, ''),
 
@@ -264,7 +280,7 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
         codigo_produto: it.produto_id || 'AVULSO',
         descricao: it.descricao,
         codigo_ncm: limparNCM(it.ncm),
-        cfop: it.cfop || cfopPadrao,
+        cfop: ajustarCfopParaDestino(it.cfop, cfopPadrao, interestadual),
         quantidade_comercial: it.quantidade,
         quantidade_tributavel: it.quantidade,
         unidade_comercial: it.unidade_medida || 'UN',
