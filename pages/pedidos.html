@@ -59,6 +59,7 @@ function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
 function arred2(v){ return Math.round(Number(v||0)*100)/100; }
 </script>
 <script src="../js/nuvix-paginacao.js"></script>
+<script>definirTamanhoPagina('pedHistoricoTable',10);</script>
 <script>
 function msg(id,text,type='ok'){const e=$(id);if(!e){toast(text,type);return}e.textContent=text;e.className=`msg show ${type}`;setTimeout(()=>e.classList.remove('show'),5000)}
 function toast(text,type='ok'){document.querySelector('.nx-toast')?.remove();const t=document.createElement('div');t.className=`nx-toast ${type}`;t.textContent=text;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0'},3000);setTimeout(()=>t.remove(),3400)}

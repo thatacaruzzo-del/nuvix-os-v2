@@ -9,16 +9,21 @@
 
 const PAGINACAO_POR_PAGINA = 20;
 const _paginaAtual = {};
+// Tamanho por tabela (opcional): definirTamanhoPagina('pedHistoricoTable', 10).
+// Sem isso, vale o padrão de 20 — as outras telas não mudam.
+const _tamanhoPagina = {};
+function definirTamanhoPagina(chave, n) { _tamanhoPagina[chave] = n; }
+function _porPagina(chave) { return _tamanhoPagina[chave] || PAGINACAO_POR_PAGINA; }
 
 function paginar(lista, chave) {
   const p = _paginaAtual[chave] || 1;
-  const ini = (p - 1) * PAGINACAO_POR_PAGINA;
-  return lista.slice(ini, ini + PAGINACAO_POR_PAGINA);
+  const ini = (p - 1) * _porPagina(chave);
+  return lista.slice(ini, ini + _porPagina(chave));
 }
 
 function renderPaginacao(chave, totalItens, nomeFuncaoRerender) {
   let p = _paginaAtual[chave] || 1;
-  const totalPaginas = Math.max(1, Math.ceil(totalItens / PAGINACAO_POR_PAGINA));
+  const totalPaginas = Math.max(1, Math.ceil(totalItens / _porPagina(chave)));
   if (p > totalPaginas) p = totalPaginas;
   _paginaAtual[chave] = p;
   const container = chave + 'Paginacao';
