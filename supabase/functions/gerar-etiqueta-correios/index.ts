@@ -340,11 +340,26 @@ type ItemDeclarado = { produto_nome: string; quantidade: number; valor_unitario:
 
 function fmtEndereco(e: EnderecoPessoa): string {
   const complemento = e.complemento ? `, ${e.complemento}` : '';
-  return `${e.logradouro}, ${e.numero}${complemento} — ${e.bairro}, ${e.cidade}/${e.uf} — CEP ${e.cep}`;
+  return `${e.logradouro}, ${e.numero}${complemento} — ${e.bairro}, ${e.cidade}/${e.uf} — CEP ${fmtCep(e.cep)}`;
+}
+
+// Formatação só de exibição na declaração (o que vai pra API dos Correios
+// continua só dígitos). Se o valor não tiver o tamanho esperado, mostra como veio.
+function fmtCep(cep: string): string {
+  const d = (cep || '').replace(/\D/g, '');
+  return d.length === 8 ? `${d.slice(0, 5)}-${d.slice(5)}` : cep;
+}
+
+function fmtDocumento(doc: string): string {
+  const d = (doc || '').replace(/\D/g, '');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  return doc;
 }
 
 function fmtMoeda(v: number): string {
-  return 'R$ ' + v.toFixed(2).replace('.', ',');
+  const [inteiro, centavos] = v.toFixed(2).split('.');
+  return 'R$ ' + inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + centavos;
 }
 
 // O endereço de onde o pacote sai de verdade (galpão/depósito) pode ser
@@ -400,7 +415,7 @@ async function gerarDeclaracaoConteudoPdf(info: {
   linha(fmtEndereco(info.remetente), { espacoDepois: 16 });
 
   linha('DESTINATÁRIO', { negrito: true });
-  linha(info.destinatario.nome + (info.destinatario.documento ? ` — ${info.destinatario.documento}` : ''));
+  linha(info.destinatario.nome + (info.destinatario.documento ? ` — ${fmtDocumento(info.destinatario.documento)}` : ''));
   linha(fmtEndereco(info.destinatario), { espacoDepois: 16 });
 
   linha('ITENS DECLARADOS', { negrito: true, espacoDepois: 10 });
