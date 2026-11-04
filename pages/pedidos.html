@@ -328,11 +328,27 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
       <div class="card" style="margin-bottom:20px">
         <h2 style="margin-bottom:4px">Resumo do pedido</h2>
         <div class="ped-total-row"><span>Total dos produtos</span><span id="pedTotalValor">R$ 0,00</span></div>
+
+        <!-- Desconto geral do pedido — mesmo padrão do Caixa (pages/caixa.html),
+             sem o limite/aprovação de Administrador que o Caixa tem (decisão
+             consciente: Pedido Manual não passa por aprovação de desconto). -->
+        <div class="field" style="margin-top:10px;margin-bottom:6px">
+          <label>Desconto (opcional)</label>
+          <div style="display:flex;gap:8px">
+            <select id="pedDescTipo" style="width:130px" onchange="renderTotalPedido()"><option value="">Sem desconto</option><option value="Percentual">%</option><option value="Valor fixo">R$</option></select>
+            <input id="pedDescValor" type="text" inputmode="decimal" placeholder="0" oninput="sanitizarDecimal(this);renderTotalPedido()">
+          </div>
+          <select id="pedDescMotivo" style="margin-top:6px"><option value="">Motivo do desconto...</option><option>Fidelização</option><option>Avaria</option><option>Negociação</option><option>Outro</option></select>
+        </div>
+        <div class="ped-total-row" id="pedTotalDescontoLinha" style="display:none;font-size:13px;color:var(--muted)">
+          <span>− Desconto</span><span id="pedTotalDescontoValor">R$ 0,00</span>
+        </div>
+
         <div class="ped-total-row" id="pedTotalFreteLinha" style="display:none;font-size:13px;color:var(--muted)">
           <span>+ Frete (cliente paga)</span><span id="pedTotalFreteValor">R$ 0,00</span>
         </div>
         <div class="ped-total-row" id="pedTotalFreteLinha2" style="display:none;font-weight:700">
-          <span>Total cobrado do cliente</span><span id="pedTotalComFreteValor">R$ 0,00</span>
+          <span>Total do pedido</span><span id="pedTotalComFreteValor">R$ 0,00</span>
         </div>
 
         <!-- Pagamento -->
@@ -851,16 +867,33 @@ function atualizarFreteNovoPedido(){
   renderTotalPedido();
 }
 function totalCarrinhoPedido(){ return carrinho.reduce((a,i)=>a+i.quantidade*i.valor_unitario,0); }
+// Mesma fórmula do Caixa (pages/caixa.html: valorDesconto) — % ou R$ fixo, nunca
+// passa do subtotal (desconto de 100% no máximo, não desconto negativo/virar crédito).
+function valorDescontoPedido(subtotal){
+  const tipo=val('pedDescTipo'); const v=numBR('pedDescValor');
+  if(!tipo||!v)return 0;
+  return arred2(tipo==='Percentual' ? subtotal*v/100 : Math.min(v,subtotal));
+}
+function totalComDescontoPedido(){
+  const subtotal=totalCarrinhoPedido();
+  return arred2(Math.max(0,subtotal-valorDescontoPedido(subtotal)));
+}
 function renderTotalPedido(){
   const totalProdutos=totalCarrinhoPedido();
   $('pedTotalValor').textContent=money(totalProdutos);
-  const mostrar=freteCobradoPedidoNovo>0;
-  if($('pedTotalFreteLinha')) $('pedTotalFreteLinha').style.display=mostrar?'flex':'none';
-  if($('pedTotalFreteLinha2')) $('pedTotalFreteLinha2').style.display=mostrar?'flex':'none';
-  if(mostrar){
-    setHTML('pedTotalFreteValor',money(freteCobradoPedidoNovo));
-    setHTML('pedTotalComFreteValor',money(totalProdutos+freteCobradoPedidoNovo));
-  }
+  const desconto=valorDescontoPedido(totalProdutos);
+  if($('pedTotalDescontoLinha')) $('pedTotalDescontoLinha').style.display=desconto>0?'flex':'none';
+  if(desconto>0) setHTML('pedTotalDescontoValor','− '+money(desconto));
+  const totalComDesconto=arred2(Math.max(0,totalProdutos-desconto));
+  const mostrarFrete=freteCobradoPedidoNovo>0;
+  if($('pedTotalFreteLinha')) $('pedTotalFreteLinha').style.display=mostrarFrete?'flex':'none';
+  if(mostrarFrete) setHTML('pedTotalFreteValor',money(freteCobradoPedidoNovo));
+  // "Total do pedido" só precisa aparecer separado quando ele difere do "Total dos
+  // produtos" de cima (com desconto e/ou frete) — sem nenhum dos dois, seria a
+  // mesma linha repetida.
+  const mostrarTotalFinal=desconto>0||mostrarFrete;
+  if($('pedTotalFreteLinha2')) $('pedTotalFreteLinha2').style.display=mostrarTotalFinal?'flex':'none';
+  if(mostrarTotalFinal) setHTML('pedTotalComFreteValor',money(arred2(totalComDesconto+freteCobradoPedidoNovo)));
 }
 function limparCarrinhoPedido(){ carrinho=[]; renderCarrinhoPedido(); }
 
@@ -893,7 +926,7 @@ function toggleParceladoPedido(){
   if(checked) previewParcelasPedido(); else $('pedParcelaPreview').style.display='none';
 }
 function montarParcelasPedido(){
-  const total=arred2(totalCarrinhoPedido());
+  const total=totalComDescontoPedido(); // parcela sobre o valor já com desconto, não o bruto
   const n=Math.max(2,parseInt(val('pedParcelasQtd'))||2);
   const intervaloDias=Math.max(1,parseInt(val('pedParcelasIntervalo'))||30);
   const venc1=val('pedVencimento')||hoje();
@@ -933,7 +966,10 @@ async function registrarPedido(){
       return;
     }
   }
-  const total=arred2(totalCarrinhoPedido());
+  const subtotal=arred2(totalCarrinhoPedido());
+  const desconto=valorDescontoPedido(subtotal);
+  const total=arred2(Math.max(0,subtotal-desconto));
+  if(desconto>0&&!val('pedDescMotivo')){msg('pedMsg','Selecione o motivo do desconto.','err');return;}
   const pendente=statusPagamentoAtual==='pendente';
   if(pendente&&!val('pedVencimento')){msg('pedMsg','Informe a data de vencimento combinada.','err');return;}
   const parcelado=pendente&&$('pedParcelarCheck')?.checked;
@@ -968,7 +1004,7 @@ async function registrarPedido(){
       representante_id:representanteSelecionado?.id||null,
       representante_nome:representanteSelecionado?.id?representanteSelecionado.nome:null,
       observacao:val('pedObservacao').trim()||null,
-      subtotal:total, desconto_total:0, total, data_venda:hoje(),
+      subtotal, desconto_total:desconto, total, data_venda:hoje(),
       retroativa:false, motivo_retroativo:null,
       forma_pagamento_txt:formaEscolhida,
       descricao:`Pedido Manual — ${carrinho.length} ${carrinho.length===1?'item':'itens'} — ${clienteSelecionado.nome}`,
@@ -984,7 +1020,13 @@ async function registrarPedido(){
         avulso:!!i.avulso, kit_id:null, is_consignado:false,
       })),
       formas_pagamento:FORMAS_PAGAMENTO_VALIDAS.includes(formaEscolhida)?[{forma_pagamento:formaEscolhida, valor:total}]:[],
-      desconto:null,
+      // Mesmo registro de auditoria que o Caixa grava em descontos_aplicados — sem
+      // requer_aprovacao/aprovado aqui de propósito (decisão consciente: Pedido
+      // Manual não passa pela aprovação de Administrador que o Caixa exige).
+      desconto:desconto>0?{
+        tipo:val('pedDescTipo')||'Valor fixo', valor_desconto:desconto, motivo:val('pedDescMotivo'),
+        aplicado_por_id:session.id, requer_aprovacao:false, aprovado_por_id:null, aprovado_em:null,
+      }:null,
     }});
     const vendaId=resultado.venda_id;
     const numeroPedido=resultado.numero;
@@ -1033,22 +1075,22 @@ async function registrarPedido(){
       });
       if(escolha==='nfce'){
         const janela=window.open('','_blank');
-        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,hoje(),janela);
+        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,desconto,hoje(),janela);
       } else if(escolha==='nfe'){
         const janela=window.open('','_blank');
-        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,hoje(),janela);
+        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,desconto,hoje(),janela);
       }
     } else if(empresaFiscal.nfe_ativo){
       const querEmitir=await confirmarAcao('Emitir NF-e deste pedido?',{labelOk:'Emitir NF-e',labelCancelar:'Não emitir',variante:'neutro'});
       if(querEmitir){
         const janela=window.open('','_blank');
-        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,hoje(),janela);
+        notaFiscalOk=await emitirNfeSeAtivoPedido(vendaId,clienteSelecionado.id,total,desconto,hoje(),janela);
       }
     } else if(empresaFiscal.nfce_ativo){
       const querEmitir=await confirmarAcao('Emitir NFC-e deste pedido?',{labelOk:'Emitir NFC-e',labelCancelar:'Não emitir',variante:'neutro'});
       if(querEmitir){
         const janela=window.open('','_blank');
-        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,hoje(),janela);
+        notaFiscalOk=await emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteSelecionado.nome,total,desconto,hoje(),janela);
       }
     }
 
@@ -1059,6 +1101,7 @@ async function registrarPedido(){
     limparClienteSelecionado();
     limparRepresentanteSelecionado();
     $('pedObservacao').value='';
+    $('pedDescTipo').value=''; $('pedDescValor').value=''; $('pedDescMotivo').value=''; renderTotalPedido();
     statusPagamentoAtual='agora'; escolherStatusPagamentoPedido('agora');
     $('pedVencimento').value=hoje();
     if($('pedFreteWrap').style.display==='block') toggleFreteNovoPedido();
@@ -1081,13 +1124,38 @@ async function registrarPedido(){
   }
 }
 
+// Rateia o desconto GERAL da venda (não por item, ex: campo "Desconto" do Caixa/
+// Pedido Manual) entre os itens da nota fiscal — sem isso, a soma dos itens enviada
+// à Focus NFe bate com o preço de catálogo, não com o total que o cliente realmente
+// pagou, e a SEFAZ rejeita com "Total dos pagamentos menor que o total da nota".
+// Bug real confirmado (nov/2026): 92 notas da YUP rejeitadas assim entre set/2026 e
+// nov/2026, toda vez que o desconto era geral — por item já ia líquido certo (preço
+// editado na linha), só o desconto geral ficava de fora da nota. O resíduo do
+// arredondamento sempre cai no último item, pra soma bater exatamente com
+// totalFinal (SEFAZ não aceita diferença nem de 1 centavo).
+function ratearDescontoNosItensNota(itensPayload,totalFinal){
+  const bruto=itensPayload.reduce((a,i)=>a+Number(i.valor_total||0),0);
+  if(!itensPayload.length||bruto<=0||Math.abs(bruto-totalFinal)<0.005) return itensPayload;
+  const fator=totalFinal/bruto;
+  let acumulado=0;
+  return itensPayload.map((it,idx)=>{
+    if(idx<itensPayload.length-1){
+      const valorTotal=arred2(it.valor_total*fator);
+      acumulado+=valorTotal;
+      return {...it, valor_unitario:Math.round((valorTotal/(it.quantidade||1))*10000)/10000, valor_total:valorTotal};
+    }
+    const valorTotal=arred2(totalFinal-acumulado);
+    return {...it, valor_unitario:Math.round((valorTotal/(it.quantidade||1))*10000)/10000, valor_total:valorTotal};
+  });
+}
+
 // ══ EMISSÃO DE NOTA — mesma lógica de pages/caixa.html (emitirNfceSeAtivo/
 // emitirNfeSeAtivo), sem a parte de impressora térmica (não se aplica aqui:
 // pedido não presencial não tem uma impressora de balcão por perto). ══
-async function emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteNome,total,dataRef,janelaDanfce){
+async function emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteNome,total,desconto,dataRef,janelaDanfce){
   if(!empresaFiscal.nfce_ativo){ janelaDanfce?.close(); return false; }
   try{
-    const itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
+    let itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
       const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
       return {
         produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||'5102',
@@ -1098,9 +1166,10 @@ async function emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteNome,tota
       };
     });
     if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    itensPayload=ratearDescontoNosItensNota(itensPayload,total);
     const nota=await dbPost('notas_fiscais_nfce',withEmpresa({
       venda_id:vendaId, cliente_documento:clienteDocDigits, cliente_nome:clienteNome, valor_total:total,
-      desconto_total:0, data_venda:dataRef,
+      desconto_total:desconto||0, data_venda:dataRef,
     }));
     const notaRow=Array.isArray(nota)?nota[0]:nota;
     await dbPost('notas_fiscais_nfce_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfce_id:notaRow.id})));
@@ -1125,7 +1194,7 @@ async function emitirNfceSeAtivoPedido(vendaId,clienteDocDigits,clienteNome,tota
     return false;
   }
 }
-async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,dataRef,janelaDanfce){
+async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,desconto,dataRef,janelaDanfce){
   if(!empresaFiscal.nfe_ativo){ janelaDanfce?.close(); return false; }
   if(!clienteId){
     toast('NF-e exige um cliente cadastrado com documento e endereço completos.','err');
@@ -1137,7 +1206,7 @@ async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,dataRef,janelaDanf
       toast('Cliente sem cadastro completo (documento + endereço) pra emitir NF-e — complete no cadastro.','err');
       janelaDanfce?.close(); return false;
     }
-    const itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
+    let itensPayload=carrinho.filter(i=>!i.avulso).map(i=>{
       const p=dados.produtos.find(x=>x.id===i.produto_id)||{};
       return {
         produto_id:i.produto_id, descricao:i.nome, ncm:p.ncm||null, cfop:p.cfop_padrao||null,
@@ -1148,6 +1217,7 @@ async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,dataRef,janelaDanf
       };
     });
     if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    itensPayload=ratearDescontoNosItensNota(itensPayload,total);
     const nota=await dbPost('notas_fiscais_nfe',withEmpresa({
       venda_id:vendaId, cliente_id:clienteId, cliente_documento:cliente.documento, cliente_nome:cliente.nome,
       cliente_ie:cliente.inscricao_estadual||null,
@@ -1155,7 +1225,7 @@ async function emitirNfeSeAtivoPedido(vendaId,clienteId,total,dataRef,janelaDanf
       cliente_endereco_complemento:cliente.endereco_complemento, cliente_endereco_bairro:cliente.endereco_bairro,
       cliente_endereco_cep:cliente.endereco_cep, cliente_endereco_municipio:cliente.cidade,
       cliente_endereco_uf:cliente.endereco_uf,
-      valor_total:total, desconto_total:0, data_venda:dataRef,
+      valor_total:total, desconto_total:desconto||0, data_venda:dataRef,
     }));
     const notaRow=Array.isArray(nota)?nota[0]:nota;
     await dbPost('notas_fiscais_nfe_itens',itensPayload.map(i=>withEmpresa({...i,nota_fiscal_nfe_id:notaRow.id})));

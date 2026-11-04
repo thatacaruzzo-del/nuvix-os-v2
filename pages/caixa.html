@@ -1294,6 +1294,31 @@ async function carregarConfigFiscal(){
     if(e)empresaFiscal=e;
   }catch(e){ /* segue com nfce_ativo=false — Caixa nunca trava por causa disso */ }
 }
+// Rateia o desconto GERAL da venda (campo "Desconto" acima, não o preço editado
+// por item) entre os itens da nota fiscal — sem isso, a soma dos itens enviada à
+// Focus NFe bate com o preço de catálogo, não com o total que o cliente realmente
+// pagou, e a SEFAZ rejeita com "Total dos pagamentos menor que o total da nota".
+// BUG REAL encontrado em 03/11/2026 (auditoria pedida pela cliente): 92 notas da
+// YUP rejeitadas assim entre 04/09/2026 e 02/11/2026, toda vez que o desconto era
+// geral — desconto por item (preço editado na linha) já ia líquido certo, só o
+// geral ficava de fora da nota. Resíduo do arredondamento sempre cai no último
+// item, pra soma bater exatamente com totalFinal (SEFAZ não aceita diferença nem
+// de 1 centavo).
+function ratearDescontoNosItensNota(itensPayload,totalFinal){
+  const bruto=itensPayload.reduce((a,i)=>a+Number(i.valor_total||0),0);
+  if(!itensPayload.length||bruto<=0||Math.abs(bruto-totalFinal)<0.005) return itensPayload;
+  const fator=totalFinal/bruto;
+  let acumulado=0;
+  return itensPayload.map((it,idx)=>{
+    if(idx<itensPayload.length-1){
+      const valorTotal=arred2(it.valor_total*fator);
+      acumulado+=valorTotal;
+      return {...it, valor_unitario:Math.round((valorTotal/(it.quantidade||1))*10000)/10000, valor_total:valorTotal};
+    }
+    const valorTotal=arred2(totalFinal-acumulado);
+    return {...it, valor_unitario:Math.round((valorTotal/(it.quantidade||1))*10000)/10000, valor_total:valorTotal};
+  });
+}
 // Mesmo invariante do cupom não-fiscal (ver comentário abaixo): falha na emissão
 // NUNCA invalida a venda, que já foi gravada antes disso. Se a emissão não sair
 // (empresa sem NFC-e ativa, erro, item avulso sem NCM), volta false e quem chamou
@@ -1306,7 +1331,7 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
     // tributação próprios, e a SEFAZ exige isso por item. Por isso a NFC-e sempre
     // expande o kit nos produtos reais que o compõem, cada um com seu próprio
     // NCM/CFOP/CSOSN — mesma expansão que o finalizar_venda já faz pro estoque.
-    const itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
+    let itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
       const linhas=i.kit_id?i.componentes.map(c=>({produto_id:c.produto_id,nome:c.nome,quantidade:c.quantidade_unit*i.quantidade,valor_unitario:c.valor_unitario_rateado})):[i];
       return linhas.map(l=>{
         const p=dados.produtos.find(x=>x.id===l.produto_id)||{};
@@ -1320,6 +1345,7 @@ async function emitirNfceSeAtivo(vendaId,itensCarrinho,clienteDocDigits,clienteN
       });
     });
     if(!itensPayload.length){ janelaDanfce?.close(); return false; } // venda só com item(ns) avulso(s) — sem cadastro/NCM não dá pra emitir
+    itensPayload=ratearDescontoNosItensNota(itensPayload,total);
     const nota=await dbPost('notas_fiscais_nfce',withEmpresa({
       venda_id:vendaId, cliente_documento:clienteDocDigits, cliente_nome:clienteNome, valor_total:total,
       desconto_total:desconto||0, data_venda:dataRef,
@@ -1391,7 +1417,7 @@ async function emitirNfeSeAtivo(vendaId,itensCarrinho,clienteId,total,desconto,d
     }
     // Mesma expansão de kit que a NFC-e já faz (ver comentário lá) — kit não
     // tem NCM/tributação própria, sai como os produtos reais que o compõem.
-    const itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
+    let itensPayload=itensCarrinho.filter(i=>!i.avulso).flatMap(i=>{
       const linhas=i.kit_id?i.componentes.map(c=>({produto_id:c.produto_id,nome:c.nome,quantidade:c.quantidade_unit*i.quantidade,valor_unitario:c.valor_unitario_rateado})):[i];
       return linhas.map(l=>{
         const p=dados.produtos.find(x=>x.id===l.produto_id)||{};
@@ -1405,6 +1431,7 @@ async function emitirNfeSeAtivo(vendaId,itensCarrinho,clienteId,total,desconto,d
       });
     });
     if(!itensPayload.length){ janelaDanfce?.close(); return false; }
+    itensPayload=ratearDescontoNosItensNota(itensPayload,total);
     const nota=await dbPost('notas_fiscais_nfe',withEmpresa({
       venda_id:vendaId, cliente_id:clienteId, cliente_documento:cliente.documento, cliente_nome:cliente.nome,
       cliente_ie:cliente.inscricao_estadual||null,
