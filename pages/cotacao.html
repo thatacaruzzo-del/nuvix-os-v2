@@ -156,6 +156,11 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
             </div>
           </div>
         </div>
+        <div class="card" style="margin-top:20px">
+          <h2 class="nx-sec-t" style="margin-bottom:6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>Cotações salvas</h2>
+          <p class="muted" style="margin-bottom:14px">Frete fechado? Emita o documento fiscal direto daqui: <b>CT-e</b> para transporte entre cidades, <b>NFS-e</b> para transporte dentro da mesma cidade.</p>
+          <div id="cotacoesSalvas"><p class="muted">Carregando...</p></div>
+        </div>
       </div>
     </div>
   </div>
@@ -200,7 +205,12 @@ async function salvar(){
   if(!temPermissao('cotacao','criar')){toast('Sem permissão para salvar cotações.','err');return;}
   if(!cotAtual){calcular();if(!cotAtual)return;}
   const msgEl=document.getElementById('msg');
-  try{const r=await fetch(SUPABASE_URL+'/rest/v1/cotacoes_frete',{method:'POST',headers:_h,body:JSON.stringify({...cotAtual,empresa_id:session?.empresa_id||null,status:'Pendente',data_cotacao:hoje()})});if(!r.ok)throw new Error(await r.text());msgEl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Cotação salva!';msgEl.className='msg show ok';setTimeout(()=>msgEl.classList.remove('show'),4000);}catch(e){msgEl.textContent='Erro: '+e.message;msgEl.className='msg show err';}
+  // Só as colunas que existem em cotacoes_frete (antes ia "vkm"/"tipo" e o banco recusava tudo).
+  const registro={origem:cotAtual.origem,destino:cotAtual.destino,km:cotAtual.km||null,veiculo:cotAtual.veiculo||null,tipo_carga:cotAtual.tipo||null,
+    peso:cotAtual.peso||null,custo_total:cotAtual.custo_total,valor_frete:Math.round(cotAtual.valor_frete*100)/100,lucro:Math.round(cotAtual.lucro*100)/100,
+    margem:cotAtual.margem,pedagio:cotAtual.pedagio||0,solicitante:cotAtual.solicitante||null,telefone:cotAtual.telefone||null,email:cotAtual.email||null,
+    validade:cotAtual.validade||null};
+  try{const r=await fetch(SUPABASE_URL+'/rest/v1/cotacoes_frete',{method:'POST',headers:_h,body:JSON.stringify({...registro,empresa_id:session?.empresa_id||null,status:'Pendente',data_cotacao:hoje()})});if(!r.ok)throw new Error(await r.text());msgEl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Cotação salva!';msgEl.className='msg show ok';setTimeout(()=>msgEl.classList.remove('show'),4000);carregarCotacoes();}catch(e){msgEl.textContent='Erro: '+e.message;msgEl.className='msg show err';}
 }
 
 function imprimir(){
@@ -211,6 +221,28 @@ function imprimir(){
 </head><body><div style="display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #6343A4;margin-bottom:24px"><div><div class="empresa">${esc(emp?.fantasia||emp?.razao||'Nuvix')}</div><div style="color:#666;font-size:13px">${esc(emp?.cidade||'')}</div></div><div style="text-align:right;font-size:12px;color:#888">Data: ${new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}<br>Válida até: ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</div></div><h2>Cotação de Frete</h2><p style="color:#666">${esc(cotAtual.origem)} → ${esc(cotAtual.destino)} · ${cotAtual.km} km</p><div class="valor-box"><div style="font-size:12px;opacity:.8;text-transform:uppercase;margin-bottom:8px">Valor total do frete</div><div class="v">${money(cotAtual.valor_frete)}</div></div>${cotAtual.solicitante?`<div style="background:#f9f7ff;border-radius:12px;padding:16px;margin-bottom:16px"><b>Solicitante:</b> ${esc(cotAtual.solicitante)}${cotAtual.telefone?' · '+esc(cotAtual.telefone):''}${cotAtual.email?' · '+esc(cotAtual.email):''}</div>`:''}<div class="linha"><span>Frete base</span><b>${money(cotAtual.custo_total-cotAtual.pedagio)}</b></div>${cotAtual.pedagio>0?`<div class="linha"><span>Pedágio</span><b>${money(cotAtual.pedagio)}</b></div>`:''}<div class="total"><span>Total</span><b>${money(cotAtual.valor_frete)}</b></div><p style="color:#888;font-size:12px;margin-top:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="M22 6l-3-3"/></svg> Válida até ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</p><br><button onclick="window.print()" style="background:#6343A4;color:#fff;border:none;padding:12px 24px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir</button></body></html>`);win.document.close();
 }
 carregarRotas();
+carregarCotacoes();
+// ── Cotações salvas → documento fiscal (05/11/2026) ──
+// Frete aprovado vira CT-e (transporte entre municípios) ou NFS-e (transporte dentro
+// do mesmo município, onde vale nota de serviço). Abre a nota manual já preenchida
+// em Notas Fiscais; o usuário confere e completa os dados que a cotação não tem
+// (CPF/CNPJ, endereços, RNTRC).
+async function carregarCotacoes(){
+  const box=document.getElementById('cotacoesSalvas');if(!box)return;
+  try{
+    const lista=await db.get('cotacoes_frete',`?empresa_id=eq.${session?.empresa_id}&select=*&order=created_at.desc&limit=50`);
+    box.innerHTML=lista.length?`<div class="tablewrap"><table><thead><tr><th>Data</th><th>Trajeto</th><th>Solicitante</th><th>Valor do frete</th><th>Status</th><th></th></tr></thead><tbody>${lista.map(q=>`<tr>
+      <td>${fmtData(q.data_cotacao||q.created_at)}</td>
+      <td><b>${esc(q.origem||'—')}</b> → <b>${esc(q.destino||'—')}</b><div style="font-size:11px;color:var(--muted)">${esc(q.tipo_carga||'')}${q.peso?' · '+q.peso+' kg':''}</div></td>
+      <td>${esc(q.solicitante||'—')}</td>
+      <td style="font-weight:700">${money(q.valor_frete)}</td>
+      <td><span class="badge ${q.status==='Convertida'?'ok':'warn'}">${esc(q.status||'Pendente')}</span></td>
+      <td style="white-space:nowrap"><a class="btn2" style="height:34px;font-size:12.5px;text-decoration:none" href="notas-fiscais.html?cotacao=${q.id}&doc=cte">Emitir CT-e</a>
+        <a class="btn2" style="height:34px;font-size:12.5px;text-decoration:none;margin-left:6px" href="notas-fiscais.html?cotacao=${q.id}&doc=nfse" title="Transporte dentro do mesmo município">Emitir NFS-e</a></td>
+    </tr>`).join('')}</tbody></table></div>`
+    :'<p class="muted" style="padding:8px 0">Nenhuma cotação salva ainda. Calcule e clique em Salvar.</p>';
+  }catch(e){box.innerHTML='<p class="muted">Não foi possível carregar as cotações.</p>';}
+}
 
 // ══ MATERIAIS NA COTAÇÃO ══
 let matsCot = [];

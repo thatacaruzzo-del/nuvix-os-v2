@@ -583,6 +583,8 @@ async function init(){
   }
   if($('tabCte'))$('tabCte').style.display=empresaDeTransporte()?'':'none';
   await loadData();
+  const cotacaoId=new URLSearchParams(location.search).get('cotacao');
+  if(cotacaoId){ await nmAbrirDaCotacao(cotacaoId,new URLSearchParams(location.search).get('doc')==='nfse'?'nfse':'cte'); }
   const abrirId=new URLSearchParams(location.search).get('abrir');
   if(abrirId&&notas.some(n=>n.id===abrirId))verDetalhe(abrirId);
   $('pageLoader')?.classList.add('hide');
@@ -600,7 +602,10 @@ async function loadData(){
     prazoCancelamentoDias=cfg.temPrazo?(Number(emp[0]?.prazo_cancelamento_dias)||5):null;
   }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=cfg.temPrazo?5:null;}
   $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
-  if($('btnNotaManual'))$('btnNotaManual').style.display=(tipoAtual==='nfse'||tipoAtual==='nfe'||tipoAtual==='cte')&&temPermissao('notas_fiscais','criar')?'':'none';
+  if($('btnNotaManual')){
+    $('btnNotaManual').style.display=(tipoAtual==='nfse'||tipoAtual==='nfe'||tipoAtual==='cte')&&temPermissao('notas_fiscais','criar')?'':'none';
+    $('btnNotaManual').textContent='+ Emitir '+({nfse:'NFS-e',nfe:'NF-e',cte:'CT-e'}[tipoAtual]||'nota')+' manual';
+  }
   try{
     notas=await db.get(cfg.tabela,`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
   }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
@@ -1722,7 +1727,7 @@ function nmLimparForm(){
 
 async function abrirNotaManual(){
   if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
-  nmEditId=null;
+  nmEditId=null;nmCotacaoId=null;
   nmLimparForm();
   nmTipo=tipoAtual==='nfse'?'servico':tipoAtual==='cte'?'cte':'produto';
   $('nmOpCte').style.display=empresaDeTransporte()?'':'none';
@@ -1999,6 +2004,7 @@ async function nmSalvar(emitir){
       }
     }
     nmEditId=id;
+    if(nmCotacaoId){ db.patch('cotacoes_frete',nmCotacaoId,{status:'Convertida'}).catch(()=>{}); nmCotacaoId=null; }
     fecharModal('modalNotaManual');
     const alvo=nmTipo==='servico'?'nfse':nmTipo==='cte'?'cte':'nfe';
     tipoAtual=alvo;
@@ -2242,6 +2248,42 @@ function ctPreencher(n){
   ctSyncTomador();ctTotais();
 }
 
+// ── Cotação de frete → CT-e / NFS-e manual (05/11/2026) ──
+let nmCotacaoId=null;
+function nmSepararCidadeUf(txt){
+  const m=String(txt||'').trim().match(/^(.*?)[\s]*[\/,-][\s]*([A-Za-z]{2})$/);
+  return m?{cidade:m[1].trim(),uf:m[2].toUpperCase()}:{cidade:String(txt||'').trim(),uf:''};
+}
+async function nmAbrirDaCotacao(id,doc){
+  let q;
+  try{[q]=await db.get('cotacoes_frete',`?id=eq.${id}&select=*`);}catch(e){}
+  if(!q){toast('Cotação não encontrada.','err');return;}
+  if(doc==='cte'&&!empresaDeTransporte()){toast('CT-e só para empresas de Transporte.','err');return;}
+  tipoAtual=doc;
+  document.querySelectorAll('.nf-tipo-tab').forEach(b=>b.classList.toggle('active',b.dataset.tipo===doc));
+  await loadData();
+  await abrirNotaManual();
+  await nmCarregarCadastros().catch(()=>{});
+  nmCotacaoId=q.id;
+  const carga=String(q.tipo_carga||'').replace(/\s*\(.*\)\s*$/,'').trim();
+  if(doc==='cte'){
+    const o=nmSepararCidadeUf(q.origem),d=nmSepararCidadeUf(q.destino);
+    $('ctOrigCidade').value=o.cidade;$('ctOrigUf').value=o.uf;$('ctDestCidade').value=d.cidade;$('ctDestUf').value=d.uf;
+    ctResolverIbge('Orig');ctResolverIbge('Dest');
+    if(o.uf&&d.uf)$('ctCfop').value=o.uf===d.uf?'5353':'6353';
+    $('ctValor').value=nmBr(q.valor_frete);
+    if(q.peso){$('ctQtd').value=String(q.peso).replace('.',',');$('ctUnid').value='01';}
+    if(carga)$('ctProduto').value=carga;
+    if(q.solicitante){$('ctTomador').value='4';ctSyncTomador();$('ctTomNome').value=q.solicitante;$('ctTomFone').value=q.telefone||'';}
+    ctTotais();
+  } else {
+    $('nmSDesc').value=`Serviço de transporte de carga${carga?' ('+carga+')':''} de ${q.origem||'—'} para ${q.destino||'—'}${q.peso?' — '+q.peso+' kg':''}.`;
+    $('nmSValor').value=nmBr(q.valor_frete);
+    $('nmDNome').value=q.solicitante||'';$('nmDFone').value=q.telefone||'';$('nmDEmail').value=q.email||'';
+    nmTotaisServico();
+  }
+  msg('nmMsg','Preenchido a partir da cotação. Complete os dados que faltam (CPF/CNPJ, endereços'+(doc==='cte'?', RNTRC':'')+') antes de emitir.','ok');
+}
 async function abrirModalEntradaManual(){
   manItensAtuais=[];
   $('manFornecedorNome').value='';$('manFornecedorCnpj').value='';$('manNumero').value='';
