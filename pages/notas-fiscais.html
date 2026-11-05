@@ -8,27 +8,24 @@
 <script src="../js/vendor/jszip.min.js"></script>
 <style>
 .nf-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.nf-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+.nf-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow)}
 .nf-card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
 .nf-card .val{font-size:22px;font-weight:800;line-height:1}
 .nf-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
 .nf-filters .field{margin:0;min-width:160px}
 .nf-filters .field.grow{flex:1;min-width:220px}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:600px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
-.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-.modal-actions button{flex:1;min-width:130px}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:600px}
+.modal-actions button{min-width:130px}
 .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;gap:12px}
 .det-row:last-child{border-bottom:none}
 .det-lbl{color:var(--muted);font-weight:600;flex-shrink:0}
 .det-val{font-weight:700;text-align:right;color:var(--txt)}
-.det-section{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-top:14px;border-top:1.5px solid var(--p-light)}
+.det-section{font-size:11px;font-weight:800;color:var(--p);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
 .nf-simulacao-aviso{background:var(--amber-bg);color:#7A5B00;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:16px}
 .nf-tipo-tabs{display:flex;gap:8px;margin-bottom:16px}
-.nf-tipo-tab{padding:8px 18px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
-.nf-tipo-tab.active{background:var(--p);border-color:var(--p);color:#fff}
+.nf-tipo-tab{padding:8px 18px;border-radius:999px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
+.nf-tipo-tab.active{background:var(--p2);border-color:var(--p2);color:#fff;box-shadow:var(--shadow-btn)}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .entrada-item-row{display:grid;grid-template-columns:1.6fr .8fr .8fr 1.2fr .9fr;gap:10px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
 .entrada-item-row input,.entrada-item-row select{margin-top:2px}
@@ -176,7 +173,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
 
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-              <h2 style="margin:0" id="nfListTitulo">Notas fiscais</h2>
+              <div class="nx-sec-wrap"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span><h2 id="nfListTitulo">Notas fiscais</h2></div>
               <button class="btn2" id="btnBaixarXmls" onclick="baixarXmlsEmLote()">⬇ Baixar XMLs (.zip)</button>
             </div>
             <div class="tablewrap">
@@ -191,7 +188,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
 
         <div id="painelEntrada" style="display:none">
           <div class="card" style="margin-bottom:20px">
-            <h2 style="margin-bottom:6px">Importar nota de compra (XML)</h2>
+            <h2 class="nx-sec-t" style="margin-bottom:6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg></span>Importar nota de compra (XML)</h2>
             <p class="field-hint" style="margin-bottom:14px">Suba o XML da NF-e que o fornecedor te mandou. O sistema lê os itens, tenta casar com produtos já cadastrados, e você confere tudo antes de confirmar — nada entra em estoque ou financeiro sozinho sem sua conferência.</p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
               <input type="file" id="entradaXmlInput" accept=".xml">
@@ -202,7 +199,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
           </div>
 
           <div class="card">
-            <h2 style="margin-bottom:14px">Notas de entrada</h2>
+            <h2 class="nx-sec-t" style="margin-bottom:14px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>Notas de entrada</h2>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Emissão</th><th>Fornecedor</th><th>Número</th><th>Valor</th><th>Status</th></tr></thead>

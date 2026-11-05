@@ -19,11 +19,11 @@
 .fhs-div{width:1px;background:var(--line);align-self:stretch}
 
 /* ── Filtro Período + Base da consulta (mesmo componente do Dashboard) ── */
-.period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
+.period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--p-soft);border:1px solid var(--line);border-radius:12px;padding:4px}
 .period-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
-.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(99,67,164,.3)}
+.period-btn.active{background:var(--p2);color:#fff;box-shadow:0 2px 8px rgba(76,22,140,.25)}
 .period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
-.competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
+.competencia-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--p-soft);border:1px solid var(--line);border-radius:12px;padding:4px}
 .comp-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
 .comp-btn.active{background:var(--p2);color:#fff}
 .rec-badge{display:block;font-size:8.5px;font-weight:700;letter-spacing:.02em;opacity:.7;margin-top:1px;text-transform:uppercase}
@@ -62,38 +62,34 @@
 
 /* ── Strip cards ── */
 .fin-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.fin-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
+.fin-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}
 .fin-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px)}
 .fin-card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
 .fin-card .val{font-size:19px;font-weight:800;line-height:1;margin-bottom:2px}
 .fin-card .sub{font-size:11px;color:var(--muted2)}
 
 /* ── Tabs ── */
-.fin-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.fin-tabs{display:flex;gap:2px;background:var(--p-light);border-radius:14px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
 .fin-tabs::-webkit-scrollbar{display:none}
 .fin-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0}
-.fin-tab:hover{color:var(--p)}
-.fin-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.fin-tab:hover{color:var(--p2)}
+.fin-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .fin-pane{display:none}.fin-pane.active{display:block}
 
 /* ── Modal ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:580px}
 .modal.modal-wide{max-width:920px}
-.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
-.modal-actions{display:flex;gap:10px;margin-top:20px}
-.modal-actions button{flex:1}
 
 /* ── Detalhe modal ── */
 .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
 .det-row:last-child{border-bottom:none}
 .det-lbl{color:var(--muted);font-weight:600;flex-shrink:0;width:160px}
 .det-val{font-weight:700;text-align:right;color:var(--txt)}
-.det-section{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-top:14px;border-top:1.5px solid var(--p-light)}
+.det-section{font-size:11px;font-weight:800;color:var(--p);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
 
 /* ── Baixar modal ── */
-.baixar-info{background:var(--p-light);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.baixar-info{background:linear-gradient(180deg,var(--p-soft),var(--p-light));border:1px solid var(--p3);border-radius:14px;padding:14px 16px;margin-bottom:16px}
 .baixar-desc{font-size:15px;font-weight:800;color:var(--p);margin-bottom:2px}
 .baixar-val{font-size:20px;font-weight:900;color:var(--txt)}
 
@@ -382,7 +378,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <div><label>Tipo</label><select id="filtTipo" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Receita</option><option>Despesa</option></select></div>
             <div><label>Status</label><select id="filtStatus" onchange="renderLancamentos()" style="max-width:140px"><option value="">Todos</option><option>Pendente</option><option>Recebido</option><option>Pago</option><option>Renegociado</option><option>Aguardando aprovação</option></select></div>
             <div><label>Mês</label><input type="month" id="filtMes" onchange="renderLancamentos()" style="max-width:160px"></div>
-            <div><label>Busca</label><input type="text" id="filtBusca" placeholder="Buscar..." oninput="renderLancamentos()" style="max-width:200px"></div>
+            <div><label>Busca</label><input type="text" id="filtBusca" class="nx-search" placeholder="Buscar..." oninput="renderLancamentos()" style="max-width:220px"></div>
             <div id="filtLojaWrap" style="display:none"><label>Loja</label><select id="filtLoja" onchange="renderLancamentos()" style="max-width:160px"><option value="">Todas as lojas</option></select></div>
           </div>
           <div id="lanResumo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
@@ -400,7 +396,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-fluxo" class="fin-pane">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="fluxoKpis"></div>
         <div class="card">
-          <h2>Lançamentos por vencimento</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></span>Lançamentos por vencimento</h2>
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
             <button class="btn2" onclick="filtrarFluxo('todos')" style="font-size:12px;padding:7px 12px">Todos</button>
             <button class="btn2" onclick="filtrarFluxo('hoje')" style="font-size:12px;padding:7px 12px">Vence hoje</button>
@@ -422,7 +418,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="receberKpis"></div>
         <div id="receberRenegociarBar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);color:var(--p2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600"></div>
         <div class="card">
-          <h2>Contas a receber</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg></span>Contas a receber</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th></th><th>Descrição</th><th>Favorecido</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
@@ -438,7 +434,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="pagarKpis"></div>
         <div id="pagarRenegociarBar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);color:var(--p2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600"></div>
         <div class="card">
-          <h2>Contas a pagar</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4"/><path d="M12 16V8"/></svg></span>Contas a pagar</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th></th><th>Descrição</th><th>Favorecido</th><th>Pix / Banco</th><th>Categoria</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Situação</th><th>Ação</th></tr></thead>
@@ -453,7 +449,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-conciliacao" class="fin-pane">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Contas bancárias</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4z"/></svg></span>Contas bancárias</h2>
             <button class="btn2" onclick="abrirModalContaBancaria()">+ Nova conta</button>
           </div>
           <div id="listaContasBancarias"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
@@ -461,14 +457,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Importar extrato (OFX)</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg></span>Importar extrato (OFX)</h2>
             <button class="btn" onclick="abrirModalImportarExtrato()">+ Importar extrato</button>
           </div>
           <p style="font-size:13px;color:var(--muted);margin:0">Baixe o extrato no formato OFX direto do internet banking do seu banco e suba aqui. O sistema casa automaticamente o que bate certinho e deixa o resto pra você resolver.</p>
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 6px">Transações a resolver</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Transações a resolver</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Transações do extrato que não bateram sozinhas com nenhum lançamento.</p>
           <div id="listaTransacoesPendentes"><p style="color:var(--muted);font-size:13px">Nenhum extrato importado ainda.</p></div>
         </div>
@@ -477,14 +473,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- PLANO DE CONTAS -->
       <div id="pane-planoContas" class="fin-pane">
         <div class="card" id="cardSemearPlanoContas" style="display:none">
-          <h2 style="margin:0 0 6px">Comece por aqui</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg></span>Comece por aqui</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Sua empresa ainda não tem um plano de contas. Clique abaixo pra criar um padrão (editável depois) com as contas mais usadas — leva 1 clique.</p>
           <button class="btn" onclick="usarPlanoContasPadrao()">Usar plano de contas padrão</button>
         </div>
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Plano de contas</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg></span>Plano de contas</h2>
             <button class="btn2" onclick="abrirModalPlanoConta()">+ Nova conta</button>
           </div>
           <div id="listaPlanoContas"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
@@ -492,14 +488,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Centros de custo</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>Centros de custo</h2>
             <button class="btn2" onclick="abrirModalCentroCusto()">+ Novo centro de custo</button>
           </div>
           <div id="listaCentrosCusto"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 6px">Classificar categorias</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>Classificar categorias</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Vincule cada categoria já usada nos seus lançamentos a uma conta do plano — isso classifica os lançamentos existentes e deixa os próximos já entrando certos sozinhos.</p>
           <div id="listaClassificarCategorias"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
           <div id="classificarMsg" class="msg" style="margin-top:10px"></div>
@@ -510,14 +506,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- RELATÓRIOS -->
       <div id="pane-relatorios" class="fin-pane">
         <div class="card">
-          <h2 style="margin:0 0 6px">Aging de inadimplência</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Aging de inadimplência</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Contas a receber ainda não recebidas, por cliente e por tempo de atraso.</p>
           <div id="agingConteudo"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
         </div>
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Fluxo de caixa projetado</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>Fluxo de caixa projetado</h2>
             <select id="fluxoProjHorizonte" onchange="carregarFluxoProjetado()" style="max-width:160px">
               <option value="30">Próximos 30 dias</option>
               <option value="60">Próximos 60 dias</option>
@@ -528,7 +524,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 10px">DRE mensal</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 10px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>DRE mensal</h2>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
             <div class="field" style="margin:0"><label>Mês</label>
               <select id="dreMes">
@@ -548,14 +544,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 6px">Relatório mensal pro cliente</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>Relatório mensal pro cliente</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Junta resumo do mês, DRE, fluxo de caixa, aging e principais despesas num único documento pra enviar ao cliente. Usa o mês e ano escolhidos acima no DRE.</p>
           <div class="field"><label>Observações (opcional)</label><textarea id="relatorioObs" rows="3" style="resize:vertical;width:100%" placeholder="Algum comentário pra incluir no relatório..."></textarea></div>
           <div style="margin-top:10px"><button class="btn" onclick="gerarRelatorioMensal()">Gerar relatório mensal (PDF)</button></div>
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 6px">Aprovação por alçadas</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>Aprovação por alçadas</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Despesas lançadas acima do valor abaixo entram como "Aguardando aprovação" e só podem ser pagas depois que alguém da lista de aprovadores aprovar.</p>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
             <input type="checkbox" id="alcAtivo" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
@@ -572,7 +568,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-orcamento" class="fin-pane">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Orçamento x realizado</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Orçamento x realizado</h2>
             <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
               <div class="field" style="margin:0"><label>Mês</label>
                 <select id="orcMes" onchange="carregarOrcamento()">
@@ -595,7 +591,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- COBRANÇA -->
       <div id="pane-cobranca" class="fin-pane">
         <div class="card">
-          <h2 style="margin:0 0 6px">Régua de cobrança</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.27 21a2 2 0 0 0 3.46 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33"/></svg></span>Régua de cobrança</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px">O envio é manual — o sistema calcula quais títulos precisam de lembrete hoje, você manda o e-mail por fora (ou copia a mensagem) e marca aqui se já enviou.</p>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
             <input type="checkbox" id="cobAtivo" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">
@@ -622,7 +618,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 6px">Títulos pra cobrar hoje</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Títulos pra cobrar hoje</h2>
           <div id="cobLista"><p style="color:var(--muted);font-size:13px">Carregando...</p></div>
         </div>
       </div>
