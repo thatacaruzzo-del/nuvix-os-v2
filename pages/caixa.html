@@ -6,11 +6,11 @@
 <title>Nuvix — Caixa</title>
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
-.pdv-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.pdv-tabs{display:flex;gap:2px;background:var(--p-light);border-radius:14px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
 .pdv-tabs::-webkit-scrollbar{display:none}
-.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
-.pdv-tab:hover{color:var(--p)}
-.pdv-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:10px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.pdv-tab:hover{color:var(--p2)}
+.pdv-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .pdv-pane{display:none}.pdv-pane.active{display:block}
 .pdv-scan-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
 .pdv-scan-field{flex:2;min-width:260px}
@@ -29,26 +29,20 @@
 .pgto-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
 .pgto-row select{flex:1;min-width:0}.pgto-row input{width:110px;max-width:100%;flex-shrink:0}
 .tablewrap{min-width:0}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:520px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
-.modal-actions{display:flex;gap:10px;margin-top:24px}
-.modal-actions button{flex:1}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
-.badge-green{background:var(--green-bg);color:var(--green)}
-.badge-amber{background:var(--amber-bg,#FEF3C7);color:var(--p2,#92400E)}
-.badge-red{background:var(--red-bg);color:var(--red)}
-.badge-blue{background:var(--p-light);color:var(--p)}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:520px}
+/* Badges: padrão global v5 (css/nuvix.css). badge-blue nesta página sempre foi lilás. */
+.badge-blue{background:var(--p-light);color:var(--p2)}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .caixa-fechada-box{max-width:480px;margin:60px auto;text-align:center}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden}
-.kpi-card.purple{border-left:4px solid var(--p)}
-.kpi-card.green{border-left:4px solid var(--green)}
-.kpi-card.amber{border-left:4px solid var(--amber)}
-.kpi-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.kpi-value{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
+.kpi-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi-label{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.kpi-label::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--p3);flex-shrink:0}
+.kpi-card.purple .kpi-label::before{background:var(--p)}
+.kpi-card.green .kpi-label::before{background:var(--green)}
+.kpi-card.amber .kpi-label::before{background:var(--amber)}
+.kpi-value{font-size:24px;font-weight:800;line-height:1;margin-bottom:6px;color:var(--txt);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .kpi-sub{font-size:11px;color:var(--muted2)}
 .chart-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:20px}
 @media(max-width:1000px){.chart-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr 1fr}}
@@ -190,6 +184,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ SEM CAIXA ABERTO ══ -->
       <div id="telaAbrirCaixa" style="display:none">
         <div class="card caixa-fechada-box">
+          <div style="display:flex;justify-content:center;margin-bottom:14px"><span class="nx-ic-tile" style="width:52px;height:52px;border-radius:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span></div>
           <h2 style="margin-bottom:6px">Abrir caixa</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Nenhum caixa aberto nessa loja agora. Informe o fundo de troco pra começar a vender.</p>
           <div class="field" style="text-align:left"><label>Loja</label><select id="abrirLoja" onchange="verificarCaixaAberto()"></select></div>
@@ -238,7 +233,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
             </div>
             <div class="field pdv-busca-field" style="margin:0">
               <label>Buscar produto (nome, SKU ou código)</label>
-              <input id="pdvBusca" placeholder="Digite pra buscar..." autocomplete="off" oninput="buscarProdutoManual()">
+              <input id="pdvBusca" class="nx-search" placeholder="Digite pra buscar..." autocomplete="off" oninput="buscarProdutoManual()">
               <div class="pdv-busca-resultados" id="pdvBuscaResultados"></div>
             </div>
           </div>
@@ -257,7 +252,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
         <div class="pdv-grid" style="margin-top:16px">
           <div class="card">
-            <h2 style="margin-bottom:14px">Carrinho</h2>
+            <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span>Carrinho</h2>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Produto</th><th>Qtd.</th><th>Preço unit.</th><th>Desconto</th><th>Subtotal</th><th></th></tr></thead>
@@ -268,7 +263,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
           </div>
 
           <div class="card">
-            <h2 style="margin-bottom:14px">Fechamento da venda</h2>
+            <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span>Fechamento da venda</h2>
 
             <div class="field">
               <label>Vendedor (opcional)</label>
@@ -322,7 +317,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ FECHAMENTO DE CAIXA ══ -->
       <div id="telaFechamento" style="display:none">
         <div class="card" style="max-width:560px;margin:0 auto">
-          <h2 style="margin-bottom:6px">Fechar caixa</h2>
+          <h2 class="nx-sec-t" style="margin-bottom:10px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>Fechar caixa</h2>
           <p style="font-size:13px;color:var(--muted);margin-bottom:6px" id="fechamentoSubtitulo"></p>
           <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Dinheiro físico exige contagem manual. Cartão e Pix não têm contagem — ficam aguardando conciliação com o extrato.</p>
           <div id="fechamentoFormas"></div>
@@ -338,7 +333,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="telaHistorico" style="display:none">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-            <h2>Vendas</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg></span>Vendas</h2>
             <div style="display:flex;gap:10px;align-items:flex-end">
               <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Data</label><input type="date" id="histData" onchange="carregarHistoricoVendas()"></div>
               <button class="btn2" onclick="fecharTelaHistorico()">Voltar pro caixa</button>

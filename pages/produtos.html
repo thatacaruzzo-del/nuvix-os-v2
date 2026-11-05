@@ -6,32 +6,26 @@
 <title>Nuvix — Produtos</title>
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
-.pdv-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.pdv-tabs{display:flex;gap:2px;background:var(--p-light);border-radius:14px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
 .pdv-tabs::-webkit-scrollbar{display:none}
-.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
-.pdv-tab:hover{color:var(--p)}
-.pdv-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.pdv-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:10px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.pdv-tab:hover{color:var(--p2)}
+.pdv-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .pdv-pane{display:none}.pdv-pane.active{display:block}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:620px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
-.modal-actions{display:flex;gap:10px;margin-top:24px}
-.modal-actions button{flex:1}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
-.badge-green{background:var(--green-bg);color:var(--green)}
-.badge-amber{background:var(--amber-bg,#FEF3C7);color:var(--p2,#92400E)}
-.badge-red{background:var(--red-bg);color:var(--red)}
-.badge-blue{background:var(--p-light);color:var(--p)}
-.badge-muted{background:#F1F1F4;color:var(--muted)}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:620px}
+/* Badges: padrão global v5 (css/nuvix.css). badge-blue nesta página sempre foi lilás. */
+.badge-blue{background:var(--p-light);color:var(--p2)}
+.badge-muted{background:#F1EDF6;color:var(--muted)}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden}
-.kpi-card.purple{border-left:4px solid var(--p)}
-.kpi-card.green{border-left:4px solid var(--green)}
-.kpi-card.amber{border-left:4px solid var(--amber)}
-.kpi-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.kpi-value{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--txt)}
+.kpi-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi-label{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.kpi-label::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--p3);flex-shrink:0}
+.kpi-card.purple .kpi-label::before{background:var(--p)}
+.kpi-card.green .kpi-label::before{background:var(--green)}
+.kpi-card.amber .kpi-label::before{background:var(--amber)}
+.kpi-value{font-size:24px;font-weight:800;line-height:1;margin-bottom:6px;color:var(--txt);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .kpi-sub{font-size:11px;color:var(--muted2)}
 @media(max-width:1000px){.kpi-grid{grid-template-columns:1fr 1fr}}
 </style>
@@ -178,7 +172,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         <div class="card">
           <div id="produtosFiltroBanner"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-            <input id="buscaProduto" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:320px" oninput="paginaProdutos=1;renderProdutos()">
+            <input id="buscaProduto" class="nx-search" placeholder="Buscar por nome, SKU ou código de barras..." style="max-width:340px" oninput="paginaProdutos=1;renderProdutos()">
             <select id="ordemProduto" onchange="paginaProdutos=1;renderProdutos()" style="max-width:210px">
               <option value="nome_asc">Nome (A-Z)</option>
               <option value="nome_desc">Nome (Z-A)</option>
@@ -205,7 +199,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-categorias" class="pdv-pane">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Categorias e markup</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>Categorias e markup</h2>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <input type="text" id="categoriasBusca" placeholder="Buscar categoria..." oninput="paginaCategorias=1;renderCategorias()" style="max-width:220px">
               <button class="btn" onclick="abrirModalCategoria()">+ Nova categoria</button>
@@ -251,7 +245,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ VALIDADE / ENTRADA DE MERCADORIA ══ -->
       <div id="pane-validade" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
-          <h2 style="margin:0 0 4px">Entrada de mercadoria</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 8px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Entrada de mercadoria</h2>
           <p class="field-hint" style="margin-bottom:8px">Registra chegada de estoque. Se o produto controla validade (ligado no cadastro do produto), pede a data de vencimento e cria um lote. A venda depois baixa sempre do lote que vence primeiro (FEFO), e nunca vende um lote já vencido sem avisar.</p>
           <div class="insight-line" style="margin-bottom:14px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;margin-top:2px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -273,7 +267,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
 
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
-            <h2 style="margin:0">Lotes ativos</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></span>Lotes ativos</h2>
             <div style="font-size:12px;color:var(--muted)">
               <span class="badge badge-red">Vencido</span> <span class="badge badge-amber">Vencendo</span> <span class="badge badge-green">Ok</span>
             </div>
@@ -292,7 +286,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <div id="pane-transferencias" class="pdv-pane">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h2>Transferências entre lojas</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span>Transferências entre lojas</h2>
             <button class="btn" onclick="abrirModalTransferencia()">+ Nova transferência</button>
           </div>
           <div class="tablewrap">
@@ -344,7 +338,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ PROMOÇÕES (preço por período) ══ -->
       <div id="pane-promocoes" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
-          <h2 style="margin:0 0 4px">Nova promoção</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 8px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>Nova promoção</h2>
           <p class="field-hint" style="margin-bottom:14px">Preço vale só dentro do período. O cadastro do produto não muda. Não dá pra ter duas promoções do mesmo produto com período sobreposto na mesma loja (o sistema bloqueia).</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:2;min-width:220px"><label>Produto *</label><select id="promoProduto"></select></div>
@@ -360,7 +354,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 14px">Promoções</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 16px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>Promoções</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Status</th><th>Produto</th><th>Loja</th><th>Período</th><th>Catálogo</th><th>Promocional</th><th></th></tr></thead>
@@ -373,7 +367,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- ══ KITS / COMBOS ══ -->
       <div id="pane-kits" class="pdv-pane">
         <div class="card" style="margin-bottom:20px">
-          <h2 style="margin:0 0 4px" id="kitFormTitulo">Novo kit</h2>
+          <div class="nx-sec-wrap" style="margin-bottom:8px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span><h2 id="kitFormTitulo">Novo kit</h2></div>
           <p class="field-hint" style="margin-bottom:14px">O kit não tem estoque próprio: ao vender, cada produto que faz parte dele é baixado do estoque normalmente. Preço combinado é feito na venda toda, item a item, igual um desconto.</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div class="field" style="flex:2;min-width:220px"><label>Nome do kit *</label><input id="kitNome" placeholder="Ex: Kit Churrasco"></div>
@@ -412,7 +406,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
         </div>
 
         <div class="card">
-          <h2 style="margin:0 0 14px">Kits cadastrados</h2>
+          <h2 class="nx-sec-t" style="margin:0 0 16px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Kits cadastrados</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Status</th><th>Kit</th><th>Componentes</th><th>Preço</th><th></th></tr></thead>
