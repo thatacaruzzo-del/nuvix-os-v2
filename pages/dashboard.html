@@ -12,7 +12,7 @@
 /* Altura igual e compacta nos 3 cards (180-200px), conteúdo sempre alinhado no topo —
    antes cada card tinha uma altura diferente (dependia de quanto texto tinha dentro) e
    ficava tudo centralizado verticalmente, o que parecia desalinhado lado a lado. */
-.dash-hero-grid .card{margin:0;height:192px;padding:22px 26px;position:relative;display:flex;flex-direction:column;justify-content:flex-start;border-left:4px solid var(--p);overflow:hidden}
+.dash-hero-grid .card{margin:0;height:192px;padding:22px 26px;position:relative;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden}
 .hero-card-trend{gap:8px}
 .hero-card-proximo{border-left-color:var(--amber)!important}
 .hero-badge-corner{position:absolute;top:24px;right:26px}
@@ -79,25 +79,22 @@
 
 /* ── Indicadores-chave (KPIs) — ícones pequenos (20px), sem caixas grandes; elegante e compacto ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.kpi-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease;cursor:default;min-width:0}
+.kpi-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease;cursor:default;min-width:0}
 .kpi-card:hover{transform:scale(1.02);box-shadow:var(--shadow-md)}
-.kpi-hd{display:flex;align-items:center;gap:7px;margin-bottom:10px}
-.kpi-ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.kpi-ico svg{width:20px;height:20px;stroke-width:1.75}
+.kpi-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kpi-ico{width:32px;height:32px;border-radius:10px;background:var(--p-soft);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-ico svg{width:17px;height:17px;stroke-width:1.75}
+.kc-g .kpi-ico{background:var(--green-bg)}.kc-a .kpi-ico{background:var(--amber-bg)}.kc-r .kpi-ico{background:var(--red-bg)}
+.kpi-card.kc-solid .kpi-ico{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.22)}
 .kc-p .kpi-ico{color:var(--p)}
 .kc-g .kpi-ico{color:var(--green)}
 .kc-a .kpi-ico{color:var(--amber)}
 .kc-m .kpi-ico{color:var(--muted)}
 .kc-b .kpi-ico{color:var(--p2)}
 .kc-r .kpi-ico{color:var(--red)}
-.kpi-card.kc-p{border-left:4px solid var(--p)}
-.kpi-card.kc-g{border-left:4px solid var(--green)}
-.kpi-card.kc-a{border-left:4px solid var(--amber)}
-.kpi-card.kc-m{border-left:4px solid var(--muted2)}
-.kpi-card.kc-b{border-left:4px solid var(--p2)}
-.kpi-card.kc-r{border-left:4px solid var(--red)}
+/* (v5) faixas laterais coloridas removidas — a cor está no ícone */
 /* Destaque sólido — no máximo 1 por grid, só na métrica que fecha o grupo (ver renderAll) */
-.kpi-card.kc-solid{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);border-left:none;color:#fff}
+.kpi-card.kc-solid{background:var(--grad-brand);border-left:none;color:#fff}
 .kpi-card.kc-solid .kpi-ico{color:#fff}
 .kpi-card.kc-solid .kpi-lbl{color:rgba(255,255,255,.85)}
 .kpi-card.kc-solid .kpi-val{color:#fff}
@@ -174,14 +171,14 @@
 .hero-insight-link:hover{filter:brightness(.97)}
 
 /* ── Navegação por abas — cada setor vira uma aba, sem scroll infinito ── */
-.tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px;margin:20px 0;overflow-x:auto}
+.tabs{display:flex;gap:4px;background:var(--p-light);border:1px solid var(--line);border-radius:14px;padding:4px;margin:20px 0;overflow-x:auto}
 .tab{padding:9px 16px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);background:transparent;border:none;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
-.tab.active{background:var(--p);color:#fff}
-.tab:hover:not(.active){background:var(--p-light);color:var(--p)}
+.tab.active{background:#fff;color:var(--p2);box-shadow:var(--shadow)}
+.tab:hover:not(.active){background:rgba(255,255,255,.6);color:var(--p2)}
 .tab-alert{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .tab-alert.prioridade{background:var(--red)}
 .tab-alert.atencao{background:var(--amber)}
-.tab.active .tab-alert{background:#fff}
+.tab.active .tab-alert{outline:2px solid #fff}
 .pane{display:none}
 .pane.active{display:block}
 

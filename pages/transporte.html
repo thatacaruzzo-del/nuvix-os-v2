@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
 .tr-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
-.tr-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;}
-.tr-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.tr-tab{background:#fff;color:var(--p2);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;}
+.tr-tab.active{background:var(--p2);color:#fff;border-color:var(--p2);box-shadow:var(--shadow-btn)}
 .tr-pane{display:none}
 .tr-pane.active{display:block}
 .ppe-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -28,13 +28,9 @@
 }
 
 /* ── Modal ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:580px}
 .modal.modal-wide{max-width:920px}
-.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
-.modal-actions{display:flex;gap:10px;margin-top:20px}
-.modal-actions button{flex:1}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -248,7 +244,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Operações</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></span>Operações</h2>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <select id="opFiltroStatus" onchange="renderOperacoes()" style="max-width:160px"><option value="">Todos status</option><option>No prazo</option><option>Em trânsito</option><option>Atrasado</option><option>Ocorrência</option><option>Entregue</option><option>Entregue com atraso</option></select>
               <input type="month" id="opFiltroMes" onchange="renderOperacoes()" style="max-width:160px">
@@ -289,7 +285,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-rotas" class="tr-pane">
         <div class="grid-2" style="display:grid;gap:16px;margin-bottom:16px">
           <div class="card">
-            <h2>Como usar</h2>
+            <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>Como usar</h2>
             <p class="muted" style="line-height:1.7">Cadastre as rotas frequentes da empresa.<br><br>Na aba <b>Operações</b>, ao selecionar uma rota, origem e destino preenchem automaticamente.<br><br>O sistema calcula o <b>lucro por rota</b> = receita − custo.</p>
           </div>
           <div class="card" style="display:flex;align-items:center;justify-content:center">
@@ -321,7 +317,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         </div>
         <div class="card">
-          <h2>Rotas cadastradas</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg></span>Rotas cadastradas</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Apelido</th><th>Origem</th><th>Destino</th><th>Distância</th><th>Valor/km</th><th>Pedágio</th><th>Preço fixo</th><th>Veículo</th><th>Ação</th></tr></thead>
@@ -364,7 +360,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         </div>
         <div class="card">
-          <h2>Motoristas cadastrados</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>Motoristas cadastrados</h2>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Nome</th><th>CNH</th><th>Cat.</th><th>Venc. CNH</th><th>ANTT</th><th>Venc. ANTT</th><th>Veículo</th><th>Placa</th><th>Status</th><th>Ação</th></tr></thead>
@@ -378,7 +374,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ PAGAMENTOS ══ -->
       <div id="pane-pagamentos" class="tr-pane">
         <div class="card">
-          <h2>Registrar pagamento de motorista</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span>Registrar pagamento de motorista</h2>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Motorista</label><select id="pagMot"></select></div>
             <div class="field"><label>Data da viagem</label><input id="pagData" type="date"></div>
@@ -392,7 +388,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Pagamentos</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg></span>Pagamentos</h2>
             <select id="pagFiltroStatus" onchange="renderPagamentos()" style="max-width:160px"><option value="">Todos</option><option>A pagar</option><option>Pago</option></select>
           </div>
           <div class="tablewrap">
@@ -409,11 +405,11 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <div id="pane-performance" class="tr-pane">
         <div class="notice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Performance calculada com base nas operações registradas.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="card"><h2>Performance por cliente</h2><div id="perfCliente"></div></div>
-          <div class="card"><h2>Performance por motorista</h2><div id="perfMotorista"></div></div>
+          <div class="card"><h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>Performance por cliente</h2><div id="perfCliente"></div></div>
+          <div class="card"><h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></span>Performance por motorista</h2><div id="perfMotorista"></div></div>
         </div>
         <div class="card" style="margin-top:4px">
-          <h2>Resumo financeiro de transporte</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/></svg></span>Resumo financeiro de transporte</h2>
           <div id="perfFinanceiro" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
         </div>
       </div>

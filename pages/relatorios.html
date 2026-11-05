@@ -11,16 +11,13 @@
 .rel-chips{display:flex;flex-wrap:wrap;gap:8px}
 .rel-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:20px;border:1.5px solid var(--line);background:#fff;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none}
 .rel-chip:hover{border-color:var(--p3);color:var(--p)}
-.rel-chip.active{background:var(--p-light);border-color:var(--p);color:var(--p2)}
+.rel-chip.active{background:var(--p-light);border-color:var(--p3);color:var(--p2)}
 .rel-chip-check{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;transition:all .15s}
-.rel-chip.active .rel-chip-check{background:var(--p);border-color:var(--p)}
+.rel-chip.active .rel-chip-check{background:var(--p2);border-color:var(--p2)}
 .rel-chip-check svg{width:11px;height:11px;stroke:#fff;stroke-width:3;opacity:0;transform:scale(.6);transition:all .15s}
 .rel-chip.active .rel-chip-check svg{opacity:1;transform:scale(1)}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal-actions{display:flex;gap:10px;margin-top:20px}
-.modal-actions button{flex:1}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:580px}
 </style>
 </head>
 <body>
@@ -172,7 +169,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- GERADOR DE RELATÓRIOS -->
       <div class="card">
-        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Gerar Relatório</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Gerar Relatório</h2>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;align-items:flex-end">
           <div class="field" style="margin:0">
             <label>Módulo</label>
