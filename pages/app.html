@@ -332,6 +332,25 @@ async function deleteRow(table,id,area){
         <div id="empFiscalMsg" class="msg"></div>
       </div>
 
+      <!-- Token da Focus NFe (05/11/2026) — só Administrador vê. O token é gravado
+           por uma função no banco e NUNCA volta pro navegador: a tela só mostra se
+           existe, o ambiente, a data e os 4 últimos caracteres. -->
+      <div class="card" id="focusTokenCard" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>Emissor de notas (Focus NFe)</h2>
+          <span class="badge" id="focusTokenBadge">Verificando...</span>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Cole aqui o <b>token</b> que a Focus NFe gerou para a sua empresa (painel da Focus → sua empresa → <b>Tokens</b>). Ele fica guardado com segurança e <b>não aparece de novo</b> nesta tela.</p>
+        <div id="focusTokenAtual" style="font-size:13px;margin-bottom:14px"></div>
+        <div class="form-row" style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+          <div class="field"><label for="focusToken">Token</label><input id="focusToken" type="password" autocomplete="new-password" spellcheck="false" placeholder="Cole o token aqui"></div>
+          <div class="field"><label for="focusAmbiente">Ambiente</label><select id="focusAmbiente"><option value="homologacao">Homologação (testes)</option><option value="producao">Produção (notas reais)</option></select></div>
+        </div>
+        <p style="color:var(--muted);font-size:12px;margin-top:6px">A Focus gera um token para <b>homologação</b> e outro para <b>produção</b>. Use o token do ambiente escolhido. Em produção, as notas valem de verdade.</p>
+        <div class="actions"><button class="btn" id="btnSalvarFocusToken" onclick="salvarTokenFocus()">Salvar token</button></div>
+        <div id="focusTokenMsg" class="msg"></div>
+      </div>
+
       <!-- Assinatura — só Administrador/SuperAdmin vê e mexe (mesma regra de
            quem pode editar os dados da empresa acima). Duas telas: resumo de
            quem já tem cartão cadastrado, ou o formulário pra cadastrar. -->
@@ -533,6 +552,7 @@ async function init() {
     $('tabUsuarios')?.remove();
   }else{
     renderAssinatura();
+    carregarStatusTokenFocus();
   }
   if(!temPermissao('relatorios','ver')){
     document.querySelector('.app-tab[data-pagina="relatorios"]')?.remove();
@@ -726,6 +746,52 @@ async function salvarDadosFiscaisEmpresa(){
     });
     msg('empFiscalMsg','Dados fiscais salvos!','ok');
   }catch(e){msg('empFiscalMsg','Erro: '+e.message,'err');}
+}
+
+// ═══ TOKEN DA FOCUS NFe ═══ — gravado/consultado só por funções do banco
+// (salvar_token_focus / status_token_focus); a tabela de credenciais não é mais
+// legível pelo navegador.
+async function rpcFocus(nome,corpo){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`,{method:'POST',headers:_h,body:JSON.stringify(corpo||{})});
+  const txt=await r.text();
+  if(!r.ok){let m=txt;try{m=JSON.parse(txt).message||txt;}catch(e){}throw new Error(m);}
+  return txt?JSON.parse(txt):null;
+}
+async function carregarStatusTokenFocus(){
+  const card=$('focusTokenCard');if(!card)return;
+  card.style.display='block';
+  try{
+    const st=await rpcFocus('status_token_focus');
+    const badge=$('focusTokenBadge');
+    if(st?.tem_token){
+      const amb=st.ambiente==='producao'?'Produção':'Homologação';
+      badge.textContent='Token cadastrado · '+amb;badge.className='badge '+(st.ambiente==='producao'?'ok':'warn');
+      const quando=st.atualizado_em?new Date(st.atualizado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
+      setHTML('focusTokenAtual',`Token atual termina em <b>••••${esc(st.final||'')}</b> · ambiente <b>${amb}</b> · atualizado em ${quando}. Para trocar, cole o novo token abaixo.`);
+      $('focusAmbiente').value=st.ambiente||'homologacao';
+    }else{
+      badge.textContent='Sem token';badge.className='badge off';
+      setHTML('focusTokenAtual','Nenhum token cadastrado ainda. Sem ele, o sistema não consegue emitir notas fiscais.');
+    }
+  }catch(e){$('focusTokenBadge').textContent='Indisponível';setHTML('focusTokenAtual','Não foi possível verificar o token agora.');}
+}
+async function salvarTokenFocus(){
+  const token=val('focusToken').trim(),amb=val('focusAmbiente');
+  if(token.length<20||/\s/.test(token)){msg('focusTokenMsg','Esse token parece incompleto. Copie o token inteiro no painel da Focus NFe, sem espaços.','err');return;}
+  if(amb==='producao'){
+    const ok=await confirmarAcao('Salvar o token de PRODUÇÃO? A partir daí as notas emitidas pelo sistema valem de verdade na Receita/prefeitura.',{labelOk:'Salvar token de produção',variante:'aviso'});
+    if(!ok)return;
+  }
+  const btn=$('btnSalvarFocusToken');btn.disabled=true;
+  try{
+    await rpcFocus('salvar_token_focus',{p_token:token,p_ambiente:amb});
+    $('focusToken').value='';
+    msg('focusTokenMsg','Token salvo com segurança.','ok');
+    await carregarStatusTokenFocus();
+  }catch(e){
+    const m=String(e.message||'');
+    msg('focusTokenMsg',m.includes('sem_permissao')?'Só o Administrador da empresa pode cadastrar o token.':m.includes('token_invalido')?'Token inválido. Copie o token inteiro, sem espaços.':'Não foi possível salvar: '+m,'err');
+  }finally{btn.disabled=false;}
 }
 
 // ═══ ASSINATURA (cobrança automática via Efí) ═══
