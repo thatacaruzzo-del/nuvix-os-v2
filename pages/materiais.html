@@ -8,11 +8,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ── TABS ── */
-.mat-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
+.mat-tabs{display:flex;gap:2px;background:var(--p-light);border-radius:14px;padding:4px;margin-bottom:24px;overflow-x:auto;scrollbar-width:none}
 .mat-tabs::-webkit-scrollbar{display:none}
 .mat-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:7px;flex-shrink:0}
-.mat-tab:hover{color:var(--p)}
-.mat-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.mat-tab:hover{color:var(--p2)}
+.mat-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .bento-alertas{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:8px}
 @media(max-width:900px){.bento-alertas{grid-template-columns:1fr}}
 .hero-estoque{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:0 10px 26px rgba(99,67,164,.28)}
@@ -26,12 +26,15 @@
 
 /* ── KPI CARDS ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.kpi-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 1px 2px rgba(31,41,55,.04);position:relative;overflow:hidden;transition:box-shadow .2s ease,transform .2s ease}
+.kpi-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:box-shadow .2s ease,transform .2s ease}
 .kpi-card:hover{box-shadow:0 4px 16px rgba(31,41,55,.06);transform:translateY(-2px)}
-.kpi-card.purple{border-left:4px solid var(--p)}
-.kpi-card.red{border-left:4px solid var(--red)}
-.kpi-card.amber{border-left:4px solid var(--amber)}
-.kpi-card.green{border-left:4px solid var(--green)}
+/* (v5) KPI sem faixa lateral: a cor vira um ponto antes do rótulo */
+.kpi-card .kpi-label{display:flex;align-items:center;gap:7px}
+.kpi-card .kpi-label::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--p3);flex-shrink:0}
+.kpi-card.purple .kpi-label::before{background:var(--p)}
+.kpi-card.red .kpi-label::before{background:var(--red)}
+.kpi-card.amber .kpi-label::before{background:var(--amber)}
+.kpi-card.green .kpi-label::before{background:var(--green)}
 .kpi-card.purple .kpi-icon{color:var(--p)}
 .kpi-card.red .kpi-icon{color:#DC2626}
 .kpi-card.amber .kpi-icon{color:var(--p2)}
@@ -86,10 +89,8 @@
 .view-btn.active{background:var(--p);color:#fff;border-color:var(--p)}
 
 /* ── MODAL ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:700px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:700px}
 .modal-actions{display:flex;gap:10px;margin-top:24px}
 .modal-actions button{flex:1}
 
@@ -245,7 +246,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
       <div id="pane-materiais" class="mat-pane">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <div class="search-wrap" style="margin:0;flex:1">
-            <input type="text" id="matBusca" placeholder="Buscar material..." oninput="renderMateriais()" style="max-width:280px;flex:1">
+            <input type="text" id="matBusca" class="nx-search" placeholder="Buscar material..." oninput="renderMateriais()" style="max-width:280px;flex:1">
             <select id="matFiltroCateg" onchange="renderMateriais()" style="max-width:160px">
               <option value="">Todas as categorias</option>
             </select>
@@ -291,7 +292,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
       <div id="pane-movimentacoes" class="mat-pane">
         <div class="grid-2" style="display:grid;gap:16px;margin-bottom:16px">
           <div class="card">
-            <h2 id="movTitulo">Nova movimentação</h2>
+            <div class="nx-sec-wrap"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span><h2 id="movTitulo">Nova movimentação</h2></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div class="field"><label>Tipo *</label>
                 <select id="movTipo" onchange="atualizarMovTipo()">
@@ -334,13 +335,13 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
             <div id="movMsg" class="msg"></div>
           </div>
           <div class="card">
-            <h2>Resumo de movimentações</h2>
+            <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Resumo de movimentações</h2>
             <div id="movResumo" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
           </div>
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Histórico</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>Histórico</h2>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <select id="movFiltroTipo" onchange="renderMovimentacoes()" style="max-width:160px">
                 <option value="">Todos os tipos</option>
@@ -348,7 +349,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
                 <option value="ajuste">Ajuste</option><option value="inventario">Inventário</option>
               </select>
               <input type="month" id="movFiltroMes" onchange="renderMovimentacoes()" style="max-width:160px">
-              <input type="text" id="movBusca" placeholder="Buscar..." oninput="renderMovimentacoes()" style="max-width:180px">
+              <input type="text" id="movBusca" class="nx-search" placeholder="Buscar..." oninput="renderMovimentacoes()" style="max-width:180px">
             </div>
           </div>
           <div class="tablewrap">
@@ -393,7 +394,7 @@ const CAT_ICONS={Elétrica:'',Hidráulica:'<svg viewBox="0 0 24 24" fill="none" 
         </div>
         </div>
         <div class="card">
-          <h2>Fornecedores cadastrados</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></span>Fornecedores cadastrados</h2>
           <div class="tablewrap">
             <table>
               <thead><tr><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Contato</th><th>Status</th><th>Ação</th></tr></thead>

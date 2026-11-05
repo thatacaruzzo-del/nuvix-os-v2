@@ -14,8 +14,8 @@
 
 /* ── Abas Clientes / Relatórios / Minha Empresa / Usuários e Acessos ── */
 .app-tabs{display:flex;gap:8px;padding:16px 24px 0;flex-wrap:nowrap;overflow-x:auto}
-.app-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center}
-.app-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.app-tab{background:#fff;color:var(--p2);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center}
+.app-tab.active{background:var(--p2);color:#fff;border-color:var(--p2);box-shadow:var(--shadow-btn)}
 @media(max-width:768px){.app-tabs{padding:12px 16px 0}}
 
 /* Garante que main-content scrolle normalmente */
@@ -47,9 +47,8 @@
 }
 
 /* ── Modal Permissões do funcionário ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:700px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:700px}
 .modal h3{font-size:17px;font-weight:800;margin-bottom:6px}
 .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
 .modal-actions button{flex:1;min-width:130px}
@@ -226,8 +225,8 @@ async function deleteRow(table,id,area){
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Clientes cadastrados</h2>
-          <input type="text" id="cliBusca" placeholder="Buscar..." oninput="renderClientes()" style="max-width:260px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Clientes cadastrados</h2>
+          <input type="text" id="cliBusca" class="nx-search" placeholder="Buscar..." oninput="renderClientes()" style="max-width:260px">
         </div>
         <div class="tablewrap">
           <table>
@@ -259,7 +258,7 @@ async function deleteRow(table,id,area){
     <!-- RELATÓRIOS -->
     <div id="pg-relatorios" class="nx-page page-content">
       <div class="card">
-        <h2>Relatórios</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Relatórios</h2>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
           <div class="field"><label>Módulo</label>
             <select id="relModulo">
@@ -288,7 +287,7 @@ async function deleteRow(table,id,area){
     <!-- MINHA EMPRESA -->
     <div id="pg-empresa" class="nx-page page-content">
       <div class="card">
-        <h2>Minha Empresa</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></span>Minha Empresa</h2>
         <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           <div class="field"><label>Nome fantasia</label><input id="empFantasia"></div>
           <div class="field"><label>Razão social</label><input id="empRazao"></div>
@@ -312,7 +311,7 @@ async function deleteRow(table,id,area){
            Municipal e os campos de ISS são só pra quem emite NFS-e). Salvar
            aqui NÃO ativa a emissão sozinho, a Nuvix confirma isso à parte. -->
       <div class="card">
-        <h2>Dados fiscais</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span>Dados fiscais</h2>
         <p style="color:var(--muted);font-size:13px;margin-bottom:18px">Informações usadas pra emitir suas notas fiscais (NF-e, NFC-e e NFS-e).</p>
         <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           <div class="field"><label>Inscrição Estadual (IE)</label><input id="empInscEst"></div>
@@ -338,7 +337,7 @@ async function deleteRow(table,id,area){
            quem já tem cartão cadastrado, ou o formulário pra cadastrar. -->
       <div class="card" id="assinaturaCard" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Assinatura</h2>
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg></span>Assinatura</h2>
           <span class="badge" id="assinaturaStatusBadge"></span>
         </div>
         <p style="color:var(--muted);font-size:13px;margin-bottom:18px">Cobrança recorrente automática no cartão — sem precisar renovar na mão todo mês.</p>
@@ -415,7 +414,7 @@ async function deleteRow(table,id,area){
     <!-- USUÁRIOS -->
     <div id="pg-usuarios" class="nx-page page-content">
       <div class="card">
-        <h2>Novo usuário</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg></span>Novo usuário</h2>
         <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           <div class="field"><label>Nome completo</label><input id="usrNome" autocomplete="off"></div>
           <div class="field"><label>E-mail</label><input id="usrEmail" type="email" autocomplete="off"></div>
@@ -429,8 +428,8 @@ async function deleteRow(table,id,area){
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Usuários da empresa</h2>
-          <input type="text" id="usrBusca" placeholder="Buscar por nome ou e-mail..." oninput="renderUsuarios()" style="max-width:260px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>Usuários da empresa</h2>
+          <input type="text" id="usrBusca" class="nx-search" placeholder="Buscar por nome ou e-mail..." oninput="renderUsuarios()" style="max-width:260px">
         </div>
         <div class="tablewrap">
           <table>

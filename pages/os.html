@@ -7,11 +7,11 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
 /* ── OS Tabs ── */
-.os-tabs{display:flex;gap:2px;background:#F1EFF7;border-radius:12px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.os-tabs{display:flex;gap:2px;background:var(--p-light);border-radius:14px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
 .os-tabs::-webkit-scrollbar{display:none}
 .os-tab{padding:0 16px;min-height:36px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border:none;border-radius:9px;background:transparent;white-space:nowrap;transition:all .15s;flex-shrink:0}
-.os-tab:hover{color:var(--p)}
-.os-tab.active{color:var(--p);background:#fff;box-shadow:var(--shadow)}
+.os-tab:hover{color:var(--p2)}
+.os-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .os-pane{display:none}.os-pane.active{display:block}
 
 /* ── Status badges — cor semântica suave ── */
@@ -20,9 +20,9 @@
 .st-deslocamento{background:#FEF3C7;color:#92400E}
 .st-atendimento{background:var(--p-light);color:var(--p)}
 .st-material{background:#FEF2F2;color:#DC2626}
-.st-pausada{background:#F1EFF7;color:var(--muted)}
+.st-pausada{background:#F1EDF6;color:var(--muted)}
 .st-concluida{background:#ECFDF5;color:#059669}
-.st-cancelada{background:#F1EFF7;color:var(--muted)}
+.st-cancelada{background:#F1EDF6;color:var(--muted)}
 
 /* ── OS Card ── */
 .os-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .2s;cursor:pointer}
@@ -39,10 +39,10 @@
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
 /* ── Modal OS ── */
-.os-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;overflow-y:auto;padding:20px}
+.os-modal-overlay{display:none;position:fixed;inset:0;background:rgba(33,19,47,.42);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);z-index:300;overflow-y:auto;padding:20px}
 .os-modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
-.os-modal{background:#fff;border-radius:20px;width:100%;max-width:900px;margin:auto;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.3)}
-.os-modal-header{background:linear-gradient(135deg,#25005A,#6343A4);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
+.os-modal{background:#fff;border-radius:28px;width:100%;max-width:900px;margin:auto;overflow:hidden;box-shadow:0 30px 80px rgba(33,19,47,.28);border:1px solid var(--line)}
+.os-modal-header{background:var(--grad-brand);color:#fff;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
 .os-modal-title{font-size:18px;font-weight:900}
 .os-modal-body{padding:24px 28px;max-height:80vh;overflow-y:auto}
 .os-modal-footer{padding:16px 28px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
@@ -192,7 +192,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- LISTA -->
       <div id="pane-lista" class="os-pane active">
         <div class="os-filtros">
-          <input type="text" id="filtBusca" placeholder="Buscar OS, cliente..." oninput="renderLista()" style="max-width:240px">
+          <input type="text" id="filtBusca" class="nx-search" placeholder="Buscar OS, cliente..." oninput="renderLista()" style="max-width:240px">
           <select id="filtStatus" onchange="renderLista()">
             <option value="">Todos os status</option>
             <option>Aberta</option><option>Agendada</option><option>Em deslocamento</option>
@@ -233,7 +233,7 @@ function withEmpresa(obj){const s=getSession();return{...obj,empresa_id:s?.empre
       <!-- NOVA OS -->
       <div id="pane-nova" class="os-pane">
         <div class="card">
-          <h2 id="osTitulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova Ordem de Serviço</h2>
+          <div class="nx-sec-wrap"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><h2 id="osTitulo">Nova Ordem de Serviço</h2></div>
           <input type="hidden" id="osId">
           <input type="hidden" id="osNumero">
 

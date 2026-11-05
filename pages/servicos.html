@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
 .svc-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
-.svc-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;}
-.svc-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.svc-tab{background:#fff;color:var(--p2);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;}
+.svc-tab.active{background:var(--p2);color:#fff;border-color:var(--p2);box-shadow:var(--shadow-btn)}
 .svc-pane{display:none}.svc-pane.active{display:block}
 .status-flow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .status-btn{padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--muted);transition:all .15s}
@@ -38,11 +38,9 @@
 .hero-recorrencia-desc{font-size:12px;opacity:.9;line-height:1.5}
 
 /* ── Modal ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:580px}
 .modal.modal-wide{max-width:920px}
-.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
 .modal-actions{display:flex;gap:10px;margin-top:20px}
 .modal-actions button{flex:1}
 </style>
@@ -141,7 +139,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         <div class="bento-servicos">
           <div class="card" style="margin:0">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <h2 style="margin:0">Orçamentos em aberto</h2>
+              <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>Orçamentos em aberto</h2>
               <span class="badge" id="orcAbertosBadge">—</span>
             </div>
             <div id="orcamentosPreview"></div>
@@ -158,7 +156,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="card">
-            <h2>Como usar</h2>
+            <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>Como usar</h2>
             <p class="muted" style="line-height:1.7"><b>1.</b> Cadastre os serviços que sua empresa oferece.<br><br><b>2.</b> Na aba <b>Orçamentos</b>, selecione cliente + serviço para criar uma proposta.<br><br><b>3.</b> Quando aprovado, a receita vai automaticamente para o Financeiro.<br><br><b>4.</b> Acompanhe o SLA em tempo real na aba <b>Em execução</b>.</p>
           </div>
           <div class="card" style="display:flex;align-items:center;justify-content:center">
@@ -202,8 +200,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         </div>
         <div class="card" style="margin-top:4px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Serviços cadastrados</h2>
-            <input type="text" id="catBusca" placeholder="Buscar..." oninput="renderCatalogo()" style="max-width:260px">
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>Serviços cadastrados</h2>
+            <input type="text" id="catBusca" class="nx-search" placeholder="Buscar..." oninput="renderCatalogo()" style="max-width:260px">
           </div>
           <div class="item-grid" id="catTable"></div>
         </div>
@@ -288,7 +286,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       <!-- HISTÓRICO -->
       <div id="pane-historico" class="svc-pane">
         <div class="card">
-          <h2>Histórico de serviços</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>Histórico de serviços</h2>
           <div class="tablewrap">
             <table><thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Validade</th><th>Ação</th></tr></thead><tbody id="histTable"></tbody></table><div id="histTablePaginacao"></div>
           </div>
