@@ -554,6 +554,11 @@ async function init() {
     renderAssinatura();
     carregarStatusTokenFocus();
   }
+  // Atalho vindo de Configurações (parametros.html): app.html#emissor abre Minha Empresa no bloco do token.
+  if(location.hash==='#emissor'||location.hash==='#empresa'){
+    navegar('empresa',null);
+    setTimeout(()=>document.getElementById(location.hash==='#emissor'?'focusTokenCard':'pg-empresa')?.scrollIntoView({behavior:'smooth',block:'start'}),300);
+  }
   if(!temPermissao('relatorios','ver')){
     document.querySelector('.app-tab[data-pagina="relatorios"]')?.remove();
   }
