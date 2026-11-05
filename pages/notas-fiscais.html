@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
           <button class="nf-tipo-tab active" data-tipo="nfse" onclick="trocarTipo('nfse')">NFS-e (serviço)</button>
           <button class="nf-tipo-tab" data-tipo="nfce" onclick="trocarTipo('nfce')">NFC-e (produto/Caixa)</button>
           <button class="nf-tipo-tab" data-tipo="nfe" onclick="trocarTipo('nfe')">NF-e (venda/atacado)</button>
+          <button class="nf-tipo-tab" data-tipo="cte" id="tabCte" style="display:none" onclick="trocarTipo('cte')">CT-e (transporte)</button>
           <button class="nf-tipo-tab" data-tipo="devolucao" onclick="trocarTipo('devolucao')">Devolução</button>
           <button class="nf-tipo-tab" data-tipo="entrada" onclick="trocarTipo('entrada')">Notas de Entrada (compra)</button>
         </div>
@@ -306,9 +307,10 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   <div class="nx-sec-wrap" style="margin-bottom:18px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span><h3 id="nmTitulo" style="margin:0">Nova nota manual</h3></div>
 
   <div style="font-size:13px;font-weight:700;margin-bottom:8px">Que nota você vai emitir?</div>
-  <div class="nm-tipo" role="radiogroup" aria-label="Tipo de nota">
+  <div class="nm-tipo" role="radiogroup" aria-label="Tipo de nota" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
     <label class="nm-tipo-op" id="nmOpProduto"><input type="radio" name="nmTipo" value="produto" onchange="nmTrocarTipo('produto')"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span><span><b>Venda de produto</b><small>NF-e · mercadoria, remessa, devolução</small></span></label>
     <label class="nm-tipo-op" id="nmOpServico"><input type="radio" name="nmTipo" value="servico" onchange="nmTrocarTipo('servico')"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><span><b>Prestação de serviço</b><small>NFS-e · serviço prestado ao tomador</small></span></label>
+    <label class="nm-tipo-op" id="nmOpCte" style="display:none"><input type="radio" name="nmTipo" value="cte" onchange="nmTrocarTipo('cte')"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></span><span><b>Transporte de carga</b><small>CT-e · frete rodoviário</small></span></label>
   </div>
 
   <!-- ══ SERVIÇO ══ -->
@@ -334,6 +336,53 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
     </div>
   </div>
 
+  <!-- ══ CT-e (transporte) ══ -->
+  <div id="nmSecCte" style="display:none">
+    <div class="nm-sec">Prestação do serviço de transporte</div>
+    <div class="nm-grid">
+      <div class="field s2"><label for="ctNatureza">Natureza da operação *</label><input id="ctNatureza" maxlength="60"></div>
+      <div class="field"><label for="ctCfop">CFOP *</label><input id="ctCfop" inputmode="numeric" maxlength="4"><div class="nm-hint">5353 no estado · 6353 entre estados</div></div>
+      <div class="field"><label for="ctTipoServ">Tipo de serviço</label><select id="ctTipoServ"><option value="0">Normal</option><option value="1">Subcontratação</option><option value="2">Redespacho</option><option value="3">Redespacho intermediário</option></select></div>
+      <div class="field"><label for="ctOrigCidade">Cidade de origem *</label><input id="ctOrigCidade" onblur="ctResolverIbge('Orig')"></div>
+      <div class="field"><label for="ctOrigUf">UF origem *</label><input id="ctOrigUf" maxlength="2" style="text-transform:uppercase" onblur="ctResolverIbge('Orig')"><div class="nm-hint" id="ctOrigHint"></div></div>
+      <div class="field"><label for="ctDestCidade">Cidade de destino *</label><input id="ctDestCidade" onblur="ctResolverIbge('Dest')"></div>
+      <div class="field"><label for="ctDestUf">UF destino *</label><input id="ctDestUf" maxlength="2" style="text-transform:uppercase" onblur="ctResolverIbge('Dest')"><div class="nm-hint" id="ctDestHint"></div></div>
+      <div class="field"><label for="ctRntrc">RNTRC (ANTT) *</label><input id="ctRntrc" inputmode="numeric" maxlength="14"><div class="nm-hint">Registro da transportadora na ANTT</div></div>
+      <div class="field"><label for="ctRetira">Recebedor retira?</label><select id="ctRetira"><option value="0">Não</option><option value="1">Sim</option></select></div>
+    </div>
+    <input type="hidden" id="ctOrigIbge"><input type="hidden" id="ctDestIbge">
+
+    <div class="nm-sec">Remetente <small>quem envia a carga</small></div>
+    <div id="ctParteRem"></div>
+    <div class="nm-sec">Destinatário <small>quem recebe a carga</small></div>
+    <div id="ctParteDest"></div>
+
+    <div class="nm-sec">Tomador <small>quem paga o frete</small></div>
+    <div class="nm-grid"><div class="field s2"><label for="ctTomador">Quem paga o frete?</label><select id="ctTomador" onchange="ctSyncTomador()"><option value="0">Remetente</option><option value="3">Destinatário</option><option value="4">Outra empresa/pessoa</option></select></div></div>
+    <div id="ctParteTomWrap" style="display:none;margin-top:12px"><div id="ctParteTom"></div></div>
+
+    <div class="nm-sec">Valores e ICMS</div>
+    <div class="nm-grid">
+      <div class="field"><label for="ctValor">Valor do frete *</label><input id="ctValor" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);ctTotais()"></div>
+      <div class="field"><label for="ctReceber">Valor a receber</label><input id="ctReceber" inputmode="decimal" placeholder="Igual ao frete" oninput="sanitizarDecimal(this)"></div>
+      <div class="field s2"><label for="ctIcms">Situação do ICMS</label><select id="ctIcms" onchange="ctTotais()"><option value="SN">Simples Nacional</option><option value="00">00 · Tributado integralmente</option><option value="20">20 · Com redução de base</option><option value="40">40 · Isento</option><option value="41">41 · Não tributado</option><option value="51">51 · Diferido</option><option value="60">60 · Cobrado por substituição</option><option value="90">90 · Outros</option></select></div>
+      <div class="field" id="ctBaseWrap"><label for="ctBase">Base de cálculo</label><input id="ctBase" inputmode="decimal" placeholder="Igual ao frete" oninput="sanitizarDecimal(this);ctTotais()"></div>
+      <div class="field" id="ctAliqWrap"><label for="ctAliq">Alíquota ICMS (%)</label><input id="ctAliq" inputmode="decimal" placeholder="Ex: 12" oninput="sanitizarDecimal(this);ctTotais()"></div>
+      <div class="field s2" id="ctIcmsValWrap"><label>Valor do ICMS</label><div class="nm-tot-card" style="padding:9px 12px"><b id="ctIcmsVal">R$ 0,00</b></div></div>
+    </div>
+
+    <div class="nm-sec">Carga</div>
+    <div class="nm-grid">
+      <div class="field"><label for="ctValCarga">Valor da carga *</label><input id="ctValCarga" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this)"><div class="nm-hint">Soma das notas transportadas</div></div>
+      <div class="field s2"><label for="ctProduto">Produto predominante *</label><input id="ctProduto" maxlength="60" placeholder="Ex: Cosméticos"></div>
+      <div class="field"><label for="ctOutras">Outras características</label><input id="ctOutras" maxlength="30" placeholder="Ex: Caixas lacradas"></div>
+      <div class="field"><label for="ctQtd">Quantidade</label><input id="ctQtd" inputmode="decimal" oninput="sanitizarDecimal(this)"></div>
+      <div class="field"><label for="ctUnid">Unidade</label><select id="ctUnid"><option value="01">KG</option><option value="02">Tonelada</option><option value="03">Unidade</option><option value="04">Litros</option><option value="00">M³</option></select></div>
+      <div class="field s2"><label for="ctTipoMed">Tipo de medida</label><input id="ctTipoMed" maxlength="20" placeholder="Ex: PESO BRUTO, CAIXA"></div>
+      <div class="field s4"><label for="ctChaves">Chaves das NF-e transportadas</label><textarea id="ctChaves" rows="2" placeholder="44 números. Uma chave por linha."></textarea></div>
+    </div>
+  </div>
+
   <!-- ══ OPERAÇÃO (produto) ══ -->
   <div id="nmSecOperacao">
     <div class="nm-sec">Operação</div>
@@ -349,6 +398,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   </div>
 
   <!-- ══ DESTINATÁRIO / TOMADOR ══ -->
+  <div id="nmSecDest">
   <div class="nm-sec" id="nmDestTitulo">Destinatário</div>
   <div class="field nm-busca entrada-busca-field" style="margin-bottom:12px"><label for="nmCliBusca">Buscar cliente cadastrado</label><input id="nmCliBusca" class="nx-search" placeholder="Nome ou CPF/CNPJ... ou preencha abaixo" autocomplete="off" oninput="nmBuscarCliente()"><div class="entrada-busca-resultados" id="nmCliResultados"></div></div>
   <input type="hidden" id="nmClienteId"><input type="hidden" id="nmIbge">
@@ -368,6 +418,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   </div>
 
   <!-- ══ PRODUTOS / TRANSPORTE / PAGAMENTO ══ -->
+  </div>
   <div id="nmSecProduto">
     <div class="nm-sec">Produtos <small>NCM, CFOP e CST vêm do cadastro e podem ser editados</small></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -495,6 +546,12 @@ const TIPO_CFG={
     empresaAtivoCampo:'nfe_ativo', empresaSimulacaoCampo:'nfe_simulacao', temPrazo:false,
     tituloLista:'Notas fiscais (NF-e)', vazio:'Nenhuma NF-e ainda. Escolha "Emitir como NF-e" ao fechar uma venda no Caixa, pra cliente com cadastro completo (documento + endereço).',
   },
+  cte:{
+    tabela:'notas_fiscais_cte', idCampo:'nota_fiscal_cte_id', funcao:'emitir-cte',
+    campoValor:'valor_total', campoNumero:'numero', campoDescricao:null,
+    empresaAtivoCampo:'cte_ativo', empresaSimulacaoCampo:'cte_simulacao', temPrazo:false,
+    tituloLista:'CT-e (conhecimento de transporte)', vazio:'Nenhum CT-e ainda. Emita pelo botão "+ Emitir nota manual" ou a partir de uma operação em Transporte.',
+  },
   devolucao:{
     tabela:'devolucoes', idCampo:'devolucao_id', funcao:'emitir-devolucao-nfe',
     campoValor:'valor_total', campoNumero:'numero', campoDescricao:null,
@@ -503,7 +560,7 @@ const TIPO_CFG={
   },
 };
 // Prefixo de nome de arquivo no download de XML — só isso muda por tipo nesse ponto.
-const TIPO_LABEL_ARQUIVO={nfse:'NFSe',nfce:'NFCe',nfe:'NFe',devolucao:'Devolucao'};
+const TIPO_LABEL_ARQUIVO={nfse:'NFSe',nfce:'NFCe',nfe:'NFe',cte:'CTe',devolucao:'Devolucao'};
 function trocarTipo(t){
   if(tipoAtual===t)return;
   tipoAtual=t;
@@ -524,6 +581,7 @@ async function init(){
     $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
     if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Teste grátis: '+d+' dias';$('trialBadge').style.display='inline-block';}}
   }
+  if($('tabCte'))$('tabCte').style.display=empresaDeTransporte()?'':'none';
   await loadData();
   const abrirId=new URLSearchParams(location.search).get('abrir');
   if(abrirId&&notas.some(n=>n.id===abrirId))verDetalhe(abrirId);
@@ -542,7 +600,7 @@ async function loadData(){
     prazoCancelamentoDias=cfg.temPrazo?(Number(emp[0]?.prazo_cancelamento_dias)||5):null;
   }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=cfg.temPrazo?5:null;}
   $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
-  if($('btnNotaManual'))$('btnNotaManual').style.display=(tipoAtual==='nfse'||tipoAtual==='nfe')&&temPermissao('notas_fiscais','criar')?'':'none';
+  if($('btnNotaManual'))$('btnNotaManual').style.display=(tipoAtual==='nfse'||tipoAtual==='nfe'||tipoAtual==='cte')&&temPermissao('notas_fiscais','criar')?'':'none';
   try{
     notas=await db.get(cfg.tabela,`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
   }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
@@ -555,7 +613,7 @@ function nmLinhaSistema(n){
   if(n.origem!=='manual')return '';
   const partes=[];
   if(n.movimentar_estoque)partes.push(n.tipo_documento===0?'entrada no estoque':'baixa no estoque');
-  if(n.lancar_financeiro)partes.push(tipoAtual==='nfe'&&n.tipo_documento===0?'conta a pagar':'conta a receber');
+  if(n.lancar_financeiro)partes.push(tipoAtual==='cte'?'frete como conta a receber':tipoAtual==='nfe'&&n.tipo_documento===0?'conta a pagar':'conta a receber');
   const txt=!partes.length?'Só a nota fiscal (não mexe em estoque nem financeiro)'
     :n.sistema_aplicado_em?`Feito em ${fmtDataHora(n.sistema_aplicado_em)}: ${partes.join(' e ')}`
     :`Quando autorizada: ${partes.join(' e ')}`;
@@ -601,7 +659,7 @@ function renderLista(){
     return`<tr style="cursor:pointer" onclick="verDetalhe('${n.id}')">
       <td>${n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at)}</td>
       <td><b>${esc(n.cliente_nome||'—')}</b></td>
-      <td style="font-size:12px">${n.origem==='manual'?esc(tipoAtual==='nfe'?(n.natureza_operacao||'NF-e manual'):(n[cfg.campoDescricao]||'')).slice(0,80)+'<span class="nm-tag">Manual</span>':esc(cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV')}</td>
+      <td style="font-size:12px">${tipoAtual==='cte'?(n.origem==='manual'?esc(`${n.municipio_inicio||''}/${n.uf_inicio||''} → ${n.municipio_fim||''}/${n.uf_fim||''}`)+'<span class="nm-tag">Manual</span>':'Operação de transporte'):n.origem==='manual'?esc(tipoAtual==='nfe'?(n.natureza_operacao||'NF-e manual'):(n[cfg.campoDescricao]||'')).slice(0,80)+'<span class="nm-tag">Manual</span>':esc(cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV')}</td>
       <td style="font-weight:700">${money(n[cfg.campoValor])}</td>
       <td style="font-size:12px">${esc(n[cfg.campoNumero]||'—')}</td>
       <td><span class="badge ${cor}">${label}</span></td>
@@ -763,6 +821,31 @@ async function verDetalhe(id){
       ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
       ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelada em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
     `;
+  } else if(tipoAtual==='cte'){
+    const tomNome=n.cliente_nome||'—';
+    corpo=`
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Valor do frete</div>
+          <div style="font-size:22px;font-weight:900;color:var(--txt)">${money(n.valor_total)}</div>
+        </div>
+        <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
+      </div>
+      ${n.origem==='manual'?`<div class="det-section">Prestação (CT-e manual)</div>${nmLinhaSistema(n)}
+      <div class="det-row"><span class="det-lbl">Trajeto</span><span class="det-val">${esc(`${n.municipio_inicio||''}/${n.uf_inicio||''} → ${n.municipio_fim||''}/${n.uf_fim||''}`)}</span></div>
+      <div class="det-row"><span class="det-lbl">CFOP / Natureza</span><span class="det-val">${esc(n.cfop||'—')} · ${esc(n.natureza_operacao||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Remetente</span><span class="det-val">${esc(n.remetente_nome||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Destinatário</span><span class="det-val">${esc(n.destinatario_nome||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Tomador (paga o frete)</span><span class="det-val">${esc(tomNome)}</span></div>
+      <div class="det-row"><span class="det-lbl">Carga</span><span class="det-val">${esc(n.produto_predominante||'—')} · ${money(n.valor_carga)}</span></div>
+      ${(n.chaves_nfe||[]).length?`<div class="det-row"><span class="det-lbl">NF-e transportadas</span><span class="det-val" style="font-size:11px">${(n.chaves_nfe||[]).map(esc).join('<br>')}</span></div>`:''}`:'<div class="det-section">Origem</div><div class="det-row"><span class="det-lbl">Operação</span><span class="det-val">Emitido a partir de Transporte → Operações</span></div>'}
+      <div class="det-section">CT-e</div>
+      <div class="det-row"><span class="det-lbl">Número / Série</span><span class="det-val">${esc(n.numero||'—')}${n.serie?' / '+esc(n.serie):''}</span></div>
+      <div class="det-row"><span class="det-lbl">Chave de acesso</span><span class="det-val" style="font-size:11px">${esc(n.chave_acesso||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${n.data_emissao?fmtDataHora(n.data_emissao):'—'}</span></div>
+      ${n.status==='erro'&&n.mensagem_erro?`<div class="det-row"><span class="det-lbl">Erro</span><span class="det-val" style="color:var(--red)">${esc(n.mensagem_erro)}</span></div>`:''}
+      ${n.status==='cancelada'?`<div class="det-section">Cancelamento</div><div class="det-row"><span class="det-lbl">Motivo</span><span class="det-val">${esc(n.motivo_cancelamento||'—')}</span></div><div class="det-row"><span class="det-lbl">Cancelado em</span><span class="det-val">${fmtDataHora(n.data_cancelamento)}</span></div>`:''}
+    `;
   } else if(tipoAtual==='devolucao'){
     let itens=[];
     try{ itens=await db.get('itens_devolvidos',`?select=produto_nome,quantidade_devolvida,valor_unitario&devolucao_id=eq.${n.id}`); }catch(e){}
@@ -816,7 +899,7 @@ async function verDetalhe(id){
   }
   setHTML('detConteudo',corpo);
   ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn','detEditarBtn','detExcluirBtn'].forEach(id=>$(id).style.display='none');
-  if(nmEhRascunhoManual(n)&&(tipoAtual==='nfe'||tipoAtual==='nfse')){
+  if(nmEhRascunhoManual(n)&&(tipoAtual==='nfe'||tipoAtual==='nfse'||tipoAtual==='cte')){
     if(temPermissao('notas_fiscais','editar'))$('detEditarBtn').style.display='block';
     if(!n.focus_nfe_ref&&temPermissao('notas_fiscais',tipoAtual==='nfse'?'excluir':'editar'))$('detExcluirBtn').style.display='block';
   }
@@ -947,7 +1030,7 @@ async function simularEmissaoTeste(nota){
     updated_at:new Date().toISOString(),
   };
   if(tipoAtual==='nfse')patchBody.codigo_verificacao='TESTE-'+Date.now().toString(36).toUpperCase();
-  if(tipoAtual==='nfce'||tipoAtual==='nfe'||tipoAtual==='devolucao')patchBody.serie='1';
+  if(tipoAtual==='nfce'||tipoAtual==='nfe'||tipoAtual==='cte'||tipoAtual==='devolucao')patchBody.serie='1';
   await db.patch(cfg.tabela,nota.id,patchBody);
 }
 
@@ -1557,25 +1640,27 @@ function nmPreencherLojas(selecionada){
 // nmAplicarPendentes, chamada no fim de loadData). Rejeitada = nada muda.
 function nmSistemaSim(){return document.querySelector('input[name="nmSistema"]:checked')?.value==='sim';}
 function nmSyncSistema(){
-  const sim=nmSistemaSim(),serv=nmTipo==='servico',entrada=!serv&&$('nmTipoDoc').value==='0';
+  const sim=nmSistemaSim(),serv=nmTipo!=='produto',entrada=!serv&&$('nmTipoDoc').value==='0';
   $('nmOpSo').classList.toggle('on',!sim);$('nmOpSist').classList.toggle('on',sim);
   $('nmSistWrap').style.display=sim?'block':'none';
   $('nmEstWrap').style.display=serv?'none':'';
-  $('nmOpSistSub').textContent=serv?'Lança no financeiro quando a nota for autorizada':'Estoque e financeiro, quando a nota for autorizada';
+  $('nmOpSistSub').textContent=nmTipo==='cte'?'Lança o frete no financeiro quando o CT-e for autorizado':serv?'Lança no financeiro quando a nota for autorizada':'Estoque e financeiro, quando a nota for autorizada';
   $('nmMovEstLbl').textContent=entrada?'Dar entrada no estoque':'Baixar do estoque';
-  $('nmLancFinLbl').textContent=entrada?'Lançar conta a pagar no financeiro':'Lançar conta a receber no financeiro';
+  $('nmLancFinLbl').textContent=nmTipo==='cte'?'Lançar o frete como conta a receber':entrada?'Lançar conta a pagar no financeiro':'Lançar conta a receber no financeiro';
   $('nmFinSitQ').textContent=entrada?'Já pago':'Já recebido';
   $('nmLoja').style.display=$('nmMovEst').checked?'':'none';
   $('nmFinCampos').style.display=$('nmLancFin').checked?'grid':'none';
 }
 async function nmAplicarPendentes(){
-  if(tipoAtual!=='nfe'&&tipoAtual!=='nfse')return;
+  if(tipoAtual!=='nfe'&&tipoAtual!=='nfse'&&tipoAtual!=='cte')return;
   const pend=notas.filter(n=>n.origem==='manual'&&n.status==='autorizada'&&!n.sistema_aplicado_em&&(n.movimentar_estoque||n.lancar_financeiro));
   if(!pend.length)return;
   let ok=0,falhou=0;
   for(const n of pend){
     try{
-      const r=await fetch(`${SB}/rest/v1/rpc/aplicar_nota_manual_no_sistema`,{method:'POST',headers:H,body:JSON.stringify({p_tipo:tipoAtual,p_nota_id:n.id})});
+      const r=tipoAtual==='cte'
+        ?await fetch(`${SB}/rest/v1/rpc/aplicar_cte_manual_no_sistema`,{method:'POST',headers:H,body:JSON.stringify({p_nota_id:n.id})})
+        :await fetch(`${SB}/rest/v1/rpc/aplicar_nota_manual_no_sistema`,{method:'POST',headers:H,body:JSON.stringify({p_tipo:tipoAtual,p_nota_id:n.id})});
       if(!r.ok)throw new Error(await r.text());
       const resp=await r.json();
       if(resp?.aplicado){ok++;n.sistema_aplicado_em=new Date().toISOString();}
@@ -1589,28 +1674,34 @@ function nmMarcarTipo(){
   document.querySelectorAll('input[name="nmTipo"]').forEach(r=>{r.checked=r.value===nmTipo;});
   $('nmOpProduto').classList.toggle('on',nmTipo==='produto');
   $('nmOpServico').classList.toggle('on',nmTipo==='servico');
+  $('nmOpCte').classList.toggle('on',nmTipo==='cte');
+  $('nmOpCte').classList.toggle('travado',!!nmEditId&&nmTipo!=='cte');
   // Rascunho já salvo não troca de tipo (são tabelas diferentes).
   $('nmOpProduto').classList.toggle('travado',!!nmEditId&&nmTipo!=='produto');
   $('nmOpServico').classList.toggle('travado',!!nmEditId&&nmTipo!=='servico');
 }
 function nmTrocarTipo(t){
-  if(nmEditId&&t!==nmTipo){nmMarcarTipo();toast('Esse rascunho já foi salvo como '+(nmTipo==='servico'?'NFS-e':'NF-e')+'. Para outro tipo, crie uma nota nova.','err');return;}
+  if(nmEditId&&t!==nmTipo){nmMarcarTipo();toast('Esse rascunho já foi salvo como '+(nmTipo==='servico'?'NFS-e':nmTipo==='cte'?'CT-e':'NF-e')+'. Para outro tipo, crie uma nota nova.','err');return;}
   nmTipo=t;
   const serv=t==='servico';
   setTimeout(nmSyncSistema,0);
+  const cte=t==='cte';
+  $('nmSecCte').style.display=cte?'block':'none';
+  $('nmSecDest').style.display=cte?'none':'block';
   $('nmSecServico').style.display=serv?'block':'none';
-  $('nmSecOperacao').style.display=serv?'none':'block';
-  $('nmSecProduto').style.display=serv?'none':'block';
+  $('nmSecOperacao').style.display=serv||cte?'none':'block';
+  $('nmSecProduto').style.display=serv||cte?'none':'block';
+  if(cte)ctMontarPartes();
   $('nmDestTitulo').textContent=serv?'Tomador do serviço':'Destinatário';
   $('nmDIeLbl').textContent=serv?'Inscrição municipal':'Inscrição estadual';
   $('nmDIe').placeholder=serv?'Se o tomador tiver':'Vazio = não contribuinte';
   $('nmDEmailWrap').style.display=serv?'':'none';
   $('nmDFoneWrap').style.display=serv?'':'none';
-  $('nmInfoLbl').textContent=serv?'Observações internas (não vão para a prefeitura)':'Aparecem no DANFE';
-  $('nmTitulo').textContent=(nmEditId?'Editar ':'Nova ')+(serv?'NFS-e manual (serviço)':'NF-e manual (produto)');
-  $('nmBtnEmitir').textContent=serv?'Emitir NFS-e':'Emitir NF-e';
+  $('nmInfoLbl').textContent=cte?'Observações (vão no CT-e)':serv?'Observações internas (não vão para a prefeitura)':'Aparecem no DANFE';
+  $('nmTitulo').textContent=cte?(nmEditId?'Editar CT-e manual (transporte)':'Novo CT-e manual (transporte)'):(nmEditId?'Editar ':'Nova ')+(serv?'NFS-e manual (serviço)':'NF-e manual (produto)');
+  $('nmBtnEmitir').textContent=cte?'Emitir CT-e':serv?'Emitir NFS-e':'Emitir NF-e';
   nmMarcarTipo();
-  if(serv)nmTotaisServico();else nmTotaisProduto();
+  if(cte)ctTotais();else if(serv)nmTotaisServico();else nmTotaisProduto();
 }
 
 function nmLimparForm(){
@@ -1626,13 +1717,15 @@ function nmLimparForm(){
   nmPreencherLojas();
   setHTML('nmMsg','');$('nmMsg').className='msg';
   nmSyncFinalidade();nmSyncFrete();nmSyncPagamento();nmRenderItens();
+  if($('nmSecCte'))ctLimpar();
 }
 
 async function abrirNotaManual(){
   if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
   nmEditId=null;
   nmLimparForm();
-  nmTipo=tipoAtual==='nfse'?'servico':'produto';
+  nmTipo=tipoAtual==='nfse'?'servico':tipoAtual==='cte'?'cte':'produto';
+  $('nmOpCte').style.display=empresaDeTransporte()?'':'none';
   nmTrocarTipo(nmTipo);
   abrirModal('modalNotaManual');
   nmCarregarCadastros().catch(()=>{});
@@ -1781,6 +1874,7 @@ async function nmConsultarCep(preencher){
 
 // ── Validação ──
 function nmValidar(){
+  if(nmTipo==='cte')return ctValidar();
   const erros=[];const doc=nmSoDigitos(val('nmDDoc'));
   if(nmSistemaSim()){
     const est=nmTipo!=='servico'&&$('nmMovEst').checked,fin=$('nmLancFin').checked;
@@ -1850,7 +1944,11 @@ async function nmSalvar(emitir){
   let id=nmEditId;
   try{
     const agora=new Date().toISOString();
-    if(nmTipo==='servico'){
+    if(nmTipo==='cte'){
+      const nota=ctMontarNota();
+      if(id){await db.patch('notas_fiscais_cte',id,nota);}
+      else{const r=await db.post('notas_fiscais_cte',{...nota,empresa_id:session.empresa_id,status:'nao_emitida',criado_por:session.id||null});id=(Array.isArray(r)?r[0]:r).id;}
+    } else if(nmTipo==='servico'){
       const nota={...nmCamposCliente(),
         origem:'manual', descricao_servico:val('nmSDesc').trim(), valor:nmArred(nmNum(val('nmSValor'))),
         valor_deducoes:nmArred(nmNum(val('nmSDed'))), aliquota_iss:nmNum(val('nmSAliq')), iss_retido:$('nmSRet').value==='1',
@@ -1902,7 +2000,7 @@ async function nmSalvar(emitir){
     }
     nmEditId=id;
     fecharModal('modalNotaManual');
-    const alvo=nmTipo==='servico'?'nfse':'nfe';
+    const alvo=nmTipo==='servico'?'nfse':nmTipo==='cte'?'cte':'nfe';
     tipoAtual=alvo;
     document.querySelectorAll('.nf-tipo-tab').forEach(b=>b.classList.toggle('active',b.dataset.tipo===alvo));
     $('painelSaida').style.display='block';$('painelEntrada').style.display='none';
@@ -1920,11 +2018,14 @@ async function editarNotaManual(){
   if(!temPermissao('notas_fiscais','editar')){toast('Sem permissão para editar notas fiscais.','err');return;}
   await nmCarregarCadastros().catch(()=>{});
   nmLimparForm();
-  nmEditId=n.id;nmTipo=tipoAtual==='nfse'?'servico':'produto';
+  nmEditId=n.id;nmTipo=tipoAtual==='nfse'?'servico':tipoAtual==='cte'?'cte':'produto';
+  $('nmOpCte').style.display=empresaDeTransporte()||nmTipo==='cte'?'':'none';
   $('nmClienteId').value=n.cliente_id||'';$('nmDNome').value=n.cliente_nome||'';$('nmDDoc').value=n.cliente_documento||'';
   $('nmDCep').value=n.cliente_endereco_cep||'';$('nmDRua').value=n.cliente_endereco_logradouro||'';$('nmDNum').value=n.cliente_endereco_numero||'';
   $('nmDComp').value=n.cliente_endereco_complemento||'';$('nmDBairro').value=n.cliente_endereco_bairro||'';$('nmDCidade').value=n.cliente_endereco_municipio||'';$('nmDUf').value=n.cliente_endereco_uf||'';
-  if(nmTipo==='servico'){
+  if(nmTipo==='cte'){
+    ctPreencher(n);
+  } else if(nmTipo==='servico'){
     $('nmDIe').value=n.cliente_inscricao_municipal||'';$('nmDEmail').value=n.cliente_email||'';$('nmDFone').value=n.cliente_telefone||'';$('nmIbge').value=n.cliente_codigo_municipio_ibge||'';
     $('nmSDesc').value=n.descricao_servico||'';$('nmSItem').value=n.item_lista_servico||'';$('nmSCodMun').value=n.codigo_tributario_municipio||'';
     $('nmSComp').value=String(n.data_competencia||'').slice(0,7);$('nmSValor').value=nmBr(n.valor);$('nmSDed').value=Number(n.valor_deducoes)?nmBr(n.valor_deducoes):'';
@@ -1949,7 +2050,7 @@ async function editarNotaManual(){
   }
   const sistemaSim=!!(n.lancar_financeiro||n.movimentar_estoque);
   document.querySelectorAll('input[name="nmSistema"]').forEach(r=>{r.checked=r.value===(sistemaSim?'sim':'nao');});
-  if(sistemaSim){
+  if(sistemaSim&&nmTipo!=='cte'){
     $('nmMovEst').checked=!!n.movimentar_estoque;$('nmLancFin').checked=!!n.lancar_financeiro;
     $('nmFinSit').value=n.financeiro_quitado?'1':'0';$('nmFinVenc').value=n.financeiro_vencimento||hojeISO();
     nmPreencherLojas(n.loja_id);
@@ -1963,12 +2064,183 @@ async function excluirRascunhoManual(){
   const ok=await confirmarAcao('Excluir esse rascunho de nota manual? Ele nunca foi enviado, então nada muda na Receita/prefeitura.',{labelOk:'Excluir rascunho'});
   if(!ok)return;
   try{
-    if(tipoAtual==='nfse'){await nmDelete('notas_fiscais',`id=eq.${n.id}&origem=eq.manual`);}
+    if(tipoAtual==='cte'){await nmDelete('notas_fiscais_cte',`id=eq.${n.id}&origem=eq.manual`);}
+    else if(tipoAtual==='nfse'){await nmDelete('notas_fiscais',`id=eq.${n.id}&origem=eq.manual`);}
     else{await nmDelete('notas_fiscais_nfe_itens',`nota_fiscal_nfe_id=eq.${n.id}`);await nmDelete('notas_fiscais_nfe',`id=eq.${n.id}&origem=eq.manual`);}
     fecharModal('modalDetalhe');toast('Rascunho excluído.','ok');await loadData();
   }catch(e){msg('detMsg','Não foi possível excluir: '+e.message,'err');}
 }
-document.addEventListener('click',e=>{if(!e.target.closest('.nm-busca'))document.querySelectorAll('#modalNotaManual .entrada-busca-resultados').forEach(b=>b.classList.remove('open'));});
+document.addEventListener('click',e=>{const dentro=e.target.closest('.nm-busca');document.querySelectorAll('#modalNotaManual .entrada-busca-resultados').forEach(b=>{if(!dentro||!dentro.contains(b))b.classList.remove('open');});});
+
+// ══════════════════════════════════════════════════════════════════════
+// CT-e MANUAL (05/11/2026) — só para empresa de Transporte (segmento Transporte/
+// Mista ou CT-e ativo). Grava em notas_fiscais_cte com origem='manual'; a função
+// emitir-cte tem um caminho próprio pra ele — CT-e de operação (Transporte →
+// Operações) segue igual.
+// ══════════════════════════════════════════════════════════════════════
+function empresaDeTransporte(){
+  const e=session?.empresa||{};const seg=String(e.segmento||e.tipo||'').toLowerCase();
+  return seg.includes('transporte')||seg.includes('mista')||!!e.cte_ativo;
+}
+const CT_PARTES={Rem:{col:'remetente',titulo:'remetente'},Dest:{col:'destinatario',titulo:'destinatário'},Tom:{col:'tomador',titulo:'tomador'}};
+const CT_CAMPOS=['Doc','Ie','Nome','Fone','Cep','Rua','Num','Comp','Bairro','Cidade','Uf','Ibge'];
+function ctHtmlParte(P){
+  return `<div class="field nm-busca entrada-busca-field" style="margin-bottom:12px"><label for="ct${P}Busca">Buscar cliente cadastrado</label><input id="ct${P}Busca" class="nx-search" placeholder="Nome ou CPF/CNPJ... ou preencha abaixo" autocomplete="off" oninput="ctBuscarCliente('${P}')"><div class="entrada-busca-resultados" id="ct${P}Res"></div></div>
+  <input type="hidden" id="ct${P}Ibge"><input type="hidden" id="ct${P}ClienteId">
+  <div class="nm-grid">
+    <div class="field s2"><label for="ct${P}Nome">Nome / Razão social *</label><input id="ct${P}Nome" maxlength="60"></div>
+    <div class="field"><label for="ct${P}Doc">CPF / CNPJ *</label><input id="ct${P}Doc" inputmode="numeric"></div>
+    <div class="field"><label for="ct${P}Ie">Inscrição estadual</label><input id="ct${P}Ie" placeholder="Se tiver"></div>
+    <div class="field"><label for="ct${P}Cep">CEP *</label><input id="ct${P}Cep" inputmode="numeric" maxlength="9" oninput="ctCepDigitado('${P}')"><div class="nm-hint" id="ct${P}CepHint">Preenche o endereço</div></div>
+    <div class="field s2"><label for="ct${P}Rua">Logradouro *</label><input id="ct${P}Rua"></div>
+    <div class="field"><label for="ct${P}Num">Número *</label><input id="ct${P}Num"></div>
+    <div class="field"><label for="ct${P}Comp">Complemento</label><input id="ct${P}Comp"></div>
+    <div class="field"><label for="ct${P}Bairro">Bairro *</label><input id="ct${P}Bairro"></div>
+    <div class="field"><label for="ct${P}Cidade">Cidade *</label><input id="ct${P}Cidade"></div>
+    <div class="field"><label for="ct${P}Uf">UF *</label><input id="ct${P}Uf" maxlength="2" style="text-transform:uppercase"></div>
+    <div class="field"><label for="ct${P}Fone">Telefone</label><input id="ct${P}Fone"></div>
+  </div>`;
+}
+function ctMontarPartes(){
+  if($('ctRemNome'))return;
+  setHTML('ctParteRem',ctHtmlParte('Rem'));setHTML('ctParteDest',ctHtmlParte('Dest'));setHTML('ctParteTom',ctHtmlParte('Tom'));
+}
+function ctSyncTomador(){$('ctParteTomWrap').style.display=$('ctTomador').value==='4'?'block':'none';}
+function ctBuscarCliente(P){
+  const q=val(`ct${P}Busca`).trim().toLowerCase(),box=$(`ct${P}Res`);
+  if(q.length<2||!nmCad){box.classList.remove('open');return;}
+  const qd=nmSoDigitos(q);
+  const achados=nmCad.clientes.filter(c=>(c.nome||'').toLowerCase().includes(q)||(qd.length>=3&&nmSoDigitos(c.documento).includes(qd))).slice(0,12);
+  box.innerHTML=achados.map(c=>`<div class="entrada-busca-item" onclick="ctEscolherCliente('${P}','${c.id}')"><span>${esc(c.nome)}</span><span>${esc(c.documento||'')}</span></div>`).join('')||'<div class="entrada-busca-item" style="cursor:default;color:var(--muted)">Nenhum cliente encontrado — preencha abaixo</div>';
+  box.classList.add('open');
+}
+function ctEscolherCliente(P,id){
+  const c=(nmCad?.clientes||[]).find(x=>x.id===id);if(!c)return;
+  const v={Doc:c.documento,Ie:c.inscricao_estadual,Nome:c.nome,Fone:c.telefone,Cep:c.endereco_cep,Rua:c.endereco_logradouro,Num:c.endereco_numero,Comp:c.endereco_complemento,Bairro:c.endereco_bairro,Cidade:c.cidade,Uf:c.endereco_uf,Ibge:c.codigo_municipio_ibge,ClienteId:c.id};
+  Object.entries(v).forEach(([k,x])=>{if($(`ct${P}${k}`))$(`ct${P}${k}`).value=x||'';});
+  $(`ct${P}Busca`).value=c.nome;$(`ct${P}Res`).classList.remove('open');
+  if(!c.codigo_municipio_ibge&&nmSoDigitos(c.endereco_cep).length===8)ctConsultarCep(P,false);
+}
+const ctCepTimers={};
+function ctCepDigitado(P){clearTimeout(ctCepTimers[P]);if(nmSoDigitos(val(`ct${P}Cep`)).length===8)ctCepTimers[P]=setTimeout(()=>ctConsultarCep(P,true),350);}
+async function ctConsultarCep(P,preencher){
+  const cep=nmSoDigitos(val(`ct${P}Cep`));if(cep.length!==8)return;
+  const hint=$(`ct${P}CepHint`);hint.textContent='Buscando CEP...';
+  try{
+    const d=await (await fetch(`https://viacep.com.br/ws/${cep}/json/`)).json();
+    if(d.erro){hint.textContent='CEP não encontrado.';return;}
+    $(`ct${P}Ibge`).value=d.ibge||'';
+    if(preencher){if(!val(`ct${P}Rua`))$(`ct${P}Rua`).value=d.logradouro||'';if(!val(`ct${P}Bairro`))$(`ct${P}Bairro`).value=d.bairro||'';$(`ct${P}Cidade`).value=d.localidade||'';$(`ct${P}Uf`).value=d.uf||'';}
+    hint.textContent=`${d.localidade}/${d.uf} · IBGE ${d.ibge||'—'}`;
+  }catch(e){hint.textContent='Não consegui consultar o CEP.';}
+}
+// Código IBGE da cidade de origem/destino (obrigatório no CT-e), pela API pública do IBGE.
+const ctMunicipiosCache={};
+function ctNormaliza(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+async function ctResolverIbge(L){
+  const uf=val(`ct${L}Uf`).trim().toUpperCase(),cidade=val(`ct${L}Cidade`).trim(),hint=$(`ct${L}Hint`);
+  $(`ct${L}Ibge`).value='';hint.textContent='';
+  if(uf.length!==2||!cidade)return;
+  try{
+    if(!ctMunicipiosCache[uf])ctMunicipiosCache[uf]=await (await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`)).json();
+    const m=ctMunicipiosCache[uf].find(x=>ctNormaliza(x.nome)===ctNormaliza(cidade));
+    if(m){$(`ct${L}Ibge`).value=String(m.id);$(`ct${L}Cidade`).value=m.nome;hint.textContent='IBGE '+m.id;}
+    else hint.textContent='Cidade não encontrada nessa UF. Confira a grafia.';
+  }catch(e){hint.textContent='Não consegui consultar o IBGE agora.';}
+}
+function ctTotais(){
+  const cst=$('ctIcms').value,trib=['00','20','90'].includes(cst);
+  ['ctBaseWrap','ctAliqWrap','ctIcmsValWrap'].forEach(id=>$(id).style.display=trib?'':'none');
+  const base=val('ctBase')?nmNum(val('ctBase')):nmNum(val('ctValor'));
+  $('ctIcmsVal').textContent=money(trib?nmArred(base*nmNum(val('ctAliq'))/100):0);
+}
+function ctLimpar(){
+  ctMontarPartes();
+  ['ctCfop','ctOrigCidade','ctOrigUf','ctDestCidade','ctDestUf','ctOrigIbge','ctDestIbge','ctRntrc','ctValor','ctReceber','ctBase','ctAliq','ctValCarga','ctProduto','ctOutras','ctQtd','ctTipoMed','ctChaves'].forEach(id=>{if($(id))$(id).value='';});
+  ['Rem','Dest','Tom'].forEach(P=>{[...CT_CAMPOS,'ClienteId','Busca'].forEach(k=>{if($(`ct${P}${k}`))$(`ct${P}${k}`).value='';});});
+  $('ctNatureza').value='Prestação de serviço de transporte';$('ctCfop').value='5353';$('ctTipoServ').value='0';$('ctRetira').value='0';
+  $('ctTomador').value='0';$('ctIcms').value='SN';$('ctUnid').value='01';$('ctTipoMed').value='PESO BRUTO';
+  $('ctOrigHint').textContent='';$('ctDestHint').textContent='';
+  ctSyncTomador();ctTotais();
+}
+function ctValidar(){
+  const erros=[];
+  if(!val('ctNatureza').trim())erros.push('natureza da operação');
+  if(nmSoDigitos(val('ctCfop')).length!==4)erros.push('CFOP (4 números)');
+  if(!val('ctOrigIbge'))erros.push('cidade/UF de origem válidas');
+  if(!val('ctDestIbge'))erros.push('cidade/UF de destino válidas');
+  if(nmSoDigitos(val('ctRntrc')).length<8)erros.push('RNTRC (ANTT)');
+  const partes=['Rem','Dest'];if($('ctTomador').value==='4')partes.push('Tom');
+  partes.forEach(P=>{
+    const t=CT_PARTES[P].titulo,doc=nmSoDigitos(val(`ct${P}Doc`));
+    if(!val(`ct${P}Nome`).trim())erros.push(`nome do ${t}`);
+    if(doc.length!==11&&doc.length!==14)erros.push(`CPF/CNPJ do ${t}`);
+    if(nmSoDigitos(val(`ct${P}Cep`)).length!==8)erros.push(`CEP do ${t}`);
+    if(!val(`ct${P}Rua`).trim()||!val(`ct${P}Num`).trim()||!val(`ct${P}Bairro`).trim())erros.push(`endereço do ${t}`);
+    if(!val(`ct${P}Ibge`))erros.push(`CEP válido do ${t} (código IBGE da cidade)`);
+  });
+  if(nmNum(val('ctValor'))<=0)erros.push('valor do frete');
+  if(['00','20','90'].includes($('ctIcms').value)&&nmNum(val('ctAliq'))<=0&&$('ctIcms').value!=='90')erros.push('alíquota do ICMS');
+  if(nmNum(val('ctValCarga'))<=0)erros.push('valor da carga');
+  if(!val('ctProduto').trim())erros.push('produto predominante');
+  const ch=val('ctChaves').split(/\n/).map(nmSoDigitos).filter(Boolean);
+  if(ch.some(c=>c.length!==44))erros.push('chaves de NF-e com 44 números');
+  if(nmSistemaSim()&&!$('nmLancFin').checked)erros.push('marque "Lançar no financeiro" ou escolha "Só emitir a nota fiscal"');
+  if(nmSistemaSim()&&$('nmLancFin').checked&&!val('nmFinVenc'))erros.push('vencimento do lançamento');
+  return erros;
+}
+function ctCamposParte(P){
+  const c=CT_PARTES[P].col;
+  return {[`${c}_documento`]:nmSoDigitos(val(`ct${P}Doc`))||null,[`${c}_ie`]:val(`ct${P}Ie`).trim()||null,[`${c}_nome`]:val(`ct${P}Nome`).trim()||null,
+    [`${c}_telefone`]:val(`ct${P}Fone`).trim()||null,[`${c}_logradouro`]:val(`ct${P}Rua`).trim()||null,[`${c}_numero`]:val(`ct${P}Num`).trim()||null,
+    [`${c}_complemento`]:val(`ct${P}Comp`).trim()||null,[`${c}_bairro`]:val(`ct${P}Bairro`).trim()||null,[`${c}_municipio`]:val(`ct${P}Cidade`).trim()||null,
+    [`${c}_codigo_municipio_ibge`]:val(`ct${P}Ibge`)||null,[`${c}_cep`]:nmSoDigitos(val(`ct${P}Cep`))||null,[`${c}_uf`]:val(`ct${P}Uf`).trim().toUpperCase()||null};
+}
+function ctMontarNota(){
+  const tom=$('ctTomador').value,P=tom==='0'?'Rem':tom==='3'?'Dest':'Tom';
+  const valor=nmArred(nmNum(val('ctValor'))),cst=$('ctIcms').value,trib=['00','20','90'].includes(cst);
+  const base=trib?(val('ctBase')?nmArred(nmNum(val('ctBase'))):valor):null,aliq=trib?nmNum(val('ctAliq')):null;
+  const fin=nmSistemaSim()&&$('nmLancFin').checked;
+  return {
+    origem:'manual', transporte_id:null, cfop:nmSoDigitos(val('ctCfop')), natureza_operacao:val('ctNatureza').trim(),
+    tipo_servico:Number($('ctTipoServ').value), retirar_mercadoria:$('ctRetira').value==='1',
+    municipio_inicio:val('ctOrigCidade').trim(), codigo_municipio_inicio:val('ctOrigIbge'), uf_inicio:val('ctOrigUf').trim().toUpperCase(),
+    municipio_fim:val('ctDestCidade').trim(), codigo_municipio_fim:val('ctDestIbge'), uf_fim:val('ctDestUf').trim().toUpperCase(),
+    ...ctCamposParte('Rem'), ...ctCamposParte('Dest'), ...(tom==='4'?ctCamposParte('Tom'):{}),
+    tomador_tipo:Number(tom), cliente_nome:val(`ct${P}Nome`).trim(), cliente_documento:nmSoDigitos(val(`ct${P}Doc`)), cliente_id:val(`ct${P}ClienteId`)||null,
+    valor_total:valor, valor_receber:val('ctReceber')?nmArred(nmNum(val('ctReceber'))):valor,
+    icms_situacao:cst, icms_base_calculo:base, icms_aliquota:aliq, icms_valor:trib?nmArred((base||0)*(aliq||0)/100):null,
+    valor_carga:nmArred(nmNum(val('ctValCarga'))), produto_predominante:val('ctProduto').trim(), outras_caracteristicas:val('ctOutras').trim()||null,
+    quantidade_carga:nmNum(val('ctQtd'))||null, unidade_medida_carga:$('ctUnid').value, tipo_medida:val('ctTipoMed').trim()||null,
+    chaves_nfe:val('ctChaves').split(/\n/).map(nmSoDigitos).filter(c=>c.length===44),
+    rntrc:nmSoDigitos(val('ctRntrc')), observacao:val('nmInfo').trim()||null,
+    lancar_financeiro:fin, financeiro_quitado:fin&&$('nmFinSit').value==='1', financeiro_vencimento:fin?(val('nmFinVenc')||hojeISO()):null,
+    updated_at:new Date().toISOString(),
+  };
+}
+function ctPreencher(n){
+  ctLimpar();
+  const set=(id,v)=>{if($(id))$(id).value=v??'';};
+  set('ctNatureza',n.natureza_operacao);set('ctCfop',n.cfop);$('ctTipoServ').value=String(n.tipo_servico??0);$('ctRetira').value=n.retirar_mercadoria?'1':'0';
+  set('ctOrigCidade',n.municipio_inicio);set('ctOrigUf',n.uf_inicio);set('ctOrigIbge',n.codigo_municipio_inicio);
+  set('ctDestCidade',n.municipio_fim);set('ctDestUf',n.uf_fim);set('ctDestIbge',n.codigo_municipio_fim);
+  if(n.codigo_municipio_inicio)$('ctOrigHint').textContent='IBGE '+n.codigo_municipio_inicio;
+  if(n.codigo_municipio_fim)$('ctDestHint').textContent='IBGE '+n.codigo_municipio_fim;
+  Object.entries(CT_PARTES).forEach(([P,{col}])=>{
+    const m={Doc:'documento',Ie:'ie',Nome:'nome',Fone:'telefone',Cep:'cep',Rua:'logradouro',Num:'numero',Comp:'complemento',Bairro:'bairro',Cidade:'municipio',Uf:'uf',Ibge:'codigo_municipio_ibge'};
+    Object.entries(m).forEach(([k,c])=>set(`ct${P}${k}`,n[`${col}_${c}`]));
+  });
+  $('ctTomador').value=String(n.tomador_tipo??0);
+  set('ctValor',n.valor_total!=null?nmBr(n.valor_total):'');set('ctReceber',n.valor_receber!=null&&Number(n.valor_receber)!==Number(n.valor_total)?nmBr(n.valor_receber):'');
+  $('ctIcms').value=n.icms_situacao||'SN';set('ctBase',n.icms_base_calculo!=null&&Number(n.icms_base_calculo)!==Number(n.valor_total)?nmBr(n.icms_base_calculo):'');set('ctAliq',n.icms_aliquota!=null?nmBr(n.icms_aliquota):'');
+  set('ctValCarga',n.valor_carga!=null?nmBr(n.valor_carga):'');set('ctProduto',n.produto_predominante);set('ctOutras',n.outras_caracteristicas);
+  set('ctQtd',n.quantidade_carga);$('ctUnid').value=n.unidade_medida_carga||'01';set('ctTipoMed',n.tipo_medida);set('ctChaves',(n.chaves_nfe||[]).join('\n'));
+  set('ctRntrc',n.rntrc);set('nmInfo',n.observacao);
+  const fin=!!n.lancar_financeiro;
+  document.querySelectorAll('input[name="nmSistema"]').forEach(r=>{r.checked=r.value===(fin?'sim':'nao');});
+  if(fin){$('nmLancFin').checked=true;$('nmFinSit').value=n.financeiro_quitado?'1':'0';$('nmFinVenc').value=n.financeiro_vencimento||hojeISO();}
+  ctSyncTomador();ctTotais();
+}
 
 async function abrirModalEntradaManual(){
   manItensAtuais=[];

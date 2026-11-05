@@ -131,11 +131,216 @@ function enderecoParte(t: any, prefixo: string) {
   };
 }
 
+// ═══════════ CT-e MANUAL (Notas Fiscais → Emitir nota manual, origem='manual') ═══════════
+// 05/11/2026 — CT-e digitado direto na tela, sem operação de Transporte por trás.
+// Caminho SEPARADO: o fluxo por operação (transporte_id), lá embaixo, não mudou.
+// Nomes de campo conferidos em doc.focusnfe.com.br/reference/emitir_cte (exemplo
+// oficial do POST /v2/cte). ATENÇÃO — ainda não confirmados contra emissão real
+// (testar em homologação antes do 1º CT-e de cliente): o indicador do tomador
+// ("tomador" 0/3/4 + campos *_tomador quando é "outros"), os campos cpf_* e o
+// indicador de Simples Nacional do ICMS. A Focus ignora em silêncio campo que não
+// reconhece — se algum nome estiver errado, a rejeição da SEFAZ aponta o grupo.
+function chamadaAutorizada(req: Request, empresaIdRecurso: string): boolean {
+  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '');
+  if (token && token === SERVICE_KEY) return true;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return claims.empresa_id === empresaIdRecurso;
+  } catch {
+    return false;
+  }
+}
+
+function soDigitos(v: unknown) { return String(v ?? '').replace(/\D/g, ''); }
+
+// Campos de uma parte (remetente/destinatario/tomador) gravados na nota manual.
+function parteManual(n: any, p: string, sufixo: string) {
+  const doc = soDigitos(n[`${p}_documento`]);
+  return {
+    [`cnpj_${sufixo}`]: doc.length === 14 ? doc : undefined,
+    [`cpf_${sufixo}`]: doc.length === 11 ? doc : undefined,
+    [`inscricao_estadual_${sufixo}`]: n[`${p}_ie`] || undefined,
+    [`nome_${sufixo}`]: n[`${p}_nome`] || undefined,
+    [`telefone_${sufixo}`]: soDigitos(n[`${p}_telefone`]) || undefined,
+    [`logradouro_${sufixo}`]: n[`${p}_logradouro`] || undefined,
+    [`numero_${sufixo}`]: n[`${p}_numero`] || undefined,
+    [`complemento_${sufixo}`]: n[`${p}_complemento`] || undefined,
+    [`bairro_${sufixo}`]: n[`${p}_bairro`] || undefined,
+    [`codigo_municipio_${sufixo}`]: n[`${p}_codigo_municipio_ibge`] || undefined,
+    [`municipio_${sufixo}`]: n[`${p}_municipio`] || undefined,
+    [`cep_${sufixo}`]: soDigitos(n[`${p}_cep`]) || undefined,
+    [`uf_${sufixo}`]: (n[`${p}_uf`] || '').toUpperCase() || undefined,
+    [`codigo_pais_${sufixo}`]: '1058',
+    [`pais_${sufixo}`]: 'BRASIL',
+  };
+}
+
+function montarPayloadCteManual(empresa: any, n: any) {
+  const cst = String(n.icms_situacao || '00');
+  const simples = cst === 'SN';
+  const tributado = ['00', '20', '90'].includes(cst) || simples;
+  const tomador = [0, 1, 2, 3, 4].includes(Number(n.tomador_tipo)) ? Number(n.tomador_tipo) : 0;
+  const ieTomador = tomador === 0 ? n.remetente_ie : tomador === 3 ? n.destinatario_ie : n.tomador_ie;
+  const chaves = (n.chaves_nfe || []).map(soDigitos).filter((c: string) => c.length === 44);
+  return {
+    cfop: soDigitos(n.cfop) || '5353',
+    natureza_operacao: (n.natureza_operacao || 'PRESTACAO DE SERVICO DE TRANSPORTE').slice(0, 60),
+    data_emissao: dataEmissaoBrasilia(),
+    tipo_documento: '0', // tpCTe 0 = CT-e normal
+    tipo_servico: String([0, 1, 2, 3].includes(Number(n.tipo_servico)) ? Number(n.tipo_servico) : 0),
+    modal: '01', // rodoviário
+    retirar_mercadoria: n.retirar_mercadoria ? '0' : '1', // SEFAZ: 0 = recebedor retira, 1 = não retira
+
+    codigo_municipio_envio: empresa.codigo_municipio_ibge || undefined,
+    municipio_envio: empresa.cidade || undefined,
+    uf_envio: empresa.endereco_uf || undefined,
+    codigo_municipio_inicio: n.codigo_municipio_inicio || undefined,
+    municipio_inicio: n.municipio_inicio || undefined,
+    uf_inicio: (n.uf_inicio || '').toUpperCase() || undefined,
+    codigo_municipio_fim: n.codigo_municipio_fim || undefined,
+    municipio_fim: n.municipio_fim || undefined,
+    uf_fim: (n.uf_fim || '').toUpperCase() || undefined,
+
+    cnpj_emitente: soDigitos(empresa.cnpj),
+    inscricao_estadual_emitente: empresa.inscricao_estadual || undefined,
+    nome_emitente: empresa.razao || empresa.fantasia || undefined,
+    nome_fantasia_emitente: empresa.fantasia || undefined,
+    logradouro_emitente: empresa.endereco_logradouro || undefined,
+    numero_emitente: empresa.endereco_numero || undefined,
+    bairro_emitente: empresa.endereco_bairro || undefined,
+    municipio_emitente: empresa.cidade || undefined,
+    cep_emitente: soDigitos(empresa.endereco_cep) || undefined,
+    uf_emitente: empresa.endereco_uf || undefined,
+
+    ...parteManual(n, 'remetente', 'remetente'),
+    ...parteManual(n, 'destinatario', 'destinatario'),
+    tomador, // 0 remetente, 1 expedidor, 2 recebedor, 3 destinatário, 4 outros
+    ...(tomador === 4 ? parteManual(n, 'tomador', 'tomador') : {}),
+    indicador_inscricao_estadual_tomador: ieTomador ? '1' : '9',
+
+    valor_total: Number(n.valor_total || 0).toFixed(2),
+    valor_receber: Number(n.valor_receber ?? n.valor_total ?? 0).toFixed(2),
+    icms_situacao_tributaria: simples ? '90' : cst,
+    icms_indicador_simples_nacional: simples ? 1 : undefined,
+    icms_base_calculo: tributado && !simples ? Number(n.icms_base_calculo ?? n.valor_total ?? 0).toFixed(2) : undefined,
+    icms_aliquota: tributado && !simples ? Number(n.icms_aliquota || 0).toFixed(2) : undefined,
+    icms_valor: tributado && !simples ? Number(n.icms_valor || 0).toFixed(2) : undefined,
+
+    valor_total_carga: Number(n.valor_carga || 0).toFixed(2),
+    produto_predominante: n.produto_predominante || 'Carga geral',
+    outras_caracteristicas_carga: n.outras_caracteristicas || undefined,
+    quantidades: Number(n.quantidade_carga) > 0
+      ? [{ codigo_unidade_medida: n.unidade_medida_carga || '01', tipo_medida: n.tipo_medida || 'PESO BRUTO', quantidade: Number(n.quantidade_carga).toFixed(4) }]
+      : undefined,
+    nfes: chaves.length ? chaves.map((c: string) => ({ chave_nfe: c })) : undefined,
+    modal_rodoviario: { rntrc: soDigitos(n.rntrc) },
+    observacao: n.observacao ? String(n.observacao).slice(0, 2000) : undefined,
+  };
+}
+
+async function tratarCteManual(req: Request, acao: string | undefined, nota: any, justificativa: string | undefined) {
+  if (!chamadaAutorizada(req, nota.empresa_id)) return json({ ok: false, erro: 'nota_de_outra_empresa' }, 403);
+  const [empresa] = await sbGet(`empresas?id=eq.${nota.empresa_id}&select=*`);
+  const agora = () => new Date().toISOString();
+  if (!empresa?.cte_ativo) {
+    await sbPatch('notas_fiscais_cte', nota.id, { status: 'erro', mensagem_erro: 'CT-e não está ativo pra esta empresa. Fale com o suporte Nuvix.', updated_at: agora() });
+    return json({ ok: false, erro: 'fiscal_nao_configurado' }, 422);
+  }
+  if (!acao || acao === 'emitir') {
+    if (soDigitos(nota.rntrc).length < 8) {
+      await sbPatch('notas_fiscais_cte', nota.id, { status: 'erro', mensagem_erro: 'RNTRC (ANTT) da transportadora não informado — obrigatório no CT-e rodoviário. Edite o rascunho.', updated_at: agora() });
+      return json({ ok: false, erro: 'rntrc_ausente' }, 422);
+    }
+    if (empresa.cte_simulacao) {
+      const atualizado = await sbPatch('notas_fiscais_cte', nota.id, {
+        status: 'autorizada', numero: 'SIMULADO', chave_acesso: 'SIMULADO', mensagem_erro: null, data_emissao: agora(), updated_at: agora(),
+      });
+      return json({ ok: true, nota: atualizado?.[0] || atualizado, simulacao: true });
+    }
+  }
+  const [cred] = await sbGet(`nfse_credenciais?empresa_id=eq.${nota.empresa_id}&select=*`);
+  if (!cred?.focus_nfe_token) {
+    await sbPatch('notas_fiscais_cte', nota.id, { status: 'erro', mensagem_erro: 'Certificado/token da Focus NFe não configurado pra esta empresa.', updated_at: agora() });
+    return json({ ok: false, erro: 'fiscal_nao_configurado' }, 422);
+  }
+  const base = focusBaseUrl(cred.focus_nfe_ambiente);
+  const auth = focusAuthHeader(cred.focus_nfe_token);
+
+  if (acao === 'consultar') {
+    if (!nota.focus_nfe_ref) return json({ ok: false, erro: 'nota_ainda_nao_enviada' }, 422);
+    const r = await fetch(`${base}/v2/cte/${nota.focus_nfe_ref}`, { headers: { Authorization: auth } });
+    const f = await r.json();
+    const atualizado = await sbPatch('notas_fiscais_cte', nota.id, {
+      status: FOCUS_STATUS_MAP[f?.status] || 'processando',
+      numero: f?.numero || null,
+      serie: f?.serie || null,
+      chave_acesso: f?.chave_cte || f?.chave_acesso || null,
+      link_pdf: f?.caminho_dacte ? `${base}${f.caminho_dacte}` : f?.url || null,
+      link_xml: f?.caminho_xml_nota_fiscal ? `${base}${f.caminho_xml_nota_fiscal}` : null,
+      mensagem_erro: f?.status === 'erro_autorizacao' ? f?.mensagem_sefaz || f?.mensagem || `Erro na autorização. Resposta: ${JSON.stringify(f)}` : null,
+      data_emissao: f?.status === 'autorizado' ? agora() : null,
+      updated_at: agora(),
+    });
+    return json({ ok: true, nota: atualizado?.[0] || atualizado });
+  }
+
+  if (acao === 'cancelar') {
+    if (!nota.focus_nfe_ref) return json({ ok: false, erro: 'nota_ainda_nao_enviada' }, 422);
+    if (!justificativa || justificativa.length < 15 || justificativa.length > 255) return json({ ok: false, erro: 'justificativa_invalida' }, 422);
+    const r = await fetch(`${base}/v2/cte/${nota.focus_nfe_ref}?justificativa=${encodeURIComponent(justificativa)}`, { method: 'DELETE', headers: { Authorization: auth } });
+    const f = await r.json();
+    const cancelou = f?.status === 'cancelado';
+    const atualizado = await sbPatch('notas_fiscais_cte', nota.id, {
+      status: cancelou ? 'cancelada' : nota.status,
+      mensagem_erro: cancelou ? null : f?.mensagem_sefaz || f?.mensagem || 'Erro ao cancelar o CT-e.',
+      motivo_cancelamento: cancelou ? justificativa : null,
+      data_cancelamento: cancelou ? agora() : null,
+      updated_at: agora(),
+    });
+    return json({ ok: r.ok && cancelou, nota: atualizado?.[0] || atualizado });
+  }
+
+  // emitir — reemissão depois de erro usa ref novo (mesmo motivo do emitir-nfe:
+  // a Focus reaproveita número/série pelo ref e a SEFAZ acusa duplicidade).
+  const ref = nota.status === 'erro' && nota.focus_nfe_ref ? `nuvix-cte-${nota.id}-r${Date.now()}` : `nuvix-cte-${nota.id}`;
+  const r = await fetch(`${base}/v2/cte?ref=${ref}`, {
+    method: 'POST',
+    headers: { Authorization: auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify(montarPayloadCteManual(empresa, nota)),
+  });
+  const f = await r.json();
+  if (!r.ok) {
+    const atualizado = await sbPatch('notas_fiscais_cte', nota.id, {
+      status: 'erro',
+      mensagem_erro: f?.mensagem || f?.erros?.[0]?.mensagem || `Erro na Focus NFe. Resposta completa: ${JSON.stringify(f)}`,
+      updated_at: agora(),
+    });
+    return json({ ok: false, erro: f, nota: atualizado?.[0] || atualizado }, 422);
+  }
+  const atualizado = await sbPatch('notas_fiscais_cte', nota.id, {
+    status: FOCUS_STATUS_MAP[f?.status] || 'processando', focus_nfe_ref: ref, mensagem_erro: null, updated_at: agora(),
+  });
+  return json({ ok: true, nota: atualizado?.[0] || atualizado });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { acao, transporte_id, justificativa } = await req.json();
+    const corpo = await req.json();
+    const { acao, justificativa, nota_fiscal_cte_id } = corpo;
+    let { transporte_id } = corpo;
+    // Chamada pela tela de Notas Fiscais (por id da nota): CT-e manual vai pro
+    // caminho próprio; CT-e de operação cai no fluxo de sempre, pelo transporte_id.
+    if (nota_fiscal_cte_id) {
+      const [notaPorId] = await sbGet(`notas_fiscais_cte?id=eq.${nota_fiscal_cte_id}&select=*`);
+      if (!notaPorId) return json({ ok: false, erro: 'nota_nao_encontrada' }, 404);
+      if (notaPorId.origem === 'manual') return await tratarCteManual(req, acao, notaPorId, justificativa);
+      if (!chamadaAutorizada(req, notaPorId.empresa_id)) return json({ ok: false, erro: 'nota_de_outra_empresa' }, 403);
+      transporte_id = notaPorId.transporte_id;
+    }
     if (!transporte_id) throw new Error('transporte_id é obrigatório.');
 
     const [frete] = await sbGet(`transporte?id=eq.${transporte_id}&select=*`);
