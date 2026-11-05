@@ -15,7 +15,7 @@
 .mat-tab.active{color:var(--p2);background:#fff;box-shadow:var(--shadow)}
 .bento-alertas{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:8px}
 @media(max-width:900px){.bento-alertas{grid-template-columns:1fr}}
-.hero-estoque{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:0 10px 26px rgba(99,67,164,.28)}
+.hero-estoque{background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:0 10px 26px rgba(113,55,184,.28)}
 .hero-estoque-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
 .hero-estoque-val{font-size:32px;font-weight:800;margin-top:4px}
 .hero-estoque-ic{background:rgba(255,255,255,.2);border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -76,7 +76,7 @@
 .mov-entrada{background:#ECFDF5;color:#059669}
 .mov-saida{background:#FEF2F2;color:#DC2626}
 .mov-ajuste{background:#DBEAFE;color:#1E40AF}
-.mov-inventario{background:#EFEEFE;color:#533294}
+.mov-inventario{background:#F3EAFF;color:#4C168C}
 
 /* ── CHART CARDS ── */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
@@ -102,7 +102,7 @@
 
 /* ── CRITICAL ALERT ── */
 .alert-critical{background:#F1EFF7;border:1px solid var(--line);border-left:3px solid var(--txt);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
-.alert-low{background:var(--p-light);border:1px solid #DDD6FE;border-left:3px solid var(--p);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.alert-low{background:var(--p-light);border:1px solid #E9DBFC;border-left:3px solid var(--p);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
 
 /* ── FOTO PREVIEW ── */
 .foto-preview{width:100%;height:140px;background:var(--bg);border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:32px;transition:all .2s;overflow:hidden}
@@ -742,7 +742,7 @@ function renderDashboard(){
 
 function renderCharts(){
   const movs=dados.movimentacoes;
-  Chart.defaults.font.family="'Inter',system-ui";
+  Chart.defaults.font.family="'Hanken Grotesk',system-ui";
   Chart.defaults.font.size=11;
   Chart.defaults.color='#6B7280';
 
@@ -755,7 +755,7 @@ function renderCharts(){
   if(charts.consumo)charts.consumo.destroy();
   const c1=$('chartConsumo');
   if(c1)charts.consumo=new Chart(c1,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6343A4',backgroundColor:'rgba(99,67,164,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6343A4',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#7137B8',backgroundColor:'rgba(113,55,184,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#7137B8',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 
@@ -765,21 +765,21 @@ function renderCharts(){
   const top=Object.entries(matMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.top)charts.top.destroy();
   const c2=$('chartTop');
-  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(99,67,164,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
+  if(c2)charts.top=new Chart(c2,{type:'bar',data:{labels:top.map(x=>x[0].length>16?x[0].slice(0,14)+'…':x[0]),datasets:[{data:top.map(x=>x[1]),backgroundColor:'rgba(113,55,184,.8)',borderRadius:8,borderSkipped:false,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF'}},y:{grid:{display:false},border:{display:false},ticks:{color:'#6B7280'}}}}});
 
   // Por categoria
   const catMap={};dados.materiais.forEach(m=>{const c=m.categoria||'Outros';if(!catMap[c])catMap[c]=0;catMap[c]+=Number(m.estoque_atual||0)*Number(m.custo_compra||0);});
   const catEntries=Object.entries(catMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(charts.cat)charts.cat.destroy();
   const c3=$('chartCat');
-  const colors=['#6343A4','#8B5CF6','#D2BCFF','#C4B5FD','#DDD6FE','#9CA3AF','#6343A4','#A855F7'];
+  const colors=['#7137B8','#9345D5','#D2BCFF','#C4B5FD','#E9DBFC','#9CA3AF','#7137B8','#A855F7'];
   if(c3)charts.cat=new Chart(c3,{type:'doughnut',data:{labels:catEntries.map(x=>x[0]),datasets:[{data:catEntries.map(x=>x[1]),backgroundColor:colors,borderWidth:0,borderRadius:8,spacing:2}]},options:{responsive:true,cutout:'68%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}}}}});
 
   // Fluxo valor
   if(charts.fluxo)charts.fluxo.destroy();
   const c4=$('chartFluxo');
   if(c4)charts.fluxo=new Chart(c4,{type:'line',data:{labels,datasets:[
-    {label:'Entradas',data:entradas,borderColor:'#6343A4',backgroundColor:'rgba(99,67,164,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#6343A4',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+    {label:'Entradas',data:entradas,borderColor:'#7137B8',backgroundColor:'rgba(113,55,184,.08)',borderWidth:2,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#7137B8',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
     {label:'Saídas',data:saidas,borderColor:'#9CA3AF',backgroundColor:'transparent',borderWidth:2,fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:'#9CA3AF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,color:'#6B7280',font:{size:11}}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#9CA3AF'}},y:{beginAtZero:true,grid:{color:'rgba(31,41,55,.03)'},border:{display:false},ticks:{color:'#9CA3AF',callback:v=>v>=1000?'R$'+(v/1000).toFixed(0)+'k':'R$'+v}}}}});
 }

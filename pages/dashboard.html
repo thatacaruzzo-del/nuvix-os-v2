@@ -40,7 +40,7 @@
 .period-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .period-btns{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .period-btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;white-space:nowrap}
-.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(99,67,164,.3)}
+.period-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(113,55,184,.3)}
 .period-btn:hover:not(.active){background:var(--p-light);color:var(--p)}
 .period-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .adv-toggle{background:none;border:1px dashed var(--muted2);color:var(--muted2);font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
@@ -156,11 +156,11 @@
    mini-card (var(--bg) é quase branco também), por isso usa borda visível, igual os
    outros cards de KPI do sistema (.kpi-card). */
 .hstat{display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0;text-align:left;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(31,41,55,.04);transition:border-color .12s,box-shadow .12s,transform .12s}
-.hstat:hover{border-color:var(--p);box-shadow:0 4px 10px rgba(99,67,164,.12);transform:translateY(-1px)}
+.hstat:hover{border-color:var(--p);box-shadow:0 4px 10px rgba(113,55,184,.12);transform:translateY(-1px)}
 .hstat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);display:flex;align-items:center;gap:5px}
 .hstat-lbl .atencao-dot{width:6px;height:6px}
 .hstat-val{font-size:13px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hero-insight{margin-top:20px;border-radius:18px;padding:22px 26px;background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(99,67,164,.28)}
+.hero-insight{margin-top:20px;border-radius:18px;padding:22px 26px;background:linear-gradient(135deg,var(--p) 0%,var(--p2) 100%);color:#fff;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(113,55,184,.28)}
 .hero-insight:empty{display:none}
 .hero-insight::after{content:'';position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
 .hero-insight-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.2);padding:5px 12px;border-radius:999px;align-self:flex-start;position:relative;z-index:1}
@@ -2085,7 +2085,7 @@ function setFluxoPeriodo(dias, btn){
   renderFluxoChart();
 }
 function renderFluxoChart(){
-  Chart.defaults.font.family="'Inter',system-ui";
+  Chart.defaults.font.family="'Hanken Grotesk',system-ui";
   Chart.defaults.font.size=12;
   Chart.defaults.color='#667085';
 
@@ -2113,7 +2113,7 @@ function renderFluxoChart(){
   if(charts.fluxo)charts.fluxo.destroy();
   const c=$('chartFluxo');
   if(c)charts.fluxo=new Chart(c,{type:'bar',data:{labels:lblBuckets,datasets:[
-    {label:'Recebido',data:recConf,backgroundColor:'#6343A4',borderRadius:4,maxBarThickness:14},
+    {label:'Recebido',data:recConf,backgroundColor:'#7137B8',borderRadius:4,maxBarThickness:14},
     {label:'Pago',data:despConf,backgroundColor:'#98A2B3',borderRadius:4,maxBarThickness:14},
     {label:'Previsto',data:recPrev,backgroundColor:'transparent',borderColor:'#D2BCFF',borderWidth:1.5,borderDash:[3,2],borderRadius:4,maxBarThickness:14}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14,color:'#667085',font:{size:12}}}},scales:{x:{grid:{display:false},ticks:{color:'#98A2B3',maxRotation:0,autoSkip:true,maxTicksLimit:12}},y:{beginAtZero:true,grid:{color:'rgba(16,24,40,.03)'},border:{display:false},ticks:{color:'#98A2B3',maxTicksLimit:5,callback:moneyTick}}}}});
@@ -2122,7 +2122,7 @@ function renderFluxoChart(){
 
 // PRÓXIMOS COMPROMISSOS — as próximas contas a receber/pagar (não misturado com caixa nem resultado)
 // Avatar com iniciais, cor derivada do nome — mesma pessoa/empresa sempre cai na mesma cor.
-const AVATAR_CORES=['#6343A4','#0EA5E9','#F59E0B','#EF4444','#10B981','#EC4899'];
+const AVATAR_CORES=['#7137B8','#0EA5E9','#F59E0B','#EF4444','#10B981','#EC4899'];
 function avatarHTML(nome){
   const n=nome||'?';
   const letra=n.trim()[0]?.toUpperCase()||'?';

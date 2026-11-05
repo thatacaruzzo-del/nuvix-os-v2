@@ -1102,7 +1102,7 @@ function verImprimir(){
   let html;
   if(tipoAtual==='nfce'){
     html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NFC-e ${esc(notaAtual.numero||'')}</title>
-  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet"><style>body{font-family:'Hanken Grotesk',Arial,sans-serif;padding:40px;color:#21132F;max-width:760px;margin:0 auto}.faixa{background:#FFEBDC;color:#C2410C;padding:10px 16px;border-radius:999px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:#4C168C}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:10px 0;border-bottom:1px solid #ECE3F7;font-size:13.5px}td:first-child{color:#6F647C;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
   <h1>Nota Fiscal de Consumidor (simulada)</h1>
@@ -1116,7 +1116,7 @@ function verImprimir(){
   </body></html>`;
   } else if(tipoAtual==='nfe'){
     html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>NF-e ${esc(notaAtual.numero||'')}</title>
-  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet"><style>body{font-family:'Hanken Grotesk',Arial,sans-serif;padding:40px;color:#21132F;max-width:760px;margin:0 auto}.faixa{background:#FFEBDC;color:#C2410C;padding:10px 16px;border-radius:999px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:#4C168C}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:10px 0;border-bottom:1px solid #ECE3F7;font-size:13.5px}td:first-child{color:#6F647C;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
   <h1>Nota Fiscal Eletrônica modelo 55 (simulada)</h1>
@@ -1130,7 +1130,7 @@ function verImprimir(){
   </body></html>`;
   } else if(tipoAtual==='devolucao'){
     html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Devolução ${esc(notaAtual.numero||'')}</title>
-  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet"><style>body{font-family:'Hanken Grotesk',Arial,sans-serif;padding:40px;color:#21132F;max-width:760px;margin:0 auto}.faixa{background:#FFEBDC;color:#C2410C;padding:10px 16px;border-radius:999px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:#4C168C}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:10px 0;border-bottom:1px solid #ECE3F7;font-size:13.5px}td:first-child{color:#6F647C;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
   <h1>Nota Fiscal de Devolução (simulada)</h1>
@@ -1144,7 +1144,7 @@ function verImprimir(){
   </body></html>`;
   } else {
     html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Nota ${esc(notaAtual.numero_nfse||'')}</title>
-  <style>body{font-family:Arial,sans-serif;padding:40px;color:#101828}.faixa{background:#FEF3C7;color:#7A5B00;padding:10px 16px;border-radius:8px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 0;border-bottom:1px solid #EAECF0;font-size:13px}td:first-child{color:#667085;width:220px}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet"><style>body{font-family:'Hanken Grotesk',Arial,sans-serif;padding:40px;color:#21132F;max-width:760px;margin:0 auto}.faixa{background:#FFEBDC;color:#C2410C;padding:10px 16px;border-radius:999px;font-weight:700;margin-bottom:24px;text-align:center}h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:#4C168C}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:10px 0;border-bottom:1px solid #ECE3F7;font-size:13.5px}td:first-child{color:#6F647C;width:220px}</style>
   </head><body>
   <div class="faixa">SIMULAÇÃO — este documento não tem validade fiscal, é só um teste de interface</div>
   <h1>Nota Fiscal de Serviço (simulada)</h1>

@@ -35,8 +35,8 @@
 .dpc-card-lbl{font-size:11px;font-weight:700;color:#827B95;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
 .dpc-card-val{font-size:23px;font-weight:800;color:#211B37;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dpc-card-sub{font-size:12.5px;color:#827B95;margin-top:4px}
-.dpc-card.maior .dpc-card-val{color:#7058E8;font-size:18px}
-.dpc-card.maior .dpc-card-sub b{color:#7058E8}
+.dpc-card.maior .dpc-card-val{color:#7137B8;font-size:18px}
+.dpc-card.maior .dpc-card-sub b{color:#7137B8}
 .dpc-lista{display:flex;flex-direction:column;gap:15px}
 .dpc-item{border-radius:12px;padding:9px 10px;margin:-9px -10px;transition:background .2s ease;position:relative}
 .dpc-item:hover{background:#F8F7FC}
@@ -72,10 +72,10 @@
 .aging-bar-fill{display:block;height:100%;border-radius:99px;width:0;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:4px}
 .aging-pct{font-size:11.5px;font-weight:700;color:#827B95;width:38px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
 .aging-vazio{text-align:center;padding:30px 16px}
-.aging-vazio svg{width:34px;height:34px;color:#7058E8;margin-bottom:10px}
+.aging-vazio svg{width:34px;height:34px;color:#7137B8;margin-bottom:10px}
 .aging-vazio-titulo{font-size:14px;font-weight:700;color:#211B37;margin-bottom:4px}
 .aging-vazio-sub{font-size:12.5px;color:#827B95}
-.aging-vazio-avencer{margin-top:14px;display:inline-block;font-size:12px;color:#7058E8;background:#F0ECFB;padding:6px 14px;border-radius:99px;font-weight:600}
+.aging-vazio-avencer{margin-top:14px;display:inline-block;font-size:12px;color:#7137B8;background:#F0ECFB;padding:6px 14px;border-radius:99px;font-weight:600}
 
 /* ── Fluxo de caixa projetado (cartão premium) ── */
 .fluxo-top{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
@@ -369,7 +369,7 @@ function renderSkeletonDespesasPorConta(){
 // gasto) sempre no roxo mais forte, as seguintes clareando gradualmente. Não é
 // cor por categoria (não tem significado fixo), é só intensidade = posição no
 // ranking, mesmo raciocínio já usado no Painel de Vendas.
-const DPC_TONS=['#7058E8','#8569EA','#9A7BED','#AF8CEF','#B8A9F5','#C7BBF7','#D6CEF9'];
+const DPC_TONS=['#7137B8','#8569EA','#9A7BED','#AF8CEF','#B8A9F5','#C7BBF7','#D6CEF9'];
 function renderDespesasPorConta(linhas){
   const gruposDespesa=['custos','despesas_operacionais','despesas_financeiras','impostos_lucro'];
   const despesas=linhas.filter(l=>gruposDespesa.includes(l.grupo_dre))
@@ -517,7 +517,7 @@ function renderChartFluxo(resp){
   const passo=Math.max(1,Math.round(serie.length/6));
   chartFluxoInstance=new Chart(ctx,{type:'line',data:{
     labels:serie.map(d=>fmtData(d.dia)),
-    datasets:[{label:'Saldo projetado',data:serie.map(d=>Number(d.saldo_projetado)),borderColor:'#7058E8',borderWidth:3,backgroundColor:gradiente,fill:true,tension:.25,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#7058E8',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}],
+    datasets:[{label:'Saldo projetado',data:serie.map(d=>Number(d.saldo_projetado)),borderColor:'#7137B8',borderWidth:3,backgroundColor:gradiente,fill:true,tension:.25,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#7137B8',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}],
   },options:{
     interaction:{intersect:false,mode:'index'},
     plugins:{

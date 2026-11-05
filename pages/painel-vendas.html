@@ -550,7 +550,7 @@ function renderEvolucao(linhas,de,ate){
   }
   chartEvolucaoInstance=new Chart(ctx,{type:'line',data:{
     labels:chaves.map(k=>fmtData(k)+(porSemana?' (semana)':'')),
-    datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#6D5EF5',backgroundColor:'rgba(109,94,245,.12)',fill:true,tension:.3}],
+    datasets:[{label:'Faturamento',data:chaves.map(k=>buckets[k]),borderColor:'#7137B8',backgroundColor:'rgba(113,55,184,.12)',fill:true,tension:.3}],
   },options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});
 }
 // `linhas` (de buscarVendasCompletas) tem uma linha POR ITEM, não por pedido
@@ -669,7 +669,7 @@ function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,esto
       <td>${c.estoqueAtual}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%;background:rgba(99,67,164,${intensidade.toFixed(2)})"></div></div>
+          <div class="giro-bar-track"><div style="width:${(c.giro/giroMax*100).toFixed(0)}%;background:rgba(113,55,184,${intensidade.toFixed(2)})"></div></div>
           <span style="font-size:12px;color:var(--muted)">${c.giro.toFixed(2)}x</span>
         </div>
       </td>
@@ -681,7 +681,7 @@ function renderGiroCategoria(produtosVendidos,produtosTodos,categoriasTodas,esto
   if(ctx&&categorias.length){
     // Só 2 tons: a categoria líder (já é a 1ª — array ordenado por faturamento)
     // em roxo forte, todo o resto em cinza neutro — sem paleta arco-íris.
-    const coresCategoria=categorias.map((c,i)=>i===0?'#6343A4':'#D8D5E0');
+    const coresCategoria=categorias.map((c,i)=>i===0?'#7137B8':'#D8D5E0');
     chartCategoriaInstance=new Chart(ctx,{type:'doughnut',data:{
       labels:categorias.map(c=>c.categoria),
       datasets:[{data:categorias.map(c=>c.faturamento),backgroundColor:coresCategoria,borderWidth:2,borderColor:'#fff'}],

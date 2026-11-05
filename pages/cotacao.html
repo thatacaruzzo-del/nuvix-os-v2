@@ -6,7 +6,7 @@
 <title>Nuvix — Cotação de Frete</title>
 <link rel="stylesheet" href="../css/nuvix.css">
 <style>
-.resultado-card{background:linear-gradient(135deg,#533294,#6343A4);color:#fff;border-radius:20px;padding:28px;margin-bottom:16px}
+.resultado-card{background:linear-gradient(135deg,#4C168C,#7137B8);color:#fff;border-radius:20px;padding:28px;margin-bottom:16px}
 .resultado-valor{font-size:42px;font-weight:800;margin:8px 0}
 .resultado-sub{opacity:.8;font-size:13px}
 .linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
@@ -217,8 +217,43 @@ function imprimir(){
   if(!cotAtual){calcular();if(!cotAtual)return;}
   const emp=session?.empresa;
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotação</title><style>body{font-family:Arial,sans-serif;padding:40px;max-width:680px;margin:0 auto}.empresa{font-size:22px;font-weight:900;color:#6343A4}.valor-box{background:linear-gradient(135deg,#533294,#6343A4);color:#fff;border-radius:16px;padding:24px;text-align:center;margin:20px 0}.valor-box .v{font-size:36px;font-weight:900}.linha{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee;font-size:14px}.total{display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:900;color:#6343A4}@media print{button{display:none}}</style><script src="../js/nuvix-logs.js"><\/script>
-</head><body><div style="display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #6343A4;margin-bottom:24px"><div><div class="empresa">${esc(emp?.fantasia||emp?.razao||'Nuvix')}</div><div style="color:#666;font-size:13px">${esc(emp?.cidade||'')}</div></div><div style="text-align:right;font-size:12px;color:#888">Data: ${new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}<br>Válida até: ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</div></div><h2>Cotação de Frete</h2><p style="color:#666">${esc(cotAtual.origem)} → ${esc(cotAtual.destino)} · ${cotAtual.km} km</p><div class="valor-box"><div style="font-size:12px;opacity:.8;text-transform:uppercase;margin-bottom:8px">Valor total do frete</div><div class="v">${money(cotAtual.valor_frete)}</div></div>${cotAtual.solicitante?`<div style="background:#f9f7ff;border-radius:12px;padding:16px;margin-bottom:16px"><b>Solicitante:</b> ${esc(cotAtual.solicitante)}${cotAtual.telefone?' · '+esc(cotAtual.telefone):''}${cotAtual.email?' · '+esc(cotAtual.email):''}</div>`:''}<div class="linha"><span>Frete base</span><b>${money(cotAtual.custo_total-cotAtual.pedagio)}</b></div>${cotAtual.pedagio>0?`<div class="linha"><span>Pedágio</span><b>${money(cotAtual.pedagio)}</b></div>`:''}<div class="total"><span>Total</span><b>${money(cotAtual.valor_frete)}</b></div><p style="color:#888;font-size:12px;margin-top:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="M22 6l-3-3"/></svg> Válida até ${cotAtual.validade?new Date(cotAtual.validade+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'}</p><br><button onclick="window.print()" style="background:#6343A4;color:#fff;border:none;padding:12px 24px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir</button></body></html>`);win.document.close();
+  // Identidade v5 (05/11/2026): mesma fonte/roxo do sistema. As linhas agora SOMAM o
+  // total (antes mostrava "Frete base" + "Pedágio" que não fechavam com o total,
+  // porque margem e adicional ficavam escondidos dentro do valor final).
+  const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
+  const pedagio=Number(cotAtual.pedagio||0),freteSemPedagio=Math.max(0,cotAtual.valor_frete-pedagio);
+  const detalhes=[['Trajeto',`${esc(cotAtual.origem||'—')} → ${esc(cotAtual.destino||'—')}`],cotAtual.km?['Distância',`${cotAtual.km} km`]:null,cotAtual.veiculo?['Veículo',esc(cotAtual.veiculo)]:null,cotAtual.tipo?['Tipo de carga',esc(String(cotAtual.tipo).replace(/\s*\(.*\)\s*$/,''))]:null,cotAtual.peso?['Peso',`${Number(cotAtual.peso).toLocaleString('pt-BR')} kg`]:null].filter(Boolean);
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cotação de frete — ${esc(emp?.fantasia||emp?.razao||'')}</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{font-family:'Hanken Grotesk',system-ui,Arial,sans-serif;color:#21132F;margin:0;background:#fff}
+.pg{max-width:720px;margin:0 auto;padding:40px 36px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:20px;border-bottom:2px solid #ECE3F7}
+.emp{font-size:24px;font-weight:800;letter-spacing:-.02em;color:#4C168C}.emp-sub{color:#6F647C;font-size:13px;margin-top:2px}
+.meta{text-align:right;font-size:12.5px;color:#6F647C;line-height:1.7}.meta b{color:#21132F}
+h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:26px 0 4px}.sub{color:#6F647C;font-size:14px;margin:0 0 20px}
+.valor{background:linear-gradient(135deg,#9345D5 0%,#7137B8 45%,#4C168C 100%);color:#fff;border-radius:22px;padding:26px;text-align:center;margin:0 0 22px}
+.valor small{display:block;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85;margin-bottom:6px}.valor b{font-size:38px;font-weight:800;letter-spacing:-.02em}
+.box{border:1px solid #ECE3F7;border-radius:16px;padding:6px 18px;margin-bottom:18px}
+.box h3{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7137B8;margin:12px 0 4px}
+.l{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #F3EAFF;font-size:14px}.l:first-of-type{border-top:0}.l span{color:#6F647C}.l b{text-align:right}
+.tot{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-radius:14px;background:#FAF6FF;border:1px solid #C9A3F4;font-size:18px;font-weight:800;color:#4C168C}
+.cli{background:#FAF6FF;border:1px solid #ECE3F7;border-radius:14px;padding:14px 18px;margin-bottom:18px;font-size:14px}.cli span{color:#6F647C}
+.rod{margin-top:22px;font-size:12px;color:#857A94;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.btn{margin-top:22px;background:#4C168C;color:#fff;border:0;padding:12px 22px;border-radius:999px;font:700 14px 'Hanken Grotesk',Arial,sans-serif;cursor:pointer}
+@media print{.btn{display:none}.pg{padding:20px}}
+</style><script src="../js/nuvix-logs.js"><\/script></head><body><div class="pg">
+<div class="top"><div><div class="emp">${esc(emp?.fantasia||emp?.razao||'')}</div><div class="emp-sub">${esc([emp?.cidade,emp?.endereco_uf].filter(Boolean).join(' / '))}${emp?.cnpj?' · CNPJ '+esc(emp.cnpj):''}</div></div>
+<div class="meta">Data: <b>${new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</b><br>Válida até: <b>${fmtD(cotAtual.validade)}</b></div></div>
+<h1>Cotação de frete</h1><p class="sub">${esc(cotAtual.origem||'—')} → ${esc(cotAtual.destino||'—')}${cotAtual.km?' · '+cotAtual.km+' km':''}</p>
+<div class="valor"><small>Valor total do frete</small><b>${money(cotAtual.valor_frete)}</b></div>
+${cotAtual.solicitante?`<div class="cli"><span>Para:</span> <b>${esc(cotAtual.solicitante)}</b>${cotAtual.telefone?' · '+esc(cotAtual.telefone):''}${cotAtual.email?' · '+esc(cotAtual.email):''}</div>`:''}
+<div class="box"><h3>Detalhes do transporte</h3>${detalhes.map(([k,v])=>`<div class="l"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+<div class="box"><h3>Composição do valor</h3><div class="l"><span>Frete</span><b>${money(freteSemPedagio)}</b></div>${pedagio>0?`<div class="l"><span>Pedágio</span><b>${money(pedagio)}</b></div>`:''}</div>
+<div class="tot"><span>Total</span><span>${money(cotAtual.valor_frete)}</span></div>
+<div class="rod"><span>Cotação válida até ${fmtD(cotAtual.validade)}.</span><span>${esc(emp?.fantasia||emp?.razao||'')}</span></div>
+<button class="btn" onclick="window.print()">Imprimir</button>
+</div></body></html>`);win.document.close();
 }
 carregarRotas();
 carregarCotacoes();
