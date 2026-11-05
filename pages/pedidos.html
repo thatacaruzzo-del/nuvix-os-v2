@@ -13,7 +13,7 @@
 .ped-busca-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);font-size:13px}
 .ped-busca-item:last-child{border-bottom:none}
 .ped-busca-item:hover{background:var(--p-light)}
-.ped-selecionado{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);border:1px solid #DDD6FF;border-radius:12px;padding:10px 14px;margin-top:8px}
+.ped-selecionado{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--p-light);border:1px solid var(--p3);border-radius:12px;padding:10px 14px;margin-top:8px}
 .ped-carrinho-vazio{padding:30px 20px;text-align:center;color:var(--muted);font-size:13px}
 .ped-total-row{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:800;padding:14px 0;border-top:1.5px solid var(--line);margin-top:10px}
 .ped-pgto-opcoes{display:flex;gap:8px;margin-bottom:12px}
@@ -23,12 +23,33 @@
 .pgto-row select{flex:1;min-width:0}.pgto-row input{width:110px;max-width:100%;flex-shrink:0}
 .ped-qtd-input{padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:13px}
 .table-empty{text-align:center;color:var(--muted);padding:28px;font-size:13px}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:560px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
-.modal h3{font-size:18px;font-weight:800;margin-bottom:20px}
-.modal-actions{display:flex;gap:10px;margin-top:24px}
-.modal-actions button{flex:1}
+/* Modal: vem do css/nuvix.css (identidade v5). */
+/* ── Ficha do pedido — identidade v5 (referência aprovada 05/11/2026) ── */
+.fp-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.fp-head h3{margin:0!important;font-size:22px!important}
+.fp-head .nx-ic-tile{width:42px;height:42px;border-radius:13px}
+.fp-head .nx-ic-tile svg{width:22px;height:22px}
+.fp-rows{display:flex;flex-direction:column;gap:9px}
+.fp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;line-height:1.45}
+.fp-row>svg{width:18px;height:18px;color:var(--p);flex-shrink:0}
+.fp-row b{font-weight:700}
+.fp-hint{font-size:12.5px;color:var(--muted);margin:-3px 0 0 28px}
+.fp-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-left:28px}
+.fp-acoes .btn2{height:36px;font-size:13px;padding:0 14px}
+.fp-sec{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:-.01em;margin:20px 0 10px;padding-top:18px;border-top:1px solid var(--line)}
+.fp-sec svg{width:20px;height:20px;color:var(--p)}
+.fp-callout{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:linear-gradient(180deg,var(--p-soft),var(--p-light));border:1px solid var(--p3);margin-top:12px}
+.fp-callout>svg{width:20px;height:20px;color:var(--p);flex-shrink:0;margin-top:2px}
+.fp-callout small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.fp-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.fp-btns .btn2,.fp-btns .btn{height:40px}
+.fp-pagto{font-size:12.5px;color:var(--muted);margin-top:8px}
+.fp-link{color:var(--p);font-weight:700;text-underline-offset:3px;display:inline-flex;align-items:center;gap:4px}
+.fp-link svg{width:15px;height:15px}
+/* ── Filtros e histórico ── */
+.ped-filtro-lbl{font-size:11px;color:var(--muted2);font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px}
+.ped-num{font-weight:800;color:var(--p2)}
+#pedHistoricoTable tr{cursor:pointer}
 .field-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .ped-steps{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:0 2px}
 .ped-step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--muted)}
@@ -56,6 +77,27 @@ function dataLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function hoje(){return dataLocal(new Date())}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setHTML(id,h){const e=$(id);if(e)e.innerHTML=h}
+// Ícones da ficha do pedido (identidade v5) — SVG inline no padrão Lucide.
+const _IC_PATHS={
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  store:'<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/>',
+  cal:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  coins:'<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  pkg:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  barcode:'<path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>',
+  pin:'<path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>',
+  pencil:'<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/>',
+  list:'<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>',
+  card:'<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+  money:'<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  user2:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
+};
+function ic(nome){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(_IC_PATHS[nome]||'')+'</svg>';}
 function arred2(v){ return Math.round(Number(v||0)*100)/100; }
 </script>
 <script src="../js/nuvix-paginacao.js"></script>
@@ -419,19 +461,19 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
-          <div style="min-width:140px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">De</label><input type="date" id="pedHistDe"></div>
-          <div style="min-width:140px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Até</label><input type="date" id="pedHistAte"></div>
-          <div style="min-width:160px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status do pedido</label>
+          <div style="min-width:140px"><label class="ped-filtro-lbl">De</label><input type="date" id="pedHistDe"></div>
+          <div style="min-width:140px"><label class="ped-filtro-lbl">Até</label><input type="date" id="pedHistAte"></div>
+          <div style="min-width:160px"><label class="ped-filtro-lbl">Status do pedido</label>
             <select id="pedHistStatus"><option value="">Todos</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select>
           </div>
-          <div style="min-width:170px"><label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Status de entrega</label>
+          <div style="min-width:170px"><label class="ped-filtro-lbl">Status de entrega</label>
             <select id="pedHistStatusEntrega"><option value="">Todos</option><option value="Registrado">Registrado</option><option value="Em separação">Em separação</option><option value="Etiqueta emitida">Etiqueta emitida</option><option value="Etiqueta cancelada">Etiqueta cancelada</option><option value="Postado">Postado</option><option value="Em trânsito">Em trânsito</option><option value="Saiu para entrega">Saiu para entrega</option><option value="Aguardando retirada">Aguardando retirada</option><option value="Não entregue">Não entregue</option><option value="Devolvido">Devolvido</option><option value="Entregue">Entregue</option><option value="Enviado">Enviado (sem Correios)</option><option value="Retirado">Retirado</option></select>
           </div>
           <button class="btn2" onclick="carregarHistoricoPedidos()">Filtrar</button>
           <button class="btn2" onclick="limparFiltroHistoricoPedidos()">Limpar filtro</button>
         </div>
         <div id="pedHistInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
-        <div id="pedLoteBar" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--bg);align-items:center;gap:12px;flex-wrap:wrap">
+        <div id="pedLoteBar" class="card" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--p-soft);border-color:var(--p3);align-items:center;gap:12px;flex-wrap:wrap">
           <b id="pedLoteQtd" style="font-size:13px"></b>
           <button class="btn" id="btnImprimirLote" onclick="imprimirLotePedidos()">Imprimir etiquetas + declarações (10x15)</button>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="pedLoteMarcarSeparacao" style="width:16px;height:16px;accent-color:var(--p)"> Marcar como "Em separação" depois de imprimir</label>
@@ -503,9 +545,9 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
 <!-- Modal: ficha do pedido (leitura) -->
 <div class="modal-overlay" id="modalFichaPedido">
-<div class="modal" style="max-width:600px">
-  <h3 id="fpTitulo">Pedido</h3>
-  <div id="fpConteudo" style="font-size:13px;line-height:1.8"></div>
+<div class="modal" style="max-width:640px">
+  <div class="fp-head"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span><h3 id="fpTitulo">Pedido</h3></div>
+  <div id="fpConteudo" style="font-size:14px;line-height:1.55"></div>
   <div id="fpMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalFichaPedido')">Fechar</button>
@@ -1357,9 +1399,9 @@ function renderBotoesStatusEntrega(atual){
   const pelosCorreios=!!(rastreioAtual&&rastreioAtual.codigo_rastreio&&(!rastreioAtual.meio_envio||rastreioAtual.meio_envio==='Correios'));
   let proximos=PROXIMOS_STATUS_ENTREGA[atual||'Registrado']||[];
   if(pelosCorreios) proximos=proximos.filter(s=>s==='Em separação');
-  if(pelosCorreios&&!proximos.length) return '<span style="font-size:12px;color:var(--muted)">Atualiza sozinho pelo rastreio dos Correios (a cada 2 horas).</span>';
+  if(pelosCorreios&&!proximos.length) return '<span style="font-size:12.5px;color:var(--muted)">Atualiza sozinho pelo rastreio dos Correios (a cada 2 horas).</span>';
   if(!proximos.length)return '';
-  return proximos.map(s=>`<button class="btn2" style="font-size:12px;padding:6px 12px" onclick="avancarStatusEntregaPedido('${s}')">Marcar como ${s}</button>`).join('');
+  return proximos.map(s=>`<button class="btn2" onclick="avancarStatusEntregaPedido('${s}')">Marcar como ${s}</button>`).join('');
 }
 async function avancarStatusEntregaPedido(novoStatus){
   // Permissão "Expedição → Editar" (mudar status de entrega).
@@ -1377,10 +1419,10 @@ function renderHistoricoPedidos(){
   const pagina=paginar(historicoPedidos,'pedHistoricoTable');
   pagina.forEach(v=>{ pedFichaCache[v.id]=v; });
   setHTML('pedHistoricoTable',pagina.map(v=>`
-    <tr style="cursor:pointer" onclick="abrirFichaPedidoPorId('${v.id}')">
+    <tr onclick="abrirFichaPedidoPorId('${v.id}')">
       <td onclick="event.stopPropagation()">${v.status==='Cancelada'?'':`<input type="checkbox" class="ped-sel" ${pedSelecionados.has(v.id)?'checked':''} onchange="alternarSelecaoPedido('${v.id}',this.checked)" style="width:16px;height:16px;accent-color:var(--p);cursor:pointer">`}</td>
-      <td><b>${v.numero}</b></td>
-      <td>${esc(v.cliente_nome||'—')}</td>
+      <td class="ped-num">${v.numero}</td>
+      <td style="font-weight:600">${esc(v.cliente_nome||'—')}</td>
       <td>${money(v.total)}</td>
       <td>${v.status==='Cancelada'?'<span class="badge badge-red">Cancelada</span>':'<span class="badge badge-green">Registrado</span>'}</td>
       <td>${badgeNotaHistorico(v.id)}</td>
@@ -1494,26 +1536,28 @@ async function abrirFichaPedido(venda){
     const parcelasFin=parcelasFinA.length?parcelasFinA:(venda.financeiro_id?await dbGet('financeiro',`?id=eq.${venda.financeiro_id}&select=id,valor,vencimento,data_pagamento,status,parcela_numero,parcela_total`):[]);
     const nota=notaNfce[0]||notaNfe[0];
     setHTML('fpConteudo',`
-      <div><b>Cliente:</b> ${esc(venda.cliente_nome||'—')}</div>
-      <div><b>Canal:</b> ${esc(venda.canal||'—')}</div>
-      <div><b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
-      <div><b>Total:</b> ${money(venda.total)}</div>
-      <div style="margin-top:10px"><b>Status do pedido:</b> ${badgeStatusEntrega(venda.status_entrega)}</div>
-      ${CANAIS_ENVIO_PROPRIO[venda.canal]?`<div style="font-size:12px;color:var(--muted);margin-top:4px">Esse status não atualiza sozinho pra pedidos do ${esc(venda.canal)} — o Nuvix só recebe aviso de pedido pago, não de separação/envio/entrega. Acompanhe isso direto em ${esc(CANAIS_ENVIO_PROPRIO[venda.canal])}, ou marque manualmente aqui se quiser espelhar.</div>`:''}
-      ${venda.status!=='Cancelada'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${renderBotoesStatusEntrega(venda.status_entrega)}</div>`:''}
-      <div style="margin-top:10px"><b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">Ver PDF</a>`:''}${!notaNfce[0]&&nota.status==='processando'&&nota.id?` <button class="btn2" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="consultarNotaPedido('${nota.id}',this)">Atualizar nota</button>`:''}`:'Não emitida'}</div>
-      <div style="margin-top:14px;font-weight:700">Envio</div>
-      <div id="fpEnvioConteudo" style="margin-top:6px">${renderEnvioPedido()}</div>
-      <div style="margin-top:14px;font-weight:700">Itens</div>
-      <div class="tablewrap" style="margin-top:6px">
+      <div class="fp-rows">
+      <div class="fp-row">${ic('user')}<b>Cliente:</b> ${esc(venda.cliente_nome||'—')}</div>
+      <div class="fp-row">${ic('store')}<b>Canal:</b> ${esc(venda.canal||'—')}</div>
+      <div class="fp-row">${ic('cal')}<b>Data:</b> ${fmtDataHora(venda.created_at)}</div>
+      <div class="fp-row">${ic('coins')}<b>Total:</b> ${money(venda.total)}</div>
+      <div class="fp-row" style="margin-top:6px">${ic('truck')}<b>Status do pedido:</b> ${badgeStatusEntrega(venda.status_entrega)}</div>
+      ${CANAIS_ENVIO_PROPRIO[venda.canal]?`<div class="fp-hint">Esse status não atualiza sozinho pra pedidos do ${esc(venda.canal)} — o Nuvix só recebe aviso de pedido pago, não de separação/envio/entrega. Acompanhe isso direto em ${esc(CANAIS_ENVIO_PROPRIO[venda.canal])}, ou marque manualmente aqui se quiser espelhar.</div>`:''}
+      ${venda.status!=='Cancelada'?`<div class="fp-acoes">${renderBotoesStatusEntrega(venda.status_entrega)}</div>`:''}
+      <div class="fp-row" style="margin-top:6px">${ic('file')}<b>Nota fiscal:</b> ${nota?`${nota.status==='autorizada'?'Autorizada':esc(nota.status)} ${nota.numero&&nota.numero!=='SIMULADO'?'Nº '+esc(nota.numero):''} ${nota.link_pdf?`<a href="#" class="fp-link" onclick="abrirDanfce('${esc(nota.link_pdf)}');return false">${ic('ext')}Ver PDF</a>`:''}${!notaNfce[0]&&nota.status==='processando'&&nota.id?` <button class="btn2" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="consultarNotaPedido('${nota.id}',this)">Atualizar nota</button>`:''}`:'Não emitida'}</div>
+      </div>
+      <div class="fp-sec">${ic('pkg')}Envio</div>
+      <div id="fpEnvioConteudo">${renderEnvioPedido()}</div>
+      <div class="fp-sec">${ic('list')}Itens</div>
+      <div class="tablewrap" style="border:1px solid var(--line)">
         <table>
           <thead><tr><th>Produto</th><th>Qtd.</th><th>Unit.</th><th>Subtotal</th></tr></thead>
           <tbody>${itens.map(i=>`<tr><td>${esc(i.produto_nome)}</td><td>${i.quantidade}</td><td>${money(i.valor_unitario)}</td><td>${money(i.subtotal)}</td></tr>`).join('')}</tbody>
         </table>
       </div>
-      <div style="margin-top:10px;font-size:12px;color:var(--muted)">${formasPagamento.map(f=>`${esc(f.forma_pagamento)}: ${money(f.valor)}`).join(' · ')}</div>
-      <div style="margin-top:14px;font-weight:700">Pagamento${parcelasFin.length>1?` (${parcelasFin.length}x)`:''}</div>
-      <div class="tablewrap" style="margin-top:6px">
+      <div class="fp-pagto">${formasPagamento.map(f=>`${esc(f.forma_pagamento)}: ${money(f.valor)}`).join(' · ')}</div>
+      <div class="fp-sec">${ic('card')}Pagamento${parcelasFin.length>1?` (${parcelasFin.length}x)`:''}</div>
+      <div class="tablewrap" style="border:1px solid var(--line)">
         <table>
           <thead><tr>${parcelasFin.length>1?'<th>Parcela</th>':''}<th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
           <tbody>${parcelasFin.length?parcelasFin.map(f=>`<tr>
@@ -1611,20 +1655,24 @@ function renderEnvioPedido(){
     `;
   }
   const r=rastreioAtual;
+  // Identidade v5: mesmos dados e botões, em linhas com ícone + caixa lilás de status.
+  // Os botões só mostram texto (sem ícone) porque reimprimirRotuloPedido() troca o
+  // textContent do botão enquanto busca — ícone dentro dele sumiria.
   return `
-    <div><b>Meio de envio:</b> ${esc(r.meio_envio||'Correios')}</div>
-    ${r.codigo_rastreio?`<div><b>Código:</b> ${esc(r.codigo_rastreio)}</div>`:''}
-    ${r.entregador_nome?`<div><b>Entregue por:</b> ${esc(r.entregador_nome)}</div>`:''}
-    <div><b>Status:</b> ${esc(r.status||'Aguardando primeira consulta')}</div>
-    ${r.valor_cobrado_cliente!=null?`<div><b>Cobrado do cliente:</b> ${money(r.valor_cobrado_cliente)}</div>`:''}
-    ${r.valor_frete!=null?`<div><b>Custo do frete:</b> ${money(r.valor_frete)}</div>`:''}
-    ${r.link_pdf?`<div><a href="#" onclick="abrirDanfce('${esc(r.link_pdf)}');return false">Ver etiqueta (PDF)</a></div>`:''}
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">Atualizado em ${r.atualizado_em?fmtDataHora(r.atualizado_em):'—'}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      ${r.meio_envio==='Correios'||!r.meio_envio?`<button class="btn2" onclick="atualizarRastreioPedido()">Atualizar status</button>`:''}
-      ${r.codigo_rastreio?`<button class="btn2" onclick="copiarMensagemRastreioPedido()">Copiar mensagem pro cliente</button>`:''}
+    <div class="fp-rows">
+    <div class="fp-row">${ic('truck')}<b>Meio de envio:</b> ${esc(r.meio_envio||'Correios')}</div>
+    ${r.codigo_rastreio?`<div class="fp-row">${ic('barcode')}<b>Código:</b> ${esc(r.codigo_rastreio)}</div>`:''}
+    ${r.entregador_nome?`<div class="fp-row">${ic('user2')}<b>Entregue por:</b> ${esc(r.entregador_nome)}</div>`:''}
+    ${r.valor_cobrado_cliente!=null?`<div class="fp-row">${ic('money')}<b>Cobrado do cliente:</b> ${money(r.valor_cobrado_cliente)}</div>`:''}
+    ${r.valor_frete!=null?`<div class="fp-row">${ic('money')}<b>Custo do frete:</b> ${money(r.valor_frete)}</div>`:''}
+    ${r.link_pdf?`<div class="fp-row">${ic('file')}<a href="#" class="fp-link" onclick="abrirDanfce('${esc(r.link_pdf)}');return false">Ver etiqueta (PDF)</a></div>`:''}
+    </div>
+    <div class="fp-callout">${ic('pin')}<div><b>Status:</b> ${esc(r.status||'Aguardando primeira consulta')}<small>Atualizado em ${r.atualizado_em?fmtDataHora(r.atualizado_em):'—'}</small></div></div>
+    <div class="fp-btns">
+      ${r.meio_envio==='Correios'||!r.meio_envio?`<button class="btn" onclick="atualizarRastreioPedido()">${ic('refresh')}Atualizar status</button>`:''}
+      ${r.codigo_rastreio?`<button class="btn2" onclick="copiarMensagemRastreioPedido()">${ic('msg')}Copiar mensagem pro cliente</button>`:''}
       ${r.codigo_rastreio&&(r.meio_envio==='Correios'||!r.meio_envio)?`<button class="btn2" id="btnReimprimirRotuloPed" onclick="reimprimirRotuloPedido()">${r.link_pdf?'Atualizar PDF da etiqueta':'Buscar PDF da etiqueta'}</button>`:''}
-      <button class="btn2" onclick="editarEnvioPedido()">Editar envio</button>
+      <button class="btn2" onclick="editarEnvioPedido()">${ic('pencil')}Editar envio</button>
     </div>
   `;
 }
