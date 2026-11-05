@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
     <div class="nm-sec">Operação</div>
     <div class="nm-grid">
       <div class="field s2"><label for="nmNatureza">Natureza da operação *</label><input id="nmNatureza" list="nmNaturezas" maxlength="60"><datalist id="nmNaturezas"><option value="Venda de mercadoria"><option value="Remessa em bonificação"><option value="Remessa para conserto"><option value="Remessa para demonstração"><option value="Remessa em consignação"><option value="Devolução de compra"><option value="Transferência entre filiais"><option value="Outras saídas"></datalist></div>
-      <div class="field"><label for="nmTipoDoc">Tipo</label><select id="nmTipoDoc"><option value="1">Saída</option><option value="0">Entrada</option></select></div>
+      <div class="field"><label for="nmTipoDoc">Tipo</label><select id="nmTipoDoc" onchange="nmSyncSistema()"><option value="1">Saída</option><option value="0">Entrada</option></select></div>
       <div class="field"><label for="nmFinalidade">Finalidade</label><select id="nmFinalidade" onchange="nmSyncFinalidade()"><option value="1">Normal</option><option value="2">Complementar</option><option value="3">Ajuste</option><option value="4">Devolução</option></select></div>
       <div class="field"><label for="nmCfop">CFOP padrão dos itens *</label><input id="nmCfop" inputmode="numeric" maxlength="4" placeholder="Ex: 5102"><div class="nm-hint">O 1º número se ajusta sozinho pela UF</div></div>
       <div class="field"><label for="nmConsFinal">Consumidor final</label><select id="nmConsFinal"><option value="">Automático (pela IE)</option><option value="1">Sim</option><option value="0">Não</option></select></div>
@@ -420,7 +420,28 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   <div class="nm-sec">Informações adicionais</div>
   <div class="field" style="margin:0"><label for="nmInfo" id="nmInfoLbl">Aparecem no DANFE</label><textarea id="nmInfo" rows="3" maxlength="2000"></textarea></div>
 
-  <div class="notice" style="margin:18px 0 0;font-size:12.5px">A nota manual é só o documento fiscal: <b>não mexe no estoque nem lança no financeiro</b>.</div>
+  <div class="nm-sec">Atualizar o sistema?</div>
+  <div class="nm-tipo" role="radiogroup" aria-label="Atualizar o sistema">
+    <label class="nm-tipo-op on" id="nmOpSo"><input type="radio" name="nmSistema" value="nao" checked onchange="nmSyncSistema()"><span><b>Só emitir a nota fiscal</b><small>Não mexe no estoque nem no financeiro</small></span></label>
+    <label class="nm-tipo-op" id="nmOpSist"><input type="radio" name="nmSistema" value="sim" onchange="nmSyncSistema()"><span><b>Emitir e atualizar o sistema</b><small id="nmOpSistSub">Estoque e financeiro, quando a nota for autorizada</small></span></label>
+  </div>
+  <div id="nmSistWrap" style="display:none;margin-top:14px">
+    <div class="nm-grid">
+      <div class="field s2" id="nmEstWrap">
+        <label class="nm-check" for="nmMovEst"><input type="checkbox" id="nmMovEst" onchange="nmSyncSistema()"> <span id="nmMovEstLbl">Baixar do estoque</span></label>
+        <select id="nmLoja" aria-label="Loja do estoque" style="margin-top:8px"></select>
+        <div class="nm-hint">Itens avulsos (sem cadastro de produto) não mexem no estoque.</div>
+      </div>
+      <div class="field s2">
+        <label class="nm-check" for="nmLancFin"><input type="checkbox" id="nmLancFin" onchange="nmSyncSistema()"> <span id="nmLancFinLbl">Lançar conta a receber no financeiro</span></label>
+        <div id="nmFinCampos" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+          <div class="field" style="margin:0"><label for="nmFinSit">Situação</label><select id="nmFinSit"><option value="0">Em aberto</option><option value="1" id="nmFinSitQ">Já recebido</option></select></div>
+          <div class="field" style="margin:0"><label for="nmFinVenc">Vencimento</label><input type="date" id="nmFinVenc"></div>
+        </div>
+      </div>
+    </div>
+    <div class="notice" style="margin:12px 0 0;font-size:12.5px">Estoque e financeiro só são atualizados <b>quando a nota for autorizada</b>. Se a nota for rejeitada, nada muda.</div>
+  </div>
   <div id="nmMsg" class="msg"></div>
   <div class="modal-actions">
     <button class="btn2" type="button" onclick="fecharModal('modalNotaManual')">Cancelar</button>
@@ -527,6 +548,18 @@ async function loadData(){
   }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
   renderStrip();
   renderLista();
+  nmAplicarPendentes().catch(()=>{});
+}
+// Linha "Sistema" no detalhe de nota manual: o que a nota faz (ou já fez) no estoque/financeiro.
+function nmLinhaSistema(n){
+  if(n.origem!=='manual')return '';
+  const partes=[];
+  if(n.movimentar_estoque)partes.push(n.tipo_documento===0?'entrada no estoque':'baixa no estoque');
+  if(n.lancar_financeiro)partes.push(tipoAtual==='nfe'&&n.tipo_documento===0?'conta a pagar':'conta a receber');
+  const txt=!partes.length?'Só a nota fiscal (não mexe em estoque nem financeiro)'
+    :n.sistema_aplicado_em?`Feito em ${fmtDataHora(n.sistema_aplicado_em)}: ${partes.join(' e ')}`
+    :`Quando autorizada: ${partes.join(' e ')}`;
+  return `<div class="det-row"><span class="det-lbl">Sistema</span><span class="det-val" style="font-weight:600">${esc(txt)}</span></div>`;
 }
 
 const STATUS_LABEL={nao_emitida:['Não emitida','off'],processando:['Processando','warn'],autorizada:['Autorizada','ok'],erro:['Erro','bad'],cancelada:['Cancelada','off']};
@@ -709,7 +742,7 @@ async function verDetalhe(id){
         </div>
         <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
       </div>
-      ${n.origem==='manual'?`<div class="det-section">Operação (nota manual)</div>
+      ${n.origem==='manual'?`<div class="det-section">Operação (nota manual)</div>${nmLinhaSistema(n)}
       <div class="det-row"><span class="det-lbl">Natureza</span><span class="det-val">${esc(n.natureza_operacao||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">Tipo / Finalidade</span><span class="det-val">${n.tipo_documento===0?'Entrada':'Saída'} · ${({1:'Normal',2:'Complementar',3:'Ajuste',4:'Devolução'})[n.finalidade_emissao]||'Normal'}</span></div>
       ${(n.chaves_referenciadas||[]).length?`<div class="det-row"><span class="det-lbl">Nota referenciada</span><span class="det-val" style="font-size:11px">${(n.chaves_referenciadas||[]).map(esc).join('<br>')}</span></div>`:''}
@@ -772,7 +805,7 @@ async function verDetalhe(id){
       ${n.origem==='manual'?`<div class="det-row"><span class="det-lbl">Código do serviço</span><span class="det-val">${esc(n.item_lista_servico||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">Alíquota ISS</span><span class="det-val">${n.aliquota_iss!=null?String(n.aliquota_iss).replace('.',',')+'%':'—'}${n.iss_retido?' · retido pelo tomador':''}</span></div>
       ${Number(n.valor_deducoes)?`<div class="det-row"><span class="det-lbl">Deduções</span><span class="det-val">${money(n.valor_deducoes)}</span></div>`:''}
-      <div class="det-row"><span class="det-lbl">Origem</span><span class="det-val">Nota manual</span></div>`:''}
+      <div class="det-row"><span class="det-lbl">Origem</span><span class="det-val">Nota manual</span></div>${nmLinhaSistema(n)}`:''}
       <div class="det-section">Nota</div>
       <div class="det-row"><span class="det-lbl">Número NFS-e</span><span class="det-val">${esc(n.numero_nfse||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">Código de verificação</span><span class="det-val">${esc(n.codigo_verificacao||'—')}</span></div>
@@ -1482,6 +1515,17 @@ function nmNum(v){let s=String(v??'').trim();if(!s)return 0;if(s.includes(',')&&
 function nmArred(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
 function nmBr(v){return nmArred(v).toFixed(2).replace('.',',');}
 function nmSoDigitos(v){return String(v||'').replace(/\D/g,'');}
+function hojeISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// Escolha "atualizar o sistema" gravada na nota (mesmos nomes de coluna nas duas tabelas).
+function nmCamposSistema(){
+  const sim=nmSistemaSim(),serv=nmTipo==='servico';
+  const fin=sim&&$('nmLancFin').checked;
+  const campos={lancar_financeiro:fin, financeiro_quitado:fin&&$('nmFinSit').value==='1',
+    financeiro_vencimento:fin?(val('nmFinVenc')||hojeISO()):null,
+    financeiro_forma:fin&&!serv&&!$('nmSemPg').checked?(nmPagtos.find(p=>nmNum(p.valor)>0)?.forma||null):null};
+  if(!serv){const est=sim&&$('nmMovEst').checked;campos.movimentar_estoque=est;campos.loja_id=est?(val('nmLoja')||null):null;}
+  return campos;
+}
 async function nmDelete(tabela,filtro){_verificarSessao();const r=await fetch(`${SB}/rest/v1/${tabela}?${filtro}`,{method:'DELETE',headers:H});if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));}
 
 const NM_FORMAS=['Pix','Dinheiro','Boleto','Cartão Crédito','Cartão Débito','Transferência','Depósito','Cheque','Duplicata','Outros'];
@@ -1495,8 +1539,50 @@ async function nmCarregarCadastros(){
     db.get('produtos',`?empresa_id=eq.${e}&ativo=eq.true&select=id,nome,sku,codigo_barras,ncm,cest,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins,preco_venda_final&order=nome.asc&limit=5000`).catch(()=>[]),
     db.get('servicos_catalogo',`?empresa_id=eq.${e}&select=id,nome,descricao,valor_base,codigo_tributacao_nacional,aliquota_iss,ativo&order=nome.asc`).catch(()=>[]),
   ]);
-  nmCad={clientes,produtos,servicos:servicos.filter(s=>s.ativo!==false)};
+  const lojas=await db.get('lojas',`?empresa_id=eq.${e}&select=id,nome,ativo&order=nome.asc`).catch(()=>[]);
+  nmCad={clientes,produtos,servicos:servicos.filter(s=>s.ativo!==false),lojas:lojas.filter(l=>l.ativo!==false)};
+  nmPreencherLojas();
   return nmCad;
+}
+function nmPreencherLojas(selecionada){
+  const sel=$('nmLoja');if(!sel||!nmCad)return;
+  const atual=selecionada||sel.value;
+  sel.innerHTML=nmCad.lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')||'<option value="">Nenhuma loja cadastrada</option>';
+  if(atual&&nmCad.lojas.some(l=>l.id===atual))sel.value=atual;
+}
+
+// ── Atualizar o sistema (estoque/financeiro) — opção da nota manual ──
+// A nota só grava a ESCOLHA; quem aplica é a função aplicar_nota_manual_no_sistema
+// no banco, uma única vez, quando a nota aparece como AUTORIZADA (ver
+// nmAplicarPendentes, chamada no fim de loadData). Rejeitada = nada muda.
+function nmSistemaSim(){return document.querySelector('input[name="nmSistema"]:checked')?.value==='sim';}
+function nmSyncSistema(){
+  const sim=nmSistemaSim(),serv=nmTipo==='servico',entrada=!serv&&$('nmTipoDoc').value==='0';
+  $('nmOpSo').classList.toggle('on',!sim);$('nmOpSist').classList.toggle('on',sim);
+  $('nmSistWrap').style.display=sim?'block':'none';
+  $('nmEstWrap').style.display=serv?'none':'';
+  $('nmOpSistSub').textContent=serv?'Lança no financeiro quando a nota for autorizada':'Estoque e financeiro, quando a nota for autorizada';
+  $('nmMovEstLbl').textContent=entrada?'Dar entrada no estoque':'Baixar do estoque';
+  $('nmLancFinLbl').textContent=entrada?'Lançar conta a pagar no financeiro':'Lançar conta a receber no financeiro';
+  $('nmFinSitQ').textContent=entrada?'Já pago':'Já recebido';
+  $('nmLoja').style.display=$('nmMovEst').checked?'':'none';
+  $('nmFinCampos').style.display=$('nmLancFin').checked?'grid':'none';
+}
+async function nmAplicarPendentes(){
+  if(tipoAtual!=='nfe'&&tipoAtual!=='nfse')return;
+  const pend=notas.filter(n=>n.origem==='manual'&&n.status==='autorizada'&&!n.sistema_aplicado_em&&(n.movimentar_estoque||n.lancar_financeiro));
+  if(!pend.length)return;
+  let ok=0,falhou=0;
+  for(const n of pend){
+    try{
+      const r=await fetch(`${SB}/rest/v1/rpc/aplicar_nota_manual_no_sistema`,{method:'POST',headers:H,body:JSON.stringify({p_tipo:tipoAtual,p_nota_id:n.id})});
+      if(!r.ok)throw new Error(await r.text());
+      const resp=await r.json();
+      if(resp?.aplicado){ok++;n.sistema_aplicado_em=new Date().toISOString();}
+    }catch(e){falhou++;console.warn('Falha ao atualizar o sistema pela nota manual',n.id,e);}
+  }
+  if(ok)toast(`${ok} nota${ok>1?'s':''} manual${ok>1?'is':''} autorizada${ok>1?'s':''}: estoque/financeiro atualizados.`,'ok');
+  if(falhou)toast(`Não consegui atualizar estoque/financeiro de ${falhou} nota${falhou>1?'s':''} manual${falhou>1?'is':''}. Confira se você tem permissão em Estoque e Financeiro.`,'err');
 }
 
 function nmMarcarTipo(){
@@ -1511,6 +1597,7 @@ function nmTrocarTipo(t){
   if(nmEditId&&t!==nmTipo){nmMarcarTipo();toast('Esse rascunho já foi salvo como '+(nmTipo==='servico'?'NFS-e':'NF-e')+'. Para outro tipo, crie uma nota nova.','err');return;}
   nmTipo=t;
   const serv=t==='servico';
+  setTimeout(nmSyncSistema,0);
   $('nmSecServico').style.display=serv?'block':'none';
   $('nmSecOperacao').style.display=serv?'none':'block';
   $('nmSecProduto').style.display=serv?'none':'block';
@@ -1534,6 +1621,9 @@ function nmLimparForm(){
   $('nmConsFinal').value='';$('nmPresenca').value='9';$('nmModFrete').value='9';$('nmSemPg').checked=false;
   $('nmCepHint').textContent='Preenche rua, bairro, cidade e UF';
   nmItens=[];nmPagtos=[{forma:'Pix',valor:'',auto:true}];
+  document.querySelectorAll('input[name="nmSistema"]').forEach(r=>{r.checked=r.value==='nao';});
+  $('nmMovEst').checked=true;$('nmLancFin').checked=true;$('nmFinSit').value='0';$('nmFinVenc').value=hojeISO();
+  nmPreencherLojas();
   setHTML('nmMsg','');$('nmMsg').className='msg';
   nmSyncFinalidade();nmSyncFrete();nmSyncPagamento();nmRenderItens();
 }
@@ -1692,6 +1782,12 @@ async function nmConsultarCep(preencher){
 // ── Validação ──
 function nmValidar(){
   const erros=[];const doc=nmSoDigitos(val('nmDDoc'));
+  if(nmSistemaSim()){
+    const est=nmTipo!=='servico'&&$('nmMovEst').checked,fin=$('nmLancFin').checked;
+    if(!est&&!fin)erros.push(nmTipo==='servico'?'marque "Lançar no financeiro" ou escolha "Só emitir a nota fiscal"':'marque estoque e/ou financeiro, ou escolha "Só emitir a nota fiscal"');
+    if(est&&!val('nmLoja'))erros.push('loja do estoque');
+    if(fin&&!val('nmFinVenc'))erros.push('vencimento do lançamento');
+  }
   if(!val('nmDNome').trim())erros.push(nmTipo==='servico'?'nome do tomador':'nome do destinatário');
   if(doc.length!==11&&doc.length!==14)erros.push('CPF/CNPJ (11 ou 14 números)');
   if(nmTipo==='servico'){
@@ -1762,6 +1858,7 @@ async function nmSalvar(emitir){
         data_competencia:val('nmSComp')+'-01', cliente_email:val('nmDEmail').trim()||null, cliente_telefone:val('nmDFone').trim()||null,
         cliente_inscricao_municipal:val('nmDIe').trim()||null, cliente_codigo_municipio_ibge:val('nmIbge')||null,
         servico_catalogo_id:$('nmSBusca').dataset.servicoId||null, updated_at:agora,
+        ...nmCamposSistema(),
       };
       if(id){await db.patch('notas_fiscais',id,nota);}
       else{const r=await db.post('notas_fiscais',{...nota,empresa_id:session.empresa_id,status:'nao_emitida',criado_por:session.id||null});id=(Array.isArray(r)?r[0]:r).id;}
@@ -1790,6 +1887,7 @@ async function nmSalvar(emitir){
         volumes_quantidade:nmNum(val('nmVol'))||null, volumes_especie:val('nmEsp').trim()||null, peso_bruto:nmNum(val('nmPB'))||null, peso_liquido:nmNum(val('nmPL'))||null,
         formas_pagamento:$('nmSemPg').checked?[]:nmPagtos.filter(p=>nmNum(p.valor)>0).map(p=>({forma:p.forma,valor:nmArred(nmNum(p.valor))})),
         data_venda:agora, updated_at:agora,
+        ...nmCamposSistema(),
       };
       if(id){
         await db.patch('notas_fiscais_nfe',id,nota);
@@ -1848,6 +1946,13 @@ async function editarNotaManual(){
     let itens=[];try{itens=await db.get('notas_fiscais_nfe_itens',`?select=*&nota_fiscal_nfe_id=eq.${n.id}`);}catch(e){}
     nmItens=itens.map(it=>({produto_id:it.produto_id,codigo_produto:it.codigo_produto||'',descricao:it.descricao,ncm:it.ncm||'',cest:it.cest||'',cfop:it.cfop||'',csosn_cst:it.csosn_cst||'',unidade_medida:it.unidade_medida||'UN',quantidade:String(it.quantidade).replace('.',','),valor_unitario:nmBr(it.valor_unitario),valor_desconto:Number(it.valor_desconto)?nmBr(it.valor_desconto):'',origem_mercadoria:it.origem_mercadoria??'0',cclasstrib:it.cclasstrib,cst_ibs_cbs:it.cst_ibs_cbs,aliquota_icms:it.aliquota_icms,aliquota_pis:it.aliquota_pis,aliquota_cofins:it.aliquota_cofins}));
     nmSyncFinalidade();nmSyncFrete();nmSyncPagamento();nmRenderItens();
+  }
+  const sistemaSim=!!(n.lancar_financeiro||n.movimentar_estoque);
+  document.querySelectorAll('input[name="nmSistema"]').forEach(r=>{r.checked=r.value===(sistemaSim?'sim':'nao');});
+  if(sistemaSim){
+    $('nmMovEst').checked=!!n.movimentar_estoque;$('nmLancFin').checked=!!n.lancar_financeiro;
+    $('nmFinSit').value=n.financeiro_quitado?'1':'0';$('nmFinVenc').value=n.financeiro_vencimento||hojeISO();
+    nmPreencherLojas(n.loja_id);
   }
   fecharModal('modalDetalhe');
   nmTrocarTipo(nmTipo);
