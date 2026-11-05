@@ -20,9 +20,9 @@
 .rh-tabs::-webkit-scrollbar { display: none; }
 .rh-tab {
   background: #fff;
-  color: var(--p);
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
+  color: var(--p2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
   padding: 10px 18px;
   font-size: 13px;
   font-weight: 700;
@@ -36,30 +36,26 @@
   transition: all .15s;
   line-height: 1;
 }
-.rh-tab:hover:not(.active) { background: var(--p-light); border-color: var(--p); }
-.rh-tab.active { background: var(--p); color: #fff; border-color: var(--p); }
+.rh-tab:hover:not(.active) { background: var(--p-light); border-color: var(--p3); }
+.rh-tab.active { background: var(--p2); color: #fff; border-color: var(--p2); box-shadow: var(--shadow-btn); }
 
 /* ── RH Panes — CRITICAL: apenas a pane ativa aparece ── */
 .rh-pane { display: none !important; }
 .rh-pane.active { display: block !important; }
-.holerite{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:12px}
+.holerite{background:var(--grad-surface);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:12px}
 .holerite-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--line)}
 .holerite-nome{font-size:16px;font-weight:800}
 .holerite-cargo{font-size:12px;color:var(--muted);margin-top:2px}
 .holerite-linha{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
 .holerite-total{display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:800;border-top:2px solid var(--line);margin-top:8px}
-.perf-bar-wrap{background:#f3f4f6;border-radius:99px;height:8px;margin-top:6px;overflow:hidden}
+.perf-bar-wrap{background:var(--p-light);border-radius:99px;height:8px;margin-top:6px;overflow:hidden}
 .perf-bar{height:8px;border-radius:99px;background:var(--p)}
 @media(max-width:768px){#hambBtn{display:block!important}.form-row,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr!important}.grid-4{grid-template-columns:1fr 1fr!important}}
 
 /* ── Modal ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:20px;padding:28px 32px;width:100%;max-width:580px;box-shadow:0 40px 100px rgba(0,0,0,.25);margin:auto}
+/* Modal: padrão global v5 (css/nuvix.css). */
+.modal{max-width:580px}
 .modal.modal-wide{max-width:920px}
-.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
-.modal-actions{display:flex;gap:10px;margin-top:20px}
-.modal-actions button{flex:1}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -347,9 +343,9 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         <div id="avisoSemJornada" style="display:none;background:var(--amber-bg);border:1px solid var(--amber);border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--txt)"></div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Time</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Time</h2>
             <div style="display:flex;gap:8px">
-              <input type="text" id="colBusca" placeholder="Buscar..." oninput="renderColaboradores()" style="max-width:220px">
+              <input type="text" id="colBusca" class="nx-search" placeholder="Buscar..." oninput="renderColaboradores()" style="max-width:220px">
               <select id="colFiltroContrato" onchange="renderColaboradores()" style="max-width:140px">
                 <option value="">Todos</option><option>CLT</option><option>PJ</option><option>Horista</option><option>Temporário</option><option>Estágio</option>
               </select>
@@ -363,7 +359,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       <!-- PONTO -->
       <div id="pane-ponto" class="rh-pane">
         <div class="card">
-          <h2 id="pontoFormTitulo">Registrar ponto</h2>
+          <div class="nx-sec-wrap"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/></svg></span><h2 id="pontoFormTitulo">Registrar ponto</h2></div>
           <input type="hidden" id="pontoEditId">
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Colaborador</label><select id="pontoCol" onchange="atualizarHorasExtrasSugeridas()"></select></div>
@@ -383,9 +379,9 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h2 style="margin:0">Registros de ponto</h2>
+            <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Registros de ponto</h2>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <input type="text" id="pontoBuscaCol" placeholder="Buscar colaborador..." oninput="renderPonto()" style="max-width:200px">
+              <input type="text" id="pontoBuscaCol" class="nx-search" placeholder="Buscar colaborador..." oninput="renderPonto()" style="max-width:200px">
               <select id="pontoFiltroCol" onchange="renderPonto()" style="max-width:200px"><option value="">Todos colaboradores</option></select>
               <input type="month" id="pontoFiltroMes" onchange="renderPonto()" style="max-width:160px">
               <button class="btn2" onclick="imprimirFolhaPonto()">Imprimir folha de ponto</button>
@@ -400,7 +396,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       <!-- FOLHA -->
       <div id="pane-folha" class="rh-pane">
         <div class="card">
-          <h2>Folha de Pagamento</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span>Folha de Pagamento</h2>
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px">
             <div class="field" style="margin:0"><label>Mês de referência</label><input type="month" id="folhaMes" style="max-width:180px"></div>
             <div class="field" style="margin:0"><label>Adiantamento (%)</label><input type="number" id="folhaAdiantPct" value="40" min="0" max="100" style="max-width:100px"></div>
@@ -417,7 +413,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       <!-- FÉRIAS -->
       <div id="pane-ferias" class="rh-pane">
         <div class="card">
-          <h2>Simulador de Férias</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>Simulador de Férias</h2>
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Colaborador</label><select id="ferCol" onchange="calcularFerias()"></select></div>
             <div class="field"><label>Data de início das férias</label><input id="ferInicio" type="date" onchange="calcularFerias()"></div>
@@ -436,7 +432,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
       <!-- RESCISÃO -->
       <div id="pane-rescisao" class="rh-pane">
         <div class="card">
-          <h2>Simulador de Rescisão</h2>
+          <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/></svg></span>Simulador de Rescisão</h2>
           <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             <div class="field"><label>Colaborador</label><select id="rescCol"></select></div>
             <div class="field"><label>Data de demissão</label><input id="rescData" type="date"></div>

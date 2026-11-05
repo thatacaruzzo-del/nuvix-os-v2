@@ -13,8 +13,8 @@
 /* Mesmo padrão de abas de parametros.html (.par-tabs/.par-tab/.par-pane) —
    evita a página virar uma rolagem infinita conforme mais canais entram. */
 .par-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
-.par-tab{background:#fff;color:var(--p);border:1.5px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;gap:8px}
-.par-tab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.par-tab{background:#fff;color:var(--p2);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;min-height:42px;display:inline-flex;align-items:center;gap:8px}
+.par-tab.active{background:var(--p2);color:#fff;border-color:var(--p2);box-shadow:var(--shadow-btn)}
 .par-pane{display:none}.par-pane.active{display:block}
 .int-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex-shrink:0;display:inline-block}
 .int-dot.on{background:#22c55e}
@@ -209,7 +209,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ LOJA DE REFERÊNCIA DE ESTOQUE ══ -->
       <div class="card">
-        <h2>Loja de referência de estoque</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/></svg></span>Loja de referência de estoque</h2>
         <p class="muted" style="line-height:1.6;margin-bottom:12px">Qual loja do Nuvix representa o estoque anunciado no Mercado Livre? A quantidade dessa loja é o que será sincronizado com seus anúncios.</p>
         <div class="field" style="max-width:360px">
           <label>Loja</label>
@@ -220,7 +220,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ ANÚNCIOS PENDENTES DE VÍNCULO ══ -->
       <div class="card" id="mlAnunciosCard" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Anúncios pendentes de vínculo</h2>
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71h-.02a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><path d="M8 2v3"/><path d="M2 8h3"/><path d="M16 22v-3"/><path d="M22 16h-3"/></svg></span>Anúncios pendentes de vínculo</h2>
           <button class="btn2" id="mlBtnBuscarAnuncios" onclick="buscarAnunciosML()" style="font-size:12px;padding:6px 12px">Buscar anúncios no Mercado Livre</button>
         </div>
         <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta do Mercado Livre que ainda não têm produto vinculado no Nuvix — quem cria o anúncio direto lá não precisa cadastrar o produto de novo aqui. Vincule a um produto já existente ou crie um produto novo a partir do anúncio. Anúncio com SKU igual ao de um produto do Nuvix já vem sugerido, pra não precisar vincular catálogo grande um por um.</p>
@@ -236,8 +236,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ MAPEAMENTO DE PRODUTOS ══ -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Mapeamento de produtos</h2>
-          <input id="mlBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamento()" style="max-width:280px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Mapeamento de produtos</h2>
+          <input id="mlBusca" class="nx-search" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamento()" style="max-width:280px">
         </div>
         <p class="muted" style="margin-bottom:14px">Informe o ID do anúncio no Mercado Livre (ex: MLB1234567890) para cada produto vendido por lá. Sem esse vínculo, o produto não sincroniza estoque nem recebe pedidos automaticamente.</p>
         <div class="tablewrap">
@@ -251,7 +251,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ MAPEAMENTO DE KITS ══ -->
       <div class="card" id="mlKitsCard" style="display:none">
-        <h2 style="margin:0 0 6px">Mapeamento de kits</h2>
+        <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Mapeamento de kits</h2>
         <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio anúncio no Mercado Livre — o estoque publicado é sempre o mínimo entre os componentes (não deixa vender o que não dá pra montar).</p>
         <div class="tablewrap">
           <table>
@@ -264,7 +264,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
       <div class="card" id="mlErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-          <h2 style="margin-bottom:0">Pedidos pendentes de revisão</h2>
+          <h2 class="nx-sec-t" style="margin-bottom:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Pedidos pendentes de revisão</h2>
           <div style="display:flex;gap:6px">
             <button class="btn2" id="mlErrosTabPendentes" onclick="mlErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="mlErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
             <button class="btn2" id="mlErrosTabResolvidos" onclick="mlErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
@@ -317,10 +317,10 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ NUVEMSHOP — MAPEAMENTO DE PRODUTOS ══ -->
       <div class="card" id="nsMapeamentoCard" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Mapeamento de produtos — Nuvemshop</h2>
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Mapeamento de produtos — Nuvemshop</h2>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <select id="nsMapLojaSelect" onchange="renderMapeamentoNS();renderMapeamentoKitsNS()" style="max-width:220px"></select>
-            <input id="nsBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoNS()" style="max-width:260px">
+            <input id="nsBusca" class="nx-search" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoNS()" style="max-width:260px">
           </div>
         </div>
         <p class="muted" style="margin-bottom:14px">Informe o ID do produto e o ID da variante na Nuvemshop pra cada item vendido por lá — mesmo produto sem variação de tamanho/cor também tem 1 variante na Nuvemshop, é ela que carrega estoque/preço. Sem esse vínculo, o produto não sincroniza nem recebe pedidos automaticamente.</p>
@@ -335,7 +335,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ NUVEMSHOP — MAPEAMENTO DE KITS ══ -->
       <div class="card" id="nsKitsCard" style="display:none">
-        <h2 style="margin:0 0 6px">Mapeamento de kits — Nuvemshop</h2>
+        <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Mapeamento de kits — Nuvemshop</h2>
         <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio produto na Nuvemshop. Deixe os dois campos em branco e clique em Salvar — o produto é criado sozinho na Nuvemshop e os IDs voltam preenchidos.</p>
         <div class="tablewrap">
           <table>
@@ -348,7 +348,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ NUVEMSHOP — PEDIDOS COM ERRO ══ -->
       <div class="card" id="nsErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-          <h2 style="margin-bottom:0">Pedidos Nuvemshop pendentes de revisão</h2>
+          <h2 class="nx-sec-t" style="margin-bottom:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Pedidos Nuvemshop pendentes de revisão</h2>
           <div style="display:flex;gap:6px">
             <button class="btn2" id="nsErrosTabPendentes" onclick="nsErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="nsErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
             <button class="btn2" id="nsErrosTabResolvidos" onclick="nsErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
@@ -407,7 +407,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ PEDIDOOK — CONFIGURAÇÃO ══ -->
       <div class="card" id="pkConfigCard" style="display:none">
-        <h2>Configuração</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></svg></span>Configuração</h2>
         <p class="muted" style="line-height:1.6;margin-bottom:12px">Qual loja do Nuvix representa o estoque informado ao PedidoOK, e em quantos dias vence o título gerado em Contas a Receber pra cada pedido importado.</p>
         <div class="form-row grid-2">
           <div class="field">
@@ -424,8 +424,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ PEDIDOOK — MAPEAMENTO DE PRODUTOS ══ -->
       <div class="card" id="pkMapeamentoCard" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Mapeamento de produtos — PedidoOK</h2>
-          <input id="pkBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoPK()" style="max-width:280px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Mapeamento de produtos — PedidoOK</h2>
+          <input id="pkBusca" class="nx-search" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoPK()" style="max-width:280px">
         </div>
         <p class="muted" style="margin-bottom:14px">Deixe "ID no PedidoOK" em branco pra criar o produto lá automaticamente na primeira sincronização de estoque — ou informe o ID de um produto que já existe no PedidoOK, se preferir vincular a um cadastro existente.</p>
         <div class="tablewrap">
@@ -439,7 +439,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ PEDIDOOK — MAPEAMENTO DE KITS ══ -->
       <div class="card" id="pkKitsCard" style="display:none">
-        <h2 style="margin:0 0 6px">Mapeamento de kits — PedidoOK</h2>
+        <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Mapeamento de kits — PedidoOK</h2>
         <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio produto no PedidoOK. Deixe em branco pra criar automaticamente.</p>
         <div class="tablewrap">
           <table>
@@ -452,7 +452,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ PEDIDOOK — PEDIDOS COM ERRO ══ -->
       <div class="card" id="pkErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-          <h2 style="margin-bottom:0">Pedidos PedidoOK pendentes de revisão</h2>
+          <h2 class="nx-sec-t" style="margin-bottom:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Pedidos PedidoOK pendentes de revisão</h2>
           <div style="display:flex;gap:6px">
             <button class="btn2" id="pkErrosTabPendentes" onclick="pkErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="pkErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
             <button class="btn2" id="pkErrosTabResolvidos" onclick="pkErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
@@ -508,7 +508,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ SHOPEE — LOJA DE REFERÊNCIA DE ESTOQUE ══ -->
       <div class="card">
-        <h2>Loja de referência de estoque</h2>
+        <h2 class="nx-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/></svg></span>Loja de referência de estoque</h2>
         <p class="muted" style="line-height:1.6;margin-bottom:12px">Qual loja do Nuvix representa o estoque anunciado na Shopee? A quantidade dessa loja é o que será sincronizado com seus anúncios.</p>
         <div class="field" style="max-width:360px">
           <label>Loja</label>
@@ -519,7 +519,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ SHOPEE — ANÚNCIOS PENDENTES DE VÍNCULO ══ -->
       <div class="card" id="shopeeAnunciosCard" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Anúncios pendentes de vínculo</h2>
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71h-.02a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><path d="M8 2v3"/><path d="M2 8h3"/><path d="M16 22v-3"/><path d="M22 16h-3"/></svg></span>Anúncios pendentes de vínculo</h2>
           <button class="btn2" id="shopeeBtnBuscarAnuncios" onclick="buscarAnunciosShopee()" style="font-size:12px;padding:6px 12px">Buscar anúncios na Shopee</button>
         </div>
         <p class="muted" style="margin-bottom:14px">Anúncios ativos na sua conta da Shopee que ainda não têm produto vinculado no Nuvix — anúncio com variação (tamanho/cor) aparece uma linha por variação. Vincule a um produto já existente ou crie um produto novo a partir do anúncio.</p>
@@ -534,8 +534,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ SHOPEE — MAPEAMENTO DE PRODUTOS ══ -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-          <h2 style="margin:0">Mapeamento de produtos</h2>
-          <input id="shopeeBusca" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoShopee()" style="max-width:280px">
+          <h2 class="nx-sec-t" style="margin:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Mapeamento de produtos</h2>
+          <input id="shopeeBusca" class="nx-search" placeholder="Buscar por nome, SKU ou código de barras..." oninput="renderMapeamentoShopee()" style="max-width:280px">
         </div>
         <p class="muted" style="margin-bottom:14px">Informe o ID do anúncio na Shopee (e o ID da variação, se houver) para cada produto vendido por lá. Sem esse vínculo, o produto não sincroniza estoque nem recebe pedidos automaticamente.</p>
         <div class="tablewrap">
@@ -549,7 +549,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
       <!-- ══ SHOPEE — MAPEAMENTO DE KITS ══ -->
       <div class="card" id="shopeeKitsCard" style="display:none">
-        <h2 style="margin:0 0 6px">Mapeamento de kits</h2>
+        <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>Mapeamento de kits</h2>
         <p class="muted" style="margin-bottom:14px">Kits também podem ter seu próprio anúncio na Shopee — o estoque publicado é sempre o mínimo entre os componentes.</p>
         <div class="tablewrap">
           <table>
@@ -562,7 +562,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
       <!-- ══ SHOPEE — PEDIDOS COM ERRO DE IMPORTAÇÃO ══ -->
       <div class="card" id="shopeeErrosCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-          <h2 style="margin-bottom:0">Pedidos pendentes de revisão</h2>
+          <h2 class="nx-sec-t" style="margin-bottom:0"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Pedidos pendentes de revisão</h2>
           <div style="display:flex;gap:6px">
             <button class="btn2" id="shopeeErrosTabPendentes" onclick="shopeeErrosVerAba('pendentes')" style="font-size:12px;padding:6px 12px;background:var(--p);color:#fff;border-color:var(--p)">Pendentes <span id="shopeeErrosCountBadge" class="badge bad" style="margin-left:4px;display:none"></span></button>
             <button class="btn2" id="shopeeErrosTabResolvidos" onclick="shopeeErrosVerAba('resolvidos')" style="font-size:12px;padding:6px 12px">Resolvidos</button>
