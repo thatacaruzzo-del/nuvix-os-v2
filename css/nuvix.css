@@ -63,6 +63,10 @@ body {
 }
 button, input, select, textarea { font-family: inherit; }
 svg[stroke-width="2"] { stroke-width: 1.75; }
+a { color: var(--p); text-underline-offset: 3px; }
+a:hover { color: var(--p2); }
+/* Ícone dentro de botão sem tamanho próprio: 16px (não vira ícone gigante) */
+.btn > svg:not([style]):not([width]), .btn2 > svg:not([style]):not([width]) { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* ── Inputs — radius 12px, padding 16px interno, muito espaço ── */
 input, select, textarea {
@@ -769,4 +773,5 @@ tr:hover td { background: #FCFAFF; }
 .modal-actions button { flex: 1; }
 .nx-ic-tile { width: 36px; height: 36px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; background: var(--p-soft); color: var(--p); border: 1px solid var(--line); flex-shrink: 0; }
 .nx-ic-tile svg { width: 18px; height: 18px; }
+.field-hint a { font-weight: 700; }
 @media (max-width: 500px) { .modal { padding: 20px; border-radius: 22px; } }

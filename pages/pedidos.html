@@ -31,21 +31,30 @@
 .fp-head .nx-ic-tile svg{width:22px;height:22px}
 .fp-rows{display:flex;flex-direction:column;gap:9px}
 .fp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;line-height:1.45}
-.fp-row>svg{width:18px;height:18px;color:var(--p);flex-shrink:0}
+.fp-row>svg{width:16px;height:16px;color:var(--p);flex-shrink:0}
 .fp-row b{font-weight:700}
-.fp-hint{font-size:12.5px;color:var(--muted);margin:-3px 0 0 28px}
-.fp-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-left:28px}
+.fp-hint{font-size:12.5px;color:var(--muted);margin:-3px 0 0 26px}
+.fp-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-left:26px}
 .fp-acoes .btn2{height:36px;font-size:13px;padding:0 14px}
 .fp-sec{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:-.01em;margin:20px 0 10px;padding-top:18px;border-top:1px solid var(--line)}
-.fp-sec svg{width:20px;height:20px;color:var(--p)}
+.fp-sec svg{width:18px;height:18px;color:var(--p)}
 .fp-callout{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:linear-gradient(180deg,var(--p-soft),var(--p-light));border:1px solid var(--p3);margin-top:12px}
-.fp-callout>svg{width:20px;height:20px;color:var(--p);flex-shrink:0;margin-top:2px}
+.fp-callout>svg{width:18px;height:18px;color:var(--p);flex-shrink:0;margin-top:2px}
 .fp-callout small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .fp-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .fp-btns .btn2,.fp-btns .btn{height:40px}
 .fp-pagto{font-size:12.5px;color:var(--muted);margin-top:8px}
 .fp-link{color:var(--p);font-weight:700;text-underline-offset:3px;display:inline-flex;align-items:center;gap:4px}
 .fp-link svg{width:15px;height:15px}
+/* ── Novo pedido (v5): título de seção com ícone, busca com lupa ── */
+.ped-sec-t{display:flex;align-items:center;gap:12px;margin-bottom:18px!important}
+.ped-busca-field>input{padding-left:42px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237137B8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 15px center}
+.ped-step-num{background:var(--p-light)!important;color:var(--p2)!important}
+.ped-step.active .ped-step-num{background:var(--p2)!important;color:#fff!important}
+.ped-step.active{color:var(--p2)}
+/* Botões da ficha: ícone 16px e texto numa linha só */
+.fp-btns .btn,.fp-btns .btn2,.fp-acoes .btn2{white-space:nowrap}
+.fp-btns svg{width:16px;height:16px;flex-shrink:0}
 /* ── Filtros e histórico ── */
 .ped-filtro-lbl{font-size:11px;color:var(--muted2);font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px}
 .ped-num{font-weight:800;color:var(--p2)}
@@ -244,7 +253,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- NOVO PEDIDO -->
       <div style="max-width:720px;margin:0 auto 24px">
-        <h2 style="margin-bottom:4px">Novo pedido</h2>
+        <h2 style="margin-bottom:6px;font-size:24px;letter-spacing:-.02em">Novo pedido</h2>
         <div class="ped-steps">
           <div class="ped-step active"><span class="ped-step-num">1</span> Dados do pedido</div>
           <div class="ped-step-line"></div>
@@ -256,7 +265,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Cliente -->
       <div class="card" style="margin-bottom:20px">
-        <h2 style="margin-bottom:14px">Cliente</h2>
+        <h2 class="ped-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span>Cliente</h2>
         <div class="field">
           <label>Cliente</label>
           <div class="ped-busca-field">
@@ -276,7 +285,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Responsáveis pela venda -->
       <div class="card" style="margin-bottom:20px">
-        <h2 style="margin-bottom:14px">Responsáveis pela venda</h2>
+        <h2 class="ped-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Responsáveis pela venda</h2>
         <div class="form-grid" style="grid-template-columns:1fr 1fr">
           <div class="field" style="margin-bottom:0">
             <label>Vendedor responsável</label>
@@ -306,6 +315,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Loja -->
       <div class="card" id="pedLojaWrap" style="display:none;margin-bottom:20px">
+        <h2 class="ped-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/></svg></span>Loja</h2>
         <div class="field" style="margin-bottom:0">
           <label>Loja (de onde sai o estoque)</label>
           <select id="pedLoja" onchange="trocarLojaPedido()"></select>
@@ -314,7 +324,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Produtos -->
       <div class="card" style="margin-bottom:20px">
-        <h2 style="margin-bottom:14px">Produtos</h2>
+        <h2 class="ped-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Produtos</h2>
         <div class="field">
           <div class="ped-busca-field">
             <input type="text" id="pedProdutoBusca" placeholder="Buscar produto por nome, SKU ou código de barras..." oninput="buscarProdutoPedido()" autocomplete="off">
@@ -333,7 +343,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Informações adicionais -->
       <div class="card" style="margin-bottom:20px">
-        <h2 style="margin-bottom:14px">Informações adicionais</h2>
+        <h2 class="ped-sec-t"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>Informações adicionais</h2>
         <!-- Frete (opcional) — se já souber o meio/valor nesse momento, entra
              direto no total antes de confirmar; senão, configura depois na
              Ficha do Pedido (fluxo que já existia). -->
@@ -369,7 +379,7 @@ function formatarDoc(v){const d=String(v||'').replace(/\D/g,'');if(d.length===11
 
       <!-- Resumo do pedido -->
       <div class="card" style="margin-bottom:20px">
-        <h2 style="margin-bottom:4px">Resumo do pedido</h2>
+        <h2 class="ped-sec-t" style="margin-bottom:6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span>Resumo do pedido</h2>
         <div class="ped-total-row"><span>Total dos produtos</span><span id="pedTotalValor">R$ 0,00</span></div>
 
         <!-- Desconto geral do pedido — mesmo padrão do Caixa (pages/caixa.html),
