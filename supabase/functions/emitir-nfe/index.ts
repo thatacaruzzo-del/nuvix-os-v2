@@ -320,6 +320,163 @@ function montarPayload(empresa: any, nota: any, itens: any[], formasPagamento: a
   };
 }
 
+// ═══════════ NF-e MANUAL (origem = 'manual') ═══════════
+// Nota emitida direto em Notas Fiscais, sem venda por trás (remessa, bonificação,
+// devolução de compra, complementar, ajuste...). Função SEPARADA de propósito:
+// montarPayload() acima (notas de venda — Pedidos, Caixa, marketplaces) NÃO foi
+// tocada, então nada do que já emite hoje muda de comportamento.
+// Nomes de campo conferidos na doc da Focus NFe (doc.focusnfe.com.br e
+// campos.focusnfe.com.br/nfe/NotaFiscalXML.html) em 05/11/2026.
+const FORMA_PAGAMENTO_MANUAL: Record<string, string> = {
+  Dinheiro: '01', Cheque: '02', 'Cartão Crédito': '03', 'Cartão Débito': '04',
+  'Crédito loja': '05', 'Duplicata': '14', Boleto: '15', 'Depósito': '16', Pix: '17',
+  'Transferência': '18', 'Sem pagamento': '90', Outros: '99',
+};
+
+// CFOP da nota manual: o usuário escolhe a operação (ex.: 5910 bonificação), o
+// sistema só acerta o 1º dígito pelo sentido (entrada 1/2, saída 5/6) e pela UF.
+// 3xxx/7xxx (exterior) ficam como digitados.
+function ajustarCfopManual(cfop: string | null | undefined, entrada: boolean, interestadual: boolean): string {
+  const base = (cfop || '').replace(/\D/g, '');
+  if (base.length !== 4 || base[0] === '3' || base[0] === '7') return base;
+  const d = entrada ? (interestadual ? '2' : '1') : (interestadual ? '6' : '5');
+  return d + base.slice(1);
+}
+
+// Rateia um valor da nota (frete/seguro/outras) pelos itens, proporcional ao valor
+// líquido de cada um — o último item leva a sobra dos centavos, pra soma bater exato.
+function ratear(valor: number, pesos: number[]): number[] {
+  const total = pesos.reduce((a, b) => a + b, 0);
+  if (!valor || !total) return pesos.map(() => 0);
+  let acumulado = 0;
+  return pesos.map((p, i) => {
+    if (i === pesos.length - 1) return arred2(valor - acumulado);
+    const v = arred2((valor * p) / total);
+    acumulado += v;
+    return v;
+  });
+}
+
+function montarPayloadManual(empresa: any, nota: any, itens: any[]) {
+  const ufEmitente = (empresa.endereco_uf || '').toUpperCase();
+  const ufDestinatario = (nota.cliente_endereco_uf || '').toUpperCase();
+  const interestadual = !!(ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente);
+  const tipo = nota.tipo_documento === 0 ? 0 : 1;
+  const finalidade = [1, 2, 3, 4].includes(Number(nota.finalidade_emissao)) ? Number(nota.finalidade_emissao) : 1;
+  const documentoLimpo = (nota.cliente_documento || '').replace(/\D/g, '');
+  const ehCnpj = documentoLimpo.length === 14;
+  const modFrete = [0, 1, 2, 3, 4, 9].includes(Number(nota.modalidade_frete)) ? Number(nota.modalidade_frete) : 9;
+
+  const liquidos = itens.map((it) => Math.max(0, Number(it.valor_total) - Number(it.valor_desconto || 0)));
+  const fretes = ratear(modFrete === 9 ? 0 : Number(nota.valor_frete || 0), liquidos);
+  const seguros = ratear(Number(nota.valor_seguro || 0), liquidos);
+  const outras = ratear(Number(nota.outras_despesas || 0), liquidos);
+
+  // Complementar/ajuste/devolução não têm pagamento (tPag 90) — exigência da SEFAZ.
+  const pagamentos = Array.isArray(nota.formas_pagamento) ? nota.formas_pagamento : [];
+  const semPagamento = finalidade === 3 || finalidade === 4 || !pagamentos.length;
+  const formas_pagamento = semPagamento
+    ? [{ forma_pagamento: '90', valor_pagamento: 0 }]
+    : pagamentos.map((p: any) => {
+        const codigo = FORMA_PAGAMENTO_MANUAL[p.forma] || '99';
+        return {
+          forma_pagamento: codigo,
+          valor_pagamento: arred2(Number(p.valor || 0)),
+          descricao_pagamento: codigo === '99' ? (p.forma || 'Outros') : undefined,
+        };
+      });
+
+  const transpDoc = (nota.transportadora_documento || '').replace(/\D/g, '');
+  const temTransportadora = modFrete !== 9 && !!nota.transportadora_nome;
+  const temVolume = modFrete !== 9 && (nota.volumes_quantidade || nota.peso_bruto || nota.peso_liquido);
+  const chaves = (nota.chaves_referenciadas || []).map((c: string) => String(c).replace(/\D/g, '')).filter((c: string) => c.length === 44);
+
+  return {
+    natureza_operacao: (nota.natureza_operacao || 'Outras saídas').slice(0, 60),
+    data_emissao: dataEmissaoBrasilia(),
+    tipo_documento: tipo,
+    finalidade_emissao: finalidade,
+    consumidor_final: nota.consumidor_final === 1 ? 1 : nota.consumidor_final === 0 ? 0 : (nota.cliente_ie ? 0 : 1),
+    presenca_comprador: [0, 1, 2, 3, 4, 5, 9].includes(Number(nota.presenca_comprador)) ? Number(nota.presenca_comprador) : 9,
+    modalidade_frete: modFrete,
+    local_destino: interestadual ? 2 : 1,
+    notas_referenciadas: chaves.length ? chaves.map((c: string) => ({ chave_nfe: c })) : undefined,
+
+    cnpj_emitente: (empresa.cnpj || '').replace(/\D/g, ''),
+
+    nome_destinatario: nota.cliente_nome || undefined,
+    cpf_destinatario: ehCnpj ? undefined : documentoLimpo || undefined,
+    cnpj_destinatario: ehCnpj ? documentoLimpo : undefined,
+    inscricao_estadual_destinatario: nota.cliente_ie || undefined,
+    indicador_inscricao_estadual_destinatario: nota.cliente_ie ? 1 : 9,
+    logradouro_destinatario: nota.cliente_endereco_logradouro || undefined,
+    numero_destinatario: nota.cliente_endereco_numero || undefined,
+    complemento_destinatario: nota.cliente_endereco_complemento || undefined,
+    bairro_destinatario: nota.cliente_endereco_bairro || undefined,
+    municipio_destinatario: limparMunicipioDestinatario(nota.cliente_endereco_municipio, nota.cliente_endereco_uf),
+    uf_destinatario: ufDestinatario || undefined,
+    cep_destinatario: (nota.cliente_endereco_cep || '').replace(/\D/g, '') || undefined,
+
+    nome_transportador: temTransportadora ? nota.transportadora_nome : undefined,
+    cnpj_transportador: temTransportadora && transpDoc.length === 14 ? transpDoc : undefined,
+    cpf_transportador: temTransportadora && transpDoc.length === 11 ? transpDoc : undefined,
+    inscricao_estadual_transportador: temTransportadora ? nota.transportadora_ie || undefined : undefined,
+    endereco_transportador: temTransportadora ? nota.transportadora_endereco || undefined : undefined,
+    municipio_transportador: temTransportadora ? nota.transportadora_municipio || undefined : undefined,
+    uf_transportador: temTransportadora ? (nota.transportadora_uf || '').toUpperCase() || undefined : undefined,
+    volumes: temVolume
+      ? [{
+          quantidade: nota.volumes_quantidade ? Number(nota.volumes_quantidade) : undefined,
+          especie: nota.volumes_especie || undefined,
+          peso_bruto: nota.peso_bruto ? Number(nota.peso_bruto) : undefined,
+          peso_liquido: nota.peso_liquido ? Number(nota.peso_liquido) : undefined,
+        }]
+      : undefined,
+
+    informacoes_adicionais_contribuinte: nota.informacoes_adicionais ? String(nota.informacoes_adicionais).slice(0, 5000) : undefined,
+
+    items: itens.map((it, idx) => {
+      const baseIbsCbs = it.cst_ibs_cbs ? liquidos[idx] : 0;
+      return {
+        numero_item: idx + 1,
+        codigo_produto: it.codigo_produto || it.produto_id || 'AVULSO',
+        descricao: it.descricao,
+        codigo_ncm: limparNCM(it.ncm),
+        cest: (it.cest || '').replace(/\D/g, '') || undefined,
+        cfop: ajustarCfopManual(it.cfop, tipo === 0, interestadual),
+        quantidade_comercial: it.quantidade,
+        quantidade_tributavel: it.quantidade,
+        unidade_comercial: it.unidade_medida || 'UN',
+        unidade_tributavel: it.unidade_medida || 'UN',
+        valor_unitario_comercial: it.valor_unitario,
+        valor_unitario_tributavel: it.valor_unitario,
+        valor_bruto: it.valor_total,
+        valor_desconto: Number(it.valor_desconto || 0) > 0 ? arred2(Number(it.valor_desconto)) : undefined,
+        valor_frete: fretes[idx] > 0 ? fretes[idx] : undefined,
+        valor_seguro: seguros[idx] > 0 ? seguros[idx] : undefined,
+        valor_outras_despesas: outras[idx] > 0 ? outras[idx] : undefined,
+        icms_origem: it.origem_mercadoria ?? '0',
+        icms_situacao_tributaria: it.csosn_cst || undefined,
+        icms_aliquota: it.aliquota_icms ?? undefined,
+        pis_situacao_tributaria: it.pis_situacao_tributaria || '99',
+        pis_aliquota: it.aliquota_pis ?? undefined,
+        cofins_situacao_tributaria: it.cofins_situacao_tributaria || '99',
+        cofins_aliquota: it.aliquota_cofins ?? undefined,
+        ibs_cbs_classificacao_tributaria: it.cclasstrib || undefined,
+        ibs_cbs_situacao_tributaria: it.cst_ibs_cbs || undefined,
+        ibs_cbs_base_calculo: it.cst_ibs_cbs ? baseIbsCbs : undefined,
+        ibs_uf_aliquota: it.cst_ibs_cbs ? 0.1 : undefined,
+        ibs_uf_valor: it.cst_ibs_cbs ? arred2((baseIbsCbs * 0.1) / 100) : undefined,
+        ibs_mun_aliquota: it.cst_ibs_cbs ? 0 : undefined,
+        ibs_mun_valor: it.cst_ibs_cbs ? 0 : undefined,
+        cbs_aliquota: it.cst_ibs_cbs ? 0.9 : undefined,
+        cbs_valor: it.cst_ibs_cbs ? arred2((baseIbsCbs * 0.9) / 100) : undefined,
+      };
+    }),
+    formas_pagamento,
+  };
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, prefer',
@@ -493,11 +650,20 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: 'cota_nf_excedida', usado: cota.usado, limite: cota.limite }, 429);
     }
 
+    // NF-e manual (Notas Fiscais → Emitir nota manual) usa montarPayloadManual;
+    // qualquer outra nota (venda) segue EXATAMENTE o caminho de antes.
+    const ehManual = nota.origem === 'manual';
     const [itens, formasPagamento] = await Promise.all([
       sbGet(`notas_fiscais_nfe_itens?nota_fiscal_nfe_id=eq.${nota_fiscal_nfe_id}&select=*`),
-      sbGet(`venda_formas_pagamento?venda_id=eq.${nota.venda_id}&select=forma_pagamento,valor`),
+      ehManual ? Promise.resolve([]) : sbGet(`venda_formas_pagamento?venda_id=eq.${nota.venda_id}&select=forma_pagamento,valor`),
     ]);
-    const payload = montarPayload(empresa, nota, itens, formasPagamento);
+    if (ehManual && !itens.length) {
+      await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, {
+        status: 'erro', mensagem_erro: 'A nota não tem nenhum produto. Edite o rascunho e adicione ao menos 1 item.', updated_at: new Date().toISOString(),
+      });
+      return json({ ok: false, erro: 'nota_sem_itens' }, 422);
+    }
+    const payload = ehManual ? montarPayloadManual(empresa, nota, itens) : montarPayload(empresa, nota, itens, formasPagamento);
 
     // BUG REAL encontrado em 04/11/2026 (Natufonts, nota da Carina Santana Santos):
     // o `ref` era sempre o mesmo UUID da nota, em toda tentativa de emissão. A Focus

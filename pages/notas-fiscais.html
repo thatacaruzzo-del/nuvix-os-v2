@@ -45,6 +45,41 @@
 .man-item-row{display:grid;grid-template-columns:1.6fr .8fr .8fr 1fr;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .man-item-row:last-child{border-bottom:none}
 .man-item-row input{width:100%;padding:6px 8px;font-size:12px}
+/* ── Nota manual (NF-e produto / NFS-e serviço) — 05/11/2026 ── */
+.nm-tipo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+@media(max-width:560px){.nm-tipo{grid-template-columns:1fr}}
+.nm-tipo-op{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid var(--line);border-radius:16px;background:#fff;cursor:pointer;transition:border-color .15s,background-color .15s;font-weight:400;margin:0;color:var(--txt)}
+.nm-tipo-op:hover{border-color:var(--p3)}
+.nm-tipo-op input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+.nm-tipo-op b{display:block;font-size:14.5px}
+.nm-tipo-op small{display:block;font-size:12px;color:var(--muted2);margin-top:1px;font-weight:500}
+.nm-tipo-op.on{border-color:var(--p2);background:var(--p-soft);box-shadow:0 0 0 3px rgba(147,69,213,.14)}
+.nm-tipo-op.travado{cursor:default;opacity:.55}
+.nm-sec{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;margin:22px 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+.nm-sec small{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted2)}
+.nm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.nm-grid .s2{grid-column:span 2}.nm-grid .s4{grid-column:1/-1}
+@media(max-width:760px){.nm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.nm-grid{grid-template-columns:1fr}.nm-grid .s2{grid-column:auto}}
+.nm-grid .field{margin:0}
+.nm-busca{position:relative}
+.nm-itens td input{height:34px;padding:0 8px;font-size:12.5px;border-radius:9px;min-width:64px}
+.nm-itens td.nm-desc input{min-width:190px}
+.nm-itens td.nm-tot{text-align:right;font-weight:700;white-space:nowrap}
+.nm-totais{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:18px}
+@media(max-width:760px){.nm-totais{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.nm-tot-card{background:var(--grad-surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.nm-tot-card span{display:block;font-size:10.5px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em}
+.nm-tot-card b{font-size:15px;font-variant-numeric:tabular-nums}
+.nm-tot-card.final{background:var(--p2);border-color:var(--p2);color:#fff}
+.nm-tot-card.final span{color:rgba(255,255,255,.75)}
+.nm-pg-row{display:grid;grid-template-columns:1fr 150px 36px;gap:8px;align-items:center;margin-bottom:8px}
+.nm-aviso{font-size:12.5px;font-weight:700;margin-top:4px}
+.nm-aviso.ok{color:var(--green)}.nm-aviso.err{color:var(--red)}
+.nm-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--txt);margin:0}
+.nm-hint{font-size:11.5px;color:var(--muted2);margin-top:3px}
+.nm-tag{font-size:10.5px;font-weight:800;color:var(--p2);background:var(--p-light);padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:1px}
+
 @media(max-width:900px){.nf-strip{grid-template-columns:1fr 1fr}#hambBtn{display:block!important}}
 @media(max-width:600px){.nf-strip{grid-template-columns:1fr}}
 </style>
@@ -174,7 +209,10 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
               <div class="nx-sec-wrap"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span><h2 id="nfListTitulo">Notas fiscais</h2></div>
-              <button class="btn2" id="btnBaixarXmls" onclick="baixarXmlsEmLote()">⬇ Baixar XMLs (.zip)</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn2" id="btnBaixarXmls" onclick="baixarXmlsEmLote()">⬇ Baixar XMLs (.zip)</button>
+                <button class="btn" id="btnNotaManual" style="display:none" onclick="abrirNotaManual()">+ Emitir nota manual</button>
+              </div>
             </div>
             <div class="tablewrap">
               <table>
@@ -225,10 +263,12 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalDetalhe')">Fechar</button>
     <button class="btn2" id="detConsultarBtn" style="display:none" onclick="consultarStatus()">Consultar status</button>
+    <button class="btn2" id="detEditarBtn" style="display:none" onclick="editarNotaManual()">Editar</button>
     <button class="btn2" id="detEmitirBtn" style="display:none" onclick="emitirNota()">Emitir agora</button>
     <button class="btn2" id="detVerBtn" style="display:none" onclick="verImprimir()">Ver / Imprimir</button>
     <button class="btn2" id="detXmlBtn" style="display:none" onclick="baixarXml()">Baixar XML</button>
     <button class="danger" id="detCancelarBtn" style="display:none" onclick="cancelarNota()">Cancelar nota</button>
+    <button class="danger" id="detExcluirBtn" style="display:none" onclick="excluirRascunhoManual()">Excluir rascunho</button>
   </div>
 </div>
 </div>
@@ -256,6 +296,136 @@ document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mo
   <div class="modal-actions">
     <button class="btn2" onclick="fecharModal('modalEntradaManual')">Cancelar</button>
     <button class="btn" onclick="criarRascunhoManual()">Criar rascunho e conferir</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL NOTA MANUAL (NF-e produto / NFS-e serviço) — 05/11/2026 -->
+<div class="modal-overlay" id="modalNotaManual">
+<div class="modal modal-wide" style="max-width:980px">
+  <div class="nx-sec-wrap" style="margin-bottom:18px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span><h3 id="nmTitulo" style="margin:0">Nova nota manual</h3></div>
+
+  <div style="font-size:13px;font-weight:700;margin-bottom:8px">Que nota você vai emitir?</div>
+  <div class="nm-tipo" role="radiogroup" aria-label="Tipo de nota">
+    <label class="nm-tipo-op" id="nmOpProduto"><input type="radio" name="nmTipo" value="produto" onchange="nmTrocarTipo('produto')"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span><span><b>Venda de produto</b><small>NF-e · mercadoria, remessa, devolução</small></span></label>
+    <label class="nm-tipo-op" id="nmOpServico"><input type="radio" name="nmTipo" value="servico" onchange="nmTrocarTipo('servico')"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><span><b>Prestação de serviço</b><small>NFS-e · serviço prestado ao tomador</small></span></label>
+  </div>
+
+  <!-- ══ SERVIÇO ══ -->
+  <div id="nmSecServico" style="display:none">
+    <div class="nm-sec">Serviço</div>
+    <div class="field nm-busca entrada-busca-field" style="margin-bottom:12px"><label for="nmSBusca">Buscar serviço cadastrado</label><input id="nmSBusca" class="nx-search" placeholder="Puxa descrição, código e alíquota do cadastro de Serviços" autocomplete="off" oninput="nmBuscarServico()"><div class="entrada-busca-resultados" id="nmSResultados"></div></div>
+    <div class="nm-grid">
+      <div class="field s4"><label for="nmSDesc">Descrição do serviço *</label><textarea id="nmSDesc" rows="3" maxlength="2000" placeholder="Aparece na nota exatamente como escrito"></textarea></div>
+      <div class="field"><label for="nmSItem">Código do serviço (LC 116) *</label><input id="nmSItem" placeholder="Ex: 17.01" maxlength="5"><div class="nm-hint">Formato XX.XX</div></div>
+      <div class="field"><label for="nmSCodMun">Código municipal</label><input id="nmSCodMun" placeholder="Se a prefeitura exigir"><div class="nm-hint">Vazio = usa o da empresa</div></div>
+      <div class="field"><label for="nmSComp">Competência *</label><input id="nmSComp" type="month"></div>
+      <div class="field"><label for="nmSRet">ISS retido pelo tomador?</label><select id="nmSRet" onchange="nmTotaisServico()"><option value="0">Não</option><option value="1">Sim</option></select></div>
+      <div class="field"><label for="nmSValor">Valor do serviço *</label><input id="nmSValor" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);nmTotaisServico()"></div>
+      <div class="field"><label for="nmSDed">Deduções</label><input id="nmSDed" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);nmTotaisServico()"></div>
+      <div class="field"><label for="nmSAliq">Alíquota ISS (%) *</label><input id="nmSAliq" inputmode="decimal" placeholder="Ex: 2,00" oninput="sanitizarDecimal(this);nmTotaisServico()"></div>
+    </div>
+    <div class="nm-totais" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+      <div class="nm-tot-card"><span>Serviço</span><b id="nmSTVal">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Deduções</span><b id="nmSTDed">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Base</span><b id="nmSTBase">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>ISS</span><b id="nmSTIss">R$ 0,00</b></div>
+      <div class="nm-tot-card final"><span>Valor líquido</span><b id="nmSTLiq">R$ 0,00</b></div>
+    </div>
+  </div>
+
+  <!-- ══ OPERAÇÃO (produto) ══ -->
+  <div id="nmSecOperacao">
+    <div class="nm-sec">Operação</div>
+    <div class="nm-grid">
+      <div class="field s2"><label for="nmNatureza">Natureza da operação *</label><input id="nmNatureza" list="nmNaturezas" maxlength="60"><datalist id="nmNaturezas"><option value="Venda de mercadoria"><option value="Remessa em bonificação"><option value="Remessa para conserto"><option value="Remessa para demonstração"><option value="Remessa em consignação"><option value="Devolução de compra"><option value="Transferência entre filiais"><option value="Outras saídas"></datalist></div>
+      <div class="field"><label for="nmTipoDoc">Tipo</label><select id="nmTipoDoc"><option value="1">Saída</option><option value="0">Entrada</option></select></div>
+      <div class="field"><label for="nmFinalidade">Finalidade</label><select id="nmFinalidade" onchange="nmSyncFinalidade()"><option value="1">Normal</option><option value="2">Complementar</option><option value="3">Ajuste</option><option value="4">Devolução</option></select></div>
+      <div class="field"><label for="nmCfop">CFOP padrão dos itens *</label><input id="nmCfop" inputmode="numeric" maxlength="4" placeholder="Ex: 5102"><div class="nm-hint">O 1º número se ajusta sozinho pela UF</div></div>
+      <div class="field"><label for="nmConsFinal">Consumidor final</label><select id="nmConsFinal"><option value="">Automático (pela IE)</option><option value="1">Sim</option><option value="0">Não</option></select></div>
+      <div class="field s2"><label for="nmPresenca">Presença do comprador</label><select id="nmPresenca"><option value="9">Operação não presencial, outros</option><option value="0">Não se aplica</option><option value="1">Presencial</option><option value="2">Internet</option><option value="3">Teleatendimento</option><option value="4">Entrega em domicílio</option></select></div>
+      <div class="field s4" id="nmRefWrap" style="display:none"><label for="nmChaves">Chave da nota referenciada *</label><textarea id="nmChaves" rows="2" placeholder="44 números. Uma chave por linha."></textarea><div class="nm-hint">Obrigatória para complementar, ajuste e devolução</div></div>
+    </div>
+  </div>
+
+  <!-- ══ DESTINATÁRIO / TOMADOR ══ -->
+  <div class="nm-sec" id="nmDestTitulo">Destinatário</div>
+  <div class="field nm-busca entrada-busca-field" style="margin-bottom:12px"><label for="nmCliBusca">Buscar cliente cadastrado</label><input id="nmCliBusca" class="nx-search" placeholder="Nome ou CPF/CNPJ... ou preencha abaixo" autocomplete="off" oninput="nmBuscarCliente()"><div class="entrada-busca-resultados" id="nmCliResultados"></div></div>
+  <input type="hidden" id="nmClienteId"><input type="hidden" id="nmIbge">
+  <div class="nm-grid">
+    <div class="field s2"><label for="nmDNome">Nome / Razão social *</label><input id="nmDNome" maxlength="60"></div>
+    <div class="field"><label for="nmDDoc">CPF / CNPJ *</label><input id="nmDDoc" inputmode="numeric"></div>
+    <div class="field"><label for="nmDIe" id="nmDIeLbl">Inscrição estadual</label><input id="nmDIe" placeholder="Vazio = não contribuinte"></div>
+    <div class="field"><label for="nmDCep">CEP *</label><input id="nmDCep" inputmode="numeric" maxlength="9" oninput="nmCepDigitado()"><div class="nm-hint" id="nmCepHint">Preenche rua, bairro, cidade e UF</div></div>
+    <div class="field s2"><label for="nmDRua">Logradouro *</label><input id="nmDRua"></div>
+    <div class="field"><label for="nmDNum">Número *</label><input id="nmDNum"></div>
+    <div class="field"><label for="nmDComp">Complemento</label><input id="nmDComp"></div>
+    <div class="field"><label for="nmDBairro">Bairro *</label><input id="nmDBairro"></div>
+    <div class="field"><label for="nmDCidade">Cidade *</label><input id="nmDCidade"></div>
+    <div class="field"><label for="nmDUf">UF *</label><input id="nmDUf" maxlength="2" style="text-transform:uppercase"></div>
+    <div class="field s2" id="nmDEmailWrap" style="display:none"><label for="nmDEmail">E-mail do tomador</label><input id="nmDEmail" type="email" placeholder="A prefeitura pode enviar a nota por aqui"></div>
+    <div class="field" id="nmDFoneWrap" style="display:none"><label for="nmDFone">Telefone</label><input id="nmDFone"></div>
+  </div>
+
+  <!-- ══ PRODUTOS / TRANSPORTE / PAGAMENTO ══ -->
+  <div id="nmSecProduto">
+    <div class="nm-sec">Produtos <small>NCM, CFOP e CST vêm do cadastro e podem ser editados</small></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="nm-busca entrada-busca-field" style="flex:1;min-width:240px"><input id="nmPBusca" class="nx-search" placeholder="Buscar produto por nome, SKU ou código de barras" autocomplete="off" oninput="nmBuscarProduto()"><div class="entrada-busca-resultados" id="nmPResultados"></div></div>
+      <button class="btn2" type="button" onclick="nmAdicionarAvulso()">+ Item avulso</button>
+    </div>
+    <div class="tablewrap" style="border:1px solid var(--line)"><table class="nm-itens">
+      <thead><tr><th>Descrição</th><th>NCM</th><th>CFOP</th><th>CST/CSOSN</th><th>Un.</th><th>Qtd.</th><th>Valor unit.</th><th>Desconto</th><th>Total</th><th></th></tr></thead>
+      <tbody id="nmItensBody"></tbody>
+    </table></div>
+
+    <div class="nm-sec">Transporte</div>
+    <div class="nm-grid">
+      <div class="field s2"><label for="nmModFrete">Modalidade do frete</label><select id="nmModFrete" onchange="nmSyncFrete()"><option value="9">Sem frete</option><option value="0">Por conta do emitente (CIF)</option><option value="1">Por conta do destinatário (FOB)</option><option value="2">Por conta de terceiros</option><option value="3">Transporte próprio do remetente</option><option value="4">Transporte próprio do destinatário</option></select></div>
+      <div class="field"><label for="nmFrete">Valor do frete</label><input id="nmFrete" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);nmTotaisProduto()"></div>
+      <div class="field"><label for="nmSeguro">Seguro</label><input id="nmSeguro" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);nmTotaisProduto()"></div>
+      <div class="field"><label for="nmOutras">Outras despesas</label><input id="nmOutras" inputmode="decimal" placeholder="0,00" oninput="sanitizarDecimal(this);nmTotaisProduto()"></div>
+    </div>
+    <div class="nm-grid" id="nmTranspWrap" style="margin-top:12px;display:none">
+      <div class="field s2"><label for="nmTNome">Transportadora</label><input id="nmTNome" maxlength="60"></div>
+      <div class="field"><label for="nmTDoc">CNPJ / CPF</label><input id="nmTDoc" inputmode="numeric"></div>
+      <div class="field"><label for="nmTIe">IE</label><input id="nmTIe"></div>
+      <div class="field s2"><label for="nmTEnd">Endereço</label><input id="nmTEnd" maxlength="60"></div>
+      <div class="field"><label for="nmTCidade">Cidade</label><input id="nmTCidade"></div>
+      <div class="field"><label for="nmTUf">UF</label><input id="nmTUf" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="field"><label for="nmVol">Volumes</label><input id="nmVol" inputmode="numeric"></div>
+      <div class="field"><label for="nmEsp">Espécie</label><input id="nmEsp" placeholder="Ex: Caixa"></div>
+      <div class="field"><label for="nmPB">Peso bruto (kg)</label><input id="nmPB" inputmode="decimal" oninput="sanitizarDecimal(this)"></div>
+      <div class="field"><label for="nmPL">Peso líquido (kg)</label><input id="nmPL" inputmode="decimal" oninput="sanitizarDecimal(this)"></div>
+    </div>
+
+    <div class="nm-sec">Pagamento</div>
+    <label class="nm-check" for="nmSemPg"><input type="checkbox" id="nmSemPg" onchange="nmSyncPagamento()"> Sem pagamento (bonificação, remessa, devolução, ajuste)</label>
+    <div id="nmPgWrap" style="margin-top:10px">
+      <div id="nmPgLista"></div>
+      <button class="btn2" type="button" onclick="nmAdicionarPagamento()" style="height:36px;font-size:13px">+ Outra forma</button>
+      <div id="nmPgAviso" class="nm-aviso"></div>
+    </div>
+
+    <div class="nm-totais">
+      <div class="nm-tot-card"><span>Produtos</span><b id="nmTProd">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Descontos</span><b id="nmTDesc">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Frete</span><b id="nmTFrete">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Seguro</span><b id="nmTSeg">R$ 0,00</b></div>
+      <div class="nm-tot-card"><span>Outras</span><b id="nmTOut">R$ 0,00</b></div>
+      <div class="nm-tot-card final"><span>Total da nota</span><b id="nmTTotal">R$ 0,00</b></div>
+    </div>
+  </div>
+
+  <div class="nm-sec">Informações adicionais</div>
+  <div class="field" style="margin:0"><label for="nmInfo" id="nmInfoLbl">Aparecem no DANFE</label><textarea id="nmInfo" rows="3" maxlength="2000"></textarea></div>
+
+  <div class="notice" style="margin:18px 0 0;font-size:12.5px">A nota manual é só o documento fiscal: <b>não mexe no estoque nem lança no financeiro</b>.</div>
+  <div id="nmMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" type="button" onclick="fecharModal('modalNotaManual')">Cancelar</button>
+    <button class="btn2" type="button" id="nmBtnRascunho" onclick="nmSalvar(false)">Salvar rascunho</button>
+    <button class="btn" type="button" id="nmBtnEmitir" onclick="nmSalvar(true)">Emitir NF-e</button>
   </div>
 </div>
 </div>
@@ -351,6 +521,7 @@ async function loadData(){
     prazoCancelamentoDias=cfg.temPrazo?(Number(emp[0]?.prazo_cancelamento_dias)||5):null;
   }catch(e){fiscalAtivo=false;nfseSimulacao=false;prazoCancelamentoDias=cfg.temPrazo?5:null;}
   $('nfSimulacaoAviso').style.display=nfseSimulacao?'block':'none';
+  if($('btnNotaManual'))$('btnNotaManual').style.display=(tipoAtual==='nfse'||tipoAtual==='nfe')&&temPermissao('notas_fiscais','criar')?'':'none';
   try{
     notas=await db.get(cfg.tabela,`?select=*&empresa_id=eq.${session.empresa_id}&order=created_at.desc`);
   }catch(e){notas=[];toast('Erro ao carregar notas: '+e.message,'err');}
@@ -397,7 +568,7 @@ function renderLista(){
     return`<tr style="cursor:pointer" onclick="verDetalhe('${n.id}')">
       <td>${n.data_emissao?fmtData(n.data_emissao):fmtData(n.created_at)}</td>
       <td><b>${esc(n.cliente_nome||'—')}</b></td>
-      <td style="font-size:12px">${esc(cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV')}</td>
+      <td style="font-size:12px">${n.origem==='manual'?esc(tipoAtual==='nfe'?(n.natureza_operacao||'NF-e manual'):(n[cfg.campoDescricao]||'')).slice(0,80)+'<span class="nm-tag">Manual</span>':esc(cfg.campoDescricao?(n[cfg.campoDescricao]||''):'Venda PDV')}</td>
       <td style="font-weight:700">${money(n[cfg.campoValor])}</td>
       <td style="font-size:12px">${esc(n[cfg.campoNumero]||'—')}</td>
       <td><span class="badge ${cor}">${label}</span></td>
@@ -538,6 +709,13 @@ async function verDetalhe(id){
         </div>
         <span class="badge ${cor}" style="font-size:13px;padding:6px 14px">${label}</span>
       </div>
+      ${n.origem==='manual'?`<div class="det-section">Operação (nota manual)</div>
+      <div class="det-row"><span class="det-lbl">Natureza</span><span class="det-val">${esc(n.natureza_operacao||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Tipo / Finalidade</span><span class="det-val">${n.tipo_documento===0?'Entrada':'Saída'} · ${({1:'Normal',2:'Complementar',3:'Ajuste',4:'Devolução'})[n.finalidade_emissao]||'Normal'}</span></div>
+      ${(n.chaves_referenciadas||[]).length?`<div class="det-row"><span class="det-lbl">Nota referenciada</span><span class="det-val" style="font-size:11px">${(n.chaves_referenciadas||[]).map(esc).join('<br>')}</span></div>`:''}
+      ${Number(n.valor_frete)||Number(n.valor_seguro)||Number(n.outras_despesas)?`<div class="det-row"><span class="det-lbl">Frete / Seguro / Outras</span><span class="det-val">${money(n.valor_frete)} · ${money(n.valor_seguro)} · ${money(n.outras_despesas)}</span></div>`:''}
+      ${n.transportadora_nome?`<div class="det-row"><span class="det-lbl">Transportadora</span><span class="det-val">${esc(n.transportadora_nome)}</span></div>`:''}
+      ${n.informacoes_adicionais?`<div class="det-row"><span class="det-lbl">Informações adicionais</span><span class="det-val" style="font-weight:500">${esc(n.informacoes_adicionais)}</span></div>`:''}`:''}
       <div class="det-section">Destinatário</div>
       <div class="det-row"><span class="det-lbl">Nome / Razão social</span><span class="det-val">${esc(n.cliente_nome||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">CPF/CNPJ</span><span class="det-val">${esc(n.cliente_documento||'—')}</span></div>
@@ -591,6 +769,10 @@ async function verDetalhe(id){
       <div class="det-section">Serviço</div>
       <div class="det-row"><span class="det-lbl">Descrição</span><span class="det-val">${esc(n.descricao_servico||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">Competência</span><span class="det-val">${fmtData(n.data_competencia)}</span></div>
+      ${n.origem==='manual'?`<div class="det-row"><span class="det-lbl">Código do serviço</span><span class="det-val">${esc(n.item_lista_servico||'—')}</span></div>
+      <div class="det-row"><span class="det-lbl">Alíquota ISS</span><span class="det-val">${n.aliquota_iss!=null?String(n.aliquota_iss).replace('.',',')+'%':'—'}${n.iss_retido?' · retido pelo tomador':''}</span></div>
+      ${Number(n.valor_deducoes)?`<div class="det-row"><span class="det-lbl">Deduções</span><span class="det-val">${money(n.valor_deducoes)}</span></div>`:''}
+      <div class="det-row"><span class="det-lbl">Origem</span><span class="det-val">Nota manual</span></div>`:''}
       <div class="det-section">Nota</div>
       <div class="det-row"><span class="det-lbl">Número NFS-e</span><span class="det-val">${esc(n.numero_nfse||'—')}</span></div>
       <div class="det-row"><span class="det-lbl">Código de verificação</span><span class="det-val">${esc(n.codigo_verificacao||'—')}</span></div>
@@ -600,7 +782,11 @@ async function verDetalhe(id){
     `;
   }
   setHTML('detConteudo',corpo);
-  ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn'].forEach(id=>$(id).style.display='none');
+  ['detConsultarBtn','detEmitirBtn','detVerBtn','detXmlBtn','detCancelarBtn','detEditarBtn','detExcluirBtn'].forEach(id=>$(id).style.display='none');
+  if(nmEhRascunhoManual(n)&&(tipoAtual==='nfe'||tipoAtual==='nfse')){
+    if(temPermissao('notas_fiscais','editar'))$('detEditarBtn').style.display='block';
+    if(!n.focus_nfe_ref&&temPermissao('notas_fiscais',tipoAtual==='nfse'?'excluir':'editar'))$('detExcluirBtn').style.display='block';
+  }
   // Devolução nunca emite manualmente por aqui — nasce e dispara sozinha a partir
   // da devolução de itens no Caixa (mesmo padrão de NFC-e nunca nascer desta tela).
   if((n.status==='nao_emitida'||n.status==='erro')&&tipoAtual!=='devolucao'){$('detEmitirBtn').style.display='block';}
@@ -1283,6 +1469,401 @@ function renderEntradaLeitura(){
 // foi bipado/buscado aqui. Termina abrindo a MESMA tela de conferência do
 // fluxo por XML — um motor só, duas portas de entrada. ══
 let manItensAtuais=[];
+
+// ══════════════════════════════════════════════════════════════════════
+// NOTA MANUAL (05/11/2026) — NF-e de produto ou NFS-e de serviço emitida direto
+// aqui, sem venda/financeiro por trás. Grava em notas_fiscais_nfe (+itens) ou
+// notas_fiscais com origem='manual'; as funções emitir-nfe/emitir-nfse só usam os
+// campos novos quando origem='manual' — notas de venda/Financeiro/OS não mudam.
+// Não mexe em estoque nem lança no financeiro.
+// ══════════════════════════════════════════════════════════════════════
+function sanitizarDecimal(el){el.value=el.value.replace(/[^0-9.,]/g,'');}
+function nmNum(v){let s=String(v??'').trim();if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)||0;}
+function nmArred(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
+function nmBr(v){return nmArred(v).toFixed(2).replace('.',',');}
+function nmSoDigitos(v){return String(v||'').replace(/\D/g,'');}
+async function nmDelete(tabela,filtro){_verificarSessao();const r=await fetch(`${SB}/rest/v1/${tabela}?${filtro}`,{method:'DELETE',headers:H});if(!r.ok)throw new Error(traduzErroGenerico(await r.text()));}
+
+const NM_FORMAS=['Pix','Dinheiro','Boleto','Cartão Crédito','Cartão Débito','Transferência','Depósito','Cheque','Duplicata','Outros'];
+let nmTipo='produto', nmEditId=null, nmItens=[], nmPagtos=[], nmCad=null, nmCepTimer=null;
+
+async function nmCarregarCadastros(){
+  if(nmCad)return nmCad;
+  const e=session.empresa_id;
+  const [clientes,produtos,servicos]=await Promise.all([
+    db.get('clientes',`?empresa_id=eq.${e}&select=id,nome,documento,email,telefone,cidade,endereco_logradouro,endereco_numero,endereco_complemento,endereco_bairro,endereco_cep,endereco_uf,inscricao_estadual,codigo_municipio_ibge&order=nome.asc&limit=3000`).catch(()=>[]),
+    db.get('produtos',`?empresa_id=eq.${e}&ativo=eq.true&select=id,nome,sku,codigo_barras,ncm,cest,cfop_padrao,origem_mercadoria,csosn_cst,cclasstrib,cst_ibs_cbs,unidade_medida,aliquota_icms,aliquota_pis,aliquota_cofins,preco_venda_final&order=nome.asc&limit=5000`).catch(()=>[]),
+    db.get('servicos_catalogo',`?empresa_id=eq.${e}&select=id,nome,descricao,valor_base,codigo_tributacao_nacional,aliquota_iss,ativo&order=nome.asc`).catch(()=>[]),
+  ]);
+  nmCad={clientes,produtos,servicos:servicos.filter(s=>s.ativo!==false)};
+  return nmCad;
+}
+
+function nmMarcarTipo(){
+  document.querySelectorAll('input[name="nmTipo"]').forEach(r=>{r.checked=r.value===nmTipo;});
+  $('nmOpProduto').classList.toggle('on',nmTipo==='produto');
+  $('nmOpServico').classList.toggle('on',nmTipo==='servico');
+  // Rascunho já salvo não troca de tipo (são tabelas diferentes).
+  $('nmOpProduto').classList.toggle('travado',!!nmEditId&&nmTipo!=='produto');
+  $('nmOpServico').classList.toggle('travado',!!nmEditId&&nmTipo!=='servico');
+}
+function nmTrocarTipo(t){
+  if(nmEditId&&t!==nmTipo){nmMarcarTipo();toast('Esse rascunho já foi salvo como '+(nmTipo==='servico'?'NFS-e':'NF-e')+'. Para outro tipo, crie uma nota nova.','err');return;}
+  nmTipo=t;
+  const serv=t==='servico';
+  $('nmSecServico').style.display=serv?'block':'none';
+  $('nmSecOperacao').style.display=serv?'none':'block';
+  $('nmSecProduto').style.display=serv?'none':'block';
+  $('nmDestTitulo').textContent=serv?'Tomador do serviço':'Destinatário';
+  $('nmDIeLbl').textContent=serv?'Inscrição municipal':'Inscrição estadual';
+  $('nmDIe').placeholder=serv?'Se o tomador tiver':'Vazio = não contribuinte';
+  $('nmDEmailWrap').style.display=serv?'':'none';
+  $('nmDFoneWrap').style.display=serv?'':'none';
+  $('nmInfoLbl').textContent=serv?'Observações internas (não vão para a prefeitura)':'Aparecem no DANFE';
+  $('nmTitulo').textContent=(nmEditId?'Editar ':'Nova ')+(serv?'NFS-e manual (serviço)':'NF-e manual (produto)');
+  $('nmBtnEmitir').textContent=serv?'Emitir NFS-e':'Emitir NF-e';
+  nmMarcarTipo();
+  if(serv)nmTotaisServico();else nmTotaisProduto();
+}
+
+function nmLimparForm(){
+  ['nmSBusca','nmSDesc','nmSItem','nmSCodMun','nmSValor','nmSDed','nmSAliq','nmChaves','nmCliBusca','nmClienteId','nmIbge','nmDNome','nmDDoc','nmDIe','nmDCep','nmDRua','nmDNum','nmDComp','nmDBairro','nmDCidade','nmDUf','nmDEmail','nmDFone','nmPBusca','nmFrete','nmSeguro','nmOutras','nmTNome','nmTDoc','nmTIe','nmTEnd','nmTCidade','nmTUf','nmVol','nmEsp','nmPB','nmPL','nmInfo'].forEach(id=>{if($(id))$(id).value='';});
+  $('nmSRet').value='0';
+  const hoje=new Date();$('nmSComp').value=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  $('nmNatureza').value='Venda de mercadoria';$('nmTipoDoc').value='1';$('nmFinalidade').value='1';$('nmCfop').value='5102';
+  $('nmConsFinal').value='';$('nmPresenca').value='9';$('nmModFrete').value='9';$('nmSemPg').checked=false;
+  $('nmCepHint').textContent='Preenche rua, bairro, cidade e UF';
+  nmItens=[];nmPagtos=[{forma:'Pix',valor:'',auto:true}];
+  setHTML('nmMsg','');$('nmMsg').className='msg';
+  nmSyncFinalidade();nmSyncFrete();nmSyncPagamento();nmRenderItens();
+}
+
+async function abrirNotaManual(){
+  if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
+  nmEditId=null;
+  nmLimparForm();
+  nmTipo=tipoAtual==='nfse'?'servico':'produto';
+  nmTrocarTipo(nmTipo);
+  abrirModal('modalNotaManual');
+  nmCarregarCadastros().catch(()=>{});
+}
+
+// ── Operação / frete / pagamento ──
+function nmSyncFinalidade(){
+  const f=$('nmFinalidade').value;
+  $('nmRefWrap').style.display=f==='1'?'none':'';
+  if(f==='3'||f==='4'){$('nmSemPg').checked=true;nmSyncPagamento();}
+}
+function nmSyncFrete(){$('nmTranspWrap').style.display=$('nmModFrete').value==='9'?'none':'grid';nmTotaisProduto();}
+function nmSyncPagamento(){$('nmPgWrap').style.display=$('nmSemPg').checked?'none':'block';nmRenderPagamentos();}
+function nmAdicionarPagamento(){nmColetarPagamentos();nmPagtos.push({forma:'Pix',valor:''});nmRenderPagamentos();}
+function nmRemoverPagamento(i){nmColetarPagamentos();nmPagtos.splice(i,1);if(!nmPagtos.length)nmPagtos.push({forma:'Pix',valor:'',auto:true});nmRenderPagamentos();}
+function nmColetarPagamentos(){document.querySelectorAll('#nmPgLista .nm-pg-row').forEach((row,i)=>{const p=nmPagtos[i];if(!p)return;p.forma=row.querySelector('select').value;const v=row.querySelector('input').value;if(v!==p.valor){p.valor=v;p.auto=false;}});}
+function nmRenderPagamentos(){
+  setHTML('nmPgLista',nmPagtos.map((p,i)=>`<div class="nm-pg-row">
+    <select aria-label="Forma de pagamento" onchange="nmColetarPagamentos();nmTotaisProduto()">${NM_FORMAS.map(f=>`<option ${f===p.forma?'selected':''}>${esc(f)}</option>`).join('')}</select>
+    <input aria-label="Valor" inputmode="decimal" placeholder="0,00" value="${esc(p.valor)}" oninput="sanitizarDecimal(this);nmColetarPagamentos();nmTotaisProduto()">
+    <button class="danger" type="button" style="height:36px;padding:0;border-radius:10px" aria-label="Remover forma" onclick="nmRemoverPagamento(${i})">✕</button>
+  </div>`).join(''));
+  nmTotaisProduto();
+}
+
+// ── Itens (produto) ──
+function nmRenderItens(){
+  setHTML('nmItensBody',nmItens.map((it,i)=>{
+    const tot=Math.max(0,nmNum(it.quantidade)*nmNum(it.valor_unitario)-nmNum(it.valor_desconto));
+    return `<tr data-i="${i}">
+      <td class="nm-desc"><input aria-label="Descrição" data-k="descricao" value="${esc(it.descricao)}" maxlength="120"></td>
+      <td><input aria-label="NCM" data-k="ncm" value="${esc(it.ncm)}" maxlength="10" style="min-width:90px"></td>
+      <td><input aria-label="CFOP" data-k="cfop" value="${esc(it.cfop)}" maxlength="4"></td>
+      <td><input aria-label="CST/CSOSN" data-k="csosn_cst" value="${esc(it.csosn_cst)}" maxlength="4"></td>
+      <td><input aria-label="Unidade" data-k="unidade_medida" value="${esc(it.unidade_medida)}" maxlength="6" style="min-width:52px"></td>
+      <td><input aria-label="Quantidade" data-k="quantidade" value="${esc(it.quantidade)}" inputmode="decimal"></td>
+      <td><input aria-label="Valor unitário" data-k="valor_unitario" value="${esc(it.valor_unitario)}" inputmode="decimal" style="min-width:84px"></td>
+      <td><input aria-label="Desconto" data-k="valor_desconto" value="${esc(it.valor_desconto)}" inputmode="decimal"></td>
+      <td class="nm-tot">${money(tot)}</td>
+      <td><button class="danger" type="button" style="height:32px;width:32px;padding:0;border-radius:9px" aria-label="Remover item" onclick="nmRemoverItem(${i})">✕</button></td>
+    </tr>`;}).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px">Nenhum produto. Busque acima ou adicione um item avulso.</td></tr>');
+  nmTotaisProduto();
+}
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.closest||!t.closest('#nmItensBody')||!t.dataset.k)return;
+  const tr=t.closest('tr');const it=nmItens[Number(tr.dataset.i)];if(!it)return;
+  if(['quantidade','valor_unitario','valor_desconto'].includes(t.dataset.k))sanitizarDecimal(t);
+  it[t.dataset.k]=t.value;
+  tr.querySelector('.nm-tot').textContent=money(Math.max(0,nmNum(it.quantidade)*nmNum(it.valor_unitario)-nmNum(it.valor_desconto)));
+  nmTotaisProduto();
+});
+function nmRemoverItem(i){nmItens.splice(i,1);nmRenderItens();}
+function nmAdicionarAvulso(){nmItens.push({produto_id:null,codigo_produto:'',descricao:'',ncm:'',cest:'',cfop:$('nmCfop').value||'5102',csosn_cst:'',unidade_medida:'UN',quantidade:'1',valor_unitario:'',valor_desconto:'',origem_mercadoria:'0'});nmRenderItens();}
+function nmAdicionarProduto(id){
+  const p=(nmCad?.produtos||[]).find(x=>x.id===id);if(!p)return;
+  nmItens.push({produto_id:p.id,codigo_produto:p.sku||'',descricao:p.nome,ncm:p.ncm||'',cest:p.cest||'',cfop:$('nmCfop').value||p.cfop_padrao||'5102',csosn_cst:p.csosn_cst||'',unidade_medida:p.unidade_medida||'UN',quantidade:'1',valor_unitario:nmBr(p.preco_venda_final||0),valor_desconto:'',origem_mercadoria:p.origem_mercadoria??'0',cclasstrib:p.cclasstrib||null,cst_ibs_cbs:p.cst_ibs_cbs||null,aliquota_icms:p.aliquota_icms??null,aliquota_pis:p.aliquota_pis??null,aliquota_cofins:p.aliquota_cofins??null});
+  $('nmPBusca').value='';$('nmPResultados').classList.remove('open');
+  nmRenderItens();
+}
+function nmBuscarProduto(){
+  const q=val('nmPBusca').trim().toLowerCase(),box=$('nmPResultados');
+  if(q.length<2||!nmCad){box.classList.remove('open');return;}
+  const achados=nmCad.produtos.filter(p=>(p.nome||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q)||(p.codigo_barras||'')===q).slice(0,12);
+  box.innerHTML=achados.map(p=>`<div class="entrada-busca-item" onclick="nmAdicionarProduto('${p.id}')"><span>${esc(p.nome)}${p.sku?' ('+esc(p.sku)+')':''}</span><span>${money(p.preco_venda_final)}</span></div>`).join('')||'<div class="entrada-busca-item" style="cursor:default;color:var(--muted)">Nenhum produto encontrado</div>';
+  box.classList.add('open');
+}
+function nmTotaisProduto(){
+  let prod=0,desc=0;
+  nmItens.forEach(it=>{prod+=nmNum(it.quantidade)*nmNum(it.valor_unitario);desc+=nmNum(it.valor_desconto);});
+  const semFrete=$('nmModFrete').value==='9';
+  const fr=semFrete?0:nmNum(val('nmFrete')),sg=nmNum(val('nmSeguro')),ou=nmNum(val('nmOutras'));
+  const tot=nmArred(prod-desc+fr+sg+ou);
+  $('nmTProd').textContent=money(prod);$('nmTDesc').textContent=money(desc);$('nmTFrete').textContent=money(fr);$('nmTSeg').textContent=money(sg);$('nmTOut').textContent=money(ou);$('nmTTotal').textContent=money(tot);
+  const aviso=$('nmPgAviso');if(!aviso)return tot;
+  if($('nmSemPg').checked){aviso.textContent='';return tot;}
+  // Uma forma só e ainda não digitada à mão: acompanha o total sozinha.
+  if(nmPagtos.length===1&&nmPagtos[0].auto){nmPagtos[0].valor=tot?nmBr(tot):'';const inp=document.querySelector('#nmPgLista .nm-pg-row input');if(inp&&document.activeElement!==inp)inp.value=nmPagtos[0].valor;}
+  const soma=nmArred(nmPagtos.reduce((a,p)=>a+nmNum(p.valor),0)),d=nmArred(soma-tot);
+  if(Math.abs(d)<0.01){aviso.textContent=tot?'Pagamento bate com o total da nota.':'';aviso.className='nm-aviso ok';}
+  else{aviso.textContent=`Pagamento ${d>0?'maior':'menor'} que o total em ${money(Math.abs(d))}.`;aviso.className='nm-aviso err';}
+  return tot;
+}
+
+// ── Serviço ──
+function nmNormalizarItemLista(v){const d=nmSoDigitos(v);return d.length>=4?`${d.slice(0,2)}.${d.slice(2,4)}`:String(v||'').trim();}
+function nmBuscarServico(){
+  const q=val('nmSBusca').trim().toLowerCase(),box=$('nmSResultados');
+  if(q.length<2||!nmCad){box.classList.remove('open');return;}
+  const achados=nmCad.servicos.filter(s=>(s.nome||'').toLowerCase().includes(q)).slice(0,12);
+  box.innerHTML=achados.map(s=>`<div class="entrada-busca-item" onclick="nmEscolherServico('${s.id}')"><span>${esc(s.nome)}</span><span>${money(s.valor_base)}</span></div>`).join('')||'<div class="entrada-busca-item" style="cursor:default;color:var(--muted)">Nenhum serviço encontrado</div>';
+  box.classList.add('open');
+}
+function nmEscolherServico(id){
+  const s=(nmCad?.servicos||[]).find(x=>x.id===id);if(!s)return;
+  $('nmSDesc').value=s.descricao||s.nome||'';
+  if(s.codigo_tributacao_nacional)$('nmSItem').value=nmNormalizarItemLista(s.codigo_tributacao_nacional);
+  if(s.aliquota_iss!=null)$('nmSAliq').value=nmBr(s.aliquota_iss);
+  if(s.valor_base)$('nmSValor').value=nmBr(s.valor_base);
+  $('nmSBusca').value=s.nome;$('nmSBusca').dataset.servicoId=s.id;$('nmSResultados').classList.remove('open');
+  nmTotaisServico();
+}
+function nmTotaisServico(){
+  const v=nmNum(val('nmSValor')),d=nmNum(val('nmSDed')),a=nmNum(val('nmSAliq'));
+  const base=Math.max(0,v-d),iss=nmArred(base*a/100),ret=$('nmSRet').value==='1';
+  $('nmSTVal').textContent=money(v);$('nmSTDed').textContent=money(d);$('nmSTBase').textContent=money(base);
+  $('nmSTIss').textContent=money(iss)+(ret?' (retido)':'');$('nmSTLiq').textContent=money(ret?v-iss:v);
+}
+
+// ── Cliente / CEP ──
+function nmBuscarCliente(){
+  const q=val('nmCliBusca').trim().toLowerCase(),box=$('nmCliResultados');
+  if(q.length<2||!nmCad){box.classList.remove('open');return;}
+  const qd=nmSoDigitos(q);
+  const achados=nmCad.clientes.filter(c=>(c.nome||'').toLowerCase().includes(q)||(qd.length>=3&&nmSoDigitos(c.documento).includes(qd))).slice(0,12);
+  box.innerHTML=achados.map(c=>`<div class="entrada-busca-item" onclick="nmEscolherCliente('${c.id}')"><span>${esc(c.nome)}</span><span>${esc(c.documento||'')}</span></div>`).join('')||'<div class="entrada-busca-item" style="cursor:default;color:var(--muted)">Nenhum cliente encontrado — preencha abaixo</div>';
+  box.classList.add('open');
+}
+function nmEscolherCliente(id){
+  const c=(nmCad?.clientes||[]).find(x=>x.id===id);if(!c)return;
+  $('nmClienteId').value=c.id;$('nmDNome').value=c.nome||'';$('nmDDoc').value=c.documento||'';
+  $('nmDIe').value=nmTipo==='servico'?'':(c.inscricao_estadual||'');
+  $('nmDCep').value=c.endereco_cep||'';$('nmDRua').value=c.endereco_logradouro||'';$('nmDNum').value=c.endereco_numero||'';
+  $('nmDComp').value=c.endereco_complemento||'';$('nmDBairro').value=c.endereco_bairro||'';$('nmDCidade').value=c.cidade||'';
+  $('nmDUf').value=c.endereco_uf||'';$('nmIbge').value=c.codigo_municipio_ibge||'';
+  $('nmDEmail').value=c.email||'';$('nmDFone').value=c.telefone||'';
+  $('nmCliBusca').value=c.nome;$('nmCliResultados').classList.remove('open');
+  // Cadastro antigo sem código IBGE: busca pelo CEP (a NFS-e exige).
+  if(!c.codigo_municipio_ibge&&nmSoDigitos(c.endereco_cep).length===8)nmConsultarCep(false);
+}
+function nmCepDigitado(){clearTimeout(nmCepTimer);if(nmSoDigitos(val('nmDCep')).length===8)nmCepTimer=setTimeout(()=>nmConsultarCep(true),350);}
+async function nmConsultarCep(preencher){
+  const cep=nmSoDigitos(val('nmDCep'));if(cep.length!==8)return;
+  $('nmCepHint').textContent='Buscando CEP...';
+  try{
+    const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();
+    if(d.erro){$('nmCepHint').textContent='CEP não encontrado. Confira ou preencha à mão.';return;}
+    $('nmIbge').value=d.ibge||'';
+    if(preencher){
+      if(!val('nmDRua'))$('nmDRua').value=d.logradouro||'';
+      if(!val('nmDBairro'))$('nmDBairro').value=d.bairro||'';
+      $('nmDCidade').value=d.localidade||'';$('nmDUf').value=d.uf||'';
+    }
+    $('nmCepHint').textContent=`${d.localidade||''}/${d.uf||''} · IBGE ${d.ibge||'—'}`;
+  }catch(e){$('nmCepHint').textContent='Não consegui consultar o CEP agora. Preencha à mão.';}
+}
+
+// ── Validação ──
+function nmValidar(){
+  const erros=[];const doc=nmSoDigitos(val('nmDDoc'));
+  if(!val('nmDNome').trim())erros.push(nmTipo==='servico'?'nome do tomador':'nome do destinatário');
+  if(doc.length!==11&&doc.length!==14)erros.push('CPF/CNPJ (11 ou 14 números)');
+  if(nmTipo==='servico'){
+    if(!val('nmSDesc').trim())erros.push('descrição do serviço');
+    if(!/^\d{2}\.\d{2}$/.test(nmNormalizarItemLista(val('nmSItem'))))erros.push('código do serviço no formato XX.XX');
+    if(!val('nmSComp'))erros.push('competência');
+    if(nmNum(val('nmSValor'))<=0)erros.push('valor do serviço');
+    if(nmNum(val('nmSDed'))>nmNum(val('nmSValor')))erros.push('deduções maiores que o valor');
+    if(nmNum(val('nmSAliq'))<=0||nmNum(val('nmSAliq'))>5)erros.push('alíquota de ISS (entre 0,01 e 5%)');
+    // Endereço é opcional na NFS-e, mas se começou a preencher precisa do IBGE.
+    if(val('nmDRua').trim()&&!val('nmIbge'))erros.push('CEP válido do tomador (para o código IBGE da cidade)');
+    return erros;
+  }
+  if(nmSoDigitos(val('nmDCep')).length!==8)erros.push('CEP');
+  if(!val('nmDRua').trim())erros.push('logradouro');
+  if(!val('nmDNum').trim())erros.push('número do endereço');
+  if(!val('nmDBairro').trim())erros.push('bairro');
+  if(!val('nmDCidade').trim())erros.push('cidade');
+  if(!/^[A-Za-z]{2}$/.test(val('nmDUf').trim()))erros.push('UF');
+  if(!val('nmNatureza').trim())erros.push('natureza da operação');
+  if(!nmItens.length)erros.push('ao menos 1 produto');
+  nmItens.forEach((it,i)=>{
+    const n=i+1;
+    if(!String(it.descricao||'').trim())erros.push(`descrição do item ${n}`);
+    if(nmSoDigitos(it.ncm).length!==8)erros.push(`NCM do item ${n} (8 números)`);
+    if(nmSoDigitos(it.cfop).length!==4)erros.push(`CFOP do item ${n} (4 números)`);
+    if(nmNum(it.quantidade)<=0)erros.push(`quantidade do item ${n}`);
+    if(nmNum(it.valor_unitario)<=0)erros.push(`valor do item ${n}`);
+    if(nmNum(it.valor_desconto)>nmNum(it.quantidade)*nmNum(it.valor_unitario))erros.push(`desconto do item ${n} maior que o valor`);
+  });
+  if($('nmFinalidade').value!=='1'){
+    const ch=val('nmChaves').split(/\n/).map(nmSoDigitos).filter(Boolean);
+    if(!ch.length||ch.some(c=>c.length!==44))erros.push('chave da nota referenciada (44 números)');
+  }
+  if($('nmModFrete').value!=='9'&&val('nmTDoc').trim()){const td=nmSoDigitos(val('nmTDoc'));if(td.length!==11&&td.length!==14)erros.push('CNPJ/CPF da transportadora');}
+  if(!$('nmSemPg').checked){
+    nmColetarPagamentos();
+    const tot=nmTotaisProduto(),soma=nmArred(nmPagtos.reduce((a,p)=>a+nmNum(p.valor),0));
+    if(Math.abs(soma-tot)>=0.01)erros.push('pagamento igual ao total da nota (ou marque "Sem pagamento")');
+  }
+  return erros;
+}
+
+// ── Salvar / emitir ──
+function nmCamposCliente(){
+  return {
+    cliente_id:val('nmClienteId')||null, cliente_nome:val('nmDNome').trim(), cliente_documento:nmSoDigitos(val('nmDDoc')),
+    cliente_endereco_logradouro:val('nmDRua').trim()||null, cliente_endereco_numero:val('nmDNum').trim()||null,
+    cliente_endereco_complemento:val('nmDComp').trim()||null, cliente_endereco_bairro:val('nmDBairro').trim()||null,
+    cliente_endereco_cep:nmSoDigitos(val('nmDCep'))||null, cliente_endereco_municipio:val('nmDCidade').trim()||null,
+    cliente_endereco_uf:val('nmDUf').trim().toUpperCase()||null,
+  };
+}
+async function nmSalvar(emitir){
+  if(!temPermissao('notas_fiscais','criar')){toast('Sem permissão para emitir notas fiscais.','err');return;}
+  if(nmTipo==='produto'){nmColetarPagamentos();}
+  const erros=nmValidar();
+  if(erros.length){msg('nmMsg','Confira: '+erros.join(', ')+'.','err');return;}
+  const btnE=$('nmBtnEmitir'),btnR=$('nmBtnRascunho');btnE.disabled=btnR.disabled=true;
+  let id=nmEditId;
+  try{
+    const agora=new Date().toISOString();
+    if(nmTipo==='servico'){
+      const nota={...nmCamposCliente(),
+        origem:'manual', descricao_servico:val('nmSDesc').trim(), valor:nmArred(nmNum(val('nmSValor'))),
+        valor_deducoes:nmArred(nmNum(val('nmSDed'))), aliquota_iss:nmNum(val('nmSAliq')), iss_retido:$('nmSRet').value==='1',
+        item_lista_servico:nmNormalizarItemLista(val('nmSItem')), codigo_tributario_municipio:val('nmSCodMun').trim()||null,
+        data_competencia:val('nmSComp')+'-01', cliente_email:val('nmDEmail').trim()||null, cliente_telefone:val('nmDFone').trim()||null,
+        cliente_inscricao_municipal:val('nmDIe').trim()||null, cliente_codigo_municipio_ibge:val('nmIbge')||null,
+        servico_catalogo_id:$('nmSBusca').dataset.servicoId||null, updated_at:agora,
+      };
+      if(id){await db.patch('notas_fiscais',id,nota);}
+      else{const r=await db.post('notas_fiscais',{...nota,empresa_id:session.empresa_id,status:'nao_emitida',criado_por:session.id||null});id=(Array.isArray(r)?r[0]:r).id;}
+    } else {
+      const fr=$('nmModFrete').value==='9'?0:nmArred(nmNum(val('nmFrete')));
+      const itens=nmItens.map(it=>{
+        const q=nmNum(it.quantidade),v=nmNum(it.valor_unitario);
+        return {produto_id:it.produto_id||null, codigo_produto:it.codigo_produto||null, descricao:String(it.descricao).trim(),
+          ncm:nmSoDigitos(it.ncm), cest:nmSoDigitos(it.cest)||null, cfop:nmSoDigitos(it.cfop), csosn_cst:String(it.csosn_cst||'').trim()||null,
+          unidade_medida:String(it.unidade_medida||'UN').trim().toUpperCase()||'UN', quantidade:q, valor_unitario:v,
+          valor_total:nmArred(q*v), valor_desconto:nmArred(nmNum(it.valor_desconto)), origem_mercadoria:it.origem_mercadoria??'0',
+          cclasstrib:it.cclasstrib||null, cst_ibs_cbs:it.cst_ibs_cbs||null, aliquota_icms:it.aliquota_icms??null,
+          aliquota_pis:it.aliquota_pis??null, aliquota_cofins:it.aliquota_cofins??null};
+      });
+      const desconto=nmArred(itens.reduce((a,i)=>a+i.valor_desconto,0));
+      const total=nmTotaisProduto();
+      const nota={...nmCamposCliente(),
+        origem:'manual', venda_id:null, cliente_ie:val('nmDIe').trim()||null, valor_total:total, desconto_total:desconto,
+        natureza_operacao:val('nmNatureza').trim(), tipo_documento:Number($('nmTipoDoc').value), finalidade_emissao:Number($('nmFinalidade').value),
+        consumidor_final:$('nmConsFinal').value===''?null:Number($('nmConsFinal').value), presenca_comprador:Number($('nmPresenca').value),
+        modalidade_frete:Number($('nmModFrete').value),
+        chaves_referenciadas:$('nmFinalidade').value==='1'?[]:val('nmChaves').split(/\n/).map(nmSoDigitos).filter(c=>c.length===44),
+        informacoes_adicionais:val('nmInfo').trim()||null, valor_frete:fr, valor_seguro:nmArred(nmNum(val('nmSeguro'))), outras_despesas:nmArred(nmNum(val('nmOutras'))),
+        transportadora_nome:val('nmTNome').trim()||null, transportadora_documento:nmSoDigitos(val('nmTDoc'))||null, transportadora_ie:val('nmTIe').trim()||null,
+        transportadora_endereco:val('nmTEnd').trim()||null, transportadora_municipio:val('nmTCidade').trim()||null, transportadora_uf:val('nmTUf').trim().toUpperCase()||null,
+        volumes_quantidade:nmNum(val('nmVol'))||null, volumes_especie:val('nmEsp').trim()||null, peso_bruto:nmNum(val('nmPB'))||null, peso_liquido:nmNum(val('nmPL'))||null,
+        formas_pagamento:$('nmSemPg').checked?[]:nmPagtos.filter(p=>nmNum(p.valor)>0).map(p=>({forma:p.forma,valor:nmArred(nmNum(p.valor))})),
+        data_venda:agora, updated_at:agora,
+      };
+      if(id){
+        await db.patch('notas_fiscais_nfe',id,nota);
+        await nmDelete('notas_fiscais_nfe_itens',`nota_fiscal_nfe_id=eq.${id}`);
+        await db.post('notas_fiscais_nfe_itens',itens.map(i=>({...i,empresa_id:session.empresa_id,nota_fiscal_nfe_id:id})));
+      } else {
+        const r=await db.post('notas_fiscais_nfe',{...nota,empresa_id:session.empresa_id,criado_por:session.id||null});
+        id=(Array.isArray(r)?r[0]:r).id;
+        try{ await db.post('notas_fiscais_nfe_itens',itens.map(i=>({...i,empresa_id:session.empresa_id,nota_fiscal_nfe_id:id}))); }
+        catch(e){ await nmDelete('notas_fiscais_nfe',`id=eq.${id}`).catch(()=>{}); throw e; }
+      }
+    }
+    nmEditId=id;
+    fecharModal('modalNotaManual');
+    const alvo=nmTipo==='servico'?'nfse':'nfe';
+    tipoAtual=alvo;
+    document.querySelectorAll('.nf-tipo-tab').forEach(b=>b.classList.toggle('active',b.dataset.tipo===alvo));
+    $('painelSaida').style.display='block';$('painelEntrada').style.display='none';
+    await loadData();
+    if(emitir){ await verDetalhe(id); await emitirNota(); }
+    else{ toast('Rascunho salvo. Ele fica na lista como "Não emitida".','ok'); }
+  }catch(e){ msg('nmMsg','Não foi possível salvar: '+e.message,'err'); }
+  finally{ btnE.disabled=btnR.disabled=false; }
+}
+
+// ── Editar / excluir rascunho ──
+function nmEhRascunhoManual(n){return !!n&&n.origem==='manual'&&(n.status==='nao_emitida'||n.status==='erro');}
+async function editarNotaManual(){
+  const n=notaAtual;if(!nmEhRascunhoManual(n))return;
+  if(!temPermissao('notas_fiscais','editar')){toast('Sem permissão para editar notas fiscais.','err');return;}
+  await nmCarregarCadastros().catch(()=>{});
+  nmLimparForm();
+  nmEditId=n.id;nmTipo=tipoAtual==='nfse'?'servico':'produto';
+  $('nmClienteId').value=n.cliente_id||'';$('nmDNome').value=n.cliente_nome||'';$('nmDDoc').value=n.cliente_documento||'';
+  $('nmDCep').value=n.cliente_endereco_cep||'';$('nmDRua').value=n.cliente_endereco_logradouro||'';$('nmDNum').value=n.cliente_endereco_numero||'';
+  $('nmDComp').value=n.cliente_endereco_complemento||'';$('nmDBairro').value=n.cliente_endereco_bairro||'';$('nmDCidade').value=n.cliente_endereco_municipio||'';$('nmDUf').value=n.cliente_endereco_uf||'';
+  if(nmTipo==='servico'){
+    $('nmDIe').value=n.cliente_inscricao_municipal||'';$('nmDEmail').value=n.cliente_email||'';$('nmDFone').value=n.cliente_telefone||'';$('nmIbge').value=n.cliente_codigo_municipio_ibge||'';
+    $('nmSDesc').value=n.descricao_servico||'';$('nmSItem').value=n.item_lista_servico||'';$('nmSCodMun').value=n.codigo_tributario_municipio||'';
+    $('nmSComp').value=String(n.data_competencia||'').slice(0,7);$('nmSValor').value=nmBr(n.valor);$('nmSDed').value=Number(n.valor_deducoes)?nmBr(n.valor_deducoes):'';
+    $('nmSAliq').value=n.aliquota_iss!=null?nmBr(n.aliquota_iss):'';$('nmSRet').value=n.iss_retido?'1':'0';
+    if(n.servico_catalogo_id)$('nmSBusca').dataset.servicoId=n.servico_catalogo_id;
+  } else {
+    $('nmDIe').value=n.cliente_ie||'';
+    $('nmNatureza').value=n.natureza_operacao||'';$('nmTipoDoc').value=String(n.tipo_documento??1);$('nmFinalidade').value=String(n.finalidade_emissao||1);
+    $('nmConsFinal').value=n.consumidor_final==null?'':String(n.consumidor_final);$('nmPresenca').value=String(n.presenca_comprador??9);
+    $('nmChaves').value=(n.chaves_referenciadas||[]).join('\n');$('nmModFrete').value=String(n.modalidade_frete??9);
+    $('nmFrete').value=Number(n.valor_frete)?nmBr(n.valor_frete):'';$('nmSeguro').value=Number(n.valor_seguro)?nmBr(n.valor_seguro):'';$('nmOutras').value=Number(n.outras_despesas)?nmBr(n.outras_despesas):'';
+    $('nmTNome').value=n.transportadora_nome||'';$('nmTDoc').value=n.transportadora_documento||'';$('nmTIe').value=n.transportadora_ie||'';$('nmTEnd').value=n.transportadora_endereco||'';
+    $('nmTCidade').value=n.transportadora_municipio||'';$('nmTUf').value=n.transportadora_uf||'';$('nmVol').value=n.volumes_quantidade||'';$('nmEsp').value=n.volumes_especie||'';
+    $('nmPB').value=n.peso_bruto?String(n.peso_bruto).replace('.',','):'';$('nmPL').value=n.peso_liquido?String(n.peso_liquido).replace('.',','):'';
+    $('nmInfo').value=n.informacoes_adicionais||'';
+    const pg=Array.isArray(n.formas_pagamento)?n.formas_pagamento:[];
+    $('nmSemPg').checked=!pg.length;
+    nmPagtos=pg.length?pg.map(p=>({forma:p.forma,valor:nmBr(p.valor)})):[{forma:'Pix',valor:'',auto:true}];
+    let itens=[];try{itens=await db.get('notas_fiscais_nfe_itens',`?select=*&nota_fiscal_nfe_id=eq.${n.id}`);}catch(e){}
+    nmItens=itens.map(it=>({produto_id:it.produto_id,codigo_produto:it.codigo_produto||'',descricao:it.descricao,ncm:it.ncm||'',cest:it.cest||'',cfop:it.cfop||'',csosn_cst:it.csosn_cst||'',unidade_medida:it.unidade_medida||'UN',quantidade:String(it.quantidade).replace('.',','),valor_unitario:nmBr(it.valor_unitario),valor_desconto:Number(it.valor_desconto)?nmBr(it.valor_desconto):'',origem_mercadoria:it.origem_mercadoria??'0',cclasstrib:it.cclasstrib,cst_ibs_cbs:it.cst_ibs_cbs,aliquota_icms:it.aliquota_icms,aliquota_pis:it.aliquota_pis,aliquota_cofins:it.aliquota_cofins}));
+    nmSyncFinalidade();nmSyncFrete();nmSyncPagamento();nmRenderItens();
+  }
+  fecharModal('modalDetalhe');
+  nmTrocarTipo(nmTipo);
+  abrirModal('modalNotaManual');
+}
+async function excluirRascunhoManual(){
+  const n=notaAtual;if(!nmEhRascunhoManual(n)||n.focus_nfe_ref)return;
+  const ok=await confirmarAcao('Excluir esse rascunho de nota manual? Ele nunca foi enviado, então nada muda na Receita/prefeitura.',{labelOk:'Excluir rascunho'});
+  if(!ok)return;
+  try{
+    if(tipoAtual==='nfse'){await nmDelete('notas_fiscais',`id=eq.${n.id}&origem=eq.manual`);}
+    else{await nmDelete('notas_fiscais_nfe_itens',`nota_fiscal_nfe_id=eq.${n.id}`);await nmDelete('notas_fiscais_nfe',`id=eq.${n.id}&origem=eq.manual`);}
+    fecharModal('modalDetalhe');toast('Rascunho excluído.','ok');await loadData();
+  }catch(e){msg('detMsg','Não foi possível excluir: '+e.message,'err');}
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.nm-busca'))document.querySelectorAll('#modalNotaManual .entrada-busca-resultados').forEach(b=>b.classList.remove('open'));});
 
 async function abrirModalEntradaManual(){
   manItensAtuais=[];

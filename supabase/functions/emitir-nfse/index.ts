@@ -318,10 +318,27 @@ Deno.serve(async (req) => {
     //     onde o tomador É, ele mesmo, uma empresa assinante do NuvixHub).
     //     Mantido exatamente como estava pra não quebrar nenhuma nota que já
     //     funciona hoje emitindo por esse caminho.
+    // NFS-e MANUAL (Notas Fiscais → Emitir nota manual, origem='manual'): o
+    // usuário digita tudo na tela — tomador com endereço/IBGE, código do serviço,
+    // alíquota, ISS retido, deduções. Notas do Financeiro/OS/assinatura (origem
+    // 'sistema') seguem EXATAMENTE o caminho de antes: cada campo abaixo só muda
+    // quando ehManual for true.
+    const ehManual = nota.origem === 'manual';
     let enderecoTomador:
-      | { endereco_logradouro?: string; endereco_numero?: string; endereco_bairro?: string; endereco_cep?: string; endereco_uf?: string; codigo_municipio_ibge?: string }
+      | { endereco_logradouro?: string; endereco_numero?: string; endereco_complemento?: string; endereco_bairro?: string; endereco_cep?: string; endereco_uf?: string; codigo_municipio_ibge?: string }
       | undefined;
-    if (nota.cliente_id) {
+    if (ehManual && nota.cliente_endereco_logradouro && nota.cliente_codigo_municipio_ibge) {
+      enderecoTomador = {
+        endereco_logradouro: nota.cliente_endereco_logradouro,
+        endereco_numero: nota.cliente_endereco_numero,
+        endereco_complemento: nota.cliente_endereco_complemento,
+        endereco_bairro: nota.cliente_endereco_bairro,
+        endereco_cep: nota.cliente_endereco_cep,
+        endereco_uf: nota.cliente_endereco_uf,
+        codigo_municipio_ibge: nota.cliente_codigo_municipio_ibge,
+      };
+    }
+    if (!enderecoTomador && nota.cliente_id) {
       const [cliente] = await sbGet(
         `clientes?id=eq.${nota.cliente_id}&select=endereco_logradouro,endereco_numero,endereco_bairro,endereco_cep,endereco_uf,codigo_municipio_ibge`
       );
@@ -336,6 +353,11 @@ Deno.serve(async (req) => {
     }
 
     const ref = `nuvix-${nota_fiscal_id}`;
+    // Valores do serviço: manual usa o que foi digitado na nota; o resto, o
+    // cadastro da empresa (comportamento de sempre).
+    const aliquotaIss = ehManual && nota.aliquota_iss != null ? Number(nota.aliquota_iss) : params.aliquota_iss;
+    const itemListaServico = ehManual && nota.item_lista_servico ? nota.item_lista_servico : params.codigo_tributacao_nacional_iss;
+    const codTribMunicipio = ehManual && nota.codigo_tributario_municipio ? nota.codigo_tributario_municipio : params.codigo_tributario_municipio || undefined;
     const payload = {
       data_emissao: dataEmissaoBrasilia(),
       data_competencia: nota.data_competencia || new Date().toISOString().slice(0, 10),
@@ -354,6 +376,9 @@ Deno.serve(async (req) => {
           cpf: doc.length === 11 ? doc : '',
           cnpj: doc.length === 14 ? doc : '',
           razao_social: nota.cliente_nome || undefined,
+          email: ehManual ? nota.cliente_email || undefined : undefined,
+          telefone: ehManual ? (nota.cliente_telefone || '').replace(/\D/g, '') || undefined : undefined,
+          inscricao_municipal: ehManual ? nota.cliente_inscricao_municipal || undefined : undefined,
           // tomador.endereco é objeto aninhado (confirmado em
           // doc.focusnfe.com.br/reference/emitir_nfse) — nenhum campo é
           // obrigatório na doc genérica da Focus, mas a GISS de Guarulhos
@@ -366,6 +391,7 @@ Deno.serve(async (req) => {
             ? {
                 logradouro: enderecoTomador.endereco_logradouro || undefined,
                 numero: enderecoTomador.endereco_numero || undefined,
+                complemento: ehManual ? enderecoTomador.endereco_complemento || undefined : undefined,
                 bairro: enderecoTomador.endereco_bairro || undefined,
                 codigo_municipio: enderecoTomador.codigo_municipio_ibge || undefined,
                 uf: enderecoTomador.endereco_uf || undefined,
@@ -387,12 +413,13 @@ Deno.serve(async (req) => {
         // pela doc da Focus pra esse município especificamente — "exceção por
         // município"). BUG REAL encontrado em homologação (06/10/2026): os
         // dois valores estavam trocados/no campo errado.
-        item_lista_servico: params.codigo_tributacao_nacional_iss,
-        codigo_tributario_municipio: params.codigo_tributario_municipio || undefined,
+        item_lista_servico: itemListaServico,
+        codigo_tributario_municipio: codTribMunicipio,
         discriminacao: nota.descricao_servico,
         valor_servicos: nota.valor,
-        aliquota: params.aliquota_iss,
-        iss_retido: false,
+        valor_deducoes: ehManual && Number(nota.valor_deducoes) > 0 ? arred2(Number(nota.valor_deducoes)) : undefined,
+        aliquota: aliquotaIss,
+        iss_retido: ehManual ? !!nota.iss_retido : false,
         // Reforma Tributária (IBS/CBS) — mesmos nomes de campo e mesma
         // alíquota-teste 2026 (0,1% IBS + 0,9% CBS) já confirmados
         // funcionando em emitir-nfce. CST '000' (tributação integral) +
@@ -466,9 +493,9 @@ Deno.serve(async (req) => {
       // (PIS/COFINS/IRPJ/CSLL/CPP) = federal; estadual = 0 (ICMS não se
       // aplica a serviço via NFS-e).
       optante_simples_nacional: params.regime_tributario === 'Simples Nacional',
-      percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(params.aliquota_iss) || 0)),
+      percentual_total_tributos_federais: Math.max(0, (Number(params.simples) || 0) - (Number(aliquotaIss) || 0)),
       percentual_total_tributos_estaduais: 0,
-      percentual_total_tributos_municipais: Number(params.aliquota_iss) || 0,
+      percentual_total_tributos_municipais: Number(aliquotaIss) || 0,
     };
 
     const r = await fetch(`${base}/v2/nfse?ref=${ref}`, {
