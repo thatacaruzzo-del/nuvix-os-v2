@@ -1795,7 +1795,7 @@ function abrirBaixar(id){
   $('baixarPix').value=f.pix_chave||'';
   $('baixarForma').value=f.forma_pagamento||'Pix';
   $('baixarObs').value='';
-  // Conta bancária da baixa (feedback Thamires 06/11/2026): de onde saiu (despesa)
+  // Conta bancária da baixa (feedback Anderson (DFin BPO) 06/11/2026): de onde saiu (despesa)
   // ou onde entrou (receita) o dinheiro. Escolher uma conta cadastrada preenche
   // banco/agência/conta sozinho; "Informar manualmente" deixa digitar.
   $('baixarContaLbl').textContent=f.tipo==='Receita'?'Conta bancária de entrada':'Conta bancária de saída';
@@ -1851,7 +1851,7 @@ function exportarFinanceiroCSV(){
   exportCSV(financeiro,'financeiro');
 }
 
-// ══ IMPORTAR NF-e POR XML OU PDF (feedback Thamires 06/11/2026) ══
+// ══ IMPORTAR NF-e POR XML OU PDF (feedback Anderson (DFin BPO) 06/11/2026) ══
 // XML: lido no próprio navegador, dados exatos (duplicatas em <cobr><dup>).
 // PDF (DANFE): texto extraído com pdf.js e interpretado pelos rótulos padrão do
 // DANFE (canhoto "RECEBEMOS DE ... EMISSÃO ... VALOR TOTAL", chave de acesso,
@@ -2531,7 +2531,7 @@ function dataFluxo(f){
 }
 
 // ═══ RELATÓRIO DE FLUXO DE CAIXA POR PERÍODO ═══
-// Feedback Thamires 06/11/2026: gerar relatório do fluxo e puxar por data.
+// Feedback Anderson (DFin BPO) 06/11/2026: gerar relatório do fluxo e puxar por data.
 // Busca direto no banco (não usa a lista da tela, que tem limite de 5000) e
 // separa realizado (já baixado) de previsto (em aberto). Renegociado fica de fora
 // (foi substituído pelos títulos novos, contar os dois duplicaria).
@@ -3534,7 +3534,7 @@ function baixarCSV(linhas,nomeArquivo){
 const NOMES_MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // ═══ RELATÓRIO ORÇADO x REALIZADO (período) ═══
-// Feedback Thamires 06/11/2026. Reaproveita a mesma RPC da aba (orcamento_x_realizado,
+// Feedback Anderson (DFin BPO) 06/11/2026. Reaproveita a mesma RPC da aba (orcamento_x_realizado,
 // 1 mês por chamada) e soma o período escolhido. Realizado = pago/recebido no mês
 // (regime de caixa), igual à tela.
 function mesesDoPeriodo(deAno,deMes,ateAno,ateMes){
