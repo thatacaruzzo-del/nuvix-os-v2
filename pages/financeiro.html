@@ -274,6 +274,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <button class="btn" onclick="abrirNovoLancamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo lançamento</button>
           <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
           <button class="btn2" onclick="abrirModalImportar()">Importar planilha</button>
+          <button class="btn2" onclick="abrirModalXml()">Importar XML de NF-e</button>
         </div>
 
         <div class="modal-overlay" id="modalLancamento">
@@ -402,6 +403,14 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             <button class="btn2" onclick="filtrarFluxo('hoje')" style="font-size:12px;padding:7px 12px">Vence hoje</button>
             <button class="btn2" onclick="filtrarFluxo('semana')" style="font-size:12px;padding:7px 12px">Próximos 7 dias</button>
             <button class="btn2" onclick="filtrarFluxo('atrasados')" style="font-size:12px;padding:7px 12px">Atrasados</button>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end;padding:12px;border:1px solid var(--line);border-radius:12px">
+            <div class="field" style="margin:0"><label>De</label><input type="date" id="fluxoDe"></div>
+            <div class="field" style="margin:0"><label>Até</label><input type="date" id="fluxoAte"></div>
+            <button class="btn2" onclick="filtrarFluxo('periodo')" style="font-size:12px;padding:7px 12px">Filtrar por data</button>
+            <button class="btn" onclick="gerarRelatorioFluxoCaixa()" style="font-size:12px;padding:7px 12px">Relatório do período (PDF)</button>
+            <button class="btn2" onclick="exportarFluxoCaixaCSV()" style="font-size:12px;padding:7px 12px">Exportar CSV</button>
+            <span style="font-size:12px;color:var(--muted);flex-basis:100%">Data considerada: pagamento/recebimento quando já baixado, vencimento quando em aberto.</span>
           </div>
           <div class="tablewrap">
             <table>
@@ -586,6 +595,19 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <div id="orcMsg" class="msg" style="margin-top:10px"></div>
           <div style="margin-top:14px"><button class="btn" onclick="salvarOrcamento()">Salvar orçamento</button></div>
         </div>
+
+        <div class="card">
+          <h2 class="nx-sec-t" style="margin:0 0 6px"><span class="nx-ic-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></span>Relatório orçado x realizado</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Compara o orçado com o realizado de cada conta no período escolhido (um mês ou vários), com subtotais por grupo do DRE e o resultado mês a mês.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0"><label>De (mês)</label><select id="orcRelDeMes"></select></div>
+            <div class="field" style="margin:0"><label>Ano</label><input id="orcRelDeAno" type="number" style="max-width:96px"></div>
+            <div class="field" style="margin:0"><label>Até (mês)</label><select id="orcRelAteMes"></select></div>
+            <div class="field" style="margin:0"><label>Ano</label><input id="orcRelAteAno" type="number" style="max-width:96px"></div>
+            <button class="btn" onclick="gerarRelatorioOrcadoRealizado()">Gerar relatório (PDF)</button>
+            <button class="btn2" onclick="exportarOrcadoRealizadoCSV()">Exportar CSV</button>
+          </div>
+        </div>
       </div>
 
       <!-- COBRANÇA -->
@@ -674,7 +696,13 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
     <div class="field"><label>Forma de pagamento</label>
       <select id="baixarForma"><option>Pix</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option><option>Cartão débito</option><option>Cartão crédito</option></select>
     </div>
-    <div class="field"><label>Chave Pix / Banco</label><input id="baixarPix" placeholder="Dados do pagamento"></div>
+    <div class="field"><label>Chave Pix</label><input id="baixarPix" placeholder="Chave Pix usada (opcional)"></div>
+    <div class="field" style="grid-column:1/-1"><label id="baixarContaLbl">Conta bancária de saída</label>
+      <select id="baixarContaBancaria" onchange="preencherBancoBaixa()"><option value="">Informar manualmente</option></select>
+    </div>
+    <div class="field"><label>Código do banco</label><input id="baixarBancoCodigo" inputmode="numeric" maxlength="3" placeholder="Ex: 341"></div>
+    <div class="field"><label>Agência</label><input id="baixarAgencia" placeholder="0000"></div>
+    <div class="field" style="grid-column:1/-1"><label>Conta</label><input id="baixarContaNum" placeholder="00000-0"></div>
     <div class="field" style="grid-column:1/-1"><label>Observação</label><input id="baixarObs" placeholder="Observação sobre a baixa (opcional)"></div>
   </div>
   <div id="baixarMsg" class="msg"></div>
@@ -831,6 +859,29 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 </div>
 
 <!-- MODAL IMPORTAR PLANILHA -->
+<div class="modal-overlay" id="modalXml">
+<div class="modal" style="max-width:980px">
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="10 13 8 15 10 17"/><polyline points="14 13 16 15 14 17"/></svg> Importar XML de NF-e</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Selecione um ou vários XML de notas (compra ou venda). Cada parcela da nota vira um lançamento em aberto com o vencimento da duplicata, o fornecedor/cliente é cadastrado se ainda não existir, e o XML fica <b>anexado</b> ao lançamento. Se escolher também o PDF (DANFE) com o mesmo nome do XML ou com a chave no nome, ele é anexado junto. Nada é gravado antes de você conferir.</p>
+  <div class="field">
+    <label>Arquivos (.xml e, opcional, .pdf)</label>
+    <input type="file" id="xmlArquivos" accept=".xml,.pdf,text/xml,application/xml,application/pdf" multiple onchange="lerArquivosXml(this)">
+  </div>
+  <div id="xmlResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
+  <div id="xmlPreviewWrap" style="display:none;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <table style="font-size:12px">
+      <thead><tr><th></th><th>Nota</th><th>Fornecedor / Cliente</th><th>Tipo</th><th>Parcelas</th><th>Valor</th><th>Categoria</th><th>Plano de contas</th><th>Centro de custo</th></tr></thead>
+      <tbody id="xmlPreviewTable"></tbody>
+    </table>
+  </div>
+  <div id="xmlMsg" class="msg"></div>
+  <div class="modal-actions">
+    <button class="btn2" onclick="fecharModal('modalXml')">Cancelar</button>
+    <button class="btn" id="xmlConfirmarBtn" onclick="confirmarImportacaoXml()" disabled>Importar</button>
+  </div>
+</div>
+</div>
+
 <div class="modal-overlay" id="modalImportar">
 <div class="modal" style="max-width:760px">
   <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importar planilha</h3>
@@ -987,6 +1038,11 @@ function filtrarPorPeriodo(lista){
 async function init(){
   if(!session)return;
   if(!guardModulo('financeiro'))return;
+  { // período padrão do relatório de fluxo de caixa: mês atual
+    const d=new Date();
+    $('fluxoDe').value=dataLocal(new Date(d.getFullYear(),d.getMonth(),1));
+    $('fluxoAte').value=dataLocal(new Date(d.getFullYear(),d.getMonth()+1,0));
+  }
   $('userName').textContent=session.nome||'';
   $('userAvatar').textContent=initials(session.nome||'');
   const emp=session.empresa;
@@ -1032,7 +1088,7 @@ async function loadData(){
     // Carregado aqui (não só na aba Conciliação) pra o selo "Conciliado" no
     // detalhe/lista de Lançamentos conseguir mostrar o nome do banco mesmo
     // que o usuário nunca tenha aberto a aba Conciliação bancária.
-    contasBancarias=await db.get('contas_bancarias',`?select=id,nome&empresa_id=eq.${session.empresa_id}`);
+    contasBancarias=await db.get('contas_bancarias',`?select=id,nome,banco_codigo,agencia,conta,ativo&empresa_id=eq.${session.empresa_id}`);
   }catch(e){contasBancarias=[];}
   try{
     // Carregado aqui (não só na aba Plano de Contas) pra o campo "Plano de
@@ -1341,6 +1397,8 @@ function verDetalhe(id){
     <div class="det-row"><span class="det-lbl">Data de emissão</span><span class="det-val">${fmtData(f.data_lancamento)}</span></div>
     <div class="det-row"><span class="det-lbl">Vencimento</span><span class="det-val" style="${atrasado?'color:var(--red)':''}">${fmtData(f.vencimento)}${atrasado?' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Atrasado':''}</span></div>
     <div class="det-row"><span class="det-lbl">Data do pagamento</span><span class="det-val">${f.data_pagamento?fmtData(f.data_pagamento):'Não registrado'}</span></div>
+    ${f.baixa_banco_codigo||f.baixa_agencia||f.baixa_conta?`<div class="det-row"><span class="det-lbl">${f.tipo==='Receita'?'Recebido na conta':'Pago pela conta'}</span><span class="det-val">Banco ${esc(f.baixa_banco_codigo||'—')} · Ag ${esc(f.baixa_agencia||'—')} · CC ${esc(f.baixa_conta||'—')}</span></div>`:''}
+    ${f.nfe_chave?`<div class="det-row"><span class="det-lbl">NF-e (chave)</span><span class="det-val" style="word-break:break-all;font-size:12px">${esc(f.nfe_chave)}</span></div>`:''}
     <div class="det-row"><span class="det-lbl">Conciliação</span><span class="det-val">${f.conciliado?`<span class="badge ok">Conciliado</span>${f.conta_bancaria_id?' · '+esc(nomeContaBancaria(f.conta_bancaria_id)):''}`:'Não conciliado'}</span></div>
     ${f.observacao?`<div class="det-section">Observações</div><div style="font-size:13px;color:var(--muted);padding:8px 0">${esc(f.observacao)}</div>`:''}
     ${f.renegociacao_id?`<div class="det-section">Renegociação</div>
@@ -1709,7 +1767,26 @@ function abrirBaixar(id){
   $('baixarPix').value=f.pix_chave||'';
   $('baixarForma').value=f.forma_pagamento||'Pix';
   $('baixarObs').value='';
+  // Conta bancária da baixa (feedback Thamires 06/11/2026): de onde saiu (despesa)
+  // ou onde entrou (receita) o dinheiro. Escolher uma conta cadastrada preenche
+  // banco/agência/conta sozinho; "Informar manualmente" deixa digitar.
+  $('baixarContaLbl').textContent=f.tipo==='Receita'?'Conta bancária de entrada':'Conta bancária de saída';
+  const ativas=(contasBancarias||[]).filter(c=>c.ativo!==false);
+  setHTML('baixarContaBancaria','<option value="">Informar manualmente</option>'+ativas.map(c=>`<option value="${c.id}">${esc(c.nome)}${c.banco_codigo?' · '+esc(c.banco_codigo):''}${c.conta?' · cc '+esc(c.conta):''}</option>`).join(''));
+  const contaSugerida=f.conta_bancaria_id||(ativas.length===1?ativas[0].id:'');
+  $('baixarContaBancaria').value=contaSugerida;
+  $('baixarBancoCodigo').value=f.baixa_banco_codigo||'';
+  $('baixarAgencia').value=f.baixa_agencia||'';
+  $('baixarContaNum').value=f.baixa_conta||'';
+  if(contaSugerida&&!f.baixa_banco_codigo&&!f.baixa_agencia&&!f.baixa_conta)preencherBancoBaixa();
   abrirModal('modalBaixar');
+}
+function preencherBancoBaixa(){
+  const c=(contasBancarias||[]).find(x=>x.id===val('baixarContaBancaria'));
+  if(!c)return;
+  $('baixarBancoCodigo').value=c.banco_codigo||'';
+  $('baixarAgencia').value=c.agencia||'';
+  $('baixarContaNum').value=c.conta||'';
 }
 
 async function confirmarBaixa(){
@@ -1727,6 +1804,10 @@ async function confirmarBaixa(){
       valor_pago:valorPago,
       forma_pagamento:val('baixarForma'),
       pix_chave:val('baixarPix').trim()||null,
+      conta_bancaria_id:val('baixarContaBancaria')||null,
+      baixa_banco_codigo:val('baixarBancoCodigo').replace(/\D/g,'')||null,
+      baixa_agencia:val('baixarAgencia').trim()||null,
+      baixa_conta:val('baixarContaNum').trim()||null,
       observacao_baixa:val('baixarObs').trim()||null,
       updated_at:new Date().toISOString(),
     });
@@ -1740,6 +1821,176 @@ async function confirmarBaixa(){
 function exportarFinanceiroCSV(){
   if(!temPermissao('financeiro','exportar')){toast('Sem permissão para exportar.','err');return;}
   exportCSV(financeiro,'financeiro');
+}
+
+// ══ IMPORTAR XML DE NF-e (feedback Thamires 06/11/2026) ══
+// Lê o XML no próprio navegador (sem edge function: é só leitura de texto) e gera
+// os lançamentos pelas duplicatas (<cobr><dup>). Sem duplicata, é uma parcela só
+// com o valor da nota. Nota EMITIDA pela empresa (CNPJ do emitente = CNPJ da
+// empresa) vira Receita; qualquer outra (compra) vira Despesa — o usuário pode
+// trocar na prévia. A chave de 44 dígitos fica em financeiro.nfe_chave pra
+// recusar a mesma nota duas vezes. Diferente de Notas Fiscais → Entrada (que
+// mexe em estoque/produtos): aqui é só financeiro, serve pra plano Financeiro.
+let xmlNotas=[];
+const TPAG_FORMA={'01':'Dinheiro','03':'Cartão crédito','04':'Cartão débito','05':'Boleto','15':'Boleto','16':'Transferência','17':'Pix','18':'Transferência'};
+function abrirModalXml(){
+  if(!temPermissao('financeiro','criar')){toast('Sem permissão para importar lançamentos.','err');return;}
+  xmlNotas=[];$('xmlArquivos').value='';
+  $('xmlResumo').style.display='none';$('xmlPreviewWrap').style.display='none';
+  setHTML('xmlPreviewTable','');$('xmlMsg').textContent='';$('xmlMsg').className='msg';
+  $('xmlConfirmarBtn').disabled=true;
+  abrirModal('modalXml');
+}
+function lerNfeXml(texto){
+  const doc=new DOMParser().parseFromString(texto,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('arquivo não é um XML válido');
+  const inf=doc.getElementsByTagName('infNFe')[0];
+  if(!inf)throw new Error('não é um XML de NF-e (sem infNFe)');
+  const t=(el,tag)=>el?.getElementsByTagName(tag)[0]?.textContent?.trim()||'';
+  const chave=(inf.getAttribute('Id')||'').replace(/\D/g,'').slice(0,44);
+  if(chave.length!==44)throw new Error('chave de acesso não encontrada');
+  const ide=inf.getElementsByTagName('ide')[0],emit=inf.getElementsByTagName('emit')[0],dest=inf.getElementsByTagName('dest')[0];
+  const emissao=(t(ide,'dhEmi')||t(ide,'dEmi')).slice(0,10);
+  const total=Number(t(inf.getElementsByTagName('ICMSTot')[0],'vNF')||0);
+  const dups=Array.from(inf.getElementsByTagName('dup')).map(d=>({numero:t(d,'nDup'),vencimento:t(d,'dVenc').slice(0,10)||emissao,valor:Number(t(d,'vDup')||0)})).filter(d=>d.valor>0);
+  const tPag=t(inf.getElementsByTagName('detPag')[0],'tPag');
+  return {
+    chave,numero:t(ide,'nNF'),serie:t(ide,'serie'),emissao,total,
+    natOp:t(ide,'natOp'),
+    emit:{nome:t(emit,'xNome'),fantasia:t(emit,'xFant'),doc:t(emit,'CNPJ')||t(emit,'CPF')},
+    dest:{nome:t(dest,'xNome'),doc:t(dest,'CNPJ')||t(dest,'CPF')},
+    parcelas:dups.length?dups:[{numero:'1',vencimento:emissao,valor:total}],
+    forma:TPAG_FORMA[tPag]||(dups.length?'Boleto':'Transferência'),
+    autorizada:!!doc.getElementsByTagName('protNFe').length,
+  };
+}
+async function lerArquivosXml(input){
+  const arquivos=[...input.files];
+  const xmls=arquivos.filter(f=>/\.xml$/i.test(f.name)||/xml/.test(f.type));
+  const pdfs=arquivos.filter(f=>/\.pdf$/i.test(f.name));
+  if(!xmls.length){msg('xmlMsg','Selecione ao menos um arquivo .xml.','err');return;}
+  const cnpjEmpresa=String(session.empresa?.cnpj||'').replace(/\D/g,'');
+  xmlNotas=[];
+  for(const arq of xmls){
+    try{
+      const n=lerNfeXml(await arq.text());
+      n.arquivo=arq;
+      const base=arq.name.replace(/\.xml$/i,'').toLowerCase();
+      n.pdf=pdfs.find(p=>{const b=p.name.replace(/\.pdf$/i,'').toLowerCase();return b===base||p.name.includes(n.chave);})||null;
+      // Quem é o "outro lado": emitida pela empresa → cliente (destinatário); senão → fornecedor (emitente)
+      const emitida=cnpjEmpresa&&n.emit.doc.replace(/\D/g,'')===cnpjEmpresa;
+      n.tipo=emitida?'Receita':'Despesa';
+      n.categoria=emitida?'Serviços':'Fornecedores';
+      n.centro='';
+      n.ok=true;
+      xmlNotas.push(n);
+    }catch(e){ xmlNotas.push({arquivo:arq,ok:false,erro:e.message}); }
+  }
+  // Duplicadas: na mesma seleção e já importadas antes
+  const chaves=[...new Set(xmlNotas.filter(n=>n.ok).map(n=>n.chave))];
+  let jaImportadas=new Set();
+  if(chaves.length){
+    try{
+      const r=await db.get('financeiro',`?select=nfe_chave&empresa_id=eq.${session.empresa_id}&nfe_chave=in.(${chaves.join(',')})`);
+      jaImportadas=new Set(r.map(x=>x.nfe_chave));
+    }catch(e){ msg('xmlMsg','Não foi possível checar notas já importadas: '+e.message,'err'); }
+  }
+  const vistas=new Set();
+  xmlNotas.forEach(n=>{
+    if(!n.ok)return;
+    if(jaImportadas.has(n.chave)){n.ok=false;n.erro='nota já importada antes';}
+    else if(vistas.has(n.chave)){n.ok=false;n.erro='arquivo repetido nesta seleção';}
+    vistas.add(n.chave);
+    if(n.ok)n.planoConta=planoPorCategoria(n.categoria);
+  });
+  renderPreviewXml();
+}
+function planoPorCategoria(cat){
+  const m=mapeamentoCategoriaAtual.find(x=>x.categoria_normalizada===normalizarCategoriaJS(cat));
+  return m?.plano_conta_id||'';
+}
+function parceiroXml(n){return n.tipo==='Receita'?n.dest:{nome:n.emit.fantasia||n.emit.nome,doc:n.emit.doc};}
+function renderPreviewXml(){
+  const validas=xmlNotas.filter(n=>n.ok);
+  const total=validas.reduce((a,n)=>a+n.parcelas.reduce((s,p)=>s+p.valor,0),0);
+  $('xmlResumo').style.display='block';
+  $('xmlResumo').innerHTML=`${validas.length} nota(s) prontas · ${validas.reduce((a,n)=>a+n.parcelas.length,0)} lançamento(s) · ${money(total)}${xmlNotas.length>validas.length?` · <span style="color:var(--red)">${xmlNotas.length-validas.length} ignorada(s)</span>`:''}`;
+  $('xmlPreviewWrap').style.display='block';
+  const cats=['Fornecedores','Serviços','Vendas de Produtos','Materiais','Equipamentos','Manutenção','Marketing','Combustível','Transporte / Frete','Aluguel','Impostos','Outros'];
+  const centros=(centrosCustoCache||[]);
+  setHTML('xmlPreviewTable',xmlNotas.map((n,i)=>{
+    if(!n.ok)return `<tr style="color:var(--muted)"><td><span class="badge bad">Ignorada</span></td><td colspan="8">${esc(n.arquivo.name)} — ${esc(n.erro)}</td></tr>`;
+    const p=parceiroXml(n);
+    return `<tr>
+      <td><span class="badge ok">OK</span>${n.pdf?'<div style="font-size:10px;color:var(--muted);margin-top:2px">+ PDF</div>':''}</td>
+      <td style="white-space:nowrap">Nº ${esc(n.numero)}<div style="font-size:11px;color:var(--muted)">${fmtData(n.emissao)}${n.autorizada?'':' · sem protocolo'}</div></td>
+      <td>${esc(p.nome||'—')}<div style="font-size:11px;color:var(--muted)">${esc(p.doc||'')}</div></td>
+      <td><select onchange="xmlNotas[${i}].tipo=this.value;renderPreviewXml()" style="min-width:96px"><option${n.tipo==='Despesa'?' selected':''}>Despesa</option><option${n.tipo==='Receita'?' selected':''}>Receita</option></select></td>
+      <td style="white-space:nowrap">${n.parcelas.map(x=>`${fmtData(x.vencimento)} · ${money(x.valor)}`).join('<br>')}</td>
+      <td style="font-weight:700;white-space:nowrap">${money(n.parcelas.reduce((s,x)=>s+x.valor,0))}</td>
+      <td><select onchange="xmlNotas[${i}].categoria=this.value;xmlNotas[${i}].planoConta=planoPorCategoria(this.value);renderPreviewXml()">${cats.map(c=>`<option${c===n.categoria?' selected':''}>${c}</option>`).join('')}</select></td>
+      <td><select onchange="xmlNotas[${i}].planoConta=this.value" style="max-width:190px">${optionsContasHTML(n.planoConta)}</select></td>
+      <td><select onchange="xmlNotas[${i}].centro=this.value" style="max-width:150px"><option value="">—</option>${centros.map(c=>`<option value="${c.id}"${c.id===n.centro?' selected':''}>${esc(c.nome)}</option>`).join('')}</select></td>
+    </tr>`;
+  }).join(''));
+  $('xmlConfirmarBtn').disabled=!validas.length;
+}
+async function anexarArquivoLancamento(financeiroId,file,tipoArquivo){
+  const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+  const path=`${session.empresa_id}/${financeiroId}/${crypto.randomUUID()}.${ext}`;
+  const r=await fetch(`${SB}/storage/v1/object/financeiro-anexos/${path}`,{
+    method:'POST',
+    headers:{'apikey':KEY,'Authorization':'Bearer '+(tokenAtual()||KEY),'Content-Type':tipoArquivo||file.type||'application/octet-stream'},
+    body:file,
+  });
+  if(!r.ok)throw new Error(await r.text());
+  await db.post('financeiro_anexos',withEmpresa({financeiro_id:financeiroId,url:path,nome:file.name,tipo:tipoArquivo||file.type||null,tamanho_bytes:file.size,usuario_id:session?.id||null}));
+}
+async function confirmarImportacaoXml(){
+  const validas=xmlNotas.filter(n=>n.ok);
+  if(!validas.length)return;
+  $('xmlConfirmarBtn').disabled=true;
+  let criados=0,notasOk=0;const falhas=[];const avisos=[];
+  for(const n of validas){
+    try{
+      msg('xmlMsg',`Importando nota ${n.numero} (${notasOk+falhas.length+1}/${validas.length})...`,'ok');
+      const p=parceiroXml(n);
+      const doc=String(p.doc||'').replace(/\D/g,'');
+      const vinculo=doc?await resolverFavorecido(p.nome||'Sem nome',n.tipo,doc):{cliente_id:null,fornecedor_id:null};
+      const centro=(centrosCustoCache||[]).find(c=>c.id===n.centro);
+      const tot=n.parcelas.length;
+      const linhas=n.parcelas.map((x,k)=>withEmpresa({
+        tipo:n.tipo,categoria:n.categoria,
+        descricao:`NF-e ${n.numero}${n.serie?'/'+n.serie:''} — ${p.nome||''}${tot>1?` (${k+1}/${tot})`:''}`,
+        valor:Math.round(x.valor*100)/100,
+        data_lancamento:n.emissao||hoje(),vencimento:x.vencimento||n.emissao||hoje(),
+        status:'Pendente',forma_pagamento:n.forma,
+        favorecido:p.nome||null,cliente_id:vinculo.cliente_id,fornecedor_id:vinculo.fornecedor_id,
+        fornecedor_nome:n.tipo==='Despesa'?(p.nome||null):null,
+        plano_conta_id:n.planoConta||null,centro_custo_id:centro?.id||null,centro_custo:centro?.nome||null,
+        parcela_numero:tot>1?k+1:null,parcela_total:tot>1?tot:null,
+        nfe_chave:n.chave,origem:'xml_nfe',
+        observacao:`Importado do XML da NF-e nº ${n.numero}${n.serie?' série '+n.serie:''}${n.natOp?' — '+n.natOp:''}. Chave ${n.chave}.`,
+      }));
+      const criadas=await db.post('financeiro',linhas);
+      criados+=criadas.length;notasOk++;
+      // Anexa o XML (e o PDF, se veio) em cada parcela
+      for(const lanc of criadas){
+        try{
+          await anexarArquivoLancamento(lanc.id,n.arquivo,'application/xml');
+          if(n.pdf)await anexarArquivoLancamento(lanc.id,n.pdf,'application/pdf');
+        }catch(e){ avisos.push(`nota ${n.numero}: lançamento criado, mas o anexo falhou (${e.message})`); }
+      }
+    }catch(e){ falhas.push(`nota ${n.numero}: ${e.message}`); }
+  }
+  const resumo=`${notasOk} nota(s) importada(s), ${criados} lançamento(s) criado(s).`;
+  if(falhas.length||avisos.length){
+    msg('xmlMsg',resumo+' Problemas: '+[...falhas,...avisos].join(' · '),'err');
+  } else {
+    toast(resumo,'ok');
+    fecharModal('modalXml');
+  }
+  await loadData();
 }
 
 // ══ IMPORTAR PLANILHA ══
@@ -2059,7 +2310,91 @@ function renderLancamentos(){
 }
 
 // ── RENDER FLUXO ──
-function filtrarFluxo(tipo){fluxoFiltro=tipo;renderFluxo();}
+function filtrarFluxo(tipo){
+  if(tipo==='periodo'&&!val('fluxoDe')&&!val('fluxoAte')){toast('Informe a data inicial e/ou final.','err');return;}
+  if(tipo==='periodo'&&val('fluxoDe')&&val('fluxoAte')&&val('fluxoDe')>val('fluxoAte')){toast('A data inicial precisa ser antes da final.','err');return;}
+  fluxoFiltro=tipo;renderFluxo();
+}
+// Data de caixa do lançamento: quando já pago/recebido, a data em que o dinheiro
+// mexeu de verdade; em aberto, o vencimento (previsão).
+function dataFluxo(f){
+  const baixado=['Pago','Recebido','Pago/Recebido'].includes(f.status||'');
+  return String((baixado?f.data_pagamento:null)||f.vencimento||f.data_lancamento||'').slice(0,10);
+}
+
+// ═══ RELATÓRIO DE FLUXO DE CAIXA POR PERÍODO ═══
+// Feedback Thamires 06/11/2026: gerar relatório do fluxo e puxar por data.
+// Busca direto no banco (não usa a lista da tela, que tem limite de 5000) e
+// separa realizado (já baixado) de previsto (em aberto). Renegociado fica de fora
+// (foi substituído pelos títulos novos, contar os dois duplicaria).
+async function dadosFluxoCaixa(){
+  const de=val('fluxoDe'),ate=val('fluxoAte');
+  if(!de||!ate){toast('Informe a data inicial e a final para o relatório.','err');return null;}
+  if(de>ate){toast('A data inicial precisa ser antes da final.','err');return null;}
+  const cols='id,tipo,descricao,categoria,favorecido,valor,valor_pago,status,vencimento,data_pagamento,data_lancamento,forma_pagamento,centro_custo';
+  const emp=`empresa_id=eq.${session.empresa_id}`;
+  const [baixados,abertos]=await Promise.all([
+    db.get('financeiro',`?select=${cols}&${emp}&status=in.(Pago,Recebido,${encodeURIComponent('"Pago/Recebido"')})&data_pagamento=gte.${de}&data_pagamento=lte.${ate}&limit=20000`),
+    db.get('financeiro',`?select=${cols}&${emp}&status=not.in.(Pago,Recebido,${encodeURIComponent('"Pago/Recebido"')},Renegociado)&vencimento=gte.${de}&vencimento=lte.${ate}&limit=20000`),
+  ]);
+  // Saldo inicial: contas bancárias (saldo de abertura) + tudo que já foi baixado
+  // antes do período. Sem conta cadastrada, é só o acumulado dos lançamentos.
+  // Mesma regra do fluxo projetado (fluxo_caixa_projetado): conta conta a partir
+  // da data do saldo de abertura, inclusive.
+  const cb=await db.get('contas_bancarias',`?select=saldo_inicial,data_saldo_inicial&${emp}&ativo=eq.true`).catch(()=>[]);
+  const estimado=!cb.length;
+  let saldoInicial=cb.reduce((a,c)=>a+Number(c.saldo_inicial||0),0);
+  const corte=cb.map(c=>c.data_saldo_inicial).filter(Boolean).sort()[0]||'1900-01-01';
+  const antes=await db.get('financeiro',`?select=tipo,valor,valor_pago&${emp}&status=in.(Pago,Recebido,${encodeURIComponent('"Pago/Recebido"')})&data_pagamento=gte.${corte}&data_pagamento=lt.${de}&limit=50000`).catch(()=>[]);
+  saldoInicial+=antes.reduce((a,f)=>a+(f.tipo==='Receita'?1:-1)*Number(f.valor_pago||f.valor||0),0);
+  const linhas=[...baixados.map(f=>({...f,_real:true,_data:f.data_pagamento.slice(0,10),_valor:Number(f.valor_pago||f.valor||0)})),
+                ...abertos.map(f=>({...f,_real:false,_data:String(f.vencimento).slice(0,10),_valor:Number(f.valor||0)}))]
+    .sort((a,b)=>a._data.localeCompare(b._data)||(a.tipo==='Receita'?-1:1));
+  let saldo=saldoInicial;
+  linhas.forEach(l=>{saldo+=(l.tipo==='Receita'?1:-1)*l._valor;l._saldo=saldo;});
+  return {de,ate,linhas,saldoInicial,saldoFinal:saldo,estimado};
+}
+async function gerarRelatorioFluxoCaixa(){
+  toast('Gerando relatório...','ok');
+  try{
+    const d=await dadosFluxoCaixa();if(!d)return;
+    const soma=(t,real)=>d.linhas.filter(l=>l.tipo===t&&(real==null||l._real===real)).reduce((a,l)=>a+l._valor,0);
+    const entR=soma('Receita',true),saiR=soma('Despesa',true),entP=soma('Receita',false),saiP=soma('Despesa',false);
+    const hj=hoje();
+    // Resumo por mês (útil em períodos longos)
+    const porMes={};
+    d.linhas.forEach(l=>{const k=l._data.slice(0,7);const m=porMes[k]=porMes[k]||{e:0,s:0};m[l.tipo==='Receita'?'e':'s']+=l._valor;});
+    const mesesK=Object.keys(porMes).sort();
+    let corpo=`<div class="kpis">
+      <div class="kpi"><span>Saldo inicial${d.estimado?' (estimado)':''}</span><b>${money(d.saldoInicial)}</b></div>
+      <div class="kpi"><span>Entradas</span><b class="pos">${money(entR+entP)}</b><span>${money(entR)} realizado</span></div>
+      <div class="kpi"><span>Saídas</span><b class="neg">${money(saiR+saiP)}</b><span>${money(saiR)} realizado</span></div>
+      <div class="kpi"><span>Saldo final${entP||saiP?' (com previstos)':''}</span><b class="${d.saldoFinal>=0?'pos':'neg'}">${money(d.saldoFinal)}</b></div>
+    </div>`;
+    if(mesesK.length>1){
+      corpo+=`<h2>Resumo por mês</h2><table><tr><th>Mês</th><th class="r">Entradas</th><th class="r">Saídas</th><th class="r">Resultado</th></tr>
+        ${mesesK.map(k=>{const m=porMes[k];const[a,mm]=k.split('-');return `<tr><td>${NOMES_MES[Number(mm)-1]} de ${a}</td><td class="r pos">${money(m.e)}</td><td class="r neg">${money(m.s)}</td><td class="r ${m.e-m.s>=0?'pos':'neg'}">${money(m.e-m.s)}</td></tr>`;}).join('')}
+        <tr class="tot"><td>Total</td><td class="r">${money(entR+entP)}</td><td class="r">${money(saiR+saiP)}</td><td class="r">${money(entR+entP-saiR-saiP)}</td></tr></table>`;
+    }
+    corpo+=`<h2>Movimentação</h2>${d.linhas.length?`<table>
+      <tr><th>Data</th><th>Descrição</th><th>Favorecido</th><th>Situação</th><th class="r">Entrada</th><th class="r">Saída</th><th class="r">Saldo</th></tr>
+      <tr><td>${fmtData(d.de)}</td><td colspan="5" class="mut">Saldo inicial</td><td class="r">${money(d.saldoInicial)}</td></tr>
+      ${d.linhas.map(l=>`<tr><td>${fmtData(l._data)}</td><td>${esc(l.descricao||l.categoria||'')}</td><td>${esc(l.favorecido||'—')}</td>
+        <td class="${!l._real&&l._data<hj?'neg':'mut'}">${l._real?(l.tipo==='Receita'?'Recebido':'Pago'):(l._data<hj?'Atrasado':'Previsto')}</td>
+        <td class="r pos">${l.tipo==='Receita'?money(l._valor):''}</td><td class="r neg">${l.tipo==='Despesa'?money(l._valor):''}</td>
+        <td class="r ${l._saldo<0?'neg':''}">${money(l._saldo)}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="4">Totais do período</td><td class="r">${money(entR+entP)}</td><td class="r">${money(saiR+saiP)}</td><td class="r">${money(d.saldoFinal)}</td></tr>
+    </table>`:'<p>Nenhuma movimentação no período.</p>'}
+    <p class="mut" style="font-size:11px;margin-top:14px">Realizado usa a data do pagamento/recebimento; previsto usa o vencimento.${d.estimado?' Saldo inicial estimado pelos lançamentos já baixados — cadastre uma conta bancária em "Conciliação bancária" para partir do saldo real.':''}</p>`;
+    abrirDocumentoImpressao({titulo:'Fluxo de caixa',subtitulo:`${fmtData(d.de)} a ${fmtData(d.ate)}`,corpo,largo:true});
+  }catch(e){toast('Erro ao gerar relatório: '+e.message,'err');}
+}
+async function exportarFluxoCaixaCSV(){
+  try{
+    const d=await dadosFluxoCaixa();if(!d)return;
+    baixarCSV(d.linhas.map(l=>({data:fmtData(l._data),tipo:l.tipo,descricao:l.descricao||'',categoria:l.categoria||'',favorecido:l.favorecido||'',situacao:l._real?(l.tipo==='Receita'?'Recebido':'Pago'):'Previsto',entrada:l.tipo==='Receita'?l._valor:0,saida:l.tipo==='Despesa'?l._valor:0,saldo:Math.round(l._saldo*100)/100})),`fluxo_caixa_${d.de}_a_${d.ate}`);
+  }catch(e){toast('Erro ao exportar: '+e.message,'err');}
+}
 function renderFluxo(){
   const hj=hoje(),sem=new Date();sem.setDate(sem.getDate()+7);const semStr=dataLocal(sem);
   let finFx = filtrarPorPeriodo(financeiro);
@@ -2078,6 +2413,11 @@ function renderFluxo(){
   if(fluxoFiltro==='hoje')lista=lista.filter(f=>String(f.vencimento||f.data_lancamento||'').slice(0,10)===hj);
   if(fluxoFiltro==='semana')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v>=hj&&v<=semStr});
   if(fluxoFiltro==='atrasados')lista=lista.filter(f=>{const v=String(f.vencimento||f.data_lancamento||'').slice(0,10);return v&&v<hj&&!['Pago','Recebido','Renegociado'].includes(f.status||'')});
+  if(fluxoFiltro==='periodo'){
+    const de=val('fluxoDe'),ate=val('fluxoAte');
+    lista=lista.filter(f=>{const d=dataFluxo(f);return d&&(!de||d>=de)&&(!ate||d<=ate);})
+      .sort((a,b)=>dataFluxo(a).localeCompare(dataFluxo(b)));
+  }
   renderPaginacao('fluxoTable',lista.length,'renderFluxo');
   setHTML('fluxoTable',paginar(lista,'fluxoTable').map(f=>{
     const venc=String(f.vencimento||'').slice(0,10);
@@ -2941,6 +3281,124 @@ ${observacoes?`<h2>Observações</h2><p>${esc(observacoes).replace(/\n/g,'<br>')
   }catch(e){ toast('Erro ao gerar relatório: '+e.message,'err'); }
 }
 
+// ═══ DOCUMENTO PARA IMPRIMIR / PDF ═══
+// Mesmo visual do "Relatório mensal pro cliente" acima, reaproveitado pelos
+// relatórios de Orçado x Realizado e Fluxo de Caixa por período.
+function abrirDocumentoImpressao({titulo,subtitulo,corpo,largo}){
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(titulo)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Hanken Grotesk',Arial,sans-serif;max-width:${largo?'1000px':'760px'};margin:24px auto;color:#21132F;font-size:13px;padding:0 16px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:#4C168C;margin-bottom:2px}
+  .sub{color:#6F647C;font-size:13px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #ECE3F7}
+  h2{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#7137B8;margin:22px 0 8px;border-bottom:1px solid #ECE3F7;padding-bottom:6px}
+  table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  td,th{padding:5px 6px;font-size:12px;text-align:left;vertical-align:top}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#6F647C;border-bottom:1px solid #C9A3F4}
+  tr:nth-child(even) td{background:#FAF6FF}
+  .r{text-align:right;white-space:nowrap}
+  .tot td{font-weight:800;border-top:1px solid #C9A3F4;color:#4C168C;background:#fff!important}
+  .neg{color:#DC2626}.pos{color:#16A34A}.mut{color:#6F647C}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
+  .kpi{border:1px solid #ECE3F7;border-radius:10px;padding:10px 12px}
+  .kpi b{display:block;font-size:16px;margin-top:2px}
+  .kpi span{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6F647C}
+  .btn-imprimir{display:block;width:100%;margin-top:20px;padding:12px;background:#4C168C;color:#fff;border:none;border-radius:999px;font:700 14px 'Hanken Grotesk',Arial,sans-serif;cursor:pointer}
+  @media print{.btn-imprimir{display:none}body{margin:0 auto}tr{page-break-inside:avoid}}
+  @media(max-width:600px){.kpis{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<h1>${esc(session.empresa?.fantasia||session.empresa?.razao||'Relatório financeiro')}</h1>
+<div class="sub">${esc(titulo)} · ${esc(subtitulo||'')} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+${corpo}
+<button class="btn-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+</body></html>`;
+  const w=window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank');
+  if(!w)toast('O navegador bloqueou a nova aba. Libere pop-ups para este site e tente de novo.','err');
+}
+function baixarCSV(linhas,nomeArquivo){
+  if(!linhas.length){toast('Nada para exportar.','err');return;}
+  const cols=Object.keys(linhas[0]);
+  // ; e BOM: abre certo no Excel em português (vírgula é separador decimal aqui)
+  const fmt=v=>typeof v==='number'?String(v).replace('.',','):String(v??'');
+  const csv='﻿'+[cols.join(';'),...linhas.map(r=>cols.map(c=>`"${fmt(r[c]).replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=nomeArquivo+'.csv';a.click();
+}
+const NOMES_MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// ═══ RELATÓRIO ORÇADO x REALIZADO (período) ═══
+// Feedback Thamires 06/11/2026. Reaproveita a mesma RPC da aba (orcamento_x_realizado,
+// 1 mês por chamada) e soma o período escolhido. Realizado = pago/recebido no mês
+// (regime de caixa), igual à tela.
+function mesesDoPeriodo(deAno,deMes,ateAno,ateMes){
+  const lista=[];let a=deAno,m=deMes;
+  while(a<ateAno||(a===ateAno&&m<=ateMes)){lista.push([a,m]);m++;if(m>12){m=1;a++;}if(lista.length>36)break;}
+  return lista;
+}
+async function dadosOrcadoRealizado(){
+  const deAno=Number(val('orcRelDeAno')),deMes=Number(val('orcRelDeMes')),ateAno=Number(val('orcRelAteAno')),ateMes=Number(val('orcRelAteMes'));
+  if(!deAno||!ateAno){toast('Informe o ano inicial e final.','err');return null;}
+  const meses=mesesDoPeriodo(deAno,deMes,ateAno,ateMes);
+  if(!meses.length){toast('O mês final precisa ser depois do inicial.','err');return null;}
+  if(meses.length>36){toast('Escolha um período de até 36 meses.','err');return null;}
+  const porMes=await Promise.all(meses.map(([a,m])=>db.rpc('orcamento_x_realizado',{p_ano:a,p_mes:m})));
+  const contas=new Map();
+  porMes.forEach((linhas,i)=>(linhas||[]).forEach(l=>{
+    const c=contas.get(l.plano_conta_id)||{codigo:l.codigo,nome:l.nome,grupo_dre:l.grupo_dre,tipo:l.tipo,orcado:0,realizado:0,meses:{}};
+    c.orcado+=Number(l.valor_orcado||0);c.realizado+=Number(l.valor_realizado||0);
+    c.meses[i]={o:Number(l.valor_orcado||0),r:Number(l.valor_realizado||0)};
+    contas.set(l.plano_conta_id,c);
+  }));
+  const rotulo=([a,m])=>`${NOMES_MES[m-1].slice(0,3)}/${String(a).slice(2)}`;
+  const periodoTxt=meses.length===1?`${NOMES_MES[meses[0][1]-1]} de ${meses[0][0]}`:`${rotulo(meses[0])} a ${rotulo(meses[meses.length-1])}`;
+  return {meses,contas:[...contas.values()].filter(c=>c.orcado||c.realizado),rotulo,periodoTxt};
+}
+async function gerarRelatorioOrcadoRealizado(){
+  toast('Gerando relatório...','ok');
+  try{
+    const d=await dadosOrcadoRealizado();if(!d)return;
+    if(!d.contas.length){toast('Nenhum valor orçado ou realizado nesse período.','err');return;}
+    const pct=(o,r)=>o?Math.round(r/o*1000)/10+'%':'—';
+    const corVar=(c,v)=>!v?'mut':(c.tipo==='despesa'?(v>0?'neg':'pos'):(v<0?'neg':'pos'));
+    const somaTipo=(t,k)=>d.contas.filter(c=>c.tipo===t).reduce((a,c)=>a+c[k],0);
+    const recO=somaTipo('receita','orcado'),recR=somaTipo('receita','realizado'),despO=somaTipo('despesa','orcado'),despR=somaTipo('despesa','realizado');
+    let corpo=`<div class="kpis">
+      <div class="kpi"><span>Receita orçada</span><b>${money(recO)}</b></div>
+      <div class="kpi"><span>Receita realizada</span><b class="${recR>=recO?'pos':'neg'}">${money(recR)}</b></div>
+      <div class="kpi"><span>Despesa orçada</span><b>${money(despO)}</b></div>
+      <div class="kpi"><span>Despesa realizada</span><b class="${despR<=despO?'pos':'neg'}">${money(despR)}</b></div>
+    </div>
+    <table><tr class="tot"><td>Resultado orçado</td><td class="r">${money(recO-despO)}</td><td>Resultado realizado</td><td class="r ${recR-despR>=0?'pos':'neg'}">${money(recR-despR)}</td></tr></table>`;
+    for(const g of GRUPO_DRE_ORDEM){
+      const itens=d.contas.filter(c=>c.grupo_dre===g);if(!itens.length)continue;
+      const so=itens.reduce((a,c)=>a+c.orcado,0),sr=itens.reduce((a,c)=>a+c.realizado,0);
+      corpo+=`<h2>${esc(GRUPO_DRE_LBL[g]||g)}</h2><table>
+        <tr><th>Conta</th><th class="r">Orçado</th><th class="r">Realizado</th><th class="r">Variação</th><th class="r">% atingido</th></tr>
+        ${itens.map(c=>{const v=c.realizado-c.orcado;return `<tr><td>${c.codigo?esc(c.codigo)+' — ':''}${esc(c.nome)}</td><td class="r">${money(c.orcado)}</td><td class="r">${money(c.realizado)}</td><td class="r ${c.orcado?corVar(c,v):'mut'}">${c.orcado?money(v):'sem orçamento'}</td><td class="r">${pct(c.orcado,c.realizado)}</td></tr>`;}).join('')}
+        <tr class="tot"><td>Subtotal</td><td class="r">${money(so)}</td><td class="r">${money(sr)}</td><td class="r">${money(sr-so)}</td><td class="r">${pct(so,sr)}</td></tr>
+      </table>`;
+    }
+    if(d.meses.length>1){
+      corpo+=`<h2>Mês a mês</h2><table><tr><th>Mês</th><th class="r">Receita orçada</th><th class="r">Receita realizada</th><th class="r">Despesa orçada</th><th class="r">Despesa realizada</th><th class="r">Resultado realizado</th></tr>
+      ${d.meses.map((mm,i)=>{const s=(t,k)=>d.contas.filter(c=>c.tipo===t).reduce((a,c)=>a+(c.meses[i]?.[k]||0),0);const rr=s('receita','r')-s('despesa','r');
+        return `<tr><td>${d.rotulo(mm)}</td><td class="r">${money(s('receita','o'))}</td><td class="r">${money(s('receita','r'))}</td><td class="r">${money(s('despesa','o'))}</td><td class="r">${money(s('despesa','r'))}</td><td class="r ${rr>=0?'pos':'neg'}">${money(rr)}</td></tr>`;}).join('')}
+      </table>`;
+    }
+    corpo+=`<p class="mut" style="font-size:11px;margin-top:14px">Realizado = valores pagos/recebidos no período (regime de caixa). Em despesas, variação positiva (vermelho) significa gasto acima do orçado.</p>`;
+    abrirDocumentoImpressao({titulo:'Orçado x Realizado',subtitulo:d.periodoTxt,corpo,largo:true});
+  }catch(e){toast('Erro ao gerar relatório: '+e.message,'err');}
+}
+async function exportarOrcadoRealizadoCSV(){
+  try{
+    const d=await dadosOrcadoRealizado();if(!d)return;
+    const linhas=[];
+    d.contas.forEach(c=>{
+      d.meses.forEach((mm,i)=>{const x=c.meses[i]||{o:0,r:0};if(!x.o&&!x.r)return;
+        linhas.push({mes:d.rotulo(mm),grupo:GRUPO_DRE_LBL[c.grupo_dre]||c.grupo_dre,codigo:c.codigo||'',conta:c.nome,tipo:c.tipo,orcado:x.o,realizado:x.r,variacao:Math.round((x.r-x.o)*100)/100});});
+    });
+    baixarCSV(linhas,'orcado_x_realizado_'+hoje());
+  }catch(e){toast('Erro ao exportar: '+e.message,'err');}
+}
+
 // ═══ ORÇAMENTO (Etapa 4.4) ═══
 let orcamentoLinhas=[];
 let orcamentoDataInicializada=false;
@@ -2948,6 +3406,11 @@ async function carregarOrcamento(){
   if(!orcamentoDataInicializada){
     $('orcAno').value=new Date().getFullYear();
     $('orcMes').value=new Date().getMonth()+1;
+    // Relatório do período: padrão = janeiro até o mês atual do ano corrente
+    const opcoesMes=NOMES_MES.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('');
+    setHTML('orcRelDeMes',opcoesMes);setHTML('orcRelAteMes',opcoesMes);
+    $('orcRelDeMes').value=1;$('orcRelDeAno').value=new Date().getFullYear();
+    $('orcRelAteMes').value=new Date().getMonth()+1;$('orcRelAteAno').value=new Date().getFullYear();
     orcamentoDataInicializada=true;
   }
   const ano=Number(val('orcAno'));const mes=Number(val('orcMes'));

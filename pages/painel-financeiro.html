@@ -86,6 +86,22 @@
 .fluxo-card-val.green{color:#1F9254}
 .fluxo-card-val.red{color:#D9534F}
 .fluxo-card-sub{font-size:11.5px;color:#827B95;margin-top:3px}
+/* Impressão do painel (feedback Thamires 06/11/2026): só o conteúdo, sem menu/topo/filtro,
+   com cabeçalho de empresa + mês e cores preservadas. */
+.pf-print-head{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .sidebar,.sidebar-overlay,.topbar,.pf-filtros,#hambBtn,.nx-upsell-overlay,.trial-badge{display:none!important}
+  html,body{background:#fff!important;height:auto!important;overflow:visible!important}
+  .app-shell,.main-content,.main-scroll{display:block!important;margin:0!important;padding:0!important;width:100%!important;height:auto!important;overflow:visible!important;position:static!important}
+  .pf-print-head{display:block;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #ECE3F7}
+  .pf-print-head b{font-size:18px;color:#4C168C}
+  .pf-print-head span{display:block;font-size:12px;color:#6F647C}
+  .card,.kpi-grid>*,.aviso-grid>*{break-inside:avoid;page-break-inside:avoid;box-shadow:none!important}
+  .chart-grid{grid-template-columns:1fr 1fr!important}
+  canvas{max-width:100%!important;height:auto!important}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../js/nuvix-logs.js"></script>
@@ -158,7 +174,9 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
     <div class="main-scroll">
 
-      <div class="card" style="margin-bottom:16px">
+      <div class="pf-print-head"><b id="pfPrintEmpresa">Painel Financeiro</b><span id="pfPrintSub"></span></div>
+
+      <div class="card pf-filtros" style="margin-bottom:16px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Mês</label>
             <select id="pfMes" onchange="carregarPainelFinanceiro()">
@@ -169,7 +187,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
             </select>
           </div>
           <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Ano</label><input id="pfAno" type="number" style="max-width:100px" onchange="carregarPainelFinanceiro()"></div>
-          <div style="font-size:12px;color:var(--muted);padding-bottom:10px">Receita, despesas e DRE seguem o mês escolhido. A receber, a pagar e caixa são sempre a posição de hoje.</div>
+          <div style="font-size:12px;color:var(--muted);padding-bottom:10px;flex:1;min-width:220px">Receita, despesas e DRE seguem o mês escolhido. A receber, a pagar e caixa são sempre a posição de hoje.</div>
+          <button class="btn2" onclick="imprimirPainelFinanceiro()" style="margin-bottom:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir / PDF</button>
         </div>
       </div>
 
@@ -249,6 +268,18 @@ const KPI_ICONES={
   banco:'<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
   mensagem:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
 };
+
+// Imprimir / salvar PDF do painel: cabeçalho com empresa e mês escolhido, e o
+// gráfico redimensionado pra largura do papel antes de abrir a impressão.
+function imprimirPainelFinanceiro(){
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const emp=session?.empresa||{};
+  document.getElementById('pfPrintEmpresa').textContent=(emp.fantasia||emp.razao||'Painel Financeiro')+' · Painel Financeiro';
+  document.getElementById('pfPrintSub').textContent=`${meses[(Number(val('pfMes'))||1)-1]} de ${val('pfAno')} · A receber, a pagar e caixa na posição de ${new Date().toLocaleDateString('pt-BR')}`;
+  try{ if(chartFluxoInstance)chartFluxoInstance.resize(); }catch(e){}
+  setTimeout(()=>window.print(),150);
+}
+window.addEventListener('afterprint',()=>{ try{ if(chartFluxoInstance)chartFluxoInstance.resize(); }catch(e){} });
 
 async function carregarPainelFinanceiro(){
   if(!session?.empresa_id)return;
