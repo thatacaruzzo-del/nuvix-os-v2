@@ -116,8 +116,19 @@
 .xml-campos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding-top:12px;border-top:1px solid var(--line)}
 .xml-campos .field{margin:0}
 .xml-campos select{width:100%}
-@media(max-width:820px){.xml-campos{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.xml-campos{grid-template-columns:1fr}.xml-topo{flex-direction:column}.xml-valor{text-align:left}}
+.xml-card.do-pdf{border-color:var(--amber,#D97706);border-style:dashed}
+.xml-edit{display:grid;grid-template-columns:2fr 1.3fr 1fr;gap:10px;margin:4px 0 6px}
+.xml-edit .field{margin:0}
+.xml-edit input{width:100%}
+.xml-avisos{font-size:12px;color:#92400E;background:var(--amber-bg,#FEF3C7);border-radius:10px;padding:8px 12px;margin-top:10px}
+.xml-parc-edit{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px}
+.xml-parc-linha{display:grid;grid-template-columns:24px 1fr 1fr 28px;gap:8px;align-items:center}
+.xml-parc-linha input{width:100%}
+.xml-parc-n{font-size:12px;font-weight:800;color:var(--muted);text-align:center}
+.xml-parc-del{border:none;background:transparent;color:var(--red);font-size:18px;cursor:pointer;line-height:1}
+.xml-parc-add{align-self:flex-start;font-size:12px;padding:6px 12px}
+@media(max-width:820px){.xml-campos{grid-template-columns:1fr 1fr}.xml-edit{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.xml-campos,.xml-edit{grid-template-columns:1fr}.xml-topo{flex-direction:column}.xml-valor{text-align:left}}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -294,7 +305,7 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
           <button class="btn" onclick="abrirNovoLancamento()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo lançamento</button>
           <button class="btn2" onclick="exportarFinanceiroCSV()">Exportar CSV</button>
           <button class="btn2" onclick="abrirModalImportar()">Importar planilha</button>
-          <button class="btn2" onclick="abrirModalXml()">Importar XML de NF-e</button>
+          <button class="btn2" onclick="abrirModalXml()">Importar NF-e (XML ou PDF)</button>
         </div>
 
         <div class="modal-overlay" id="modalLancamento">
@@ -881,10 +892,10 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 <!-- MODAL IMPORTAR PLANILHA -->
 <div class="modal-overlay" id="modalXml">
 <div class="modal" style="max-width:980px">
-  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="10 13 8 15 10 17"/><polyline points="14 13 16 15 14 17"/></svg> Importar XML de NF-e</h3>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Selecione um ou vários XML de notas (compra ou venda). Cada parcela da nota vira um lançamento em aberto com o vencimento da duplicata, o fornecedor/cliente é cadastrado se ainda não existir, e o XML fica <b>anexado</b> ao lançamento. Se escolher também o PDF (DANFE) com o mesmo nome do XML ou com a chave no nome, ele é anexado junto. Nada é gravado antes de você conferir.</p>
+  <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="10 13 8 15 10 17"/><polyline points="14 13 16 15 14 17"/></svg> Importar NF-e (XML ou PDF)</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Selecione o <b>XML</b>, o <b>PDF (DANFE)</b> ou os dois, de uma ou várias notas (compra ou venda). Cada parcela vira um lançamento em aberto com o vencimento da duplicata, o fornecedor/cliente é cadastrado se ainda não existir, e o arquivo fica <b>anexado</b> ao lançamento. Com XML os dados são exatos; só com PDF o sistema lê a nota e mostra os campos para você <b>conferir</b>. Nada é gravado antes de você confirmar.</p>
   <div class="field">
-    <label>Arquivos (.xml e, opcional, .pdf)</label>
+    <label>Arquivos da nota (.xml e/ou .pdf)</label>
     <input type="file" id="xmlArquivos" accept=".xml,.pdf,text/xml,application/xml,application/pdf" multiple onchange="lerArquivosXml(this)">
   </div>
   <div id="xmlResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
@@ -1840,14 +1851,18 @@ function exportarFinanceiroCSV(){
   exportCSV(financeiro,'financeiro');
 }
 
-// ══ IMPORTAR XML DE NF-e (feedback Thamires 06/11/2026) ══
-// Lê o XML no próprio navegador (sem edge function: é só leitura de texto) e gera
-// os lançamentos pelas duplicatas (<cobr><dup>). Sem duplicata, é uma parcela só
-// com o valor da nota. Nota EMITIDA pela empresa (CNPJ do emitente = CNPJ da
-// empresa) vira Receita; qualquer outra (compra) vira Despesa — o usuário pode
-// trocar na prévia. A chave de 44 dígitos fica em financeiro.nfe_chave pra
-// recusar a mesma nota duas vezes. Diferente de Notas Fiscais → Entrada (que
-// mexe em estoque/produtos): aqui é só financeiro, serve pra plano Financeiro.
+// ══ IMPORTAR NF-e POR XML OU PDF (feedback Thamires 06/11/2026) ══
+// XML: lido no próprio navegador, dados exatos (duplicatas em <cobr><dup>).
+// PDF (DANFE): texto extraído com pdf.js e interpretado pelos rótulos padrão do
+// DANFE (canhoto "RECEBEMOS DE ... EMISSÃO ... VALOR TOTAL", chave de acesso,
+// bloco FATURA/DUPLICATA). A chave (com dígito verificador conferido) dá CNPJ do
+// emitente, série e número com segurança; o resto é leitura de layout, por isso
+// a nota vinda de PDF aparece com campos EDITÁVEIS e selo "confira" na prévia.
+// XML + PDF da mesma nota (pelo nome do arquivo ou pela chave lida no PDF): vale
+// o XML e o PDF vira anexo. Nota EMITIDA pela empresa vira Receita; compra vira
+// Despesa — o usuário pode trocar. A chave fica em financeiro.nfe_chave e recusa
+// a mesma nota duas vezes. Diferente de Notas Fiscais → Entrada (estoque): aqui é
+// só financeiro, serve pra plano Financeiro.
 let xmlNotas=[];
 const TPAG_FORMA={'01':'Dinheiro','03':'Cartão crédito','04':'Cartão débito','05':'Boleto','15':'Boleto','16':'Transferência','17':'Pix','18':'Transferência'};
 function abrirModalXml(){
@@ -1872,39 +1887,167 @@ function lerNfeXml(texto){
   const dups=Array.from(inf.getElementsByTagName('dup')).map(d=>({numero:t(d,'nDup'),vencimento:t(d,'dVenc').slice(0,10)||emissao,valor:Number(t(d,'vDup')||0)})).filter(d=>d.valor>0);
   const tPag=t(inf.getElementsByTagName('detPag')[0],'tPag');
   return {
-    chave,numero:t(ide,'nNF'),serie:t(ide,'serie'),emissao,total,
+    origem:'xml',chave,numero:t(ide,'nNF'),serie:t(ide,'serie'),emissao,total,
     natOp:t(ide,'natOp'),
     emit:{nome:t(emit,'xNome'),fantasia:t(emit,'xFant'),doc:t(emit,'CNPJ')||t(emit,'CPF')},
     dest:{nome:t(dest,'xNome'),doc:t(dest,'CNPJ')||t(dest,'CPF')},
     parcelas:dups.length?dups:[{numero:'1',vencimento:emissao,valor:total}],
     forma:TPAG_FORMA[tPag]||(dups.length?'Boleto':'Transferência'),
     autorizada:!!doc.getElementsByTagName('protNFe').length,
+    avisos:[],
   };
 }
+
+// ── PDF (DANFE) ──
+let _pdfjsCarregando=null;
+function carregarPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  if(_pdfjsCarregando)return _pdfjsCarregando;
+  _pdfjsCarregando=new Promise((ok,falha)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';ok(window.pdfjsLib);};
+    s.onerror=()=>{_pdfjsCarregando=null;falha(new Error('não foi possível carregar o leitor de PDF (verifique a internet)'));};
+    document.head.appendChild(s);
+  });
+  return _pdfjsCarregando;
+}
+async function extrairTextoPdf(file){
+  const pdfjs=await carregarPdfJs();
+  const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+  let texto='';
+  for(let p=1;p<=Math.min(pdf.numPages,5);p++){
+    const c=await (await pdf.getPage(p)).getTextContent();
+    texto+=c.items.map(i=>i.str+(i.hasEOL?'\n':' ')).join('')+'\n';
+  }
+  return texto;
+}
+// Chave de acesso: 44 dígitos (geralmente em grupos de 4) com DV módulo 11 válido.
+function chaveDvValida(c){
+  let soma=0,peso=2;
+  for(let i=42;i>=0;i--){soma+=Number(c[i])*peso;peso=peso===9?2:peso+1;}
+  const r=soma%11;const dv=r<2?0:11-r;
+  return dv===Number(c[43]);
+}
+function acharChaveNoTexto(texto){
+  const candidatos=texto.match(/\d(?:[ .\-]?\d){43}/g)||[];
+  for(const cand of candidatos){const c=cand.replace(/\D/g,'');if(c.length===44&&chaveDvValida(c))return c;}
+  // Sequência maior que 44 (dígitos colados em outro número): procura janela válida
+  const soDigitos=(texto.match(/[\d ]{44,}/g)||[]).map(s=>s.replace(/\D/g,''));
+  for(const s of soDigitos)for(let i=0;i+44<=s.length;i++){const c=s.slice(i,i+44);if(chaveDvValida(c))return c;}
+  return '';
+}
+const numBR=s=>Number(String(s).replace(/\./g,'').replace(',','.'));
+const dataBRparaISO=s=>{const m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:'';};
+const RE_DINHEIRO=/(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/;
+const RE_CNPJ_FMT=/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2}/g;
+function lerDanfeTexto(texto){
+  const t=texto.replace(/\s+/g,' ');
+  const chave=acharChaveNoTexto(texto);
+  if(!chave)throw new Error('não encontrei a chave de acesso no PDF — se for um PDF escaneado (imagem), envie o XML');
+  const modelo=chave.slice(20,22);
+  if(modelo==='57')throw new Error('este PDF é um CT-e (DACTE), não uma NF-e');
+  if(modelo!=='55'&&modelo!=='65')throw new Error('a chave encontrada não é de NF-e');
+  const avisos=[];
+  const emitDoc=chave.slice(6,20);
+  const serie=String(Number(chave.slice(22,25)));
+  const numero=String(Number(chave.slice(25,34)));
+
+  // Emissão
+  let emissao='';
+  const mEmi=t.match(/DATA\s+D[AE]\s+EMISS[ÃA]O[^0-9]{0,40}(\d{2}\/\d{2}\/\d{4})/i)||t.match(/EMISS[ÃA]O\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i);
+  if(mEmi)emissao=dataBRparaISO(mEmi[1]);
+  if(!emissao){const aamm=chave.slice(2,6);emissao=`20${aamm.slice(0,2)}-${aamm.slice(2,4)}-01`;avisos.push('data de emissão não encontrada — usei o mês da chave, confira');}
+
+  // Valor total
+  let total=0;
+  const mTot=t.match(new RegExp('VALOR\\s+TOTAL\\s+DA\\s+NOTA[^0-9]{0,60}'+RE_DINHEIRO.source,'i'))
+          ||t.match(new RegExp('VALOR\\s+TOTAL\\s*:?\\s*'+RE_DINHEIRO.source,'i'))
+          ||t.match(new RegExp('V\\.?\\s*TOTAL\\s+(?:DA\\s+)?(?:NOTA|NF)[^0-9]{0,40}'+RE_DINHEIRO.source,'i'));
+  if(mTot)total=numBR(mTot[1]);
+  if(!total)avisos.push('valor total não encontrado — preencha o valor');
+
+  // Emitente: canhoto "RECEBEMOS DE <nome> OS PRODUTOS"
+  let emitNome='';
+  const mRec=t.match(/RECEBEMOS\s+DE\s+(.{3,120}?)\s+OS\s+PRODUTOS/i);
+  if(mRec)emitNome=mRec[1].replace(/\s*[-–]\s*CNPJ.*$/i,'').trim();
+
+  // Destinatário: primeiro CPF/CNPJ formatado depois do quadro DESTINATÁRIO que não seja o emitente
+  let destDoc='',destNome='';
+  const iDest=t.search(/DESTINAT[ÁA]RIO\s*\/?\s*REMETENTE|DESTINAT[ÁA]RIO/i);
+  if(iDest>=0){
+    const trecho=t.slice(iDest,iDest+700);
+    const docs=(trecho.match(RE_CNPJ_FMT)||[]).map(d=>d.replace(/\D/g,'')).filter(d=>d!==emitDoc);
+    destDoc=docs[0]||'';
+    const mNome=trecho.match(/NOME\s*\/?\s*RAZ[ÃA]O\s+SOCIAL\s+(.{3,100}?)\s+(?:CNPJ|CPF|\d{2}\.\d{3}\.\d{3})/i);
+    if(mNome)destNome=mNome[1].trim();
+  }
+  if(!destNome){const m=t.match(/DESTINAT[ÁA]RIO\s*:\s*(.{3,100}?)\s+[-–]\s/i);if(m)destNome=m[1].trim();}
+
+  // Duplicatas: pares data → valor dentro do bloco FATURA/DUPLICATA
+  let parcelas=[];
+  const iFat=t.search(/FATURA|DUPLICATA/i);
+  if(iFat>=0){
+    let fim=t.slice(iFat).search(/C[ÁA]LCULO\s+DO\s+IMPOSTO|BASE\s+DE\s+C[ÁA]LC/i);
+    const bloco=t.slice(iFat,fim>0?iFat+fim:iFat+800);
+    const re=new RegExp('(\\d{2}\\/\\d{2}\\/\\d{4})[^0-9]{0,30}?'+RE_DINHEIRO.source,'g');
+    let m;while((m=re.exec(bloco)))parcelas.push({numero:String(parcelas.length+1),vencimento:dataBRparaISO(m[1]),valor:numBR(m[2])});
+    parcelas=parcelas.filter(p=>p.valor>0);
+  }
+  if(parcelas.length){
+    const soma=Math.round(parcelas.reduce((a,p)=>a+p.valor,0)*100)/100;
+    if(total&&Math.abs(soma-total)>0.05)avisos.push(`a soma das parcelas lidas (${money(soma)}) é diferente do total da nota (${money(total)}) — confira`);
+  } else {
+    parcelas=[{numero:'1',vencimento:emissao,valor:total}];
+    avisos.push('sem duplicatas no PDF — criei 1 parcela com vencimento na emissão, ajuste se for a prazo');
+  }
+  return {
+    origem:'pdf',chave,numero,serie,emissao,total,natOp:'',
+    emit:{nome:emitNome,fantasia:'',doc:emitDoc},
+    dest:{nome:destNome,doc:destDoc},
+    parcelas,forma:parcelas.length>1||parcelas[0].vencimento!==emissao?'Boleto':'Transferência',
+    autorizada:true,avisos,
+  };
+}
+
 async function lerArquivosXml(input){
-  const arquivos=[...input.files];
+  const arquivos=Array.from(input.files);
   const xmls=arquivos.filter(f=>/\.xml$/i.test(f.name)||/xml/.test(f.type));
-  const pdfs=arquivos.filter(f=>/\.pdf$/i.test(f.name));
-  if(!xmls.length){msg('xmlMsg','Selecione ao menos um arquivo .xml.','err');return;}
+  const pdfs=arquivos.filter(f=>/\.pdf$/i.test(f.name)||f.type==='application/pdf');
+  if(!xmls.length&&!pdfs.length){msg('xmlMsg','Selecione arquivos .xml ou .pdf de NF-e.','err');return;}
+  $('xmlConfirmarBtn').disabled=true;
+  msg('xmlMsg',`Lendo ${arquivos.length} arquivo(s)...`,'ok');
   const cnpjEmpresa=String(session.empresa?.cnpj||'').replace(/\D/g,'');
   xmlNotas=[];
   for(const arq of xmls){
+    try{ const n=lerNfeXml(await arq.text());n.arquivo=arq;n.pdf=null;xmlNotas.push(n); }
+    catch(e){ xmlNotas.push({arquivo:arq,ok:false,erro:e.message}); }
+  }
+  for(const arq of pdfs){
+    const base=arq.name.replace(/\.pdf$/i,'').toLowerCase();
+    // 1) Par do XML pelo nome/chave no nome do arquivo — não precisa nem ler o PDF
+    let par=xmlNotas.find(n=>n.chave&&!n.pdf&&(n.arquivo.name.replace(/\.xml$/i,'').toLowerCase().replace(/-?nfe$/,'')===base.replace(/-?(danfe|nfe)$/,'')||arq.name.includes(n.chave)));
+    if(par){par.pdf=arq;continue;}
     try{
-      const n=lerNfeXml(await arq.text());
-      n.arquivo=arq;
-      const base=arq.name.replace(/\.xml$/i,'').toLowerCase();
-      n.pdf=pdfs.find(p=>{const b=p.name.replace(/\.pdf$/i,'').toLowerCase();return b===base||p.name.includes(n.chave);})||null;
-      // Quem é o "outro lado": emitida pela empresa → cliente (destinatário); senão → fornecedor (emitente)
-      const emitida=cnpjEmpresa&&n.emit.doc.replace(/\D/g,'')===cnpjEmpresa;
-      n.tipo=emitida?'Receita':'Despesa';
-      n.categoria=emitida?'Serviços':'Fornecedores';
-      n.centro='';
-      n.ok=true;
+      const n=lerDanfeTexto(await extrairTextoPdf(arq));
+      // 2) Par do XML pela chave lida dentro do PDF
+      par=xmlNotas.find(x=>x.chave===n.chave&&!x.pdf);
+      if(par){par.pdf=arq;continue;}
+      n.arquivo=arq;n.pdf=null;
+      // Nome do parceiro que o PDF não trouxe: tenta o cadastro pelo CNPJ
+      if(!n.emit.nome){const f=fornecedoresCache.find(x=>String(x.cnpj||'').replace(/\D/g,'')===n.emit.doc)||clientesCache.find(x=>String(x.documento||'').replace(/\D/g,'')===n.emit.doc);if(f)n.emit.nome=f.nome;}
       xmlNotas.push(n);
     }catch(e){ xmlNotas.push({arquivo:arq,ok:false,erro:e.message}); }
   }
+  xmlNotas.forEach(n=>{
+    if(n.ok===false)return;
+    const emitida=cnpjEmpresa&&String(n.emit.doc).replace(/\D/g,'')===cnpjEmpresa;
+    n.tipo=emitida?'Receita':'Despesa';
+    n.categoria=emitida?'Serviços':'Fornecedores';
+    n.centro='';n.ok=true;
+  });
   // Duplicadas: na mesma seleção e já importadas antes
-  const chaves=[...new Set(xmlNotas.filter(n=>n.ok).map(n=>n.chave))];
+  const chaves=[...new Set(xmlNotas.filter(n=>n.ok&&n.chave).map(n=>n.chave))];
   let jaImportadas=new Set();
   if(chaves.length){
     try{
@@ -1916,22 +2059,41 @@ async function lerArquivosXml(input){
   xmlNotas.forEach(n=>{
     if(!n.ok)return;
     if(jaImportadas.has(n.chave)){n.ok=false;n.erro='nota já importada antes';}
-    else if(vistas.has(n.chave)){n.ok=false;n.erro='arquivo repetido nesta seleção';}
+    else if(vistas.has(n.chave)){n.ok=false;n.erro='mesma nota duas vezes nesta seleção';}
     vistas.add(n.chave);
     if(n.ok)n.planoConta=planoPorCategoria(n.categoria);
   });
+  $('xmlMsg').textContent='';$('xmlMsg').className='msg';
   renderPreviewXml();
 }
 function planoPorCategoria(cat){
   const m=mapeamentoCategoriaAtual.find(x=>x.categoria_normalizada===normalizarCategoriaJS(cat));
   return m?.plano_conta_id||'';
 }
+// Lado "de lá" da nota: na Receita é o destinatário (cliente); na Despesa, o emitente (fornecedor).
 function parceiroXml(n){return n.tipo==='Receita'?n.dest:{nome:n.emit.fantasia||n.emit.nome,doc:n.emit.doc};}
-function renderPreviewXml(){
+function setParceiroXml(i,campo,valor){
+  const n=xmlNotas[i];const alvo=n.tipo==='Receita'?n.dest:n.emit;
+  if(campo==='nome'){alvo.nome=valor;if(alvo.fantasia!==undefined)alvo.fantasia='';}else alvo.doc=valor.replace(/\D/g,'');
+}
+function setParcelaXml(i,k,campo,valor){
+  const p=xmlNotas[i].parcelas[k];
+  if(campo==='valor')p.valor=Number(String(valor).replace(',','.'))||0;else p.vencimento=valor;
+  atualizarResumoXml();
+  const tot=document.getElementById('xmlTot'+i);if(tot)tot.textContent=money(xmlNotas[i].parcelas.reduce((s,x)=>s+x.valor,0));
+}
+function addParcelaXml(i){const n=xmlNotas[i];const ult=n.parcelas[n.parcelas.length-1];n.parcelas.push({numero:String(n.parcelas.length+1),vencimento:ult?.vencimento||n.emissao,valor:0});renderPreviewXml();}
+function delParcelaXml(i,k){const n=xmlNotas[i];if(n.parcelas.length<=1)return;n.parcelas.splice(k,1);renderPreviewXml();}
+function atualizarResumoXml(){
   const validas=xmlNotas.filter(n=>n.ok);
   const total=validas.reduce((a,n)=>a+n.parcelas.reduce((s,p)=>s+p.valor,0),0);
+  const doPdf=validas.filter(n=>n.origem==='pdf').length;
   $('xmlResumo').style.display='block';
-  $('xmlResumo').innerHTML=`${validas.length} nota(s) prontas · ${validas.reduce((a,n)=>a+n.parcelas.length,0)} lançamento(s) · ${money(total)}${xmlNotas.length>validas.length?` · <span style="color:var(--red)">${xmlNotas.length-validas.length} ignorada(s)</span>`:''}`;
+  $('xmlResumo').innerHTML=`${validas.length} nota(s) prontas · ${validas.reduce((a,n)=>a+n.parcelas.length,0)} lançamento(s) · ${money(total)}${doPdf?` · <span style="color:var(--amber)">${doPdf} lida(s) do PDF — confira</span>`:''}${xmlNotas.length>validas.length?` · <span style="color:var(--red)">${xmlNotas.length-validas.length} ignorada(s)</span>`:''}`;
+  $('xmlConfirmarBtn').disabled=!validas.length;
+}
+function renderPreviewXml(){
+  atualizarResumoXml();
   $('xmlPreviewWrap').style.display='block';
   const cats=['Fornecedores','Serviços','Vendas de Produtos','Materiais','Equipamentos','Manutenção','Marketing','Combustível','Transporte / Frete','Aluguel','Impostos','Outros'];
   const centros=(centrosCustoCache||[]);
@@ -1940,16 +2102,31 @@ function renderPreviewXml(){
     if(!n.ok)return `<div class="xml-card ignorada"><span class="badge bad">Ignorada</span><span class="xml-ign-txt"><b>${esc(n.arquivo.name)}</b> — ${esc(n.erro)}</span></div>`;
     const p=parceiroXml(n);
     const total=n.parcelas.reduce((s,x)=>s+x.valor,0);
-    return `<div class="xml-card">
-      <div class="xml-topo">
-        <div class="xml-id">
-          <div class="xml-badges"><span class="badge ok">Pronta</span><span class="badge ${n.tipo==='Receita'?'ok':'bad'}">${n.tipo}</span>${n.pdf?'<span class="badge">+ PDF</span>':''}${n.autorizada?'':'<span class="badge warn">Sem protocolo</span>'}</div>
-          <div class="xml-parceiro">${esc(p.nome||'—')}</div>
-          <div class="xml-meta">${p.doc?esc(fmtDoc(p.doc))+' · ':''}NF-e nº ${esc(n.numero)}${n.serie?' / série '+esc(n.serie):''} · emitida em ${fmtData(n.emissao)}</div>
+    const pdf=n.origem==='pdf';
+    const selos=`<span class="badge ok">Pronta</span><span class="badge ${n.tipo==='Receita'?'ok':'bad'}">${n.tipo}</span>${pdf?'<span class="badge warn">Lida do PDF · confira</span>':n.pdf?'<span class="badge">XML + PDF</span>':'<span class="badge">XML</span>'}${n.autorizada?'':'<span class="badge warn">Sem protocolo</span>'}`;
+    const identificacao=pdf
+      ?`<div class="xml-edit">
+          <div class="field"><label>${n.tipo==='Receita'?'Cliente':'Fornecedor'}</label><input value="${esc(p.nome||'')}" placeholder="Nome / razão social" oninput="setParceiroXml(${i},'nome',this.value)"></div>
+          <div class="field"><label>CPF/CNPJ</label><input value="${esc(fmtDoc(p.doc))}" oninput="setParceiroXml(${i},'doc',this.value)"></div>
+          <div class="field"><label>Emissão</label><input type="date" value="${esc(n.emissao)}" onchange="xmlNotas[${i}].emissao=this.value"></div>
         </div>
-        <div class="xml-valor"><div class="xml-valor-lbl">Valor</div><div class="xml-valor-num">${money(total)}</div></div>
+        <div class="xml-meta">NF-e nº ${esc(n.numero)}${n.serie?' / série '+esc(n.serie):''} · chave ${esc(n.chave)}</div>`
+      :`<div class="xml-parceiro">${esc(p.nome||'—')}</div>
+        <div class="xml-meta">${p.doc?esc(fmtDoc(p.doc))+' · ':''}NF-e nº ${esc(n.numero)}${n.serie?' / série '+esc(n.serie):''} · emitida em ${fmtData(n.emissao)}</div>`;
+    const parcelas=pdf
+      ?`<div class="xml-parc-edit">${n.parcelas.map((x,k)=>`<div class="xml-parc-linha"><span class="xml-parc-n">${k+1}</span>
+          <input type="date" value="${esc(x.vencimento)}" onchange="setParcelaXml(${i},${k},'venc',this.value)" aria-label="Vencimento da parcela ${k+1}">
+          <input type="number" step="0.01" min="0" value="${x.valor||''}" placeholder="Valor" oninput="setParcelaXml(${i},${k},'valor',this.value)" aria-label="Valor da parcela ${k+1}">
+          ${n.parcelas.length>1?`<button type="button" class="xml-parc-del" onclick="delParcelaXml(${i},${k})" title="Remover parcela">×</button>`:''}</div>`).join('')}
+          <button type="button" class="btn2 xml-parc-add" onclick="addParcelaXml(${i})">+ parcela</button></div>`
+      :`<div class="xml-parcelas">${n.parcelas.map((x,k)=>`<span class="xml-chip">${n.parcelas.length>1?`<b>${k+1}/${n.parcelas.length}</b> · `:''}vence ${fmtData(x.vencimento)} · ${money(x.valor)}</span>`).join('')}</div>`;
+    return `<div class="xml-card${pdf?' do-pdf':''}">
+      <div class="xml-topo">
+        <div class="xml-id"><div class="xml-badges">${selos}</div>${identificacao}</div>
+        <div class="xml-valor"><div class="xml-valor-lbl">Valor</div><div class="xml-valor-num" id="xmlTot${i}">${money(total)}</div>${pdf&&n.total?`<div class="xml-meta">total no PDF: ${money(n.total)}</div>`:''}</div>
       </div>
-      <div class="xml-parcelas">${n.parcelas.map((x,k)=>`<span class="xml-chip">${n.parcelas.length>1?`<b>${k+1}/${n.parcelas.length}</b> · `:''}vence ${fmtData(x.vencimento)} · ${money(x.valor)}</span>`).join('')}</div>
+      ${n.avisos?.length?`<div class="xml-avisos">${n.avisos.map(a=>`<div>• ${esc(a)}</div>`).join('')}</div>`:''}
+      ${parcelas}
       <div class="xml-campos">
         <div class="field"><label>Tipo</label><select onchange="xmlNotas[${i}].tipo=this.value;renderPreviewXml()"><option${n.tipo==='Despesa'?' selected':''}>Despesa</option><option${n.tipo==='Receita'?' selected':''}>Receita</option></select></div>
         <div class="field"><label>Categoria</label><select onchange="xmlNotas[${i}].categoria=this.value;xmlNotas[${i}].planoConta=planoPorCategoria(this.value);renderPreviewXml()">${cats.map(c=>`<option${c===n.categoria?' selected':''}>${c}</option>`).join('')}</select></div>
@@ -1958,7 +2135,6 @@ function renderPreviewXml(){
       </div>
     </div>`;
   }).join(''));
-  $('xmlConfirmarBtn').disabled=!validas.length;
 }
 async function anexarArquivoLancamento(financeiroId,file,tipoArquivo){
   const ext=(file.name.split('.').pop()||'bin').toLowerCase();
@@ -1974,6 +2150,12 @@ async function anexarArquivoLancamento(financeiroId,file,tipoArquivo){
 async function confirmarImportacaoXml(){
   const validas=xmlNotas.filter(n=>n.ok);
   if(!validas.length)return;
+  // Nota lida do PDF: conferir o mínimo antes de gravar
+  for(const n of validas.filter(x=>x.origem==='pdf')){
+    const p=parceiroXml(n);
+    if(!String(p.nome||'').trim()){msg('xmlMsg',`Nota ${n.numero}: informe o nome do ${n.tipo==='Receita'?'cliente':'fornecedor'}.`,'err');return;}
+    if(n.parcelas.some(x=>!x.vencimento||!(x.valor>0))){msg('xmlMsg',`Nota ${n.numero}: toda parcela precisa de vencimento e valor.`,'err');return;}
+  }
   $('xmlConfirmarBtn').disabled=true;
   let criados=0,notasOk=0;const falhas=[];const avisos=[];
   for(const n of validas){
@@ -1984,6 +2166,7 @@ async function confirmarImportacaoXml(){
       const vinculo=doc?await resolverFavorecido(p.nome||'Sem nome',n.tipo,doc):{cliente_id:null,fornecedor_id:null};
       const centro=(centrosCustoCache||[]).find(c=>c.id===n.centro);
       const tot=n.parcelas.length;
+      const doPdf=n.origem==='pdf';
       const linhas=n.parcelas.map((x,k)=>withEmpresa({
         tipo:n.tipo,categoria:n.categoria,
         descricao:`NF-e ${n.numero}${n.serie?'/'+n.serie:''} — ${p.nome||''}${tot>1?` (${k+1}/${tot})`:''}`,
@@ -1994,15 +2177,15 @@ async function confirmarImportacaoXml(){
         fornecedor_nome:n.tipo==='Despesa'?(p.nome||null):null,
         plano_conta_id:n.planoConta||null,centro_custo_id:centro?.id||null,centro_custo:centro?.nome||null,
         parcela_numero:tot>1?k+1:null,parcela_total:tot>1?tot:null,
-        nfe_chave:n.chave,origem:'xml_nfe',
-        observacao:`Importado do XML da NF-e nº ${n.numero}${n.serie?' série '+n.serie:''}${n.natOp?' — '+n.natOp:''}. Chave ${n.chave}.`,
+        nfe_chave:n.chave||null,origem:doPdf?'pdf_nfe':'xml_nfe',
+        observacao:`Importado do ${doPdf?'PDF (DANFE) — dados conferidos na importação':'XML'} da NF-e nº ${n.numero}${n.serie?' série '+n.serie:''}${n.natOp?' — '+n.natOp:''}. Chave ${n.chave}.`,
       }));
       const criadas=await db.post('financeiro',linhas);
       criados+=criadas.length;notasOk++;
-      // Anexa o XML (e o PDF, se veio) em cada parcela
+      // Anexa o arquivo principal (XML ou PDF) e o PDF que veio junto do XML, em cada parcela
       for(const lanc of criadas){
         try{
-          await anexarArquivoLancamento(lanc.id,n.arquivo,'application/xml');
+          await anexarArquivoLancamento(lanc.id,n.arquivo,doPdf?'application/pdf':'application/xml');
           if(n.pdf)await anexarArquivoLancamento(lanc.id,n.pdf,'application/pdf');
         }catch(e){ avisos.push(`nota ${n.numero}: lançamento criado, mas o anexo falhou (${e.message})`); }
       }
