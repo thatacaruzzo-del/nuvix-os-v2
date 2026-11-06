@@ -217,14 +217,6 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
 
     <div class="main-scroll">
 
-      <!-- HERO -->
-      <div class="fin-hero">
-        <div class="fin-hero-left">
-          <div class="fin-hero-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;display:inline-block;flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Financeiro</div>
-          <div class="fin-hero-sub" id="finHeroSub">Controle financeiro completo</div>
-          <div class="fin-hero-stats" id="finHeroStats"></div>
-        </div>
-      </div>
       <div id="finInsightLine"></div>
 
       <!-- FILTROS (mesmo componente do Dashboard) -->
@@ -1076,7 +1068,6 @@ async function init(){
   const emp=session.empresa;
   if(emp){
     $('topbarSub').textContent=(emp.fantasia||emp.razao||'')+' · '+(emp.plano||'');
-    $('finHeroSub').textContent=(emp.fantasia||emp.razao||'')+' · Controle Financeiro';
     if(emp.trial_fim){const d=Math.ceil((new Date(emp.trial_fim)-new Date())/864e5);if(d>0){$('trialBadge').textContent='Teste grátis: '+d+' dias';$('trialBadge').style.display='inline-block';}}
   }
   if($('lanData'))$('lanData').value=hoje();
