@@ -37,6 +37,8 @@
 // (tributação integral) + cClassTrib '000001'.
 // ============================================================
 
+import { traduzirErroFocus } from "../_shared/traduzir-erro-focus.ts";
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -255,7 +257,7 @@ async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData
     protocolo: focusData?.protocolo || null,
     mensagem_erro:
       focusData?.status === 'erro_autorizacao'
-        ? focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
+        ? traduzirErroFocus(focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem, { corrigirGeral: "Corrija o cadastro (produto ou empresa) e emita novamente." }) || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
         : null,
     data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -277,7 +279,7 @@ async function aplicarCancelamentoFocus(notaId: string, focusData: any, justific
   const cancelou = focusData?.status === 'cancelado';
   return await sbPatch('notas_fiscais_nfce', notaId, {
     status: cancelou ? 'cancelada' : 'erro',
-    mensagem_erro: cancelou ? null : focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro ao cancelar a nota. Resposta completa: ${JSON.stringify(focusData)}`,
+    mensagem_erro: cancelou ? null : traduzirErroFocus(focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem) || `Erro ao cancelar a nota. Resposta completa: ${JSON.stringify(focusData)}`,
     motivo_cancelamento: cancelou ? justificativa : null,
     data_cancelamento: cancelou ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -593,12 +595,9 @@ Deno.serve(async (req) => {
     const focusData = await r.json();
 
     if (!r.ok) {
-      await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {
-        status: 'erro',
-        mensagem_erro: focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
-        updated_at: new Date().toISOString(),
-      });
-      return json({ ok: false, erro: focusData }, 422);
+      const mensagemErro = traduzirErroFocus(focusData?.mensagem || focusData?.erros?.[0]?.mensagem, { corrigirGeral: "Corrija o cadastro (produto ou empresa) e emita novamente." }) || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`;
+      await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, { status: 'erro', mensagem_erro: mensagemErro, updated_at: new Date().toISOString() });
+      return json({ ok: false, erro: focusData, mensagem: mensagemErro }, 422);
     }
 
     const atualizado = await sbPatch('notas_fiscais_nfce', nota_fiscal_nfce_id, {

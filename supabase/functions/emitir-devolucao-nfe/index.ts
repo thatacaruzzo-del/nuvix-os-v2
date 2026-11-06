@@ -38,6 +38,8 @@
 // devolução real autorizada por aqui; a primeira deve ser acompanhada.
 // ============================================================
 
+import { traduzirErroFocus } from "../_shared/traduzir-erro-focus.ts";
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -369,7 +371,7 @@ Deno.serve(async (req) => {
     if (!r.ok) {
       const atualizado = await sbPatch('devolucoes', devolucao_id, {
         status: 'erro',
-        mensagem_erro: focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
+        mensagem_erro: traduzirErroFocus(focusData?.mensagem || focusData?.erros?.[0]?.mensagem, { cliente: cliente ? { cep: cliente.endereco_cep, documento: cliente.documento, ie: cliente.inscricao_estadual } : null, corrigirGeral: "Corrija o cadastro (cliente, produto ou empresa) e emita a devolução novamente.", corrigirCliente: "Corrija no cadastro do cliente (Clientes) e emita a devolução novamente." }) || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
         updated_at: new Date().toISOString(),
       });
       return json({ ok: false, erro: focusData, nota: atualizado }, 422);
@@ -382,7 +384,7 @@ Deno.serve(async (req) => {
       chave_acesso: focusData?.chave_nfe || focusData?.chave_acesso || null,
       link_pdf: focusData?.url || null,
       focus_nfe_ref: ref,
-      mensagem_erro: focusData?.status === 'erro_autorizacao' ? focusData?.mensagem_sefaz || focusData?.mensagem || null : null,
+      mensagem_erro: focusData?.status === 'erro_autorizacao' ? traduzirErroFocus(focusData?.mensagem_sefaz || focusData?.mensagem, { cliente: cliente ? { cep: cliente.endereco_cep, documento: cliente.documento, ie: cliente.inscricao_estadual } : null, corrigirGeral: "Corrija o cadastro (cliente, produto ou empresa) e emita a devolução novamente.", corrigirCliente: "Corrija no cadastro do cliente (Clientes) e emita a devolução novamente." }) : null,
       data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     });
