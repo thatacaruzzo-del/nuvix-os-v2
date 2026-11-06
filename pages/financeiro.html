@@ -98,6 +98,26 @@
   #hambBtn{display:block!important}
 }
 @media(max-width:600px){.fin-strip{grid-template-columns:1fr}}
+/* Prévia da importação de XML: um cartão por nota (antes era tabela de 9 colunas espremida) */
+.xml-lista{display:flex;flex-direction:column;gap:12px}
+.xml-card{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--card,#fff)}
+.xml-card.ignorada{display:flex;align-items:center;gap:10px;background:var(--bg);color:var(--muted);font-size:13px}
+.xml-ign-txt{min-width:0;overflow-wrap:anywhere}
+.xml-topo{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.xml-id{min-width:0}
+.xml-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.xml-parceiro{font-size:15px;font-weight:800;color:var(--txt);overflow-wrap:anywhere}
+.xml-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.xml-valor{text-align:right;flex-shrink:0}
+.xml-valor-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.xml-valor-num{font-size:20px;font-weight:900;color:var(--txt)}
+.xml-parcelas{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 12px}
+.xml-chip{font-size:12px;background:var(--p-soft,#F4EEFC);color:var(--txt);border-radius:999px;padding:4px 10px}
+.xml-campos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.xml-campos .field{margin:0}
+.xml-campos select{width:100%}
+@media(max-width:820px){.xml-campos{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.xml-campos{grid-template-columns:1fr}.xml-topo{flex-direction:column}.xml-valor{text-align:left}}
 </style>
 <script src="../js/nuvix-logs.js"></script>
 <script src="../js/token-refresh.js"></script>
@@ -868,11 +888,8 @@ function guardModulo(modulo,fallback){if(!temPermissao(modulo,'ver')){toast('Sem
     <input type="file" id="xmlArquivos" accept=".xml,.pdf,text/xml,application/xml,application/pdf" multiple onchange="lerArquivosXml(this)">
   </div>
   <div id="xmlResumo" style="display:none;margin:12px 0;font-size:13px;font-weight:700"></div>
-  <div id="xmlPreviewWrap" style="display:none;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px">
-    <table style="font-size:12px">
-      <thead><tr><th></th><th>Nota</th><th>Fornecedor / Cliente</th><th>Tipo</th><th>Parcelas</th><th>Valor</th><th>Categoria</th><th>Plano de contas</th><th>Centro de custo</th></tr></thead>
-      <tbody id="xmlPreviewTable"></tbody>
-    </table>
+  <div id="xmlPreviewWrap" style="display:none;max-height:440px;overflow-y:auto;padding-right:4px">
+    <div id="xmlPreviewTable" class="xml-lista"></div>
   </div>
   <div id="xmlMsg" class="msg"></div>
   <div class="modal-actions">
@@ -1918,20 +1935,28 @@ function renderPreviewXml(){
   $('xmlPreviewWrap').style.display='block';
   const cats=['Fornecedores','Serviços','Vendas de Produtos','Materiais','Equipamentos','Manutenção','Marketing','Combustível','Transporte / Frete','Aluguel','Impostos','Outros'];
   const centros=(centrosCustoCache||[]);
+  const fmtDoc=d=>{const s=String(d||'').replace(/\D/g,'');return s.length===14?s.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'):s.length===11?s.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/,'$1.$2.$3-$4'):s;};
   setHTML('xmlPreviewTable',xmlNotas.map((n,i)=>{
-    if(!n.ok)return `<tr style="color:var(--muted)"><td><span class="badge bad">Ignorada</span></td><td colspan="8">${esc(n.arquivo.name)} — ${esc(n.erro)}</td></tr>`;
+    if(!n.ok)return `<div class="xml-card ignorada"><span class="badge bad">Ignorada</span><span class="xml-ign-txt"><b>${esc(n.arquivo.name)}</b> — ${esc(n.erro)}</span></div>`;
     const p=parceiroXml(n);
-    return `<tr>
-      <td><span class="badge ok">OK</span>${n.pdf?'<div style="font-size:10px;color:var(--muted);margin-top:2px">+ PDF</div>':''}</td>
-      <td style="white-space:nowrap">Nº ${esc(n.numero)}<div style="font-size:11px;color:var(--muted)">${fmtData(n.emissao)}${n.autorizada?'':' · sem protocolo'}</div></td>
-      <td>${esc(p.nome||'—')}<div style="font-size:11px;color:var(--muted)">${esc(p.doc||'')}</div></td>
-      <td><select onchange="xmlNotas[${i}].tipo=this.value;renderPreviewXml()" style="min-width:96px"><option${n.tipo==='Despesa'?' selected':''}>Despesa</option><option${n.tipo==='Receita'?' selected':''}>Receita</option></select></td>
-      <td style="white-space:nowrap">${n.parcelas.map(x=>`${fmtData(x.vencimento)} · ${money(x.valor)}`).join('<br>')}</td>
-      <td style="font-weight:700;white-space:nowrap">${money(n.parcelas.reduce((s,x)=>s+x.valor,0))}</td>
-      <td><select onchange="xmlNotas[${i}].categoria=this.value;xmlNotas[${i}].planoConta=planoPorCategoria(this.value);renderPreviewXml()">${cats.map(c=>`<option${c===n.categoria?' selected':''}>${c}</option>`).join('')}</select></td>
-      <td><select onchange="xmlNotas[${i}].planoConta=this.value" style="max-width:190px">${optionsContasHTML(n.planoConta)}</select></td>
-      <td><select onchange="xmlNotas[${i}].centro=this.value" style="max-width:150px"><option value="">—</option>${centros.map(c=>`<option value="${c.id}"${c.id===n.centro?' selected':''}>${esc(c.nome)}</option>`).join('')}</select></td>
-    </tr>`;
+    const total=n.parcelas.reduce((s,x)=>s+x.valor,0);
+    return `<div class="xml-card">
+      <div class="xml-topo">
+        <div class="xml-id">
+          <div class="xml-badges"><span class="badge ok">Pronta</span><span class="badge ${n.tipo==='Receita'?'ok':'bad'}">${n.tipo}</span>${n.pdf?'<span class="badge">+ PDF</span>':''}${n.autorizada?'':'<span class="badge warn">Sem protocolo</span>'}</div>
+          <div class="xml-parceiro">${esc(p.nome||'—')}</div>
+          <div class="xml-meta">${p.doc?esc(fmtDoc(p.doc))+' · ':''}NF-e nº ${esc(n.numero)}${n.serie?' / série '+esc(n.serie):''} · emitida em ${fmtData(n.emissao)}</div>
+        </div>
+        <div class="xml-valor"><div class="xml-valor-lbl">Valor</div><div class="xml-valor-num">${money(total)}</div></div>
+      </div>
+      <div class="xml-parcelas">${n.parcelas.map((x,k)=>`<span class="xml-chip">${n.parcelas.length>1?`<b>${k+1}/${n.parcelas.length}</b> · `:''}vence ${fmtData(x.vencimento)} · ${money(x.valor)}</span>`).join('')}</div>
+      <div class="xml-campos">
+        <div class="field"><label>Tipo</label><select onchange="xmlNotas[${i}].tipo=this.value;renderPreviewXml()"><option${n.tipo==='Despesa'?' selected':''}>Despesa</option><option${n.tipo==='Receita'?' selected':''}>Receita</option></select></div>
+        <div class="field"><label>Categoria</label><select onchange="xmlNotas[${i}].categoria=this.value;xmlNotas[${i}].planoConta=planoPorCategoria(this.value);renderPreviewXml()">${cats.map(c=>`<option${c===n.categoria?' selected':''}>${c}</option>`).join('')}</select></div>
+        <div class="field"><label>Plano de contas</label><select onchange="xmlNotas[${i}].planoConta=this.value">${optionsContasHTML(n.planoConta)}</select></div>
+        <div class="field"><label>Centro de custo</label><select onchange="xmlNotas[${i}].centro=this.value"><option value="">Nenhum</option>${centros.map(c=>`<option value="${c.id}"${c.id===n.centro?' selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
+      </div>
+    </div>`;
   }).join(''));
   $('xmlConfirmarBtn').disabled=!validas.length;
 }
