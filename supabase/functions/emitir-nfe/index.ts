@@ -135,7 +135,7 @@ async function arquivarDocumentos(notaId: string, empresaId: string, focusData: 
   }
 }
 
-async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData: any, base: string, auth: string) {
+async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData: any, base: string, auth: string, nota?: any) {
   // CONFIRMADO em teste real (Natufonts, 28/10/2026): consultar uma nota já
   // arquivada chamava este patch de novo e sobrescrevia link_pdf/link_xml —
   // que já apontavam pro nosso próprio Storage — com o link bruto (e mais
@@ -157,7 +157,7 @@ async function aplicarRespostaFocus(notaId: string, empresaId: string, focusData
     protocolo: focusData?.protocolo || null,
     mensagem_erro:
       focusData?.status === 'erro_autorizacao'
-        ? focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
+        ? traduzirErroFocus(focusData?.mensagem_sefaz || focusData?.mensagem || focusData?.erros?.[0]?.mensagem, nota) || `Erro na autorização da nota. Resposta completa: ${JSON.stringify(focusData)}`
         : null,
     data_emissao: focusData?.status === 'autorizado' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -178,6 +178,57 @@ async function aplicarCancelamentoFocus(notaId: string, focusData: any, justific
     data_cancelamento: cancelou ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   });
+}
+
+// Erro de schema (XSD) chega da Focus em texto técnico, ex. (Natufints, 06/11/2026):
+// "56:0: ERROR: Element '{http://www.portalfiscal.inf.br/nfe}CEP': [facet 'pattern']
+//  The value '352650000' is not accepted by the pattern '[0-9]{8}'."
+// O cliente não entende isso — traduz pro campo + valor + o que corrigir.
+const CAMPOS_XML: Record<string, string> = {
+  CEP: 'CEP', xLgr: 'logradouro (rua)', nro: 'número do endereço', xCpl: 'complemento', xBairro: 'bairro',
+  xMun: 'município', cMun: 'código IBGE do município', UF: 'UF', fone: 'telefone', email: 'e-mail',
+  xNome: 'nome / razão social', CPF: 'CPF', CNPJ: 'CNPJ', IE: 'inscrição estadual', NCM: 'NCM',
+  CEST: 'CEST', CFOP: 'CFOP', xProd: 'descrição do produto', cEAN: 'código de barras (EAN)',
+  cEANTrib: 'código de barras tributável (EAN)', uCom: 'unidade', qCom: 'quantidade', vUnCom: 'valor unitário',
+  infCpl: 'informações complementares', natOp: 'natureza da operação',
+};
+const DICA_CAMPO: Record<string, string> = {
+  CEP: 'O CEP precisa ter exatamente 8 números.',
+  CPF: 'O CPF precisa ter 11 números.',
+  CNPJ: 'O CNPJ precisa ter 14 números.',
+  NCM: 'O NCM precisa ter 8 números.',
+  CFOP: 'O CFOP precisa ter 4 números.',
+  fone: 'O telefone precisa ter de 6 a 14 números (com DDD).',
+};
+
+function traduzirErroFocus(msg: string | null | undefined, nota?: any): string | null {
+  if (!msg) return msg ?? null;
+  const m = String(msg);
+  const campos = [...m.matchAll(/\}(\w+)'/g)].map((x) => x[1]);
+  if (!campos.length || !/ERROR|Element|facet|not accepted|not a valid|minLength|maxLength/i.test(m)) return m;
+  const tag = campos[0];
+  const nome = CAMPOS_XML[tag] || tag;
+  const valor = m.match(/value '([^']*)'/)?.[1];
+
+  // De quem é o campo: compara o valor recusado com o cadastro do cliente da nota.
+  let dono = '';
+  const dig = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+  if (nota && valor !== undefined) {
+    if (tag === 'CEP' && dig(nota.cliente_endereco_cep) === valor) dono = ' do cliente';
+    else if ((tag === 'CPF' || tag === 'CNPJ') && dig(nota.cliente_documento) === valor) dono = ' do cliente';
+    else if (tag === 'IE' && dig(nota.cliente_ie) === dig(valor)) dono = ' do cliente';
+  }
+
+  let problema: string;
+  if (/minLength/i.test(m) || valor === '') problema = 'está vazio ou curto demais';
+  else if (/maxLength/i.test(m)) problema = 'está longo demais';
+  else problema = 'está em formato inválido';
+
+  const partes = [`${nome.charAt(0).toUpperCase()}${nome.slice(1)}${dono} ${problema}${valor ? ` (valor informado: ${valor})` : ''}.`];
+  if (DICA_CAMPO[tag]) partes.push(DICA_CAMPO[tag]);
+  if (nota?.origem === 'manual') partes.push('Edite o rascunho da nota e emita novamente.');
+  else partes.push(dono ? 'Corrija no cadastro do cliente (Clientes) e emita novamente.' : 'Corrija o cadastro (cliente, produto ou empresa) e emita novamente.');
+  return partes.join(' ');
 }
 
 // Mesmo motivo/bug já corrigido na NFC-e: SEFAZ rejeita NCM com pontuação.
@@ -550,6 +601,25 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: 'nota_de_outra_empresa' }, 403);
     }
 
+    // Nota de venda (caixa/pedidos) guarda uma CÓPIA do cadastro do cliente feita na
+    // criação. Se a emissão deu erro e o usuário corrigiu o cliente (ex.: CEP), a
+    // reemissão tem que usar o cadastro corrigido — senão repete o mesmo erro.
+    // Nota manual não: o destinatário dela é editado no próprio rascunho.
+    if ((acao || 'emitir') === 'emitir' && nota.status === 'erro' && nota.origem !== 'manual' && nota.cliente_id) {
+      const [cli] = await sbGet(`clientes?id=eq.${nota.cliente_id}&empresa_id=eq.${nota.empresa_id}&select=*`);
+      if (cli) {
+        const novos = {
+          cliente_documento: cli.documento, cliente_nome: cli.nome, cliente_ie: cli.inscricao_estadual || null,
+          cliente_endereco_logradouro: cli.endereco_logradouro, cliente_endereco_numero: cli.endereco_numero,
+          cliente_endereco_complemento: cli.endereco_complemento, cliente_endereco_bairro: cli.endereco_bairro,
+          cliente_endereco_cep: cli.endereco_cep, cliente_endereco_municipio: cli.cidade,
+          cliente_endereco_uf: cli.endereco_uf,
+        };
+        await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, { ...novos, updated_at: new Date().toISOString() });
+        Object.assign(nota, novos);
+      }
+    }
+
     const [[empresa], [cred]] = await Promise.all([
       sbGet(`empresas?id=eq.${nota.empresa_id}&select=*`),
       sbGet(`nfse_credenciais?empresa_id=eq.${nota.empresa_id}&select=*`),
@@ -592,7 +662,7 @@ Deno.serve(async (req) => {
       if (!nota.focus_nfe_ref) return json({ ok: false, erro: 'nota_ainda_nao_enviada' }, 422);
       const r = await fetch(`${base}/v2/nfe/${nota.focus_nfe_ref}`, { headers: { Authorization: auth } });
       const focusData = await r.json();
-      const atualizado = await aplicarRespostaFocus(nota_fiscal_nfe_id, nota.empresa_id, focusData, base, auth);
+      const atualizado = await aplicarRespostaFocus(nota_fiscal_nfe_id, nota.empresa_id, focusData, base, auth, nota);
       return json({ ok: true, nota: atualizado });
     }
 
@@ -650,6 +720,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, erro: 'cota_nf_excedida', usado: cota.usado, limite: cota.limite }, 429);
     }
 
+    // CEP do cliente com dígito a mais/a menos virava erro técnico de schema da SEFAZ
+    // (Natufints, 06/11/2026: '352650000'). Barra antes, com mensagem clara.
+    const cepCliente = String(nota.cliente_endereco_cep || '').replace(/\D/g, '');
+    if (cepCliente.length !== 8) {
+      const onde = nota.origem === 'manual' ? 'Edite o destinatário no rascunho da nota' : 'Corrija no cadastro do cliente (Clientes)';
+      const mensagemErro = `CEP do cliente inválido (valor informado: ${nota.cliente_endereco_cep}). O CEP precisa ter exatamente 8 números. ${onde} e emita novamente.`;
+      await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, { status: 'erro', mensagem_erro: mensagemErro, updated_at: new Date().toISOString() });
+      return json({ ok: false, erro: 'cep_destinatario_invalido', mensagem: mensagemErro }, 422);
+    }
+
     // NF-e manual (Notas Fiscais → Emitir nota manual) usa montarPayloadManual;
     // qualquer outra nota (venda) segue EXATAMENTE o caminho de antes.
     const ehManual = nota.origem === 'manual';
@@ -684,12 +764,9 @@ Deno.serve(async (req) => {
     const focusData = await r.json();
 
     if (!r.ok) {
-      await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, {
-        status: 'erro',
-        mensagem_erro: focusData?.mensagem || focusData?.erros?.[0]?.mensagem || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`,
-        updated_at: new Date().toISOString(),
-      });
-      return json({ ok: false, erro: focusData }, 422);
+      const mensagemErro = traduzirErroFocus(focusData?.mensagem || focusData?.erros?.[0]?.mensagem, nota) || `Erro desconhecido na Focus NFe. Resposta completa: ${JSON.stringify(focusData)}`;
+      await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, { status: 'erro', mensagem_erro: mensagemErro, updated_at: new Date().toISOString() });
+      return json({ ok: false, erro: focusData, mensagem: mensagemErro }, 422);
     }
 
     const atualizado = await sbPatch('notas_fiscais_nfe', nota_fiscal_nfe_id, {
@@ -708,7 +785,7 @@ Deno.serve(async (req) => {
     // ATENÇÃO, não confirmado contra teste real; se a resposta já vier com
     // status final em homologação, esse bloco já trata também.
     if (focusData?.status === 'autorizado' || focusData?.status === 'erro_autorizacao') {
-      const final = await aplicarRespostaFocus(nota_fiscal_nfe_id, nota.empresa_id, focusData, base, auth);
+      const final = await aplicarRespostaFocus(nota_fiscal_nfe_id, nota.empresa_id, focusData, base, auth, nota);
       return json({ ok: true, nota: final });
     }
 
