@@ -326,6 +326,7 @@ const LABELS = {
   status_conciliacao:'Conciliação',
   competencia:'Competência', salario_base:'Salário base', comissoes:'Comissões',
   beneficios:'Benefícios', vt_desconto:'Desc. VT', descontos:'Descontos', inss:'INSS', irrf:'IRRF', fgts:'FGTS',
+  dias_atraso:'Dias em atraso',
   liquido:'Líquido', adiantamento:'Adiantamento', saldo:'Saldo', custo_empresa:'Custo empresa',
 };
 
@@ -333,7 +334,8 @@ function fmtVal(k, v){
   if(v===null||v===undefined)return'—';
   if(typeof v==='boolean')return v?'Sim':'Não';
   if(k.includes('valor')||k==='salario'||k==='receita'||k==='custo_frete'||k==='diferenca'||k==='venda_total'||['salario_base','comissoes','beneficios','vt_desconto','descontos','inss','irrf','fgts','liquido','adiantamento','saldo','custo_empresa'].includes(k))return money(v);
-  if(k.includes('data')||k==='created_at'||k==='ppe'||k==='validade')return fmtData(v);
+  if(k==='dias_atraso')return `${v} dia${v===1?'':'s'}`;
+  if(k.includes('data')||k==='vencimento'||k==='created_at'||k==='ppe'||k==='validade')return fmtData(v);
   if(k==='percentual')return `${v}%`;
   return esc(String(v));
 }
@@ -343,8 +345,10 @@ function fmtVal(k, v){
 // não inventados). campo=coluna no banco; opcoes=valores exatos aceitos.
 const FILTROS_MODULO = {
   financeiro: [
-    {campo:'tipo', label:'Tipo', opcoes:['Receita','Despesa'], todos:'Todos (entradas e saídas)'},
-    {campo:'status', label:'Status', opcoes:['Pendente','Pago','Recebido'], todos:'Todos os status'},
+    {campo:'tipo', label:'Tipo de relatório', opcoes:[{v:'Receita',l:'Contas a receber (receita)'},{v:'Despesa',l:'Contas a pagar (despesa)'}], todos:'Todos (receber e pagar)'},
+    // Situação do título (feedback Anderson, 06/11/2026): calculada aqui a partir de status +
+    // vencimento — não é coluna do banco, por isso local:true (não vai pra query).
+    {campo:'situacao', local:true, label:'Títulos', opcoes:[{v:'a_vencer',l:'Títulos que irão vencer'},{v:'vencidos',l:'Títulos vencidos'},{v:'pagos',l:'Títulos pagos / recebidos'}], todos:'Todos os títulos'},
   ],
   colaboradores: [
     {campo:'tipo_contrato', label:'Contrato', opcoes:['CLT','PJ','Temporário','Estágio','Autônomo'], todos:'Todos os contratos'},
@@ -490,6 +494,7 @@ async function gerarRelatorio(){
     if(ate) q+=`&${campoData}=lte.${ate}${campoData==='created_at'?'T23:59:59':''}`;
   }
   (FILTROS_MODULO[modulo]||[]).forEach(f=>{
+    if(f.local) return;
     const v=val('filtro_'+f.campo);
     if(v) q+=`&${f.campo}=eq.${encodeURIComponent(v)}`;
   });
@@ -500,9 +505,27 @@ async function gerarRelatorio(){
 
   try{
     let dados=await db.get(modulo, q);
+    const situacao=ehFinanceiro?val('filtro_situacao'):'';
+    if(situacao){
+      const hoje=hojeISO();
+      dados=dados.filter(f=>{
+        const venc=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+        if(situacao==='pagos') return TITULO_PAGO.includes(f.status);
+        if(!TITULO_ABERTO.includes(f.status)) return false;
+        return situacao==='vencidos' ? (!!venc && venc<hoje) : (!venc || venc>=hoje);
+      }).map(f=>{
+        if(situacao!=='vencidos') return f;
+        const venc=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+        return {...f, dias_atraso: Math.round((new Date(hoje+'T00:00:00')-new Date(venc+'T00:00:00'))/86400000)};
+      });
+      // Pagos: mais recentes primeiro; abertos: do vencimento mais antigo pro mais novo.
+      if(situacao==='pagos') dados.sort((a,b)=>String(b.data_pagamento||'').localeCompare(String(a.data_pagamento||'')));
+      else dados.sort((a,b)=>String(a.vencimento||a.data_lancamento||'').localeCompare(String(b.vencimento||b.data_lancamento||'')));
+    }
     if(ehFinanceiro && (de||ate)){
       dados=dados.filter(f=>{
-        const campo=String(f.vencimento||f.data_lancamento||'').slice(0,10);
+        // Pagos: o período é o da data em que foi pago/recebido; os demais, o do vencimento.
+        const campo=String((situacao==='pagos'?(f.data_pagamento||f.vencimento):f.vencimento)||f.data_lancamento||'').slice(0,10);
         if(!campo)return false;
         if(de&&campo<de)return false;
         if(ate&&campo>ate)return false;
@@ -527,7 +550,8 @@ async function gerarRelatorio(){
       setHTML('relConteudo','<div style="text-align:center;padding:32px;color:var(--muted)">Nenhum registro encontrado.</div>');
       return;
     }
-    const cols = COLS_MODULO[modulo] || Object.keys(_relDadosBrutos[0]).filter(k=>!['id','empresa_id'].includes(k));
+    let cols = COLS_MODULO[modulo] || Object.keys(_relDadosBrutos[0]).filter(k=>!['id','empresa_id'].includes(k));
+    if(ehFinanceiro && situacao==='vencidos'){ const i=cols.indexOf('vencimento')+1; cols=[...cols.slice(0,i),'dias_atraso',...cols.slice(i)]; }
     _relColsAtuais = cols;
     relColunasAtivas = {}; cols.forEach(c=>relColunasAtivas[c]=true);
     paginaRelGenerico = 1;
@@ -539,8 +563,32 @@ async function gerarRelatorio(){
 }
 // Total do relatório de Financeiro — soma o que já veio filtrado por tipo (se escolhido),
 // então mostra Receita/Despesa/Saldo só quando faz sentido pro filtro aplicado.
+const TITULO_ABERTO=['Pendente','Aguardando aprovação'];
+const TITULO_PAGO=['Pago','Recebido','Pago/Recebido'];
+function hojeISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function renderTotaisFinanceiro(linhas){
   const tipoFiltro=val('filtro_tipo');
+  const situacao=val('filtro_situacao');
+  if(situacao){
+    const pagos=situacao==='pagos', venc=situacao==='vencidos';
+    const rotRec=pagos?'Total recebido':venc?'A receber (vencido)':'A receber (a vencer)';
+    const rotPag=pagos?'Total pago':venc?'A pagar (vencido)':'A pagar (a vencer)';
+    const cor=venc?'#dc2626':'var(--txt)';
+    const rec=linhas.filter(f=>f.tipo==='Receita'), pag=linhas.filter(f=>f.tipo==='Despesa');
+    const soma=l=>l.reduce((a,f)=>a+Number(f.valor||0),0);
+    const qt=l=>`${l.length} título${l.length===1?'':'s'}`;
+    const cards=[];
+    if(!tipoFiltro||tipoFiltro==='Receita') cards.push({lbl:rotRec,val:money(soma(rec)),sub:qt(rec)});
+    if(!tipoFiltro||tipoFiltro==='Despesa') cards.push({lbl:rotPag,val:money(soma(pag)),sub:qt(pag)});
+    if(venc&&linhas.length){
+      const maior=Math.max(...linhas.map(f=>f.dias_atraso||0));
+      cards.push({lbl:'Maior atraso',val:`${maior} dia${maior===1?'':'s'}`,sub:'desde o vencimento'});
+    }
+    setHTML('relTotais',`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px">${cards.map(c=>
+      `<div class="card" style="margin:0;border-left:4px solid ${cor}"><div class="metric-label">${c.lbl}</div><div class="metric-value" style="font-size:20px;color:${cor}">${c.val}</div><div class="muted" style="font-size:12px;margin-top:2px">${c.sub}</div></div>`
+    ).join('')}</div>`);
+    return;
+  }
   const totalReceita=linhas.filter(f=>f.tipo==='Receita').reduce((a,f)=>a+Number(f.valor||0),0);
   const totalDespesa=linhas.filter(f=>f.tipo==='Despesa').reduce((a,f)=>a+Number(f.valor||0),0);
   const cards=[];
